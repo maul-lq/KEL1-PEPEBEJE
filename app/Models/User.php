@@ -2,99 +2,114 @@
 
 namespace App\Models;
 
-use Database\Factories\UserFactory;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use Notifiable;
 
-    public const ROLE_USER = 'user';
+    public const ROLE_USER_PENGAJU = 'user_pengaju';
 
-    public const ROLE_WADIR2 = 'wadir2';
+    public const ROLE_STAFF_BIDANG_2 = 'staff_bidang_2';
+
+    public const ROLE_WADIR_2 = 'wadir_2';
 
     public const ROLE_PERENCANAAN = 'perencanaan';
 
     public const ROLE_PPBJ = 'ppbj';
 
-    public const ROLE_PPK_PP = 'ppk_pp';
+    public const ROLE_PP = 'pp';
+
+    public const ROLE_PPK = 'ppk';
 
     public const ROLE_PERLENGKAPAN = 'perlengkapan';
 
     public const ROLE_KEUANGAN = 'keuangan';
 
-    public const ROLES = [
-        self::ROLE_USER => 'User (Jurusan / Unit / Pemohon)',
-        self::ROLE_WADIR2 => 'Wadir 2 (Persetujuan & Kebijakan)',
-        self::ROLE_PERENCANAAN => 'Perencanaan (Anggaran & MAK)',
-        self::ROLE_PPBJ => 'PPBJ (Pengelola Pengadaan B/J)',
-        self::ROLE_PPK_PP => 'PPK / Pejabat Pengadaan',
-        self::ROLE_PERLENGKAPAN => 'Perlengkapan (BMN & Penerimaan)',
-        self::ROLE_KEUANGAN => 'Keuangan (Pembayaran & Pencairan)',
-    ];
+    protected $table = 'users';
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
-     */
+    protected $primaryKey = 'id_user';
+
     protected $fillable = [
-        'name',
-        'email',
-        'password',
         'nip',
-        'role',
+        'email',
+        'nama',
+        'password',
         'jabatan',
         'unit_kerja',
-        'phone',
-        'is_active',
+        'role',
+        'status_aktif',
+        'no_hp',
+        'no_telp_kantor',
     ];
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var array<int, string>
-     */
     protected $hidden = [
         'password',
         'remember_token',
     ];
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
+            'status_aktif' => 'boolean',
             'password' => 'hashed',
-            'is_active' => 'boolean',
         ];
     }
 
-    public function getRoleLabelAttribute(): string
+    public function permohonanPengadaan(): HasMany
     {
-        return self::ROLES[$this->role] ?? ucfirst($this->role);
+        return $this->hasMany(PermohonanPengadaan::class, 'id_user', 'id_user');
     }
 
-    public function isRole(string ...$roles): bool
+    public function anggaranMak(): HasMany
     {
-        return in_array($this->role, $roles, true);
+        return $this->hasMany(AnggaranMAK::class, 'id_user', 'id_user');
     }
 
-    public function pengadaans(): HasMany
+    public function paketPpbj(): HasMany
     {
-        return $this->hasMany(Pengadaan::class, 'user_id');
+        return $this->hasMany(PaketPengadaan::class, 'ppbj_user_id', 'id_user');
+    }
+
+    public function paketPp(): HasMany
+    {
+        return $this->hasMany(PaketPengadaan::class, 'pp_user_id', 'id_user');
+    }
+
+    public function paketPpk(): HasMany
+    {
+        return $this->hasMany(PaketPengadaan::class, 'ppk_user_id', 'id_user');
+    }
+
+    public function verifikasiParalel(): HasMany
+    {
+        return $this->hasMany(VerifikasiParalel::class, 'id_user', 'id_user');
+    }
+
+    public function reviuPengadaan(): HasMany
+    {
+        return $this->hasMany(ReviuPengadaan::class, 'id_user', 'id_user');
+    }
+
+    public function memoBayar(): HasMany
+    {
+        return $this->hasMany(MemoBayar::class, 'id_user', 'id_user');
+    }
+
+    public function transaksiPencairan(): HasMany
+    {
+        return $this->hasMany(TransaksiPencairan::class, 'id_user', 'id_user');
     }
 
     public function reminders(): HasMany
     {
-        return $this->hasMany(Reminder::class, 'user_id');
+        return $this->hasMany(Reminder::class, 'id_user', 'id_user');
+    }
+
+    public function pengadaanLogs(): HasMany
+    {
+        return $this->hasMany(PengadaanLog::class, 'id_user', 'id_user');
     }
 }

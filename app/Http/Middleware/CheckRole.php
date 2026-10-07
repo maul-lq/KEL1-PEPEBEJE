@@ -4,7 +4,6 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
 class CheckRole
@@ -16,13 +15,18 @@ class CheckRole
      */
     public function handle(Request $request, Closure $next, string ...$roles): Response
     {
-        if (! Auth::check()) {
-            return redirect()->route('login');
+        if (! $request->user()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthenticated',
+            ], 401);
         }
 
-        $user = Auth::user();
-        if (! in_array($user->role, $roles, true)) {
-            abort(403, 'Akses terbatas. Anda tidak memiliki izin untuk halaman ini.');
+        if (! in_array($request->user()->role, $roles, true)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthorized: role tidak memiliki akses',
+            ], 403);
         }
 
         return $next($request);

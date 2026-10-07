@@ -3,22 +3,31 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Vendor extends Model
 {
+    protected $table = 'vendors';
+
+    protected $primaryKey = 'npwp';
+
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+
     protected $fillable = [
-        'nama_perusahaan',
         'npwp',
         'nib',
+        'nama_perusahaan',
         'alamat',
-        'nama_kontak',
-        'telepon',
-        'email',
-        'nama_bank',
-        'nomor_rekening',
-        'nama_rekening',
         'file_legalitas',
         'is_active',
+        'nama_pic',
+        'telepon_pic',
+        'email_pic',
+        'nama_bank',
+        'nomor_rekening',
+        'atas_nama',
     ];
 
     protected function casts(): array
@@ -28,8 +37,8 @@ class Vendor extends Model
         ];
     }
 
-    public function pengadaans()
+    public function paketPengadaan(): HasMany
     {
-        return $this->hasMany(Pengadaan::class);
+        return $this->hasMany(PaketPengadaan::class, 'npwp_vendor', 'npwp');
     }
 }

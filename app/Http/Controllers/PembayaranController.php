@@ -2,66 +2,181 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Pengadaan;
-use App\Services\AuditLogService;
-use Illuminate\Http\RedirectResponse;
+use App\Models\Pembayaran;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class PembayaranController extends Controller
 {
     /**
-     * Persetujuan Memo Pembayaran oleh PPK (Tahap 1)
+     * Display a listing of the resource.
      */
-    public function accPpk(Request $request, Pengadaan $pengadaan): RedirectResponse
+    public function index(Request $request): JsonResponse
     {
-        $request->validate([
-            'catatan_pembayaran_ppk' => ['nullable', 'string'],
+        $query = Pembayaran::with(['paket', 'memoBayar', 'transaksiPencairan']);
+
+        if ($request->filled('nomor_paket')) {
+            $query->where('nomor_paket', $request->nomor_paket);
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status_pembayaran', $request->status);
+        }
+
+        $pembayaran = $query->latest('created_at')->paginate(15);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $pembayaran,
         ]);
-
-        $oldStatus = $pengadaan->status;
-        $pengadaan->acc_pembayaran_ppk = true;
-        $pengadaan->tanggal_acc_pembayaran_ppk = now();
-        $pengadaan->catatan_pembayaran_ppk = $request->input('catatan_pembayaran_ppk', 'ACC Pembayaran oleh PPK.');
-        $pengadaan->status = Pengadaan::STATUS_MEMO_PEMBAYARAN_PPK;
-        $pengadaan->save();
-
-        AuditLogService::log(
-            $pengadaan,
-            'ACC Memo Pembayaran PPK',
-            'PPK menyetujui memo pencairan pembayaran. Diteruskan ke Wadir 2 untuk persetujuan akhir pimpinan.',
-            $oldStatus,
-            $pengadaan->status
-        );
-
-        return redirect()->route('pengadaan.show', $pengadaan)
-            ->with('success', 'Memo pembayaran disetujui oleh PPK dan diteruskan ke Wadir 2.');
     }
 
     /**
-     * Persetujuan Memo Pembayaran oleh Wadir 2 (Tahap 2)
+     * Show the form for creating a new resource.
      */
-    public function accWadir2(Request $request, Pengadaan $pengadaan): RedirectResponse
+    public function create(): JsonResponse
     {
-        $request->validate([
-            'catatan_pembayaran_wadir2' => ['nullable', 'string'],
+        return response()->json([
+            'status' => 'success',
+            'statuses' => [
+                Pembayaran::STATUS_DRAFT,
+                Pembayaran::STATUS_REVIU_MEMO,
+                Pembayaran::STATUS_PERINTAH_BAYAR,
+                Pembayaran::STATUS_LUNAS,
+                Pembayaran::STATUS_DITOLAK,
+            ],
+        ]);
+    }
+
+    /**
+     * Store a newly created resource in storage.
+     */
+    public function store(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'nomor_pembayaran' => ['required', 'string', 'max:100'],
+            'nomor_paket' => ['required', 'exists:paket_pengadaan,nomor_paket'],
+            'tahap_termin' => ['nullable', 'integer', 'min:1'],
+            'nominal_pengajuan' => ['required', 'numeric', 'min:0'],
+            'status_pembayaran' => ['required', 'string', Rule::in([
+                Pembayaran::STATUS_DRAFT,
+                Pembayaran::STATUS_REVIU_MEMO,
+                Pembayaran::STATUS_PERINTAH_BAYAR,
+                Pembayaran::STATUS_LUNAS,
+                Pembayaran::STATUS_DITOLAK,
+            ])],
+            'file_dokumen_penunjang' => ['nullable', 'string', 'max:255'],
+            'file_tagihan_vendor' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $oldStatus = $pengadaan->status;
-        $pengadaan->acc_pembayaran_wadir2 = true;
-        $pengadaan->tanggal_acc_pembayaran_wadir2 = now();
-        $pengadaan->catatan_pembayaran_wadir2 = $request->input('catatan_pembayaran_wadir2', 'Disetujui pencairan oleh Wadir 2.');
-        $pengadaan->status = Pengadaan::STATUS_MEMO_PEMBAYARAN_WADIR2;
-        $pengadaan->save();
+        $exists = Pembayaran::where('nomor_pembayaran', $validated['nomor_pembayaran'])
+            ->where('nomor_paket', $validated['nomor_paket'])
+            ->exists();
 
-        AuditLogService::log(
-            $pengadaan,
-            'Persetujuan Memo Pembayaran Wadir 2',
-            'Wadir 2 menyetujui pencairan pembayaran pengadaan. PPBJ siap menerbitkan Surat Perintah Pembayaran (SPP).',
-            $oldStatus,
-            $pengadaan->status
-        );
+        if ($exists) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Pengajuan pembayaran untuk nomor dan paket ini sudah ada',
+            ], 422);
+        }
 
-        return redirect()->route('pengadaan.show', $pengadaan)
-            ->with('success', 'Memo pembayaran disetujui oleh Wadir 2. Silakan PPBJ menerbitkan SPP.');
+        $validated['tahap_termin'] = $validated['tahap_termin'] ?? 1;
+
+        $pembayaran = Pembayaran::create($validated);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Pengajuan pembayaran berhasil dibuat',
+            'data' => $pembayaran,
+        ], 201);
+    }
+
+    /**
+     * Display the specified resource.
+     */
+    public function show(Request $request, $id): JsonResponse
+    {
+        $pembayaran = $this->findRecord($request, $id);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $pembayaran->load(['paket', 'memoBayar', 'transaksiPencairan']),
+        ]);
+    }
+
+    /**
+     * Show the form for editing the specified resource.
+     */
+    public function edit(Request $request, $id): JsonResponse
+    {
+        $pembayaran = $this->findRecord($request, $id);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $pembayaran,
+        ]);
+    }
+
+    /**
+     * Update the specified resource in storage.
+     */
+    public function update(Request $request, $id): JsonResponse
+    {
+        $pembayaran = $this->findRecord($request, $id);
+
+        $validated = $request->validate([
+            'tahap_termin' => ['sometimes', 'required', 'integer', 'min:1'],
+            'nominal_pengajuan' => ['sometimes', 'required', 'numeric', 'min:0'],
+            'status_pembayaran' => ['sometimes', 'required', 'string', Rule::in([
+                Pembayaran::STATUS_DRAFT,
+                Pembayaran::STATUS_REVIU_MEMO,
+                Pembayaran::STATUS_PERINTAH_BAYAR,
+                Pembayaran::STATUS_LUNAS,
+                Pembayaran::STATUS_DITOLAK,
+            ])],
+            'file_dokumen_penunjang' => ['nullable', 'string', 'max:255'],
+            'file_tagihan_vendor' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $pembayaran->update($validated);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Data pembayaran berhasil diperbarui',
+            'data' => $pembayaran,
+        ]);
+    }
+
+    /**
+     * Remove the specified resource from storage.
+     */
+    public function destroy(Request $request, $id): JsonResponse
+    {
+        $pembayaran = $this->findRecord($request, $id);
+        $pembayaran->delete();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Data pembayaran berhasil dihapus',
+        ]);
+    }
+
+    protected function findRecord(Request $request, $id): Pembayaran
+    {
+        if ($request->filled('nomor_pembayaran') && $request->filled('nomor_paket')) {
+            return Pembayaran::where('nomor_pembayaran', $request->nomor_pembayaran)
+                ->where('nomor_paket', $request->nomor_paket)
+                ->firstOrFail();
+        }
+
+        $parts = explode(':', $id, 2);
+        if (count($parts) === 2) {
+            return Pembayaran::where('nomor_pembayaran', $parts[0])
+                ->where('nomor_paket', $parts[1])
+                ->firstOrFail();
+        }
+
+        return Pembayaran::where('nomor_pembayaran', $id)->firstOrFail();
     }
 }

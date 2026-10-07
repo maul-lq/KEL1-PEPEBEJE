@@ -7,23 +7,39 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PengadaanLog extends Model
 {
+    public const AKSI_SPLIT_MAK = 'SPLIT_MAK';
+
+    public const AKSI_ASSIGN_PPK = 'ASSIGN_PPK';
+
+    public const AKSI_LOCK_MAK = 'LOCK_MAK';
+
+    public const AKSI_ACC_WADIR2 = 'ACC_WADIR2';
+
+    protected $table = 'pengadaan_logs';
+
+    protected $primaryKey = 'id_log';
+
+    public $timestamps = false;
+
     protected $fillable = [
-        'pengadaan_id',
-        'user_id',
-        'action',
+        'nomor_surat',
+        'nomor_paket',
+        'id_user',
+        'aksi',
         'keterangan',
-        'status_sebelumnya',
-        'status_baru',
         'ip_address',
+        'created_at',
     ];
 
-    public function pengadaan(): BelongsTo
+    protected function casts(): array
     {
-        return $this->belongsTo(Pengadaan::class);
+        return [
+            'created_at' => 'datetime',
+        ];
     }
 
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'id_user', 'id_user');
     }
 }

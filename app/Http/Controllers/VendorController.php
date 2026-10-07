@@ -3,76 +3,154 @@
 namespace App\Http\Controllers;
 
 use App\Models\Vendor;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
-use Illuminate\View\View;
+use Illuminate\Validation\Rule;
 
 class VendorController extends Controller
 {
-    public function index(Request $request): View
+    /**
+     * Display a listing of the resource.
+     */
+    public function index(Request $request): JsonResponse
     {
-        $query = Vendor::withCount('pengadaans');
+        $query = Vendor::query();
+
+        if ($request->filled('is_active')) {
+            $query->where('is_active', $request->boolean('is_active'));
+        }
 
         if ($request->filled('search')) {
-            $search = $request->input('search');
+            $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('nama_perusahaan', 'like', "%{$search}%")
                     ->orWhere('npwp', 'like', "%{$search}%")
                     ->orWhere('nib', 'like', "%{$search}%")
-                    ->orWhere('nama_kontak', 'like', "%{$search}%");
+                    ->orWhere('nama_pic', 'like', "%{$search}%");
             });
         }
 
-        $vendors = $query->latest()->paginate(10)->withQueryString();
+        $vendors = $query->latest('created_at')->paginate(15);
 
-        return view('vendor.index', compact('vendors'));
+        return response()->json([
+            'status' => 'success',
+            'data' => $vendors,
+        ]);
     }
 
-    public function create(): View
+    /**
+     * Show the form for creating a new resource.
+     */
+    public function create(): JsonResponse
     {
-        return view('vendor.create');
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Ready to create vendor',
+        ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    /**
+     * Store a newly created resource in storage.
+     */
+    public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'nama_perusahaan' => ['required', 'string', 'max:255'],
-            'npwp' => ['nullable', 'string', 'max:50'],
-            'nib' => ['nullable', 'string', 'max:50'],
-            'alamat' => ['nullable', 'string'],
-            'nama_kontak' => ['nullable', 'string', 'max:100'],
-            'telepon' => ['nullable', 'string', 'max:50'],
-            'email' => ['nullable', 'email', 'max:100'],
-            'nama_bank' => ['nullable', 'string', 'max:50'],
-            'nomor_rekening' => ['nullable', 'string', 'max:50'],
-            'nama_rekening' => ['nullable', 'string', 'max:100'],
-            'file_legalitas' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
+            'npwp' => ['required', 'string', 'max:30', 'unique:vendors,npwp'],
+            'nib' => ['required', 'string', 'max:30', 'unique:vendors,nib'],
+            'nama_perusahaan' => ['required', 'string', 'max:200'],
+            'alamat' => ['required', 'string'],
+            'file_legalitas' => ['required', 'string', 'max:255'],
+            'is_active' => ['nullable', 'boolean'],
+            'nama_pic' => ['required', 'string', 'max:100'],
+            'telepon_pic' => ['required', 'string', 'max:20'],
+            'email_pic' => ['required', 'email', 'max:100'],
+            'nama_bank' => ['required', 'string', 'max:100'],
+            'nomor_rekening' => ['required', 'string', 'max:50'],
+            'atas_nama' => ['required', 'string', 'max:150'],
         ]);
 
-        $filePath = null;
-        if ($request->hasFile('file_legalitas')) {
-            $file = $request->file('file_legalitas');
-            $fileName = time().'_legalitas_'.Str::slug($validated['nama_perusahaan']).'.'.$file->getClientOriginalExtension();
-            $file->storeAs('legalitas_vendor', $fileName, 'public');
-            $filePath = 'legalitas_vendor/'.$fileName;
-        }
+        $validated['is_active'] = $request->boolean('is_active', true);
 
-        $validated['file_legalitas'] = $filePath;
-        $validated['is_active'] = true;
+        $vendor = Vendor::create($validated);
 
-        Vendor::create($validated);
-
-        return redirect()->route('vendor.index')
-            ->with('success', 'Data penyedia/vendor beserta kelengkapan berkas berhasil disimpan.');
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Vendor berhasil didaftarkan',
+            'data' => $vendor,
+        ], 201);
     }
 
-    public function show(Vendor $vendor): View
+    /**
+     * Display the specified resource.
+     */
+    public function show($npwp): JsonResponse
     {
-        $vendor->load(['pengadaans' => function ($q) {
-            $q->latest();
-        }]);
+        $vendor = Vendor::with('paketPengadaan')->findOrFail($npwp);
 
-        return view('vendor.show', compact('vendor'));
+        return response()->json([
+            'status' => 'success',
+            'data' => $vendor,
+        ]);
+    }
+
+    /**
+     * Show the form for editing the specified resource.
+     */
+    public function edit($npwp): JsonResponse
+    {
+        $vendor = Vendor::findOrFail($npwp);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $vendor,
+        ]);
+    }
+
+    /**
+     * Update the specified resource in storage.
+     */
+    public function update(Request $request, $npwp): JsonResponse
+    {
+        $vendor = Vendor::findOrFail($npwp);
+
+        $validated = $request->validate([
+            'nib' => ['sometimes', 'required', 'string', 'max:30', Rule::unique('vendors', 'nib')->ignore($vendor->npwp, 'npwp')],
+            'nama_perusahaan' => ['sometimes', 'required', 'string', 'max:200'],
+            'alamat' => ['sometimes', 'required', 'string'],
+            'file_legalitas' => ['sometimes', 'required', 'string', 'max:255'],
+            'is_active' => ['nullable', 'boolean'],
+            'nama_pic' => ['sometimes', 'required', 'string', 'max:100'],
+            'telepon_pic' => ['sometimes', 'required', 'string', 'max:20'],
+            'email_pic' => ['sometimes', 'required', 'email', 'max:100'],
+            'nama_bank' => ['sometimes', 'required', 'string', 'max:100'],
+            'nomor_rekening' => ['sometimes', 'required', 'string', 'max:50'],
+            'atas_nama' => ['sometimes', 'required', 'string', 'max:150'],
+        ]);
+
+        if ($request->has('is_active')) {
+            $validated['is_active'] = $request->boolean('is_active');
+        }
+
+        $vendor->update($validated);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Vendor berhasil diperbarui',
+            'data' => $vendor,
+        ]);
+    }
+
+    /**
+     * Remove the specified resource from storage.
+     */
+    public function destroy($npwp): JsonResponse
+    {
+        $vendor = Vendor::findOrFail($npwp);
+        $vendor->delete();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Vendor berhasil dihapus',
+        ]);
     }
 }
