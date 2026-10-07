@@ -2,7 +2,9 @@
 
 use App\Http\Controllers\AlokasiMAKController;
 use App\Http\Controllers\AnggaranMAKController;
+use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DokumentasiPenerimaanBarangController;
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\KontrakSPKController;
 use App\Http\Controllers\MemoBayarController;
 use App\Http\Controllers\PaketPengadaanController;
@@ -19,14 +21,27 @@ use App\Http\Controllers\VendorController;
 use App\Http\Controllers\VerifikasiParalelController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return response()->json([
-        'app' => 'Sistem Informasi Pengadaan Barang dan Jasa (PBJ)',
-        'version' => '1.0.0',
-        'status' => 'active',
-    ]);
+// Rute Tamu (Guest)
+Route::middleware('guest')->group(function () {
+    Route::get('/tes-login', [AuthController::class, 'showLoginForm'])->name('login');
+    Route::post('/tes-login', [AuthController::class, 'login']);
+
+    Route::get('/tes-registrasi', [AuthController::class, 'showRegistrationForm'])->name('register');
+    Route::post('/tes-registrasi', [AuthController::class, 'register']);
 });
 
+// Rute Terautentikasi (Auth)
+Route::middleware('auth')->group(function () {
+    Route::get('/', function () {
+        return redirect()->route('home');
+    });
+
+    Route::get('/tes-home', [HomeController::class, 'index'])->name('home');
+    Route::get('/tes-api', [HomeController::class, 'testApi'])->name('test.api');
+    Route::post('/tes-logout', [AuthController::class, 'logout'])->name('logout');
+});
+
+// Endpoint API Backend (17 Entitas)
 Route::prefix('api')->group(function () {
     Route::apiResource('users', UserController::class);
     Route::apiResource('vendors', VendorController::class);
