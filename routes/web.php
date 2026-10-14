@@ -1,98 +1,238 @@
 <?php
 
-use App\Http\Controllers\ApprovalWadir2Controller;
+use App\Http\Controllers\AlokasiMAKController;
+use App\Http\Controllers\AnggaranMAKController;
+use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
-use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\KeuanganController;
+use App\Http\Controllers\DokumentasiPenerimaanBarangController;
+use App\Http\Controllers\HomeController;
+use App\Http\Controllers\KontrakSPKController;
+use App\Http\Controllers\MemoBayarController;
+use App\Http\Controllers\NotifikasiUserController;
+use App\Http\Controllers\PaketPengadaanController;
 use App\Http\Controllers\PembayaranController;
-use App\Http\Controllers\PenerimaanPerlengkapanController;
-use App\Http\Controllers\PengadaanController;
-use App\Http\Controllers\PerencanaanController;
-use App\Http\Controllers\PpbjController;
+use App\Http\Controllers\PenerimaanBarangController;
+use App\Http\Controllers\PengadaanLogController;
+use App\Http\Controllers\PermohonanPengadaanController;
 use App\Http\Controllers\ReminderController;
-use App\Http\Controllers\ReviewPpkController;
+use App\Http\Controllers\ReviuDokumenController;
+use App\Http\Controllers\ReviuPengadaanController;
+use App\Http\Controllers\RiwayatPenugasanPPKController;
+use App\Http\Controllers\TransaksiPencairanController;
+use App\Http\Controllers\UnitController;
+use App\Http\Controllers\UserController;
 use App\Http\Controllers\VendorController;
+use App\Http\Controllers\VerifikasiParalelController;
 use Illuminate\Support\Facades\Route;
 
-// Authentication & Prototype Role-Switcher
-Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-Route::post('/login', [AuthController::class, 'login'])->name('login.post');
-Route::get('/quick-login/{role}', [AuthController::class, 'quickLogin'])->name('quick-login');
-Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+/*
+|--------------------------------------------------------------------------
+| RUTE TAMU / GUEST (Belum Login)
+|--------------------------------------------------------------------------
+| Seluruh rute di bawah ini hanya dapat diakses oleh pengunjung yang belum login.
+| Jika user sudah memiliki sesi login aktif, mereka akan dialihkan otomatis.
+*/
+Route::middleware('guest')->group(function () {
+    // Menampilkan halaman formulir simulasi login (mendukung Username, NIP, atau Email resmi)
+    Route::get('/tes-login', [AuthController::class, 'showLoginForm'])->name('login');
 
-// Authenticated Routes
-Route::middleware('auth')->group(function () {
-    Route::get('/', function () {
-        return redirect()->route('dashboard');
-    });
+    // Menangani pengiriman form login dengan rate limiting & verifikasi password
+    Route::post('/tes-login', [AuthController::class, 'login']);
 
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('/monitoring', [DashboardController::class, 'monitoring'])->name('monitoring');
+    // Menampilkan halaman formulir simulasi registrasi akun staf/pejabat pengadaan baru
+    Route::get('/tes-registrasi', [AuthController::class, 'showRegistrationForm'])->name('register');
 
-    // Pengadaan Core
-    Route::get('/pengadaan', [PengadaanController::class, 'index'])->name('pengadaan.index');
-    Route::get('/pengadaan/create', [PengadaanController::class, 'create'])->name('pengadaan.create');
-    Route::post('/pengadaan', [PengadaanController::class, 'store'])->name('pengadaan.store');
-    Route::get('/pengadaan/{pengadaan}', [PengadaanController::class, 'show'])->name('pengadaan.show');
-    Route::get('/pengadaan/{pengadaan}/cetak', [PengadaanController::class, 'cetak'])->name('pengadaan.cetak');
-
-    // 1. Wadir 2 (Persetujuan & Kebijakan)
-    Route::prefix('wadir2')->name('wadir2.')->group(function () {
-        Route::get('/review/{pengadaan}', [ApprovalWadir2Controller::class, 'showReview'])->name('review');
-        Route::post('/approve/{pengadaan}', [ApprovalWadir2Controller::class, 'approve'])->name('approve');
-        Route::post('/reject/{pengadaan}', [ApprovalWadir2Controller::class, 'reject'])->name('reject');
-        Route::post('/acc-pembayaran/{pengadaan}', [PembayaranController::class, 'accWadir2'])->name('acc-pembayaran');
-    });
-
-    // 2. Perencanaan (MAK & Anggaran)
-    Route::prefix('perencanaan')->name('perencanaan.')->group(function () {
-        Route::get('/mak/{pengadaan}', [PerencanaanController::class, 'showInputMak'])->name('input-mak');
-        Route::post('/mak/{pengadaan}', [PerencanaanController::class, 'storeMak'])->name('store-mak');
-    });
-
-    // 3. PPBJ (Pengelola Pengadaan B/J)
-    Route::prefix('ppbj')->name('ppbj.')->group(function () {
-        Route::get('/register/{pengadaan}', [PpbjController::class, 'showRegister'])->name('register');
-        Route::post('/register/{pengadaan}', [PpbjController::class, 'storeRegister'])->name('store-register');
-        Route::get('/spk/{pengadaan}', [PpbjController::class, 'showCreateSpk'])->name('create-spk');
-        Route::post('/spk/{pengadaan}', [PpbjController::class, 'storeSpk'])->name('store-spk');
-        Route::get('/ajukan-pembayaran/{pengadaan}', [PpbjController::class, 'showAjukanPembayaran'])->name('ajukan-pembayaran');
-        Route::post('/ajukan-pembayaran/{pengadaan}', [PpbjController::class, 'storeAjukanPembayaran'])->name('store-ajukan-pembayaran');
-        Route::post('/terbitkan-spp/{pengadaan}', [PpbjController::class, 'terbitkanSpp'])->name('terbitkan-spp');
-    });
-
-    // 4. PPK / Pejabat Pengadaan
-    Route::prefix('ppk')->name('ppk.')->group(function () {
-        Route::get('/review/{pengadaan}', [ReviewPpkController::class, 'showReview'])->name('review');
-        Route::post('/approve/{pengadaan}', [ReviewPpkController::class, 'approve'])->name('approve');
-        Route::post('/revisi/{pengadaan}', [ReviewPpkController::class, 'mintaPerbaikan'])->name('revisi');
-        Route::post('/acc-pembayaran/{pengadaan}', [PembayaranController::class, 'accPpk'])->name('acc-pembayaran');
-    });
-
-    // 5. Perlengkapan (BMN & Penerimaan)
-    Route::prefix('perlengkapan')->name('perlengkapan.')->group(function () {
-        Route::get('/penerimaan/{pengadaan}', [PenerimaanPerlengkapanController::class, 'showPenerimaan'])->name('penerimaan');
-        Route::post('/penerimaan/{pengadaan}', [PenerimaanPerlengkapanController::class, 'storePenerimaan'])->name('store-penerimaan');
-    });
-
-    // 6. Keuangan (Pencairan & Pembayaran)
-    Route::prefix('keuangan')->name('keuangan.')->group(function () {
-        Route::get('/pencairan/{pengadaan}', [KeuanganController::class, 'showPencairan'])->name('pencairan');
-        Route::post('/pencairan/{pengadaan}', [KeuanganController::class, 'storePencairan'])->name('store-pencairan');
-    });
-
-    // Vendors Management (FR 10.0)
-    Route::resource('vendor', VendorController::class)->only(['index', 'create', 'store', 'show']);
-
-    // Reminders & Alarm Notifications (FR 12.0)
-    Route::get('/reminders', [ReminderController::class, 'index'])->name('reminders.index');
-    Route::post('/reminders/{reminder}/dismiss', [ReminderController::class, 'dismiss'])->name('reminders.dismiss');
+    // Memproses data pendaftaran akun baru ke tabel users dengan role dan unit kerja
+    Route::post('/tes-registrasi', [AuthController::class, 'register']);
 });
 
-// Laravel Boost Browser Log endpoint
-Route::get('/_boost/browser-logs', function () {
-    return response()->json([
-        'status' => 'active',
-        'message' => 'Laravel Boost browser logger endpoint is active.',
-    ]);
+/*
+|--------------------------------------------------------------------------
+| RUTE TERAUTENTIKASI (Sudah Login)
+|--------------------------------------------------------------------------
+| Rute-rute antarmuka simulasi backend (TANPA CSS TOTAL) untuk pengujian alur data oleh Overseer.
+*/
+Route::middleware('auth')->group(function () {
+    // Redirect halaman root (/) langsung menuju dashboard simulasi
+    Route::get('/', function () {
+        return redirect()->route('home');
+    });
+
+    // Dashboard utama simulasi peran: memilih peran operasional dan melihat ringkasan status
+    Route::get('/tes-home', [HomeController::class, 'index'])->name('home');
+
+    // Halaman alat bantu simulasi pengujian interaktif endpoint API JSON
+    Route::get('/tes-api', [HomeController::class, 'testApi'])->name('test.api');
+
+    // Halaman simulasi formulir pengajuan usulan permohonan pengadaan (Unit Pemohon / Srikandi)
+    Route::get('/tes-permohonan', [HomeController::class, 'tesPermohonan'])->name('permohonan.web');
+
+    // Memproses submit pengajuan usulan baru dari form simulasi
+    Route::post('/tes-permohonan', [HomeController::class, 'storePermohonan'])->name('permohonan.web.store');
+
+    // Memproses pengajuan revisi usulan permohonan yang sebelumnya ditolak oleh verifikator
+    Route::post('/tes-permohonan/revisi', [HomeController::class, 'revisiPermohonan'])->name('permohonan.web.revisi');
+
+    // Halaman pemantauan (monitoring) 8 tahapan siklus pengadaan secara agregat
+    Route::get('/tes-monitoring', [HomeController::class, 'tesMonitoring'])->name('monitoring.web');
+
+    // Halaman pembuatan paket pengadaan & simulasi alih tugas (reassign) PPK
+    Route::get('/tes-paket', [HomeController::class, 'tesPaket'])->name('paket.web');
+
+    // Memproses simpan paket pengadaan baru dengan auto-routing ambang batas HPS
+    Route::post('/tes-paket', [HomeController::class, 'storePaket'])->name('paket.web.store');
+
+    // Memproses mutasi atau alih penugasan paket ke PPK lain melalui antarmuka simulasi
+    Route::post('/tes-paket/reassign-ppk', [HomeController::class, 'reassignPpkWeb'])->name('paket.web.reassign');
+
+    // Halaman simulasi verifikasi berkas oleh Staf Bidang 2 dan keputusan mutlak Wadir 2
+    Route::get('/tes-verifikasi-b2', [HomeController::class, 'tesVerifikasiB2'])->name('verifikasi-b2.web');
+
+    // Memproses telaah kelengkapan berkas fisik oleh Staf Bidang 2 untuk diteruskan ke Wadir 2
+    Route::post('/tes-verifikasi-b2/teruskan-staff', [HomeController::class, 'teruskanStaffB2'])->name('verifikasi-b2.web.teruskan');
+
+    // Memproses keputusan mutlak Wadir 2 (Setujui atau Tolak dengan catatan wajib)
+    Route::post('/tes-verifikasi-b2/keputusan-wadir', [HomeController::class, 'keputusanWadir2'])->name('verifikasi-b2.web.keputusan');
+
+    // Helper unduh berkas resmi PDF melalui antarmuka web simulasi (Permohonan, SPK, BAST, Bukti Transfer)
+    Route::get('/tes-unduh-pdf/{jenis}/{id}', [HomeController::class, 'unduhDokumenPdf'])->name('unduh.pdf.web')->where(['id' => '.*']);
+
+    // Menghancurkan sesi pengguna saat ini dan mengarahkan kembali ke halaman login
+    Route::post('/tes-logout', [AuthController::class, 'logout'])->name('logout');
+});
+
+/*
+|--------------------------------------------------------------------------
+| ENDPOINT RESTful API BACKEND (18 Entitas & Workflow Pengadaan)
+|--------------------------------------------------------------------------
+| Semua endpoint ini menggunakan awalan '/api' dan mengembalikan respons JSON.
+| Dilengkapi otorisasi berbasis peran (Role-Based Access Control) dan perlindungan data.
+*/
+Route::prefix('api')->group(function () {
+    // Master data unit kerja dan jurusan di lingkungan kampus Politeknik Negeri Jakarta
+    Route::apiResource('units', UnitController::class);
+
+    // Manajemen data akun pengguna dan penetapan 9 peran sistem
+    Route::apiResource('users', UserController::class);
+
+    // Registrasi dan pengelolaan direktori rekanan penyedia/vendor barang & jasa
+    Route::apiResource('vendors', VendorController::class);
+
+    // Permohonan Pengadaan: Mengambil riwayat pengajuan khusus user login beserta jejak penolakannya (FR 4.1)
+    Route::get('permohonan-pengadaan/riwayat-user', [PermohonanPengadaanController::class, 'riwayatUser'])
+        ->name('permohonan-pengadaan.riwayat-user');
+
+    // Unduh berkas fisik resmi permohonan format PDF dengan standar respons < 3 detik (NFR 12)
+    Route::get('permohonan-pengadaan/{permohonan_pengadaan}/unduh-pdf', [PermohonanPengadaanController::class, 'unduhPdf'])
+        ->name('permohonan-pengadaan.unduh-pdf')
+        ->where(['permohonan_pengadaan' => '.*']);
+
+    // Memecah (split) usulan permohonan pengadaan jika terdapat item yang ditolak sebagian (FR Unary Split)
+    Route::post('permohonan-pengadaan/{permohonan_pengadaan}/split', [PermohonanPengadaanController::class, 'split'])
+        ->name('permohonan-pengadaan.split')
+        ->middleware('role:perencanaan,ppbj')
+        ->where(['permohonan_pengadaan' => '.*']);
+
+    // Mengajukan revisi permohonan yang ditolak dengan nomor surat baru dan relasi unary (FR 3.4)
+    Route::post('permohonan-pengadaan/{permohonan_pengadaan}/revisi', [PermohonanPengadaanController::class, 'revisi'])
+        ->name('permohonan-pengadaan.revisi')
+        ->where(['permohonan_pengadaan' => '.*']);
+
+    // Melacak 8 tahapan siklus permohonan pengadaan secara detail dan real-time (NFR 7)
+    Route::get('permohonan-pengadaan/{permohonan_pengadaan}/tracking', [PermohonanPengadaanController::class, 'tracking'])
+        ->name('permohonan-pengadaan.tracking')
+        ->where(['permohonan_pengadaan' => '.*']);
+
+    // Endpoint pemantauan agregat status pengadaan di kampus dengan filter dan paginasi (NFR 7)
+    Route::get('monitoring-status', [PermohonanPengadaanController::class, 'monitoringStatus'])
+        ->name('monitoring.status');
+
+    // Operasi CRUD standar untuk usulan permohonan pengadaan
+    Route::apiResource('permohonan-pengadaan', PermohonanPengadaanController::class)->where(['permohonan_pengadaan' => '.*']);
+
+    // Penguncian pagu MAK secara manual atau otomatis untuk mencegah mutasi anggaran (NFR Integritas MAK)
+    Route::post('anggaran-mak/{anggaran_mak}/lock', [AnggaranMAKController::class, 'lock'])
+        ->middleware('role:perencanaan');
+
+    // Operasi CRUD master mata anggaran kas (MAK) DIPA kampus
+    Route::apiResource('anggaran-mak', AnggaranMAKController::class);
+
+    // Pengalihan penugasan (reassign) paket pengadaan ke PPK lain disertai alasan dan jejak audit (FR 7.3 & NFR 4)
+    Route::post('paket-pengadaan/{paket_pengadaan}/reassign-ppk', [PaketPengadaanController::class, 'reassignPpk'])
+        ->name('paket-pengadaan.reassign-ppk')
+        ->middleware('role:ppbj,perencanaan')
+        ->where(['paket_pengadaan' => '.*']);
+
+    // Registrasi dan manajemen paket pengadaan barang/jasa dengan auto-routing HPS (NFR 4)
+    Route::apiResource('paket-pengadaan', PaketPengadaanController::class)->where(['paket_pengadaan' => '.*']);
+
+    // Telaah berkas oleh Staf Bidang 2 untuk diteruskan secara resmi ke Wadir 2 (FR 5)
+    Route::post('verifikasi-paralel/teruskan-ke-wadir', [VerifikasiParalelController::class, 'teruskanKeWadir'])
+        ->name('verifikasi-paralel.teruskan-ke-wadir');
+
+    // Manajemen keputusan verifikasi paralel oleh pimpinan (Wadir 2) dan Bagian Perencanaan
+    Route::apiResource('verifikasi-paralel', VerifikasiParalelController::class)->where(['verifikasi_paralel' => '.*']);
+
+    // Pemetaan alokasi pagu MAK ke permohonan pengadaan yang telah disetujui
+    Route::apiResource('alokasi-mak', AlokasiMAKController::class)->where(['alokasi_mak' => '.*']);
+
+    // Hasil penelaahan dokumen teknis & evaluasi HPS oleh Pejabat Pengadaan / PPK
+    Route::apiResource('reviu-dokumen', ReviuDokumenController::class);
+    Route::apiResource('reviu-pengadaan', ReviuPengadaanController::class);
+
+    // Log pencatatan riwayat penugasan atau alih tugas paket kepada 4 akun PPK
+    Route::apiResource('riwayat-penugasan-ppk', RiwayatPenugasanPPKController::class);
+
+    // Unduh salinan resmi Surat Perintah Kerja (SPK) format PDF (< 3 detik)
+    Route::get('kontrak-spk/{kontrak_spk}/unduh-pdf', [KontrakSPKController::class, 'unduhPdf'])
+        ->name('kontrak-spk.unduh-pdf')
+        ->where(['kontrak_spk' => '.*']);
+
+    // Penerbitan dan pengelolaan Kontrak / SPK dengan rekanan penyedia
+    Route::apiResource('kontrak-spk', KontrakSPKController::class)->where(['kontrak_spk' => '.*']);
+
+    // Unduh Berita Acara Serah Terima (BAST) fisik barang format PDF lengkap dengan Token HMAC (NFR 12)
+    Route::get('penerimaan-barang/{penerimaan_barang}/unduh-pdf', [PenerimaanBarangController::class, 'unduhPdf'])
+        ->name('penerimaan-barang.unduh-pdf')
+        ->where(['penerimaan_barang' => '.*']);
+
+    // Pemeriksaan fisik barang kiriman vendor dan penerbitan BAST oleh bagian Perlengkapan
+    Route::apiResource('penerimaan-barang', PenerimaanBarangController::class)->where(['penerimaan_barang' => '.*']);
+
+    // Unggah bukti foto dokumentasi fisik barang yang diterima di gudang kampus
+    Route::apiResource('dokumentasi-penerimaan-barang', DokumentasiPenerimaanBarangController::class);
+
+    // Penerbitan instruksi perintah bayar oleh Koordinator PPBJ setelah pemeriksaan berkas rampung
+    Route::post('pembayaran/{pembayaran}/perintah-bayar', [PembayaranController::class, 'terbitkanPerintahBayar'])
+        ->middleware('role:ppbj');
+
+    // Pengajuan tagihan pembayaran SPP (Surat Permintaan Pembayaran) bertahap atau lunas
+    Route::apiResource('pembayaran', PembayaranController::class)->where(['pembayaran' => '.*']);
+
+    // Disposisi catatan memo bayar bertingkat oleh PPK dan Wadir 2
+    Route::apiResource('memo-bayar', MemoBayarController::class)->where(['memo_bayar' => '.*']);
+
+    // Unduh bukti slip transfer pemindahbukuan bank resmi format PDF (NFR 12)
+    Route::get('transaksi-pencairan/{transaksi_pencairan}/unduh-pdf', [TransaksiPencairanController::class, 'unduhPdf'])
+        ->name('transaksi-pencairan.unduh-pdf')
+        ->where(['transaksi_pencairan' => '.*']);
+
+    // Eksekusi pencairan dana SP2D oleh Bendahara/Keuangan dengan proteksi anti-duplikasi (NFR 8)
+    Route::apiResource('transaksi-pencairan', TransaksiPencairanController::class)->where(['transaksi_pencairan' => '.*']);
+
+    // Pengelolaan jadwal pengingat masa kontrak, BAST, dan jatuh tempo termin (NFR 5)
+    Route::apiResource('reminders', ReminderController::class);
+
+    // Feed daftar notifikasi personal bagi pengguna yang sedang login
+    Route::get('notifikasi-user', [NotifikasiUserController::class, 'index']);
+
+    // Menandai satu notifikasi telah dibaca oleh pengguna
+    Route::post('notifikasi-user/{notifikasi}/read', [NotifikasiUserController::class, 'markAsRead']);
+
+    // Mengarsipkan atau menghapus notifikasi dari feed aktif pengguna
+    Route::post('notifikasi-user/{notifikasi}/dismiss', [NotifikasiUserController::class, 'dismiss']);
+
+    // Jejak audit otomatis setiap mutasi data untuk pengawasan auditor dan pimpinan
+    Route::apiResource('audit-logs', AuditLogController::class)->only(['index', 'show']);
+    Route::apiResource('pengadaan-logs', PengadaanLogController::class)->only(['index', 'show']);
 });
