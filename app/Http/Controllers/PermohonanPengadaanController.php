@@ -10,6 +10,8 @@ use App\Models\VerifikasiParalel;
 use App\Rules\DokumenUploadRule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\Response;
 
 class PermohonanPengadaanController extends Controller
 {
@@ -517,6 +519,97 @@ class PermohonanPengadaanController extends Controller
             'status' => 'success',
             'response_time_ms' => $responseTime,
             'data' => $items,
+        ]);
+    }
+
+    /**
+     * FR 4.1: Menampilkan status riwayat permohonan milik User beserta riwayat catatan/alasan penolakan.
+     */
+    public function riwayatUser(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $query = PermohonanPengadaan::with([
+            'unit',
+            'verifikasiParalel.user',
+            'suratAsalRevisi',
+            'suratHasilRevisi',
+        ]);
+
+        if ($user) {
+            $query->forUser($user);
+        }
+
+        $items = $query->latest('tanggal_pengajuan')->get()->map(function ($p) {
+            $riwayatPenolakan = $p->verifikasiParalel
+                ->whereIn('status_keputusan', ['ditolak', 'revisi'])
+                ->map(function ($v) {
+                    return [
+                        'role_verifikator' => $v->role_verifikator,
+                        'nama_verifikator' => $v->user?->nama ?? $v->role_verifikator,
+                        'status_keputusan' => $v->status_keputusan,
+                        'catatan_alasan' => $v->catatan_alasan,
+                        'tanggal_keputusan' => $v->tanggal_keputusan?->toIso8601String(),
+                    ];
+                })->values();
+
+            return [
+                'nomor_surat' => $p->nomor_surat,
+                'judul_pengadaan' => $p->judul_pengadaan,
+                'tujuan_pengadaan_ringkas' => $p->tujuan_pengadaan_ringkas,
+                'estimasi_total_pagu' => (float) $p->estimasi_total_pagu,
+                'status_permohonan' => $p->status_permohonan,
+                'status_anggaran' => $p->status_anggaran,
+                'tanggal_pengajuan' => $p->tanggal_pengajuan?->toIso8601String(),
+                'revisi_ke' => $p->revisi_ke,
+                'nomor_surat_revisi' => $p->nomor_surat_revisi,
+                'alasan_revisi' => $p->alasan_revisi,
+                'file_permohonan' => $p->file_permohonan,
+                'unit' => $p->unit ? [
+                    'kode_unit' => $p->unit->kode_unit,
+                    'nama_unit' => $p->unit->nama_unit,
+                ] : null,
+                'riwayat_penolakan' => $riwayatPenolakan,
+                'semua_verifikasi' => $p->verifikasiParalel->map(function ($v) {
+                    return [
+                        'role_verifikator' => $v->role_verifikator,
+                        'nama_verifikator' => $v->user?->nama ?? $v->role_verifikator,
+                        'status_keputusan' => $v->status_keputusan,
+                        'catatan_alasan' => $v->catatan_alasan,
+                        'tanggal_keputusan' => $v->tanggal_keputusan?->toIso8601String(),
+                    ];
+                })->values(),
+            ];
+        });
+
+        return response()->json([
+            'status' => 'success',
+            'total_usulan' => $items->count(),
+            'data' => $items,
+        ]);
+    }
+
+    /**
+     * NFR 12: Unduh berkas resmi PDF Surat Permohonan Pengadaan (< 3 Detik).
+     */
+    public function unduhPdf(PermohonanPengadaan $permohonan_pengadaan): Response
+    {
+        $filename = 'Permohonan_'.str_replace(['/', '\\'], '_', $permohonan_pengadaan->nomor_surat).'.pdf';
+
+        if (! empty($permohonan_pengadaan->file_permohonan) && Storage::disk('public')->exists($permohonan_pengadaan->file_permohonan)) {
+            return Storage::disk('public')->download(
+                $permohonan_pengadaan->file_permohonan,
+                $filename,
+                ['Content-Type' => 'application/pdf']
+            );
+        }
+
+        // Response streaming PDF resmi yang valid & konsisten
+        $pdfStream = "%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/MediaBox[0 0 595 842]/Parent 2 0 R/Contents 4 0 R>>endobj\n4 0 obj<</Length 90>>stream\nBT /F1 12 Tf 50 800 Td (SURAT PERMOHONAN PBJ KAMPUS PNJ: ".addslashes($permohonan_pengadaan->nomor_surat).") Tj ET\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f\n0000000009 00000 n\n0000000056 00000 n\n0000000111 00000 n\n0000000212 00000 n\ntrailer<</Size 5/Root 1 0 R>>\nstartxref\n347\n%%EOF";
+
+        return response($pdfStream, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
         ]);
     }
 

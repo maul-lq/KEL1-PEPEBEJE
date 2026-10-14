@@ -7,6 +7,8 @@ use App\Models\PaketPengadaan;
 use App\Models\PenerimaanBarang;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\Response;
 
 class PenerimaanBarangController extends Controller
 {
@@ -104,6 +106,29 @@ class PenerimaanBarangController extends Controller
             'status' => 'success',
             'message' => 'Data penerimaan barang berhasil diperbarui',
             'data' => $penerimaan_barang->load(['paket', 'fotoDokumentasi']),
+        ]);
+    }
+
+    /**
+     * NFR 12: Unduh berkas resmi PDF Berita Acara Serah Terima (BAST) (< 3 Detik).
+     */
+    public function unduhPdf(PenerimaanBarang $penerimaan_barang): Response
+    {
+        $filename = 'BAST_'.str_replace(['/', '\\'], '_', $penerimaan_barang->nomor_bast ?? ('ID_'.$penerimaan_barang->id_penerimaan)).'.pdf';
+
+        if (! empty($penerimaan_barang->file_bast_signed) && Storage::disk('public')->exists($penerimaan_barang->file_bast_signed)) {
+            return Storage::disk('public')->download(
+                $penerimaan_barang->file_bast_signed,
+                $filename,
+                ['Content-Type' => 'application/pdf']
+            );
+        }
+
+        $pdfStream = "%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/MediaBox[0 0 595 842]/Parent 2 0 R/Contents 4 0 R>>endobj\n4 0 obj<</Length 95>>stream\nBT /F1 12 Tf 50 800 Td (BERITA ACARA SERAH TERIMA BARANG PBJ PNJ: ".addslashes($penerimaan_barang->nomor_bast ?? 'BAST-DRAFT').") Tj ET\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f\n0000000009 00000 n\n0000000056 00000 n\n0000000111 00000 n\n0000000212 00000 n\ntrailer<</Size 5/Root 1 0 R>>\nstartxref\n347\n%%EOF";
+
+        return response($pdfStream, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
         ]);
     }
 

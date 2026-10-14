@@ -103,6 +103,41 @@ class VerifikasiParalelController extends Controller
         ]);
     }
 
+    /**
+     * FR 5.1 & Notulensi: Staff Bidang 2 memeriksa berkas dan menyampaikan/meneruskan permohonan masuk ke Wadir 2.
+     */
+    public function teruskanKeWadir(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'nomor_surat' => 'required|exists:permohonan_pengadaan,nomor_surat',
+            'catatan_pemeriksaan' => 'nullable|string',
+        ]);
+
+        $permohonan = PermohonanPengadaan::findOrFail($validated['nomor_surat']);
+
+        AuditLog::catat(
+            $user?->id_user ?? User::first()->id_user,
+            'STAFF_B2_TERUSKAN_KE_WADIR',
+            'permohonan_pengadaan',
+            $permohonan->nomor_surat,
+            $permohonan->status_permohonan,
+            $permohonan->status_permohonan,
+            'Staff Bidang 2 memeriksa kelengkapan berkas dan menyampaikan usulan permohonan ke Wadir 2 untuk persetujuan (FR 5.1): '.($validated['catatan_pemeriksaan'] ?? 'Berkas lengkap')
+        );
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Berkas permohonan berhasil disampaikan/diteruskan ke Wadir 2 untuk persetujuan eksekutif (FR 5.1)',
+            'data' => [
+                'nomor_surat' => $permohonan->nomor_surat,
+                'status_permohonan' => $permohonan->status_permohonan,
+                'catatan_pemeriksaan' => $validated['catatan_pemeriksaan'] ?? 'Berkas lengkap telah diteruskan ke Wadir 2',
+            ],
+        ]);
+    }
+
     private function cekKelulusanParalel(string $nomor_surat, ?int $operatorId = null): void
     {
         $verifikasi = VerifikasiParalel::where('nomor_surat', $nomor_surat)->get();

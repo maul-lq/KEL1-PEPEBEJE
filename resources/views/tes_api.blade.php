@@ -21,6 +21,7 @@
                 <option value="/api/users">1. Users (/api/users)</option>
                 <option value="/api/vendors">2. Vendors (/api/vendors)</option>
                 <option value="/api/permohonan-pengadaan">3. Permohonan Pengadaan (/api/permohonan-pengadaan)</option>
+                <option value="/api/permohonan-pengadaan/riwayat-user">3.1 Riwayat User Permohonan (FR 4.1) (/api/permohonan-pengadaan/riwayat-user)</option>
                 <option value="/api/anggaran-mak">4. Anggaran MAK (/api/anggaran-mak)</option>
                 <option value="/api/paket-pengadaan">5. Paket Pengadaan (/api/paket-pengadaan)</option>
                 <option value="/api/verifikasi-paralel">6. Verifikasi Paralel (/api/verifikasi-paralel)</option>

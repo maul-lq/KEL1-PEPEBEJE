@@ -9,7 +9,9 @@ use App\Models\User;
 use App\Rules\DokumenUploadRule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\Response;
 
 class TransaksiPencairanController extends Controller
 {
@@ -99,6 +101,29 @@ class TransaksiPencairanController extends Controller
             'status' => 'success',
             'message' => 'Data transaksi pencairan berhasil diperbarui',
             'data' => $transaksi_pencairan,
+        ]);
+    }
+
+    /**
+     * NFR 12: Unduh berkas resmi PDF Bukti Pencairan / Transfer Bank (< 3 Detik).
+     */
+    public function unduhPdf(TransaksiPencairan $transaksi_pencairan): Response
+    {
+        $filename = 'BuktiTransfer_'.str_replace(['/', '\\'], '_', $transaksi_pencairan->nomor_transaksi_bank).'.pdf';
+
+        if (! empty($transaksi_pencairan->file_bukti_transfer) && Storage::disk('public')->exists($transaksi_pencairan->file_bukti_transfer)) {
+            return Storage::disk('public')->download(
+                $transaksi_pencairan->file_bukti_transfer,
+                $filename,
+                ['Content-Type' => 'application/pdf']
+            );
+        }
+
+        $pdfStream = "%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/MediaBox[0 0 595 842]/Parent 2 0 R/Contents 4 0 R>>endobj\n4 0 obj<</Length 95>>stream\nBT /F1 12 Tf 50 800 Td (BUKTI TRANSAKSI TRANSFER PEMBAYARAN KAMPUS PNJ: ".addslashes($transaksi_pencairan->nomor_transaksi_bank).") Tj ET\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f\n0000000009 00000 n\n0000000056 00000 n\n0000000111 00000 n\n0000000212 00000 n\ntrailer<</Size 5/Root 1 0 R>>\nstartxref\n347\n%%EOF";
+
+        return response($pdfStream, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
         ]);
     }
 

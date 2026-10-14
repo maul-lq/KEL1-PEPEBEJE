@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AuditLog;
 use App\Models\PaketPengadaan;
 use App\Models\RiwayatPenugasanPPK;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -56,8 +58,8 @@ class PaketPengadaanController extends Controller
             'jenis_pengadaan' => 'required|string|in:barang,jasa_lainnya,konstruksi,jasa_konsultansi',
             'platform_pengadaan' => 'required|string|max:50',
             'mekanisme_pengadaan' => 'required|string|max:50',
-            'nilai_hps' => 'required|numeric|min:0',
-            'alokasi_pagu_paket' => 'required|numeric|min:0',
+            'nilai_hps' => 'required|numeric|gt:0',
+            'alokasi_pagu_paket' => 'required|numeric|gt:0',
             'file_dokumen_pengadaan' => 'nullable|string|max:255',
             'id_paket_lkpp' => 'nullable|string|max:100',
             'nomor_surat' => 'required|exists:permohonan_pengadaan,nomor_surat',
@@ -68,7 +70,33 @@ class PaketPengadaanController extends Controller
             'npwp_vendor' => 'nullable|exists:vendors,npwp',
         ]);
 
-        // Hitung jalur routing otomatis (FR 8.1 - 8.3)
+        // NFR 4: Validasi bahwa id_user_ppk merupakan akun PPK aktif
+        if (! empty($validated['id_user_ppk'])) {
+            $ppkUser = User::find($validated['id_user_ppk']);
+            if (! $ppkUser || $ppkUser->role !== 'ppk') {
+                return response()->json([
+                    'message' => 'Data yang diberikan tidak valid.',
+                    'errors' => [
+                        'id_user_ppk' => ['User penugasan PPK harus memiliki role PPK aktif (NFR 4).'],
+                    ],
+                ], 422);
+            }
+        }
+
+        // NFR 4: Validasi bahwa id_user_pp merupakan akun PP aktif
+        if (! empty($validated['id_user_pp'])) {
+            $ppUser = User::find($validated['id_user_pp']);
+            if (! $ppUser || $ppUser->role !== 'pp') {
+                return response()->json([
+                    'message' => 'Data yang diberikan tidak valid.',
+                    'errors' => [
+                        'id_user_pp' => ['User penugasan PP harus memiliki role PP aktif (NFR 4).'],
+                    ],
+                ], 422);
+            }
+        }
+
+        // NFR 4: Hitung jalur routing otomatis deterministik 100% dari nilai HPS
         $validated['jalur_routing'] = PaketPengadaan::tentukanRouting((float) $validated['nilai_hps']);
         $validated['tanggal_registrasi_paket'] = now();
         $validated['status_paket'] = 'draft';
@@ -175,6 +203,16 @@ class PaketPengadaanController extends Controller
             'alasan_perubahan' => 'required|string',
         ]);
 
+        $ppkBaru = User::find($validated['ppk_baru_user_id']);
+        if (! $ppkBaru || $ppkBaru->role !== 'ppk') {
+            return response()->json([
+                'message' => 'Data yang diberikan tidak valid.',
+                'errors' => [
+                    'ppk_baru_user_id' => ['Akun tujuan pengalihan harus merupakan salah satu dari 4 akun PPK aktif (NFR 4).'],
+                ],
+            ], 422);
+        }
+
         $ppkLama = $paket_pengadaan->id_user_ppk;
 
         $paket_pengadaan->id_user_ppk = $validated['ppk_baru_user_id'];
@@ -190,6 +228,16 @@ class PaketPengadaanController extends Controller
             'alasan_perubahan' => $validated['alasan_perubahan'],
             'tanggal_penugasan' => now(),
         ]);
+
+        AuditLog::catat(
+            $validated['diubah_oleh_user_id'],
+            'REASSIGN_PPK',
+            'paket_pengadaan',
+            $paket_pengadaan->nomor_paket,
+            $ppkLama ? (string) $ppkLama : 'belum_ada',
+            (string) $validated['ppk_baru_user_id'],
+            'Pengalihan penugasan PPK paket pengadaan (NFR 4 & FR 7.3): '.$validated['alasan_perubahan']
+        );
 
         return response()->json([
             'status' => 'success',

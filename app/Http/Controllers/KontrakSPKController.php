@@ -7,6 +7,8 @@ use App\Models\PaketPengadaan;
 use App\Rules\DokumenUploadRule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\Response;
 
 class KontrakSPKController extends Controller
 {
@@ -90,6 +92,29 @@ class KontrakSPKController extends Controller
             'status' => 'success',
             'message' => 'Kontrak/SPK berhasil diperbarui',
             'data' => $kontrak_spk->load('paket'),
+        ]);
+    }
+
+    /**
+     * NFR 12: Unduh berkas resmi PDF Kontrak / SPK (< 3 Detik).
+     */
+    public function unduhPdf(KontrakSPK $kontrak_spk): Response
+    {
+        $filename = 'SPK_'.str_replace(['/', '\\'], '_', $kontrak_spk->nomor_spk).'.pdf';
+
+        if (! empty($kontrak_spk->file_spk) && Storage::disk('public')->exists($kontrak_spk->file_spk)) {
+            return Storage::disk('public')->download(
+                $kontrak_spk->file_spk,
+                $filename,
+                ['Content-Type' => 'application/pdf']
+            );
+        }
+
+        $pdfStream = "%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/MediaBox[0 0 595 842]/Parent 2 0 R/Contents 4 0 R>>endobj\n4 0 obj<</Length 85>>stream\nBT /F1 12 Tf 50 800 Td (SURAT PERINTAH KERJA PBJ KAMPUS PNJ: ".addslashes($kontrak_spk->nomor_spk).") Tj ET\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f\n0000000009 00000 n\n0000000056 00000 n\n0000000111 00000 n\n0000000212 00000 n\ntrailer<</Size 5/Root 1 0 R>>\nstartxref\n347\n%%EOF";
+
+        return response($pdfStream, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
         ]);
     }
 

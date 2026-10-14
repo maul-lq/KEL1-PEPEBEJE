@@ -154,7 +154,8 @@
                     <th>Status Usulan</th>
                     <th>Revisi Ke</th>
                     <th>Terkait Revisi Induk</th>
-                    <th>Aksi / Tracking</th>
+                    <th>Catatan Penolakan (FR 4.1)</th>
+                    <th>Aksi & Unduh PDF (NFR 12)</th>
                 </tr>
             </thead>
             <tbody>
@@ -179,14 +180,36 @@
                             @endif
                         </td>
                         <td>
+                            @php
+                                $penolakan = $item->verifikasiParalel ? $item->verifikasiParalel->whereIn('status_keputusan', ['ditolak', 'revisi']) : collect();
+                            @endphp
+                            @if ($penolakan->isNotEmpty())
+                                <ul>
+                                    @foreach ($penolakan as $p)
+                                        <li>
+                                            <small>
+                                                <strong>[{{ strtoupper($p->role_verifikator) }}]:</strong>
+                                                {{ $p->catatan_alasan }}
+                                            </small>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            @else
+                                <small><em>- Tidak ada penolakan -</em></small>
+                            @endif
+                        </td>
+                        <td>
                             <a href="{{ route('monitoring.web', ['nomor_surat' => $item->nomor_surat]) }}">
                                 Lacak Posisi &rarr;
+                            </a><br>
+                            <a href="{{ route('unduh.pdf.web', ['jenis' => 'permohonan', 'id' => $item->nomor_surat]) }}" target="_blank">
+                                Unduh Lampiran PDF &rarr;
                             </a>
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="8" align="center">Belum ada berkas permohonan yang diajukan oleh unit Anda.</td>
+                        <td colspan="9" align="center">Belum ada berkas permohonan yang diajukan oleh unit Anda.</td>
                     </tr>
                 @endforelse
             </tbody>

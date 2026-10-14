@@ -46,6 +46,13 @@ Route::middleware('auth')->group(function () {
     Route::post('/tes-permohonan', [HomeController::class, 'storePermohonan'])->name('permohonan.web.store');
     Route::post('/tes-permohonan/revisi', [HomeController::class, 'revisiPermohonan'])->name('permohonan.web.revisi');
     Route::get('/tes-monitoring', [HomeController::class, 'tesMonitoring'])->name('monitoring.web');
+    Route::get('/tes-paket', [HomeController::class, 'tesPaket'])->name('paket.web');
+    Route::post('/tes-paket', [HomeController::class, 'storePaket'])->name('paket.web.store');
+    Route::post('/tes-paket/reassign-ppk', [HomeController::class, 'reassignPpkWeb'])->name('paket.web.reassign');
+    Route::get('/tes-verifikasi-b2', [HomeController::class, 'tesVerifikasiB2'])->name('verifikasi-b2.web');
+    Route::post('/tes-verifikasi-b2/teruskan-staff', [HomeController::class, 'teruskanStaffB2'])->name('verifikasi-b2.web.teruskan');
+    Route::post('/tes-verifikasi-b2/keputusan-wadir', [HomeController::class, 'keputusanWadir2'])->name('verifikasi-b2.web.keputusan');
+    Route::get('/tes-unduh-pdf/{jenis}/{id}', [HomeController::class, 'unduhDokumenPdf'])->name('unduh.pdf.web')->where(['id' => '.*']);
     Route::post('/tes-logout', [AuthController::class, 'logout'])->name('logout');
 });
 
@@ -56,7 +63,12 @@ Route::prefix('api')->group(function () {
     Route::apiResource('users', UserController::class);
     Route::apiResource('vendors', VendorController::class);
 
-    // Permohonan Pengadaan & Split & Revisi & Tracking (FR 3 & NFR 7)
+    // Permohonan Pengadaan & Riwayat User (FR 4.1) & Split & Revisi & Tracking (FR 3 & NFR 7) & Unduh PDF (NFR 12)
+    Route::get('permohonan-pengadaan/riwayat-user', [PermohonanPengadaanController::class, 'riwayatUser'])
+        ->name('permohonan-pengadaan.riwayat-user');
+    Route::get('permohonan-pengadaan/{permohonan_pengadaan}/unduh-pdf', [PermohonanPengadaanController::class, 'unduhPdf'])
+        ->name('permohonan-pengadaan.unduh-pdf')
+        ->where(['permohonan_pengadaan' => '.*']);
     Route::post('permohonan-pengadaan/{permohonan_pengadaan}/split', [PermohonanPengadaanController::class, 'split'])
         ->name('permohonan-pengadaan.split')
         ->middleware('role:perencanaan,ppbj')
@@ -76,13 +88,16 @@ Route::prefix('api')->group(function () {
         ->middleware('role:perencanaan');
     Route::apiResource('anggaran-mak', AnggaranMAKController::class);
 
-    // Paket Pengadaan & Alih Tugas PPK (Reassign hanya untuk PPBJ & Perencanaan - FR 7.3)
+    // Paket Pengadaan & Alih Tugas PPK (Reassign hanya untuk PPBJ & Perencanaan - FR 7.3 & NFR 4)
     Route::post('paket-pengadaan/{paket_pengadaan}/reassign-ppk', [PaketPengadaanController::class, 'reassignPpk'])
+        ->name('paket-pengadaan.reassign-ppk')
         ->middleware('role:ppbj,perencanaan')
         ->where(['paket_pengadaan' => '.*']);
     Route::apiResource('paket-pengadaan', PaketPengadaanController::class)->where(['paket_pengadaan' => '.*']);
 
     // Verifikasi Paralel & Alokasi MAK (Verifikasi Paralel untuk Staff B2, Wadir 2, Perencanaan)
+    Route::post('verifikasi-paralel/teruskan-ke-wadir', [VerifikasiParalelController::class, 'teruskanKeWadir'])
+        ->name('verifikasi-paralel.teruskan-ke-wadir');
     Route::apiResource('verifikasi-paralel', VerifikasiParalelController::class)->where(['verifikasi_paralel' => '.*']);
     Route::apiResource('alokasi-mak', AlokasiMAKController::class)->where(['alokasi_mak' => '.*']);
 
@@ -91,10 +106,16 @@ Route::prefix('api')->group(function () {
     Route::apiResource('reviu-pengadaan', ReviuPengadaanController::class);
     Route::apiResource('riwayat-penugasan-ppk', RiwayatPenugasanPPKController::class);
 
-    // Kontrak SPK (Diterbitkan oleh PPBJ / PPK)
+    // Kontrak SPK (Diterbitkan oleh PPBJ / PPK) & Unduh PDF (NFR 12)
+    Route::get('kontrak-spk/{kontrak_spk}/unduh-pdf', [KontrakSPKController::class, 'unduhPdf'])
+        ->name('kontrak-spk.unduh-pdf')
+        ->where(['kontrak_spk' => '.*']);
     Route::apiResource('kontrak-spk', KontrakSPKController::class)->where(['kontrak_spk' => '.*']);
 
-    // Penerimaan Barang & Foto Dokumentasi (Perlengkapan)
+    // Penerimaan Barang & Foto Dokumentasi (Perlengkapan) & Unduh PDF BAST (NFR 12)
+    Route::get('penerimaan-barang/{penerimaan_barang}/unduh-pdf', [PenerimaanBarangController::class, 'unduhPdf'])
+        ->name('penerimaan-barang.unduh-pdf')
+        ->where(['penerimaan_barang' => '.*']);
     Route::apiResource('penerimaan-barang', PenerimaanBarangController::class)->where(['penerimaan_barang' => '.*']);
     Route::apiResource('dokumentasi-penerimaan-barang', DokumentasiPenerimaanBarangController::class);
 
@@ -104,7 +125,10 @@ Route::prefix('api')->group(function () {
     Route::apiResource('pembayaran', PembayaranController::class)->where(['pembayaran' => '.*']);
     Route::apiResource('memo-bayar', MemoBayarController::class)->where(['memo_bayar' => '.*']);
 
-    // Transaksi Pencairan (Khusus Bagian Keuangan)
+    // Transaksi Pencairan (Khusus Bagian Keuangan) & Unduh PDF Bukti Transfer (NFR 12)
+    Route::get('transaksi-pencairan/{transaksi_pencairan}/unduh-pdf', [TransaksiPencairanController::class, 'unduhPdf'])
+        ->name('transaksi-pencairan.unduh-pdf')
+        ->where(['transaksi_pencairan' => '.*']);
     Route::apiResource('transaksi-pencairan', TransaksiPencairanController::class)->where(['transaksi_pencairan' => '.*']);
 
     // Reminders & Notifikasi User
