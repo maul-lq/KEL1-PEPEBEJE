@@ -63,4 +63,13 @@ Dokumen ini berisi aturan baku bagi pengembang backend dan agen AI yang bekerja 
 - **Eksekusi Pengujian**: Jalankan pengujian menggunakan `php artisan test` atau `vendor/bin/phpunit` dengan parameter filter (contoh: `--filter=NamaTestMethod`). **DILARANG** menjalankan perintah runner Pest (`vendor/bin/pest`).
 
 ---
+
+## 7. Aturan Eksekusi Skrip Python (.venv Lokal)
+- **Virtual Environment Wajib**: Seluruh eksekusi skrip Python untuk analisis data dokumen sumber truth (`1Jorking/`, `1DokumenPendukungMahPBL/`), pengolahan file Excel (`openpyxl`, `pandas`), Word (`python-docx`), atau PDF (`pypdf`) **WAJIB** menggunakan Python dari virtual environment lokal:
+  - Path Windows: `.venv\Scripts\python.exe`
+  - Package manager: `.venv\Scripts\pip.exe`
+- **DILARANG** menggunakan Python atau menjalankan `pip install` secara global.
+- Seluruh dependensi Python dipelihara pada berkas `requirements.txt`.
+
+---
 *Dokumen ini merupakan aturan wajib bagi seluruh aktivitas pengembangan dan pengujian backend SIM-PBJ Politeknik Negeri Jakarta.*

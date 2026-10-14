@@ -159,6 +159,23 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 - Dilarang menjalankan test menggunakan runner Pest (`vendor/bin/pest`). Selalu gunakan runner PHPUnit / `php artisan test`.
 - Jalankan ulang test setiap kali membuat perubahan pada kode terkait.
 
+=== python rules ===
+
+# Python Environment (.venv)
+
+- Proyek ini telah menyediakan virtual environment Python pada folder `.venv`.
+- **Wajib Menggunakan Python dari `.venv`**: Seluruh eksekusi skrip Python, analisis dokumen sumber truth (Excel `.xlsx`, Word `.docx`, PDF `.pdf`), pembuatan scratch script, atau perkakas otomatisasi lainnya **WAJIB** menggunakan binary Python dari `.venv`:
+  - Path Windows: `.venv\Scripts\python.exe`
+  - Package manager: `.venv\Scripts\pip.exe`
+- **DILARANG** menjalankan perintah `python` atau `pip install` secara global tanpa virtual environment `.venv`.
+- **Manajemen Kebutuhan Library**:
+  - Jika memerlukan library tambahan, pasang ke dalam venv menggunakan `.venv\Scripts\pip.exe install <nama_package>`.
+  - Selalu perbarui `requirements.txt` setelah penambahan/pembaruan library dengan perintah `.venv\Scripts\pip.exe freeze > requirements.txt`.
+- **Library Standar yang Tersedia di `.venv`**:
+  - `openpyxl` & `pandas`: Analisis berkas Excel & tabel kebutuhan sistem (`1Jorking/FR-NFR Kel 1 v1.2.xlsx`, Gantt Chart).
+  - `python-docx`: Analisis berkas dokumen spesifikasi Word (`.docx`).
+  - `pypdf`: Analisis berkas PDF dokumen kontrak, BAST, dan bukti pendukung.
+
 === frontend documentation & backend simulation rules ===
 
 # Documentation & Backend Testing Rules
@@ -167,5 +184,6 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 - **Aturan Pengujian / Simulasi Backend**: Aturan khusus pembuatan file simulasi/antarmuka pengujian oleh backend (termasuk aturan TANPA CSS TOTAL dan penempatan JavaScript pengujian pada `resources/js/tes_*.js`) telah dipindahkan dan WAJIB mematuhi panduan di `AGENTS-BACKEND.md`.
 - **Wajib Komentar Kode dengan Bahasa Natural dan Jelas**: Seluruh file backend WAJIB memiliki komentar penjelasan pada setiap blok kode, method, alur logika, dan baris kode penting menggunakan bahasa natural, lugas, dan jelas agar manusia (overseer) maupun agen AI dapat langsung memahami fungsi, maksud, alur data, serta validasi yang terjadi.
 - **Wajib Menggunakan PHPUnit Test (Bukan Pest)**: Seluruh pengujian backend otomatis WAJIB dibuat dan dijalankan menggunakan PHPUnit test (`TestCase`), bukan Pest. Dilarang membuat file test dengan sintaks Pest (`test()`, `it()`).
+- **Wajib Menggunakan Python dari `.venv`**: Jika agen/pengembang perlu mengeksekusi skrip Python untuk analisis data sumber truth (Excel, Word, PDF) atau otomatisasi pendukung, WAJIB menggunakan executable Python dari virtual environment lokal proyek (`.venv\Scripts\python.exe`) dan dilarang menggunakan Python global.
 
 </laravel-boost-guidelines>
