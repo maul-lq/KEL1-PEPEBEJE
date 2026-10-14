@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class UserController extends Controller
 {
@@ -55,6 +56,16 @@ class UserController extends Controller
             'kode_unit' => 'nullable|string|exists:units,kode_unit',
         ]);
 
+        // FR 2.1: Batasan 1 user = 1 akun Pejabat Pengadaan (PP) aktif
+        if ($validated['role'] === 'pp') {
+            $existingPP = User::where('role', 'pp')->where('status_aktif', true)->exists();
+            if ($existingPP) {
+                throw ValidationException::withMessages([
+                    'role' => 'Batasan sistem: Hanya diizinkan 1 akun Pejabat Pengadaan (PP) aktif di institusi (FR 2.1).',
+                ]);
+            }
+        }
+
         $user = User::create($validated);
 
         return response()->json([
@@ -87,6 +98,19 @@ class UserController extends Controller
             'no_telp_kantor' => 'nullable|string|max:20',
             'kode_unit' => 'nullable|string|exists:units,kode_unit',
         ]);
+
+        // FR 2.1: Batasan 1 user = 1 akun PP aktif
+        if (isset($validated['role']) && $validated['role'] === 'pp' && ($validated['status_aktif'] ?? $user->status_aktif)) {
+            $existingPP = User::where('role', 'pp')
+                ->where('status_aktif', true)
+                ->where('id_user', '!=', $user->id_user)
+                ->exists();
+            if ($existingPP) {
+                throw ValidationException::withMessages([
+                    'role' => 'Batasan sistem: Hanya diizinkan 1 akun Pejabat Pengadaan (PP) aktif di institusi (FR 2.1).',
+                ]);
+            }
+        }
 
         if (empty($validated['password'])) {
             unset($validated['password']);

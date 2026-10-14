@@ -16,6 +16,27 @@ class User extends Authenticatable
 
     protected $primaryKey = 'id_user';
 
+    public const ROLE_USER = 'user';
+
+    public const ROLE_STAFF_BIDANG_2 = 'staff_bidang_2';
+
+    public const ROLE_WADIR_2 = 'wadir_2';
+
+    public const ROLE_PERENCANAAN = 'perencanaan';
+
+    public const ROLE_PPBJ = 'ppbj';
+
+    public const ROLE_PP = 'pp';
+
+    public const ROLE_PPK = 'ppk';
+
+    public const ROLE_PERLENGKAPAN = 'perlengkapan';
+
+    public const ROLE_KEUANGAN = 'keuangan';
+
+    // Aliases for backwards compatibility
+    public const ROLE_USER_PENGAJU = 'user';
+
     protected $fillable = [
         'nip',
         'username',

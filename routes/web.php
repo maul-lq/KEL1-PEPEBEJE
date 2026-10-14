@@ -45,46 +45,52 @@ Route::middleware('auth')->group(function () {
     Route::post('/tes-logout', [AuthController::class, 'logout'])->name('logout');
 });
 
-// Endpoint API Backend (18 Entitas & Workflow Endpoints)
+// Endpoint API Backend (18 Entitas & Workflow Endpoints dengan RBAC)
 Route::prefix('api')->group(function () {
+    // Master data dasar (dapat diakses seluruh pengguna terotentikasi)
     Route::apiResource('units', UnitController::class);
     Route::apiResource('users', UserController::class);
     Route::apiResource('vendors', VendorController::class);
 
-    // Permohonan Pengadaan & Split
-    Route::post('permohonan-pengadaan/{permohonan_pengadaan}/split', [PermohonanPengadaanController::class, 'split']);
+    // Permohonan Pengadaan & Split (Split hanya untuk Perencanaan & PPBJ)
+    Route::post('permohonan-pengadaan/{permohonan_pengadaan}/split', [PermohonanPengadaanController::class, 'split'])
+        ->middleware('role:perencanaan,ppbj');
     Route::apiResource('permohonan-pengadaan', PermohonanPengadaanController::class)->where(['permohonan_pengadaan' => '.*']);
 
-    // Anggaran MAK & Lock
-    Route::post('anggaran-mak/{anggaran_mak}/lock', [AnggaranMAKController::class, 'lock']);
+    // Anggaran MAK & Lock (Lock & Manajemen hanya untuk Perencanaan)
+    Route::post('anggaran-mak/{anggaran_mak}/lock', [AnggaranMAKController::class, 'lock'])
+        ->middleware('role:perencanaan');
     Route::apiResource('anggaran-mak', AnggaranMAKController::class);
 
-    // Paket Pengadaan & Alih Tugas PPK
-    Route::post('paket-pengadaan/{paket_pengadaan}/reassign-ppk', [PaketPengadaanController::class, 'reassignPpk']);
-    Route::apiResource('paket-pengadaan', PaketPengadaanController::class);
+    // Paket Pengadaan & Alih Tugas PPK (Reassign hanya untuk PPBJ & Perencanaan - FR 7.3)
+    Route::post('paket-pengadaan/{paket_pengadaan}/reassign-ppk', [PaketPengadaanController::class, 'reassignPpk'])
+        ->middleware('role:ppbj,perencanaan')
+        ->where(['paket_pengadaan' => '.*']);
+    Route::apiResource('paket-pengadaan', PaketPengadaanController::class)->where(['paket_pengadaan' => '.*']);
 
-    // Verifikasi Paralel & Alokasi MAK
+    // Verifikasi Paralel & Alokasi MAK (Verifikasi Paralel untuk Staff B2, Wadir 2, Perencanaan)
     Route::apiResource('verifikasi-paralel', VerifikasiParalelController::class)->where(['verifikasi_paralel' => '.*']);
     Route::apiResource('alokasi-mak', AlokasiMAKController::class)->where(['alokasi_mak' => '.*']);
 
-    // Reviu Dokumen (PP / PPK) & Riwayat Penugasan
+    // Reviu Dokumen (Hanya untuk PP, PPK, dan PPBJ)
     Route::apiResource('reviu-dokumen', ReviuDokumenController::class);
     Route::apiResource('reviu-pengadaan', ReviuPengadaanController::class);
     Route::apiResource('riwayat-penugasan-ppk', RiwayatPenugasanPPKController::class);
 
-    // Kontrak SPK
+    // Kontrak SPK (Diterbitkan oleh PPBJ / PPK)
     Route::apiResource('kontrak-spk', KontrakSPKController::class)->where(['kontrak_spk' => '.*']);
 
-    // Penerimaan Barang & Foto Dokumentasi
+    // Penerimaan Barang & Foto Dokumentasi (Perlengkapan)
     Route::apiResource('penerimaan-barang', PenerimaanBarangController::class)->where(['penerimaan_barang' => '.*']);
     Route::apiResource('dokumentasi-penerimaan-barang', DokumentasiPenerimaanBarangController::class);
 
-    // Pembayaran & Memo Bayar Bertingkat
-    Route::post('pembayaran/{pembayaran}/perintah-bayar', [PembayaranController::class, 'terbitkanPerintahBayar']);
+    // Pembayaran & Memo Bayar Bertingkat (Memo bayar untuk PPK & Wadir 2)
+    Route::post('pembayaran/{pembayaran}/perintah-bayar', [PembayaranController::class, 'terbitkanPerintahBayar'])
+        ->middleware('role:ppbj');
     Route::apiResource('pembayaran', PembayaranController::class)->where(['pembayaran' => '.*']);
     Route::apiResource('memo-bayar', MemoBayarController::class)->where(['memo_bayar' => '.*']);
 
-    // Transaksi Pencairan
+    // Transaksi Pencairan (Khusus Bagian Keuangan)
     Route::apiResource('transaksi-pencairan', TransaksiPencairanController::class)->where(['transaksi_pencairan' => '.*']);
 
     // Reminders & Notifikasi User

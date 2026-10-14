@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\KontrakSPK;
 use App\Models\PaketPengadaan;
+use App\Rules\DokumenUploadRule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -40,9 +41,12 @@ class KontrakSPKController extends Controller
             'tanggal_mulai' => 'nullable|date',
             'tanggal_selesai' => 'nullable|date',
             'jadwal_pengiriman' => 'required|date',
-            'nilai_kontrak' => 'required|numeric|min:0',
-            'file_spk' => 'required|string|max:255',
+            'file_spk' => ['required', DokumenUploadRule::pdfOnly()],
         ]);
+
+        if ($request->hasFile('file_spk')) {
+            $validated['file_spk'] = $request->file('file_spk')->store('spk', 'public');
+        }
 
         $spk = KontrakSPK::create($validated);
 

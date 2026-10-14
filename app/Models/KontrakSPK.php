@@ -47,11 +47,16 @@ class KontrakSPK extends Model
     protected static function booted(): void
     {
         static::saved(function (KontrakSPK $spk) {
-            // Jika SPK terbit, picu penguncian permanen data MAK terkait (FR 6.4 & 11.2)
+            // Jika SPK terbit, picu penguncian permanen data MAK terkait (FR 6.4, FR 11.2, NFR Integritas Data MAK)
             if (in_array($spk->status_spk, ['terbit', 'aktif', 'selesai'])) {
                 $paket = $spk->paket;
-                if ($paket && $paket->permohonan && $paket->permohonan->anggaranMak) {
-                    $paket->permohonan->anggaranMak->lock();
+                if ($paket && $paket->permohonan) {
+                    if ($paket->permohonan->anggaranMak) {
+                        $paket->permohonan->anggaranMak->lock();
+                    }
+                    foreach ($paket->permohonan->alokasiMak ?? [] as $alokasi) {
+                        $alokasi->mak?->lock();
+                    }
                 }
 
                 // Generate automatic reminder for delivery date if not already existing (FR 12.2)
@@ -64,8 +69,8 @@ class KontrakSPK extends Model
                         'waktu_trigger' => $spk->jadwal_pengiriman->startOfDay(),
                         'is_recurring' => ($spk->sifat_kontrak === 'termin_bulanan' || $spk->sifat_kontrak === 'kontrak_tahunan'),
                         'interval_bulan' => ($spk->sifat_kontrak === 'termin_bulanan') ? 1 : null,
-                        'judul_alert' => 'Jadwal Pengiriman Barang: ' . ($paket->nama_paket ?? $spk->nomor_spk),
-                        'pesan_alert' => 'Pengingat otomatis jadwal pengiriman barang sesuai kontrak/SPK ' . $spk->nomor_spk,
+                        'judul_alert' => 'Jadwal Pengiriman Barang: '.($paket->nama_paket ?? $spk->nomor_spk),
+                        'pesan_alert' => 'Pengingat otomatis jadwal pengiriman barang sesuai kontrak/SPK '.$spk->nomor_spk,
                     ]
                 );
             }

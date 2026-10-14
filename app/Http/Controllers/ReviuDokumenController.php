@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\PaketPengadaan;
 use App\Models\ReviuDokumen;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -11,6 +12,13 @@ class ReviuDokumenController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = ReviuDokumen::with(['paket', 'user']);
+
+        // NFR RBAC: Isolasi berkas 4 akun PPK
+        if ($request->user() && $request->user()->role === 'ppk') {
+            $query->whereHas('paket', function ($q) use ($request) {
+                $q->where('id_user_ppk', $request->user()->id_user);
+            });
+        }
 
         if ($request->filled('nomor_paket')) {
             $query->where('nomor_paket', $request->nomor_paket);
@@ -36,6 +44,18 @@ class ReviuDokumenController extends Controller
             'status_reviu' => 'required|string|in:disetujui,perlu_perbaikan,ditolak',
             'catatan_perbaikan' => 'nullable|string',
         ]);
+
+        // NFR RBAC: Isolasi berkas 4 akun PPK saat mereviu
+        $user = $request->user();
+        if ($user && $user->role === 'ppk') {
+            $paket = PaketPengadaan::find($validated['nomor_paket']);
+            if ($paket && (int) $paket->id_user_ppk !== (int) $user->id_user) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Akses Ditolak: Anda tidak dapat mereviu paket yang ditugaskan kepada PPK lain (Isolasi Berkas PPK).',
+                ], 403);
+            }
+        }
 
         if (in_array($validated['status_reviu'], ['perlu_perbaikan', 'ditolak']) && empty($validated['catatan_perbaikan'])) {
             return response()->json([

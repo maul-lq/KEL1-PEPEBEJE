@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\TransaksiPencairan;
+use App\Rules\DokumenUploadRule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -29,9 +30,13 @@ class TransaksiPencairanController extends Controller
             'nomor_pembayaran' => 'required|exists:pembayaran,nomor_pembayaran',
             'id_user' => 'required|exists:users,id_user',
             'nominal_transfer' => 'required|numeric|min:0',
-            'file_bukti_transfer' => 'required|string|max:255',
+            'file_bukti_transfer' => ['required', DokumenUploadRule::pdfOrImage()],
             'catatan_keuangan' => 'nullable|string',
         ]);
+
+        if ($request->hasFile('file_bukti_transfer')) {
+            $validated['file_bukti_transfer'] = $request->file('file_bukti_transfer')->store('transfer', 'public');
+        }
 
         $validated['tanggal_transfer'] = now();
 

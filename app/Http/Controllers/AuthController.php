@@ -8,6 +8,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class AuthController extends Controller
@@ -32,6 +34,7 @@ class AuthController extends Controller
 
     /**
      * Proses pendaftaran user baru.
+     * Menerapkan batasan 1 user = 1 akun PP (FR 2.1).
      */
     public function register(Request $request): RedirectResponse
     {
@@ -49,8 +52,20 @@ class AuthController extends Controller
         ]);
 
         // Default role: user (pemohon)
-        $validated['role'] = $validated['role'] ?? 'user';
-        $validated['status_aktif'] = true; // Langsung aktif untuk kemudahan pengujian prototype
+        $targetRole = $validated['role'] ?? 'user';
+
+        // FR 2.1: Batasan 1 user = 1 akun Pejabat Pengadaan (PP) aktif
+        if ($targetRole === 'pp') {
+            $existingPP = User::where('role', 'pp')->where('status_aktif', true)->exists();
+            if ($existingPP) {
+                return back()->withErrors([
+                    'role' => 'Batasan sistem: Hanya diizinkan 1 akun Pejabat Pengadaan (PP) aktif di institusi (FR 2.1).',
+                ])->withInput();
+            }
+        }
+
+        $validated['role'] = $targetRole;
+        $validated['status_aktif'] = true; // Aktif untuk verifikasi prototipe
 
         User::create($validated);
 
@@ -62,6 +77,9 @@ class AuthController extends Controller
 
     /**
      * Proses login pengguna.
+     * FR 1.1: Memasukkan username/nip/email dan password.
+     * FR 1.2: Memvalidasi kredensial pengguna & proteksi rate limiting.
+     * FR 1.3: Mengalihkan pengguna ke dashboard sesuai role.
      */
     public function login(Request $request): RedirectResponse
     {
@@ -71,6 +89,16 @@ class AuthController extends Controller
         ]);
 
         $loginInput = $credentials['login'];
+        $throttleKey = Str::transliterate(Str::lower($loginInput).'|'.$request->ip());
+
+        // FR 1.2: Proteksi brute-force login (maksimal 5 percobaan gagal per menit)
+        if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
+            $seconds = RateLimiter::availableIn($throttleKey);
+
+            return back()->withErrors([
+                'login' => "Terlalu banyak percobaan login gagal. Silakan coba kembali dalam {$seconds} detik.",
+            ])->onlyInput('login');
+        }
 
         // Cari user berdasarkan username, email, atau nip
         $user = User::where('username', $loginInput)
@@ -85,11 +113,21 @@ class AuthController extends Controller
                 ])->onlyInput('login');
             }
 
+            // Bersihkan riwayat throttle saat berhasil
+            RateLimiter::clear($throttleKey);
+
             Auth::login($user, $request->filled('remember'));
             $request->session()->regenerate();
+            $request->session()->put('last_activity', time());
 
-            return redirect()->intended(route('home'));
+            // FR 1.3: Pengalihan pengguna ke dashboard sesuai role
+            return redirect()->intended(route('home', ['role' => $user->role]))->with(
+                'success',
+                "Selamat datang kembali, {$user->nama}! Masuk sebagai ".strtoupper(str_replace('_', ' ', $user->role)).'.'
+            );
         }
+
+        RateLimiter::hit($throttleKey, 60);
 
         return back()->withErrors([
             'login' => 'Kombinasi Username/NIP/Email dan password tidak sesuai.',

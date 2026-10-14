@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\MemoBayar;
 use App\Models\PaketPengadaan;
 use App\Models\Pembayaran;
+use App\Models\User;
+use App\Rules\DokumenUploadRule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -37,12 +39,23 @@ class PembayaranController extends Controller
             'tahap_termin' => 'required|integer|min:1',
             'nominal_pengajuan' => 'required|numeric|min:0',
             'tanggal_pengajuan' => 'required|date',
-            'jatuh_tempo' => 'required|date',
-            'file_tagihan_vendor' => 'nullable|string|max:255',
-            'file_dokumen_penunjang' => 'nullable|string|max:255',
+            'file_tagihan_vendor' => ['nullable', DokumenUploadRule::pdfOrImage()],
+            'file_dokumen_penunjang' => ['nullable', DokumenUploadRule::pdfOrImage()],
             'nomor_memo' => 'nullable|string|max:100',
-            'file_memo' => 'nullable|string|max:255',
+            'file_memo' => ['nullable', DokumenUploadRule::pdfOnly()],
         ]);
+
+        if ($request->hasFile('file_tagihan_vendor')) {
+            $validated['file_tagihan_vendor'] = $request->file('file_tagihan_vendor')->store('tagihan', 'public');
+        }
+
+        if ($request->hasFile('file_dokumen_penunjang')) {
+            $validated['file_dokumen_penunjang'] = $request->file('file_dokumen_penunjang')->store('penunjang', 'public');
+        }
+
+        if ($request->hasFile('file_memo')) {
+            $validated['file_memo'] = $request->file('file_memo')->store('memo', 'public');
+        }
 
         $validated['status_pembayaran'] = 'reviu_memo';
         $pembayaran = Pembayaran::create($validated);
@@ -60,7 +73,7 @@ class PembayaranController extends Controller
         ]);
 
         // Cari user wadir 2
-        $wadirUser = \App\Models\User::where('role', 'wadir_2')->first();
+        $wadirUser = User::where('role', 'wadir_2')->first();
         if ($wadirUser) {
             MemoBayar::create([
                 'id_user' => $wadirUser->id_user,

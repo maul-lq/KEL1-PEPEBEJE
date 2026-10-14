@@ -4,9 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\PermohonanPengadaan;
 use App\Models\VerifikasiParalel;
+use App\Rules\DokumenUploadRule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class PermohonanPengadaanController extends Controller
 {
@@ -48,12 +48,16 @@ class PermohonanPengadaanController extends Controller
             'nomor_surat' => 'required|string|max:100|unique:permohonan_pengadaan,nomor_surat',
             'judul_pengadaan' => 'required|string|max:255',
             'tujuan_pengadaan_ringkas' => 'required|string',
-            'file_permohonan' => 'required|string|max:255',
+            'file_permohonan' => ['required', DokumenUploadRule::pdfOnly()],
             'kode_unit' => 'required|string|exists:units,kode_unit',
             'id_user' => 'required|exists:users,id_user',
             'estimasi_total_pagu' => 'nullable|numeric|min:0',
             'kode_mak' => 'nullable|exists:anggaran_mak,kode_mak',
         ]);
+
+        if ($request->hasFile('file_permohonan')) {
+            $validated['file_permohonan'] = $request->file('file_permohonan')->store('permohonan', 'public');
+        }
 
         $validated['status_permohonan'] = PermohonanPengadaan::STATUS_REVIU_PARALEL;
         $validated['status_anggaran'] = 'pending';

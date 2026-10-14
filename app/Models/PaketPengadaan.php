@@ -132,4 +132,33 @@ class PaketPengadaan extends Model
     {
         return $this->hasMany(Reminder::class, 'nomor_paket', 'nomor_paket');
     }
+
+    /**
+     * Scope query untuk memfilter paket sesuai wewenang peran dan isolasi berkas 4 akun PPK (NFR RBAC).
+     */
+    public function scopeForUser($query, User $user)
+    {
+        if ($user->role === 'ppk') {
+            // Isolasi berkas 4 akun PPK: Hanya melihat paket yang ditugaskan ke ID akun PPK bersangkutan
+            return $query->where('id_user_ppk', $user->id_user);
+        }
+
+        if ($user->role === 'pp') {
+            // PP hanya melihat paket yang dialokasikan ke jalur PP (50jt - 200jt) atau ditugaskan kepadanya
+            return $query->where(function ($q) use ($user) {
+                $q->where('jalur_routing', self::ROUTING_PP)
+                    ->orWhere('id_user_pp', $user->id_user);
+            });
+        }
+
+        if ($user->role === 'user') {
+            // Pemohon hanya melihat paket dari permohonan yang diajukannya
+            return $query->whereHas('permohonan', function ($q) use ($user) {
+                $q->where('id_user', $user->id_user);
+            });
+        }
+
+        // Role pengawas & manajemen (ppbj, perencanaan, wadir_2, perlengkapan, keuangan, staff_bidang_2) dapat melihat seluruh paket
+        return $query;
+    }
 }

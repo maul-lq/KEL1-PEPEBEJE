@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\DokumentasiPenerimaanBarang;
+use App\Rules\DokumenUploadRule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -26,9 +27,13 @@ class DokumentasiPenerimaanBarangController extends Controller
     {
         $validated = $request->validate([
             'id_penerimaan' => 'required|exists:penerimaan_barang,id_penerimaan',
-            'foto_dokumentasi' => 'required|string|max:255',
+            'foto_dokumentasi' => ['required', DokumenUploadRule::imageOnly()],
             'keterangan_foto' => 'nullable|string|max:255',
         ]);
+
+        if ($request->hasFile('foto_dokumentasi')) {
+            $validated['foto_dokumentasi'] = $request->file('foto_dokumentasi')->store('dokumentasi', 'public');
+        }
 
         $foto = DokumentasiPenerimaanBarang::create($validated);
 

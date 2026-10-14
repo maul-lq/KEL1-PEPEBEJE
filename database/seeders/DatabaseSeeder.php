@@ -291,7 +291,7 @@ class DatabaseSeeder extends Seeder
             $vendor = Vendor::updateOrCreate(['npwp' => $v['npwp']], $v);
             VendorFileLegalitas::updateOrCreate(
                 ['npwp' => $vendor->npwp, 'nama_dokumen' => 'NIB & SIUP Induk'],
-                ['file_legalitas' => 'legalitas/' . $vendor->npwp . '_nib.pdf', 'uploaded_at' => now()]
+                ['file_legalitas' => 'legalitas/'.$vendor->npwp.'_nib.pdf', 'uploaded_at' => now()]
             );
         }
 

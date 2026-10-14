@@ -32,16 +32,18 @@ class HomeController extends Controller
             'total_vendor' => Vendor::count(),
         ];
 
-        // Daftar data terbaru
-        $recentPermohonan = PermohonanPengadaan::with(['unit', 'user'])
-            ->latest('tanggal_pengajuan')
-            ->take(5)
-            ->get();
+        // Daftar data terbaru (NFR RBAC: Berkas terisolasi sesuai wewenang dan akun PPK)
+        $permohonanQuery = PermohonanPengadaan::with(['unit', 'user']);
+        if ($user && $user->role === 'user') {
+            $permohonanQuery->where('id_user', $user->id_user);
+        }
+        $recentPermohonan = $permohonanQuery->latest('tanggal_pengajuan')->take(5)->get();
 
-        $recentPaket = PaketPengadaan::with(['permohonan', 'ppkUser', 'ppUser'])
-            ->latest('tanggal_registrasi_paket')
-            ->take(5)
-            ->get();
+        $paketQuery = PaketPengadaan::with(['permohonan', 'ppkUser', 'ppUser']);
+        if ($user) {
+            $paketQuery->forUser($user);
+        }
+        $recentPaket = $paketQuery->latest('tanggal_registrasi_paket')->take(5)->get();
 
         $notifications = $user ? NotifikasiUser::with('reminder.paket')
             ->where('id_user', $user->id_user)

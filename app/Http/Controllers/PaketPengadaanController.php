@@ -13,6 +13,11 @@ class PaketPengadaanController extends Controller
     {
         $query = PaketPengadaan::with(['permohonan.unit', 'ppbjUser', 'ppkUser', 'ppUser', 'vendor']);
 
+        // NFR RBAC: Isolasi berkas 4 akun PPK & hak akses role
+        if ($request->user()) {
+            $query->forUser($request->user());
+        }
+
         if ($request->filled('status')) {
             $query->where('status_paket', $request->status);
         }
@@ -81,13 +86,22 @@ class PaketPengadaanController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Paket pengadaan berhasil diregistrasi dengan jalur routing: ' . $paket->jalur_routing,
+            'message' => 'Paket pengadaan berhasil diregistrasi dengan jalur routing: '.$paket->jalur_routing,
             'data' => $paket->load(['permohonan', 'ppbjUser', 'ppkUser', 'ppUser']),
         ], 201);
     }
 
-    public function show(PaketPengadaan $paket_pengadaan): JsonResponse
+    public function show(Request $request, PaketPengadaan $paket_pengadaan): JsonResponse
     {
+        // NFR RBAC: Isolasi berkas 4 akun PPK
+        $user = $request->user();
+        if ($user && $user->cannot('view', $paket_pengadaan)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Akses Ditolak: Berkas paket pengadaan ini ditugaskan kepada PPK lain (Isolasi Berkas PPK).',
+            ], 403);
+        }
+
         return response()->json([
             'status' => 'success',
             'data' => $paket_pengadaan->load([
@@ -108,6 +122,15 @@ class PaketPengadaanController extends Controller
 
     public function update(Request $request, PaketPengadaan $paket_pengadaan): JsonResponse
     {
+        // NFR RBAC: Otorisasi pembaruan paket
+        $user = $request->user();
+        if ($user && $user->cannot('update', $paket_pengadaan)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Akses Ditolak: Anda tidak memiliki wewenang untuk memperbarui paket ini.',
+            ], 403);
+        }
+
         $validated = $request->validate([
             'nama_paket' => 'sometimes|required|string|max:255',
             'jenis_pengadaan' => 'sometimes|required|string',
@@ -138,6 +161,14 @@ class PaketPengadaanController extends Controller
 
     public function reassignPpk(Request $request, PaketPengadaan $paket_pengadaan): JsonResponse
     {
+        // FR 7.3 & Notulensi 2: Hanya PPBJ dan Perencanaan yang boleh mengubah penugasan PPK
+        $user = $request->user();
+        if ($user && $user->cannot('reassignPpk', $paket_pengadaan)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Akses Ditolak: Hanya PPBJ dan Perencanaan yang dapat mengubah penugasan PPK (FR 7.3).',
+            ], 403);
+        }
         $validated = $request->validate([
             'ppk_baru_user_id' => 'required|exists:users,id_user',
             'diubah_oleh_user_id' => 'required|exists:users,id_user',

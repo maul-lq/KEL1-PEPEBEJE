@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Vendor;
 use App\Models\VendorFileLegalitas;
+use App\Rules\DokumenUploadRule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -49,13 +50,20 @@ class VendorController extends Controller
             'nama_bank' => 'required|string|max:100',
             'nomor_rekening' => 'required|string|max:50',
             'atas_nama' => 'required|string|max:150',
-            'file_legalitas' => 'nullable|string|max:255',
+            'file_legalitas' => ['nullable', DokumenUploadRule::pdfOrImage()],
             'nama_dokumen' => 'nullable|string|max:150',
         ]);
 
         $vendor = Vendor::create($validated);
 
-        if ($request->filled('file_legalitas')) {
+        if ($request->hasFile('file_legalitas')) {
+            $path = $request->file('file_legalitas')->store('legalitas', 'public');
+            VendorFileLegalitas::create([
+                'npwp' => $vendor->npwp,
+                'nama_dokumen' => $request->nama_dokumen ?? 'Dokumen Legalitas Utama',
+                'file_legalitas' => $path,
+            ]);
+        } elseif ($request->filled('file_legalitas')) {
             VendorFileLegalitas::create([
                 'npwp' => $vendor->npwp,
                 'nama_dokumen' => $request->nama_dokumen ?? 'Dokumen Legalitas Utama',

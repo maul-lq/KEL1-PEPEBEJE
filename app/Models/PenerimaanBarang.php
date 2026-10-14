@@ -50,4 +50,27 @@ class PenerimaanBarang extends Model
     {
         return $this->hasMany(DokumentasiPenerimaanBarang::class, 'id_penerimaan', 'id_penerimaan');
     }
+
+    /**
+     * Buat token tanda tangan digital kriptografis (NFR Integritas Data MAK & TTD Digital).
+     */
+    public static function generateSignatureToken(string $nomorBast, int $userId, ?string $timestamp = null): string
+    {
+        $time = $timestamp ?? now()->toIso8601String();
+        $payload = "BAST:{$nomorBast}|PETUGAS:{$userId}|TIME:{$time}";
+
+        return hash_hmac('sha256', $payload, (string) config('app.key'));
+    }
+
+    /**
+     * Verifikasi keabsahan tanda tangan digital BAST.
+     */
+    public function verifyTtdDigital(string $expectedToken): bool
+    {
+        if (empty($this->ttd_digital_bast)) {
+            return false;
+        }
+
+        return hash_equals($this->ttd_digital_bast, $expectedToken);
+    }
 }

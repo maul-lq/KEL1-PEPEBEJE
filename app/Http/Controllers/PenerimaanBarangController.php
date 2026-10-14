@@ -46,6 +46,14 @@ class PenerimaanBarangController extends Controller
 
         $validated['waktu_selesai_inspeksi'] = now();
 
+        // NFR Integritas Data MAK & TTD Digital: Amankan TTD digital dengan token kriptografis
+        if (! empty($validated['ttd_digital_bast'])) {
+            $validated['ttd_digital_bast'] = PenerimaanBarang::generateSignatureToken(
+                $validated['nomor_bast'] ?? 'BAST-'.time(),
+                (int) $validated['id_user']
+            );
+        }
+
         $penerimaan = PenerimaanBarang::create($validated);
 
         if (! empty($validated['foto_dokumentasi'])) {
@@ -53,7 +61,7 @@ class PenerimaanBarangController extends Controller
                 DokumentasiPenerimaanBarang::create([
                     'id_penerimaan' => $penerimaan->id_penerimaan,
                     'foto_dokumentasi' => $foto,
-                    'keterangan_foto' => 'Foto fisik barang #' . ($idx + 1),
+                    'keterangan_foto' => 'Foto fisik barang #'.($idx + 1),
                 ]);
             }
         }

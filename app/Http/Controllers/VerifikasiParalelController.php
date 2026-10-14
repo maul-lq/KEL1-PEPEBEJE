@@ -107,6 +107,7 @@ class VerifikasiParalelController extends Controller
         if ($verifikasi->contains('status_keputusan', 'ditolak')) {
             $permohonan->status_permohonan = PermohonanPengadaan::STATUS_DITOLAK;
             $permohonan->save();
+
             return;
         }
 
@@ -115,6 +116,7 @@ class VerifikasiParalelController extends Controller
             $permohonan->status_permohonan = PermohonanPengadaan::STATUS_PENDING_ANGGARAN;
             $permohonan->status_anggaran = 'hold';
             $permohonan->save();
+
             return;
         }
 
