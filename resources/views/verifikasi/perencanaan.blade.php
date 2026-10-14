@@ -78,7 +78,69 @@
 
     <hr>
 
-    {{-- 2. Daftar Master MAK DIPA & Fitur Kunci Anggaran --}}
+    {{-- 2. Formulir Pemecahan (Split) Permohonan Pengadaan Berdasarkan Anggaran MAK (FR 6.3) --}}
+    <fieldset>
+        <legend><strong>Pemecahan (Split) Usulan Permohonan Berdasarkan Anggaran MAK (FR 6.3)</strong></legend>
+        <p>
+            Jika terdapat usulan permohonan yang perlu dipisahkan pembebanan anggarannya ke mata anggaran (MAK) yang berbeda,
+            Perencanaan dapat memecah berkas usulan menjadi nomor surat pecahan baru.
+        </p>
+
+        <form action="{{ route('verifikasi.perencanaan.split') }}" method="POST">
+            @csrf
+            <p>
+                <label for="nomor_surat_induk"><strong>Pilih Usulan Induk yang Akan Dipecah:</strong></label><br>
+                <select id="nomor_surat_induk" name="nomor_surat_induk" required>
+                    <option value="">-- Pilih Surat Permohonan Induk --</option>
+                    @foreach($permohonanAntrean as $p)
+                        <option value="{{ $p->nomor_surat }}">
+                            [{{ $p->nomor_surat }}] {{ $p->perihal }} (Rp {{ number_format($p->anggaran_diajukan, 0, ',', '.') }})
+                        </option>
+                    @endforeach
+                </select>
+            </p>
+
+            <p>
+                <label for="nomor_surat_baru"><strong>Nomor Surat Pecahan Baru:</strong></label><br>
+                <input type="text" id="nomor_surat_baru" name="nomor_surat_baru" value="B/SPLIT/{{ date('Y') }}/{{ rand(100, 999) }}" required>
+            </p>
+
+            <p>
+                <label for="judul_pengadaan_split"><strong>Judul / Item Pengadaan Pecahan:</strong></label><br>
+                <input type="text" id="judul_pengadaan_split" name="judul_pengadaan" placeholder="Contoh: Pengadaan Komputer Bagian Lab A" required size="50">
+            </p>
+
+            <p>
+                <label for="kode_mak_split"><strong>Alokasikan ke Kode MAK:</strong></label><br>
+                <select id="kode_mak_split" name="kode_mak" required>
+                    <option value="">-- Pilih MAK Alokasi --</option>
+                    @foreach($makList as $mak)
+                        <option value="{{ $mak->kode_mak }}" {{ $mak->is_locked ? 'disabled' : '' }}>
+                            [{{ $mak->kode_mak }}] {{ $mak->uraian_mak }} &bull; Sisa: Rp {{ number_format($mak->sisa_pagu_mak, 0, ',', '.') }}
+                        </option>
+                    @endforeach
+                </select>
+            </p>
+
+            <p>
+                <label for="estimasi_total_pagu"><strong>Estimasi Alokasi Pagu Pecahan (Rp):</strong></label><br>
+                <input type="number" id="estimasi_total_pagu" name="estimasi_total_pagu" min="1" step="0.01" required placeholder="Contoh: 50000000">
+            </p>
+
+            <p>
+                <label for="alasan_pemecahan"><strong>Alasan Pemecahan MAK (FR 6.3 & NFR 9):</strong></label><br>
+                <textarea id="alasan_pemecahan" name="alasan_pemecahan" rows="2" cols="60" required placeholder="Contoh: Pemisahan item belanja modal dan operasional ke pos MAK terpisah"></textarea>
+            </p>
+
+            <p>
+                <button type="submit"><strong>Proses Pemecahan (Split) Berkas Permohonan</strong></button>
+            </p>
+        </form>
+    </fieldset>
+
+    <hr>
+
+    {{-- 3. Daftar Master MAK DIPA & Fitur Kunci Anggaran --}}
     <fieldset>
         <legend><strong>Daftar Mata Anggaran Kegiatan (MAK) DIPA Kampus PNJ</strong></legend>
         <table border="1" cellpadding="6" cellspacing="0">
@@ -104,9 +166,9 @@
                         <td><strong>Rp {{ number_format($mak->sisa_pagu_mak, 0, ',', '.') }}</strong></td>
                         <td align="center">
                             @if($mak->is_locked)
-                                <strong>TERKUNCI</strong>
+                                <strong>TERKUNCI PERMANEN (PASCA-SPK)</strong>
                             @else
-                                <em>Terbuka (Dapat Dialokasikan)</em>
+                                <em>Terbuka (Dapat Dialokasikan & Disesuaikan)</em>
                             @endif
                         </td>
                     </tr>

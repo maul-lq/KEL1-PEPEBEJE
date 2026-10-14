@@ -186,6 +186,22 @@ class PermohonanPengadaan extends Model
     }
 
     /**
+     * Accessor untuk alias anggaran_diajukan yang merujuk ke estimasi_total_pagu.
+     */
+    public function getAnggaranDiajukanAttribute(): mixed
+    {
+        return $this->attributes['estimasi_total_pagu'] ?? 0;
+    }
+
+    /**
+     * Mutator untuk alias anggaran_diajukan yang menyelaraskan ke estimasi_total_pagu.
+     */
+    public function setAnggaranDiajukanAttribute(mixed $value): void
+    {
+        $this->attributes['estimasi_total_pagu'] = $value;
+    }
+
+    /**
      * Relasi many-to-one ke Unit Kerja pengusul pengadaan.
      *
      * @return BelongsTo Relasi ke model Unit

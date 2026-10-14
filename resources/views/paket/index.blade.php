@@ -32,6 +32,7 @@
                         <th>Pejabat Pengadaan</th>
                         <th>Pejabat Pembuat Komitmen (PPK)</th>
                         <th>Status Paket</th>
+                        <th>Aksi Dokumen</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -52,7 +53,16 @@
                                     <small><em>(Bukan Jalur PPK)</em></small>
                                 @endif
                             </td>
-                            <td>{{ strtoupper($pkt->status_paket) }}</td>
+                            <td>{{ strtoupper(str_replace('_', ' ', $pkt->status_paket)) }}</td>
+                            <td>
+                                @if(in_array(Auth::user()->role, ['pp', 'ppk', 'ppbj', 'admin']))
+                                    <a href="{{ route('kontrak.index') }}">
+                                        <button type="button">Reviu / SPK</button>
+                                    </a>
+                                @else
+                                    -
+                                @endif
+                            </td>
                         </tr>
                     @endforeach
                 </tbody>

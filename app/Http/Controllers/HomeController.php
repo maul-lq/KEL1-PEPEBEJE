@@ -11,6 +11,7 @@ use App\Models\PaketPengadaan;
 use App\Models\Pembayaran;
 use App\Models\PenerimaanBarang;
 use App\Models\PermohonanPengadaan;
+use App\Models\ReviuDokumen;
 use App\Models\RiwayatPenugasanPPK;
 use App\Models\TransaksiPencairan;
 use App\Models\Unit;
@@ -465,17 +466,30 @@ class HomeController extends Controller
                 ['nomor_surat' => $permohonan->nomor_surat, 'role_verifikator' => 'perencanaan'],
                 ['id_user' => $user->id_user, 'status_keputusan' => 'menunggu']
             );
-            $verifPerencanaan->status_keputusan = 'ditolak';
-            $verifPerencanaan->catatan_alasan = $validated['catatan_anggaran'] ?? 'Pagu anggaran tidak mencukupi atau ditahan.';
+            $verifPerencanaan->status_keputusan = 'pending_anggaran';
+            $verifPerencanaan->catatan_alasan = $validated['catatan_anggaran'] ?? 'Pagu anggaran belum tersedia di DIPA kampus (Hold).';
             $verifPerencanaan->tanggal_keputusan = now();
             $verifPerencanaan->save();
 
+            $statusLama = $permohonan->status_permohonan;
             $permohonan->status = 'pending_anggaran';
+            $permohonan->status_permohonan = PermohonanPengadaan::STATUS_PENDING_ANGGARAN;
+            $permohonan->status_anggaran = 'hold';
             $permohonan->save();
+
+            AuditLog::catat(
+                $user->id_user,
+                'HOLD_ANGGARAN_PERMOHONAN',
+                'permohonan_pengadaan',
+                $permohonan->nomor_surat,
+                $statusLama,
+                PermohonanPengadaan::STATUS_PENDING_ANGGARAN,
+                'Perencanaan menahan (Hold/Pending) usulan karena anggaran belum tersedia (FR 6.2): '.($validated['catatan_anggaran'] ?? 'Anggaran belum siap')
+            );
 
             return redirect()->route('verifikasi.perencanaan')->with(
                 'error',
-                "Usulan {$permohonan->nomor_surat} ditandai pending anggaran oleh Bagian Perencanaan."
+                "Usulan {$permohonan->nomor_surat} ditandai pending anggaran (Hold) oleh Bagian Perencanaan (FR 6.2)."
             );
         }
 
@@ -531,6 +545,90 @@ class HomeController extends Controller
         return redirect()->route('verifikasi.perencanaan')->with(
             'success',
             "MAK {$mak->kode_mak} berhasil dialokasikan. Menunggu penyelesaian persetujuan eksekutif Wadir II."
+        );
+    }
+
+    /**
+     * Memproses pemecahan (split) permohonan pengadaan berdasarkan pos anggaran MAK (FR 6.3).
+     */
+    public function splitMakPerencanaan(Request $request): RedirectResponse
+    {
+        $user = Auth::user();
+        $nomorInduk = $request->input('nomor_surat_induk');
+        if (! $request->filled('nomor_surat_baru') && $nomorInduk) {
+            $countChild = PermohonanPengadaan::where('nomor_surat_induk_split', $nomorInduk)->count();
+            $request->merge(['nomor_surat_baru' => $nomorInduk.'.'.($countChild + 1)]);
+        }
+        if (! $request->filled('estimasi_total_pagu') && $request->filled('nominal_split')) {
+            $request->merge(['estimasi_total_pagu' => $request->input('nominal_split')]);
+        }
+        if (! $request->filled('judul_pengadaan') && $nomorInduk) {
+            $indukRef = PermohonanPengadaan::find($nomorInduk);
+            $judul = ($indukRef?->judul_pengadaan ?? $indukRef?->perihal ?? 'Pecahan Pengadaan').' (Pecahan MAK '.$request->input('kode_mak').')';
+            $request->merge(['judul_pengadaan' => $judul]);
+        }
+
+        $validated = $request->validate([
+            'nomor_surat_induk' => ['required', 'exists:permohonan_pengadaan,nomor_surat'],
+            'nomor_surat_baru' => ['required', 'string', 'max:100', 'unique:permohonan_pengadaan,nomor_surat'],
+            'judul_pengadaan' => ['required', 'string', 'max:255'],
+            'kode_mak' => ['required', 'exists:anggaran_mak,kode_mak'],
+            'alasan_pemecahan' => ['required', 'string'],
+            'estimasi_total_pagu' => ['required', 'numeric', 'min:1'],
+        ]);
+
+        $induk = PermohonanPengadaan::findOrFail($validated['nomor_surat_induk']);
+
+        // Kurangi pagu permohonan induk
+        $nominalSplit = (float) $validated['estimasi_total_pagu'];
+        $induk->estimasi_total_pagu = max(0, (float) ($induk->estimasi_total_pagu ?? 0) - $nominalSplit);
+        $induk->save();
+
+        $anak = PermohonanPengadaan::create([
+            'nomor_surat' => $validated['nomor_surat_baru'],
+            'judul_pengadaan' => $validated['judul_pengadaan'],
+            'tujuan_pengadaan_ringkas' => $induk->tujuan_pengadaan_ringkas,
+            'file_permohonan' => $induk->file_permohonan,
+            'status_permohonan' => PermohonanPengadaan::STATUS_REVIU_PARALEL,
+            'status_anggaran' => 'pending',
+            'revisi_ke' => 0,
+            'estimasi_total_pagu' => $validated['estimasi_total_pagu'],
+            'kode_unit' => $induk->kode_unit,
+            'id_user' => $induk->id_user,
+            'nomor_surat_induk_split' => $induk->nomor_surat,
+            'tanggal_pemecahan' => now(),
+            'alasan_pemecahan' => $validated['alasan_pemecahan'],
+            'kode_mak' => $validated['kode_mak'],
+        ]);
+
+        // Inisialisasi verifikasi paralel untuk surat pecahan baru
+        VerifikasiParalel::create([
+            'id_user' => $anak->id_user,
+            'nomor_surat' => $anak->nomor_surat,
+            'role_verifikator' => 'perencanaan',
+            'status_keputusan' => 'menunggu',
+        ]);
+
+        VerifikasiParalel::create([
+            'id_user' => $anak->id_user,
+            'nomor_surat' => $anak->nomor_surat,
+            'role_verifikator' => 'wadir_2',
+            'status_keputusan' => 'menunggu',
+        ]);
+
+        AuditLog::catat(
+            $user->id_user,
+            'SPLIT_PERMOHONAN_MAK',
+            'permohonan_pengadaan',
+            $anak->nomor_surat,
+            $induk->nomor_surat,
+            PermohonanPengadaan::STATUS_REVIU_PARALEL,
+            'Pemecahan usulan permohonan oleh Perencanaan berdasarkan MAK '.$validated['kode_mak'].' (FR 6.3 & NFR 9): '.$validated['alasan_pemecahan']
+        );
+
+        return redirect()->route('verifikasi.perencanaan')->with(
+            'success',
+            "Permohonan berhasil dipecah menjadi surat baru {$anak->nomor_surat} dengan alokasi MAK {$validated['kode_mak']} (FR 6.3)."
         );
     }
 
@@ -709,7 +807,14 @@ class HomeController extends Controller
         $kontrakList = KontrakSPK::with(['paket', 'vendor'])->latest()->paginate(15);
         $vendors = Vendor::all();
 
-        return view('kontrak.index', compact('paketList', 'kontrakList', 'vendors'));
+        // Ambil paket yang siap atau dalam proses reviu dokumen oleh PP/PPK (FR 9)
+        $reviuQuery = PaketPengadaan::with(['permohonan', 'ppkUser', 'ppUser', 'reviuDokumen']);
+        if ($user) {
+            $reviuQuery->forUser($user);
+        }
+        $paketReviu = $reviuQuery->whereIn('status_paket', ['terdaftar', 'reviu_dokumen', 'perlu_perbaikan', 'reviu_dokumen_disetujui'])->get();
+
+        return view('kontrak.index', compact('paketList', 'kontrakList', 'vendors', 'paketReviu'));
     }
 
     /**
@@ -721,24 +826,33 @@ class HomeController extends Controller
 
         $validated = $request->validate([
             'kode_paket' => ['required'],
-            'id_vendor' => ['required', 'exists:vendors,id_vendor'],
+            'id_vendor' => ['required', 'exists:vendors,npwp'],
             'nomor_kontrak_spk' => ['required', 'string', 'max:100', 'unique:kontrak_spk,nomor_spk'],
             'nilai_kontrak' => ['required', 'numeric', 'min:1'],
             'tanggal_mulai' => ['required', 'date'],
             'tanggal_selesai' => ['required', 'date', 'after_or_equal:tanggal_mulai'],
             'catatan_spk' => ['nullable', 'string'],
+            'file_spk' => ['nullable', DokumenUploadRule::pdfOnly()],
         ]);
 
         $paket = PaketPengadaan::where('kode_paket', $validated['kode_paket'])
             ->orWhere('nomor_paket', $validated['kode_paket'])
             ->firstOrFail();
 
+        // Hubungkan rekanan ke paket pengadaan
+        $paket->npwp_vendor = $validated['id_vendor'];
+
+        // Simpan dokumen kontrak/SPK jika diunggah (FR 11.1 & NFR 11)
+        $fileSpkPath = 'spk/spk_'.$validated['nomor_kontrak_spk'].'.pdf';
+        if ($request->hasFile('file_spk')) {
+            $fileSpkPath = $request->file('file_spk')->store('spk', 'public');
+        }
+
         $kontrak = KontrakSPK::create([
             'nomor_spk' => $validated['nomor_kontrak_spk'],
             'nomor_kontrak_spk' => $validated['nomor_kontrak_spk'],
             'nomor_paket' => $paket->nomor_paket,
             'id_user' => $user->id_user,
-            'id_vendor' => $validated['id_vendor'],
             'tipe_dokumen' => 'SPK',
             'sifat_kontrak' => 'lump_sum',
             'status_spk' => 'aktif',
@@ -747,6 +861,7 @@ class HomeController extends Controller
             'tanggal_selesai' => $validated['tanggal_selesai'],
             'jadwal_pengiriman' => $validated['tanggal_selesai'],
             'nilai_kontrak' => $validated['nilai_kontrak'],
+            'file_spk' => $fileSpkPath,
         ]);
 
         $paket->status_paket = 'spk_terbit';
@@ -759,13 +874,71 @@ class HomeController extends Controller
             $kontrak->nomor_spk,
             null,
             'aktif',
-            "Penerbitan Kontrak SPK nomor {$kontrak->nomor_spk} nilai Rp ".number_format($kontrak->nilai_kontrak)
+            "Penerbitan Kontrak SPK nomor {$kontrak->nomor_spk} nilai Rp ".number_format($kontrak->nilai_kontrak).' serta penguncian permanen MAK (FR 11 & NFR 6)'
         );
 
         return redirect()->route('kontrak.index')->with(
             'success',
-            "Kontrak SPK nomor {$kontrak->nomor_spk} berhasil diterbitkan dan siap serah terima barang."
+            "Kontrak SPK nomor {$kontrak->nomor_spk} berhasil diterbitkan (MAK telah dikunci permanen) dan siap serah terima barang."
         );
+    }
+
+    /**
+     * Memproses reviu dokumen pengadaan oleh PP/PPK dari antarmuka Zero CSS (FR 9).
+     */
+    public function storeReviuWeb(Request $request): RedirectResponse
+    {
+        $user = Auth::user();
+
+        $validated = $request->validate([
+            'nomor_paket' => ['required', 'exists:paket_pengadaan,nomor_paket'],
+            'status_reviu' => ['required', 'in:disetujui,perlu_perbaikan'],
+            'catatan_perbaikan' => ['required_if:status_reviu,perlu_perbaikan', 'nullable', 'string'],
+        ], [
+            'catatan_perbaikan.required_if' => 'Catatan perbaikan wajib diisi saat meminta perbaikan dokumen pengadaan (FR 9.3).',
+        ]);
+
+        $paket = PaketPengadaan::where('nomor_paket', $validated['nomor_paket'])->firstOrFail();
+
+        // NFR RBAC: Penegakan isolasi berkas 4 akun PPK
+        if ($user->role === 'ppk' && (int) $paket->id_user_ppk !== (int) $user->id_user) {
+            abort(403, 'Akses Ditolak: Anda tidak berhak mereviu paket yang ditugaskan kepada PPK lain (Isolasi Berkas PPK).');
+        }
+
+        $nextRound = (ReviuDokumen::where('nomor_paket', $paket->nomor_paket)->max('putaran_ke') ?? 0) + 1;
+
+        $reviu = ReviuDokumen::create([
+            'nomor_paket' => $paket->nomor_paket,
+            'id_user' => $user->id_user,
+            'putaran_ke' => $nextRound,
+            'role_reviewer' => $user->role === 'pp' ? 'pp' : 'ppk',
+            'status_reviu' => $validated['status_reviu'],
+            'catatan_perbaikan' => $validated['catatan_perbaikan'],
+            'tanggal_reviu' => now(),
+        ]);
+
+        if ($validated['status_reviu'] === 'disetujui') {
+            $paket->status_paket = 'reviu_dokumen_disetujui';
+        } else {
+            $paket->status_paket = 'perlu_perbaikan';
+        }
+        $paket->save();
+
+        AuditLog::catat(
+            $user->id_user,
+            $validated['status_reviu'] === 'disetujui' ? 'REVIU_DOKUMEN_DISETUJUI' : 'REVIU_DOKUMEN_PERBAIKAN',
+            'paket_pengadaan',
+            $paket->nomor_paket,
+            $paket->status_paket,
+            $paket->status_paket,
+            'Penelaahan dokumen oleh '.strtoupper($user->role).' (FR 9): '.($validated['catatan_perbaikan'] ?? 'Disetujui untuk SPK')
+        );
+
+        $msg = $validated['status_reviu'] === 'disetujui'
+            ? "Reviu dokumen paket {$paket->nomor_paket} disetujui. Paket siap diproses penerbitan SPK (FR 9.2)."
+            : "Reviu dokumen paket {$paket->nomor_paket} dikembalikan ke PPBJ dengan catatan perbaikan (FR 9.3).";
+
+        return redirect()->route('kontrak.index')->with('success', $msg);
     }
 
     // =========================================================================
@@ -940,7 +1113,7 @@ class HomeController extends Controller
         if (! empty($searchKey)) {
             $query->where(function ($q) use ($searchKey) {
                 $q->where('nomor_surat', 'like', '%'.$searchKey.'%')
-                    ->orWhere('perihal', 'like', '%'.$searchKey.'%');
+                    ->orWhere('judul_pengadaan', 'like', '%'.$searchKey.'%');
             });
         }
 
@@ -949,7 +1122,15 @@ class HomeController extends Controller
         }
 
         if ($request->filled('status')) {
-            $query->where('status', $request->status);
+            $query->where('status_permohonan', $request->status);
+        }
+
+        if ($request->filled('tahun')) {
+            $query->whereYear('tanggal_pengajuan', $request->tahun);
+        }
+
+        if ($request->filled('bulan')) {
+            $query->whereMonth('tanggal_pengajuan', $request->bulan);
         }
 
         $permohonanList = $query->latest('tanggal_pengajuan')->paginate(20);

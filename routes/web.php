@@ -83,6 +83,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/verifikasi/perencanaan', [HomeController::class, 'verifikasiPerencanaan'])->name('verifikasi.perencanaan');
     Route::post('/verifikasi/perencanaan/mak', [HomeController::class, 'alokasiMakPerencanaan'])->name('verifikasi.perencanaan.mak');
+    Route::post('/verifikasi/perencanaan/split', [HomeController::class, 'splitMakPerencanaan'])->name('verifikasi.perencanaan.split');
 
     // -------------------------------------------------------------------------
     // Modul 4: Paket Pengadaan (Koordinator PPBJ)
@@ -97,6 +98,7 @@ Route::middleware('auth')->group(function () {
     // -------------------------------------------------------------------------
     Route::get('/kontrak-spk', [HomeController::class, 'kontrakIndex'])->name('kontrak.index');
     Route::post('/kontrak-spk', [HomeController::class, 'storeKontrak'])->name('kontrak.store');
+    Route::post('/kontrak-spk/reviu', [HomeController::class, 'storeReviuWeb'])->name('kontrak.reviu');
 
     // -------------------------------------------------------------------------
     // Modul 6: Penerimaan Barang & BAST (Unit Perlengkapan / BMN)
@@ -182,12 +184,19 @@ Route::prefix('api')->group(function () {
         ->name('permohonan-pengadaan.tracking')
         ->where(['permohonan_pengadaan' => '.*']);
 
-    // Endpoint pemantauan agregat status pengadaan di kampus dengan filter dan paginasi (NFR 7)
+    // Endpoint pemantauan agregat status pengadaan di kampus dengan filter dan paginasi (NFR 7 & FR 19)
     Route::get('monitoring-status', [PermohonanPengadaanController::class, 'monitoringStatus'])
         ->name('monitoring.status');
+    Route::get('permohonan-pengadaan/monitoring', [PermohonanPengadaanController::class, 'monitoringStatus'])
+        ->name('permohonan-pengadaan.monitoring');
 
     // Operasi CRUD standar untuk usulan permohonan pengadaan
     Route::apiResource('permohonan-pengadaan', PermohonanPengadaanController::class)->where(['permohonan_pengadaan' => '.*']);
+
+    // Menetapkan status Hold / Pending Anggaran pada permohonan pengadaan (FR 6.2)
+    Route::post('anggaran-mak/hold', [AnggaranMAKController::class, 'holdAnggaran'])
+        ->name('anggaran-mak.hold')
+        ->middleware('role:perencanaan');
 
     // Penguncian pagu MAK secara manual atau otomatis untuk mencegah mutasi anggaran (NFR Integritas MAK)
     Route::post('anggaran-mak/{anggaran_mak}/lock', [AnggaranMAKController::class, 'lock'])

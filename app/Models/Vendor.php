@@ -78,6 +78,22 @@ class Vendor extends Model
     }
 
     /**
+     * Accessor alias id_vendor untuk primary key npwp.
+     */
+    public function getIdVendorAttribute(): ?string
+    {
+        return $this->npwp;
+    }
+
+    /**
+     * Accessor alias nama_vendor untuk nama_perusahaan.
+     */
+    public function getNamaVendorAttribute(): ?string
+    {
+        return $this->nama_perusahaan;
+    }
+
+    /**
      * Relasi one-to-many ke berkas-berkas legalitas resmi vendor (SIUP, Akta, dsb).
      *
      * @return HasMany Koleksi berkas legalitas vendor

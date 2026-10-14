@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AuditLog;
 use App\Models\KontrakSPK;
 use App\Models\PaketPengadaan;
 use App\Models\User;
+use App\Rules\DokumenUploadRule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -79,7 +81,7 @@ class KontrakSPKController extends Controller
             'tanggal_selesai' => 'nullable|date',
             'jadwal_pengiriman' => 'required|date',
             'nilai_kontrak' => 'nullable|numeric|min:0',
-            'file_spk' => 'required',
+            'file_spk' => ['required', DokumenUploadRule::pdfOnly()],
         ]);
 
         if (empty($validated['nilai_kontrak'])) {
@@ -100,6 +102,17 @@ class KontrakSPKController extends Controller
             $paket->status_paket = 'spk_terbit';
             $paket->save();
         }
+
+        // 4. Rekam penerbitan SPK dan penguncian permanen MAK ke audit log (FR 11 & NFR 9)
+        AuditLog::catat(
+            $spk->id_user ?? $request->user()?->id_user ?? 1,
+            'PENERBITAN_SPK',
+            'kontrak_spk',
+            $spk->nomor_spk,
+            'draft',
+            $spk->status_spk,
+            'Penerbitan surat perintah kerja/kontrak pengadaan (FR 11.1) dan penguncian permanen data MAK (FR 11.2 & NFR 6)'
+        );
 
         return response()->json([
             'status' => 'success',
