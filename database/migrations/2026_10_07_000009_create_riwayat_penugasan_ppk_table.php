@@ -19,6 +19,7 @@ return new class extends Migration
             $table->unsignedBigInteger('diubah_oleh_user_id');
             $table->text('alasan_perubahan')->nullable();
             $table->timestamp('tanggal_penugasan')->useCurrent();
+            $table->timestamps();
 
             $table->foreign('nomor_paket')
                 ->references('nomor_paket')

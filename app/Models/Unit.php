@@ -33,4 +33,9 @@ class Unit extends Model
     {
         return $this->hasMany(PermohonanPengadaan::class, 'kode_unit', 'kode_unit');
     }
+
+    public function getTipeUnitAttribute(): ?string
+    {
+        return $this->jenis_unit;
+    }
 }

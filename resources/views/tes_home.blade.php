@@ -229,17 +229,17 @@
                                             {{ $p->nomor_surat }}
                                         </span>
                                         <span class="text-[10px] px-2 py-0.5 rounded-full uppercase font-bold tracking-wider 
-                                            {{ $p->status_verifikasi_wadir2 === 'disetujui' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : ($p->status_verifikasi_wadir2 === 'ditolak' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30') }}">
-                                            Wadir 2: {{ $p->status_verifikasi_wadir2 }}
+                                            {{ $p->status_permohonan === 'disetujui' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : ($p->status_permohonan === 'ditolak' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30') }}">
+                                            Status: {{ str_replace('_', ' ', $p->status_permohonan) }}
                                         </span>
                                     </div>
                                     <p class="text-xs text-slate-200 font-medium line-clamp-1 mb-2">
-                                        {{ $p->perihal_pengadaan }}
+                                        {{ $p->judul_pengadaan }}
                                     </p>
                                     <div class="flex items-center justify-between text-[11px] text-slate-400">
                                         <span>Unit: <strong class="text-slate-300">{{ $p->unit ? $p->unit->nama_unit : $p->kode_unit }}</strong></span>
                                         <span class="text-emerald-400 font-semibold font-mono">
-                                            Rp {{ number_format($p->estimasi_total_biaya, 0, ',', '.') }}
+                                            Rp {{ number_format($p->estimasi_total_pagu ?? 0, 0, ',', '.') }}
                                         </span>
                                     </div>
                                 </div>
@@ -278,11 +278,11 @@
                                 <div class="p-3.5 rounded-xl bg-slate-900/70 border border-slate-800 hover:border-slate-700 transition">
                                     <div class="flex items-start justify-between gap-2 mb-1.5">
                                         <span class="font-mono text-xs font-semibold text-amber-300">
-                                            {{ $paket->nomor_sp_paket }}
+                                            {{ $paket->nomor_paket }}
                                         </span>
                                         <span class="text-[10px] px-2 py-0.5 rounded-full uppercase font-bold tracking-wider 
-                                            {{ $paket->rute_pengadaan === 'ppk_diatas_200jt' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' : ($paket->rute_pengadaan === 'pp_50jt_sd_200jt' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30') }}">
-                                            {{ str_replace('_', ' ', $paket->rute_pengadaan) }}
+                                            {{ $paket->jalur_routing === 'ppk_diatas_200jt' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' : ($paket->jalur_routing === 'pp_50jt_sd_200jt' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30') }}">
+                                            {{ str_replace('_', ' ', $paket->jalur_routing) }}
                                         </span>
                                     </div>
                                     <p class="text-xs text-slate-200 font-medium line-clamp-1 mb-2">
@@ -333,15 +333,15 @@
                     @foreach ($notifications as $notif)
                         <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
                             <div class="flex items-center justify-between mb-1">
-                                <span class="font-semibold text-xs text-slate-200">{{ $notif->judul }}</span>
+                                <span class="font-semibold text-xs text-slate-200">{{ $notif->reminder ? $notif->reminder->judul_alert : 'Pemberitahuan Sistem' }}</span>
                                 <span class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono">
-                                    {{ $notif->reminder ? strtoupper($notif->reminder->tingkat_urgensi) : 'INFO' }}
+                                    {{ $notif->reminder ? strtoupper($notif->reminder->tipe_reminder) : 'INFO' }}
                                 </span>
                             </div>
-                            <p class="text-xs text-slate-400 mb-2">{{ $notif->pesan }}</p>
+                            <p class="text-xs text-slate-400 mb-2">{{ $notif->reminder ? $notif->reminder->pesan_alert : 'Detail notifikasi dapat dilihat pada menu terkait.' }}</p>
                             @if ($notif->reminder)
                                 <div class="text-[10px] text-slate-500 font-mono">
-                                    Paket: {{ $notif->reminder->nomor_sp_paket }} | Due: {{ $notif->reminder->tanggal_jatuh_tempo }}
+                                    Paket: {{ $notif->reminder->nomor_paket }} | Due: {{ $notif->reminder->waktu_trigger ? $notif->reminder->waktu_trigger->format('d M Y') : '-' }}
                                 </div>
                             @endif
                         </div>
