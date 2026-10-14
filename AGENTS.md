@@ -142,20 +142,30 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 - If you have modified any PHP files, you must run `vendor/bin/pint --dirty --format agent` before finalizing changes to ensure your code matches the project's expected style.
 - Do not run `vendor/bin/pint --test --format agent`, simply run `vendor/bin/pint --format agent` to fix any formatting issues.
 
-=== pest/core rules ===
+=== phpunit/core rules ===
 
-# Pest
+# PHPUnit
 
-- This project uses Pest. Create tests with `php artisan make:test --pest {name}`.
-- Do not include the test suite directory in `{name}`. Use `SomeFeatureTest`, not `Feature/SomeFeatureTest`.
-- Read the `testing-best-practices` skill for guidance on coverage, naming, structure, dependency isolation, and review.
-- Do not delete tests or test files without approval. They are part of the application.
+- Proyek ini menggunakan **PHPUnit** (DILARANG menggunakan Pest).
+- Buat test baru berbasis class PHPUnit dengan perintah `php artisan make:test {name}` (atau tambahkan flag `--unit` untuk unit test). **DILARANG** menggunakan flag `--pest`.
+- Seluruh kelas test WAJIB meng-extend `Tests\TestCase` dan menggunakan method dengan prefiks `test_` (misalnya `public function test_nama_skenario(): void`) atau atribut PHP `#[Test]`.
+- Jangan menyertakan direktori test suite dalam `{name}`. Gunakan `SomeFeatureTest`, bukan `Feature/SomeFeatureTest`.
+- Baca panduan testing di `testing-best-practices` untuk cakupan, penamaan, struktur, isolasi dependensi, dan review.
+- Dilarang menghapus test atau file test tanpa persetujuan overseer.
 
-## Running Tests
+## Menjalankan Test (Running Tests)
 
-- Run the narrowest set of tests that covers the change. Pass a file path or `--filter=testName` to `php artisan test --compact`.
-- Rerun a test after each change to it.
-- Run `vendor/bin/pest` to call the test runner directly. It accepts the same file path and `--filter=testName` arguments.
-- After the feature tests pass, ask the user to run the complete suite with `php artisan test --compact`.
+- Jalankan rangkaian test tersempit yang mencakup perubahan. Kirimkan path file atau `--filter=testMethodName` ke `php artisan test --compact` atau `vendor/bin/phpunit`.
+- Dilarang menjalankan test menggunakan runner Pest (`vendor/bin/pest`). Selalu gunakan runner PHPUnit / `php artisan test`.
+- Jalankan ulang test setiap kali membuat perubahan pada kode terkait.
+
+=== frontend documentation & backend simulation rules ===
+
+# Documentation & Backend Testing Rules
+
+- **Wajib Memperbarui Dokumentasi Front End**: Agen/pengembang WAJIB memperbarui file dokumentasi frontend di `1Jorking/PANDUAN_INTEGRASI_FRONTEND_FR_NFR.md` setiap kali overseer backend meminta pembuatan/implementasi FR maupun NFR selanjutnya, sehingga pengembang frontend selalu memiliki referensi endpoint, struktur payload request/response, batasan validasi, dan kode status terkini.
+- **Aturan Pengujian / Simulasi Backend**: Aturan khusus pembuatan file simulasi/antarmuka pengujian oleh backend (termasuk aturan TANPA CSS TOTAL dan penempatan JavaScript pengujian pada `resources/js/tes_*.js`) telah dipindahkan dan WAJIB mematuhi panduan di `AGENTS-BACKEND.md`.
+- **Wajib Komentar Kode dengan Bahasa Natural dan Jelas**: Seluruh file backend WAJIB memiliki komentar penjelasan pada setiap blok kode, method, alur logika, dan baris kode penting menggunakan bahasa natural, lugas, dan jelas agar manusia (overseer) maupun agen AI dapat langsung memahami fungsi, maksud, alur data, serta validasi yang terjadi.
+- **Wajib Menggunakan PHPUnit Test (Bukan Pest)**: Seluruh pengujian backend otomatis WAJIB dibuat dan dijalankan menggunakan PHPUnit test (`TestCase`), bukan Pest. Dilarang membuat file test dengan sintaks Pest (`test()`, `it()`).
 
 </laravel-boost-guidelines>

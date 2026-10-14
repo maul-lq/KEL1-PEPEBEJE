@@ -2,28 +2,13 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-
-class PengadaanLog extends Model
+/**
+ * Model Pengadaan Log (Alias untuk AuditLog)
+ *
+ * Berfungsi sebagai turunan dan alias dari model AuditLog untuk menjaga kompatibilitas ke belakang
+ * (backward compatibility) dengan komponen atau kontroler terdahulu yang merujuk pada nama model ini.
+ */
+class PengadaanLog extends AuditLog
 {
-    protected $fillable = [
-        'pengadaan_id',
-        'user_id',
-        'action',
-        'keterangan',
-        'status_sebelumnya',
-        'status_baru',
-        'ip_address',
-    ];
-
-    public function pengadaan(): BelongsTo
-    {
-        return $this->belongsTo(Pengadaan::class);
-    }
-
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
-    }
+    // Mewarisi seluruh fungsionalitas pencatatan log audit dari AuditLog
 }
