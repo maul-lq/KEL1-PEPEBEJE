@@ -156,6 +156,11 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 - Run the narrowest set of tests that covers the change. Pass a file path or `--filter=testName` to `php artisan test --compact`.
 - Rerun a test after each change to it.
 - Run `vendor/bin/pest` to call the test runner directly. It accepts the same file path and `--filter=testName` arguments.
-- After the feature tests pass, ask the user to run the complete suite with `php artisan test --compact`.
+=== frontend testing & documentation rules ===
+
+# Frontend Simulation & Documentation Rules
+
+- **Frontend Testing / Simulation**: Jika ingin membuat atau menguji antarmuka front end untuk keperluan simulasi/prototipe backend, buat file front end sederhana tanpa CSS berat (fokus pada kelengkapan form, binding input, dan alur request) dan WAJIB selalu mengawali nama file dengan kata `tes_` (misalnya `resources/views/tes_*.blade.php` atau rute `/tes-*`). Hal ini memungkinkan overseer backend untuk memeriksa, menyimulasikan, dan memverifikasi integrasi frontend-backend secara langsung.
+- **Wajib Memperbarui Dokumentasi Front End**: Agen/pengembang WAJIB memperbarui file dokumentasi frontend di `1Jorking/PANDUAN_INTEGRASI_FRONTEND_FR_NFR.md` setiap kali overseer backend meminta pembuatan/implementasi FR maupun NFR selanjutnya, sehingga pengembang frontend selalu memiliki referensi endpoint, struktur payload request/response, batasan validasi, dan kode status terkini.
 
 </laravel-boost-guidelines>

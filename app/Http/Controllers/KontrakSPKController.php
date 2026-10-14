@@ -3,172 +3,103 @@
 namespace App\Http\Controllers;
 
 use App\Models\KontrakSPK;
+use App\Models\PaketPengadaan;
+use App\Rules\DokumenUploadRule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class KontrakSPKController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index(Request $request): JsonResponse
     {
-        $query = KontrakSPK::with('paket');
+        $query = KontrakSPK::with(['paket.vendor', 'user']);
 
-        if ($request->filled('nomor_paket')) {
-            $query->where('nomor_paket', $request->nomor_paket);
+        if ($request->filled('status_spk')) {
+            $query->where('status_spk', $request->status_spk);
         }
 
-        if ($request->filled('tipe_kontrak')) {
-            $query->where('tipe_kontrak', $request->tipe_kontrak);
+        if ($request->filled('tipe_dokumen')) {
+            $query->where('tipe_dokumen', $request->tipe_dokumen);
         }
-
-        $kontrak = $query->latest('created_at')->paginate(15);
 
         return response()->json([
             'status' => 'success',
-            'data' => $kontrak,
+            'data' => $query->latest('tanggal_spk')->paginate(15),
         ]);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create(): JsonResponse
-    {
-        return response()->json([
-            'status' => 'success',
-            'tipe_kontrak' => [
-                KontrakSPK::TIPE_SEKALI_SELESAI,
-                KontrakSPK::TIPE_KONTRAK_TAHUNAN,
-                KontrakSPK::TIPE_TERMIN_BULANAN,
-            ],
-        ]);
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'nomor_spk' => ['required', 'string', 'max:100'],
-            'nomor_paket' => ['required', 'exists:paket_pengadaan,nomor_paket'],
-            'tipe_kontrak' => ['required', 'string', Rule::in([
-                KontrakSPK::TIPE_SEKALI_SELESAI,
-                KontrakSPK::TIPE_KONTRAK_TAHUNAN,
-                KontrakSPK::TIPE_TERMIN_BULANAN,
-            ])],
-            'tanggal_spk' => ['required', 'date'],
-            'jadwal_pengiriman' => ['required', 'date'],
-            'nilai_kontrak' => ['required', 'numeric', 'min:0'],
-            'file_spk' => ['required', 'string', 'max:255'],
+            'nomor_spk' => 'required|string|max:100|unique:kontrak_spk,nomor_spk',
+            'nomor_paket' => 'required|exists:paket_pengadaan,nomor_paket',
+            'id_user' => 'nullable|exists:users,id_user',
+            'tipe_dokumen' => 'required|string|in:spk,surat_kontrak,surat_pesanan',
+            'sifat_kontrak' => 'required|string|in:sekali_selesai,lumpsum,harga_satuan,termin_bulanan,kontrak_tahunan',
+            'status_spk' => 'required|string|in:draft,terbit,aktif,selesai',
+            'tanggal_spk' => 'required|date',
+            'tanggal_mulai' => 'nullable|date',
+            'tanggal_selesai' => 'nullable|date',
+            'jadwal_pengiriman' => 'required|date',
+            'file_spk' => ['required', DokumenUploadRule::pdfOnly()],
         ]);
 
-        $exists = KontrakSPK::where('nomor_spk', $validated['nomor_spk'])
-            ->where('nomor_paket', $validated['nomor_paket'])
-            ->exists();
-
-        if ($exists) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Kontrak SPK dengan nomor dan paket ini sudah ada',
-            ], 422);
+        if ($request->hasFile('file_spk')) {
+            $validated['file_spk'] = $request->file('file_spk')->store('spk', 'public');
         }
 
-        $kontrak = KontrakSPK::create($validated);
+        $spk = KontrakSPK::create($validated);
+
+        // Update paket pengadaan status
+        $paket = PaketPengadaan::find($spk->nomor_paket);
+        if ($paket) {
+            $paket->status_paket = 'spk_terbit';
+            $paket->save();
+        }
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Kontrak SPK berhasil dibuat',
-            'data' => $kontrak,
+            'message' => 'Kontrak/SPK berhasil diterbitkan dan data MAK terkait telah dikunci permanen',
+            'data' => $spk->load(['paket', 'user']),
         ], 201);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Request $request, $id): JsonResponse
+    public function show(KontrakSPK $kontrak_spk): JsonResponse
     {
-        $kontrak = $this->findRecord($request, $id);
-
         return response()->json([
             'status' => 'success',
-            'data' => $kontrak->load('paket'),
+            'data' => $kontrak_spk->load(['paket.vendor', 'paket.permohonan', 'user']),
         ]);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Request $request, $id): JsonResponse
+    public function update(Request $request, KontrakSPK $kontrak_spk): JsonResponse
     {
-        $kontrak = $this->findRecord($request, $id);
-
-        return response()->json([
-            'status' => 'success',
-            'data' => $kontrak,
-        ]);
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, $id): JsonResponse
-    {
-        $kontrak = $this->findRecord($request, $id);
-
         $validated = $request->validate([
-            'tipe_kontrak' => ['sometimes', 'required', 'string', Rule::in([
-                KontrakSPK::TIPE_SEKALI_SELESAI,
-                KontrakSPK::TIPE_KONTRAK_TAHUNAN,
-                KontrakSPK::TIPE_TERMIN_BULANAN,
-            ])],
-            'tanggal_spk' => ['sometimes', 'required', 'date'],
-            'jadwal_pengiriman' => ['sometimes', 'required', 'date'],
-            'nilai_kontrak' => ['sometimes', 'required', 'numeric', 'min:0'],
-            'file_spk' => ['sometimes', 'required', 'string', 'max:255'],
+            'tipe_dokumen' => 'sometimes|required|string',
+            'sifat_kontrak' => 'sometimes|required|string',
+            'status_spk' => 'sometimes|required|string|in:draft,terbit,aktif,selesai',
+            'tanggal_spk' => 'sometimes|required|date',
+            'jadwal_pengiriman' => 'sometimes|required|date',
+            'nilai_kontrak' => 'sometimes|required|numeric|min:0',
+            'file_spk' => 'sometimes|required|string|max:255',
         ]);
 
-        $kontrak->update($validated);
+        $kontrak_spk->update($validated);
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Kontrak SPK berhasil diperbarui',
-            'data' => $kontrak,
+            'message' => 'Kontrak/SPK berhasil diperbarui',
+            'data' => $kontrak_spk->load('paket'),
         ]);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Request $request, $id): JsonResponse
+    public function destroy(KontrakSPK $kontrak_spk): JsonResponse
     {
-        $kontrak = $this->findRecord($request, $id);
-        $kontrak->delete();
+        $kontrak_spk->delete();
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Kontrak SPK berhasil dihapus',
+            'message' => 'Kontrak/SPK berhasil dihapus',
         ]);
-    }
-
-    protected function findRecord(Request $request, $id): KontrakSPK
-    {
-        if ($request->filled('nomor_spk') && $request->filled('nomor_paket')) {
-            return KontrakSPK::where('nomor_spk', $request->nomor_spk)
-                ->where('nomor_paket', $request->nomor_paket)
-                ->firstOrFail();
-        }
-
-        $parts = explode(':', $id, 2);
-        if (count($parts) === 2) {
-            return KontrakSPK::where('nomor_spk', $parts[0])
-                ->where('nomor_paket', $parts[1])
-                ->firstOrFail();
-        }
-
-        return KontrakSPK::where('nomor_spk', $id)->firstOrFail();
     }
 }

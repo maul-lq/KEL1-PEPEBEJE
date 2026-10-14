@@ -13,16 +13,17 @@ return new class extends Migration
     {
         Schema::create('penerimaan_barang_foto_dokumentasi', function (Blueprint $table) {
             $table->id('id_foto');
-            $table->string('nomor_bast', 100);
-            $table->string('nomor_paket', 100);
+            $table->unsignedBigInteger('id_penerimaan');
             $table->string('foto_dokumentasi', 255);
             $table->string('keterangan_foto', 255)->nullable();
             $table->timestamp('uploaded_at')->useCurrent();
+            $table->timestamps();
 
-            $table->foreign(['nomor_bast', 'nomor_paket'])
-                ->references(['nomor_bast', 'nomor_paket'])
+            $table->foreign('id_penerimaan')
+                ->references('id_penerimaan')
                 ->on('penerimaan_barang')
-                ->cascadeOnDelete();
+                ->cascadeOnDelete()
+                ->cascadeOnUpdate();
         });
     }
 

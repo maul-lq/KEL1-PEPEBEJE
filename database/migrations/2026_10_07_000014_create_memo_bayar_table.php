@@ -12,25 +12,26 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('memo_bayar', function (Blueprint $table) {
+            $table->id();
             $table->unsignedBigInteger('id_user');
             $table->string('nomor_pembayaran', 100);
-            $table->string('nomor_paket', 100);
             $table->string('role_approver', 50); // ppk, wadir_2
-            $table->string('status_memo', 50); // disetujui, ditolak
+            $table->integer('urutan_level')->default(1); // 1: PPK, 2: Wadir 2
+            $table->string('status_memo', 50)->default('menunggu'); // menunggu, disetujui, ditolak
             $table->text('catatan_memo')->nullable();
-            $table->timestamp('tanggal_acc')->useCurrent();
-
-            $table->primary(['id_user', 'nomor_pembayaran', 'nomor_paket']);
+            $table->timestamp('tanggal_acc')->nullable();
+            $table->timestamps();
 
             $table->foreign('id_user')
                 ->references('id_user')
                 ->on('users')
                 ->cascadeOnUpdate();
 
-            $table->foreign(['nomor_pembayaran', 'nomor_paket'])
-                ->references(['nomor_pembayaran', 'nomor_paket'])
+            $table->foreign('nomor_pembayaran')
+                ->references('nomor_pembayaran')
                 ->on('pembayaran')
-                ->cascadeOnDelete();
+                ->cascadeOnDelete()
+                ->cascadeOnUpdate();
         });
     }
 

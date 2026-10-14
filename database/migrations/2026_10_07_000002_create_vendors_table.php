@@ -16,7 +16,6 @@ return new class extends Migration
             $table->string('nib', 30)->unique();
             $table->string('nama_perusahaan', 200);
             $table->text('alamat');
-            $table->string('file_legalitas', 255);
             $table->boolean('is_active')->default(true);
             $table->string('nama_pic', 100);
             $table->string('telepon_pic', 20);
@@ -26,6 +25,21 @@ return new class extends Migration
             $table->string('atas_nama', 150);
             $table->timestamps();
         });
+
+        Schema::create('vendor_file_legalitas', function (Blueprint $table) {
+            $table->id();
+            $table->string('npwp', 30);
+            $table->string('nama_dokumen', 150);
+            $table->string('file_legalitas', 255);
+            $table->timestamp('uploaded_at')->useCurrent();
+            $table->timestamps();
+
+            $table->foreign('npwp')
+                ->references('npwp')
+                ->on('vendors')
+                ->cascadeOnDelete()
+                ->cascadeOnUpdate();
+        });
     }
 
     /**
@@ -33,6 +47,7 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::dropIfExists('vendor_file_legalitas');
         Schema::dropIfExists('vendors');
     }
 };

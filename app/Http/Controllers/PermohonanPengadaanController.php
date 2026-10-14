@@ -3,25 +3,27 @@
 namespace App\Http\Controllers;
 
 use App\Models\PermohonanPengadaan;
+use App\Models\VerifikasiParalel;
+use App\Rules\DokumenUploadRule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class PermohonanPengadaanController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index(Request $request): JsonResponse
     {
-        $query = PermohonanPengadaan::with(['user', 'induk']);
+        $query = PermohonanPengadaan::with(['user', 'unit', 'anggaranMak', 'indukSplit', 'verifikasiParalel']);
 
         if ($request->filled('status')) {
             $query->where('status_permohonan', $request->status);
         }
 
-        if ($request->filled('asal_unit')) {
-            $query->where('asal_unit', $request->asal_unit);
+        if ($request->filled('status_anggaran')) {
+            $query->where('status_anggaran', $request->status_anggaran);
+        }
+
+        if ($request->filled('kode_unit')) {
+            $query->where('kode_unit', $request->kode_unit);
         }
 
         if ($request->filled('search')) {
@@ -32,7 +34,7 @@ class PermohonanPengadaanController extends Controller
             });
         }
 
-        $permohonan = $query->latest('created_at')->paginate(15);
+        $permohonan = $query->latest('tanggal_pengajuan')->paginate(15);
 
         return response()->json([
             'status' => 'success',
@@ -40,130 +42,128 @@ class PermohonanPengadaanController extends Controller
         ]);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create(): JsonResponse
-    {
-        return response()->json([
-            'status' => 'success',
-            'statuses' => [
-                PermohonanPengadaan::STATUS_DIAJUKAN,
-                PermohonanPengadaan::STATUS_REVIU_PARALEL,
-                PermohonanPengadaan::STATUS_PENDING_ANGGARAN,
-                PermohonanPengadaan::STATUS_DISETUJUI,
-                PermohonanPengadaan::STATUS_DITOLAK,
-                PermohonanPengadaan::STATUS_DIPROSES_PPBJ,
-            ],
-        ]);
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'nomor_surat' => ['required', 'string', 'max:100', 'unique:permohonan_pengadaan,nomor_surat'],
-            'judul_pengadaan' => ['required', 'string', 'max:255'],
-            'asal_unit' => ['required', 'string', 'max:100'],
-            'tujuan_ringkas' => ['required', 'string'],
-            'file_pdf_srikandi' => ['required', 'string', 'max:255'],
-            'status_permohonan' => ['required', 'string', Rule::in([
-                PermohonanPengadaan::STATUS_DIAJUKAN,
-                PermohonanPengadaan::STATUS_REVIU_PARALEL,
-                PermohonanPengadaan::STATUS_PENDING_ANGGARAN,
-                PermohonanPengadaan::STATUS_DISETUJUI,
-                PermohonanPengadaan::STATUS_DITOLAK,
-                PermohonanPengadaan::STATUS_DIPROSES_PPBJ,
-            ])],
-            'no_draft_srikandi' => ['nullable', 'string', 'max:100'],
-            'id_user' => ['required', 'exists:users,id_user'],
-            'nomor_surat_induk' => ['nullable', 'exists:permohonan_pengadaan,nomor_surat'],
+            'nomor_surat' => 'required|string|max:100|unique:permohonan_pengadaan,nomor_surat',
+            'judul_pengadaan' => 'required|string|max:255',
+            'tujuan_pengadaan_ringkas' => 'required|string',
+            'file_permohonan' => ['required', DokumenUploadRule::pdfOnly()],
+            'kode_unit' => 'required|string|exists:units,kode_unit',
+            'id_user' => 'required|exists:users,id_user',
+            'estimasi_total_pagu' => 'nullable|numeric|min:0',
+            'kode_mak' => 'nullable|exists:anggaran_mak,kode_mak',
         ]);
+
+        if ($request->hasFile('file_permohonan')) {
+            $validated['file_permohonan'] = $request->file('file_permohonan')->store('permohonan', 'public');
+        }
+
+        $validated['status_permohonan'] = PermohonanPengadaan::STATUS_REVIU_PARALEL;
+        $validated['status_anggaran'] = 'pending';
+        $validated['tanggal_pengajuan'] = now();
 
         $permohonan = PermohonanPengadaan::create($validated);
 
+        // Otomatis buat 2 baris verifikasi paralel: Perencanaan & Staff/Wadir 2 (FR 3.3)
+        VerifikasiParalel::create([
+            'id_user' => $permohonan->id_user,
+            'nomor_surat' => $permohonan->nomor_surat,
+            'role_verifikator' => 'perencanaan',
+            'status_keputusan' => 'menunggu',
+        ]);
+
+        VerifikasiParalel::create([
+            'id_user' => $permohonan->id_user,
+            'nomor_surat' => $permohonan->nomor_surat,
+            'role_verifikator' => 'wadir_2',
+            'status_keputusan' => 'menunggu',
+        ]);
+
         return response()->json([
             'status' => 'success',
-            'message' => 'Permohonan pengadaan berhasil diajukan',
-            'data' => $permohonan,
+            'message' => 'Permohonan pengadaan berhasil diajukan dan diteruskan ke Verifikasi Paralel',
+            'data' => $permohonan->load(['unit', 'user', 'verifikasiParalel']),
         ], 201);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show($nomorSurat): JsonResponse
+    public function show(PermohonanPengadaan $permohonan_pengadaan): JsonResponse
     {
-        $permohonan = PermohonanPengadaan::with([
-            'user',
-            'induk',
-            'anakSplit',
-            'paketPengadaan',
-            'verifikasiParalel',
-            'alokasiMak.anggaranMak',
-        ])->findOrFail($nomorSurat);
-
         return response()->json([
             'status' => 'success',
-            'data' => $permohonan,
+            'data' => $permohonan_pengadaan->load([
+                'user',
+                'unit',
+                'anggaranMak',
+                'indukSplit',
+                'anakSplit',
+                'suratAsalRevisi',
+                'suratHasilRevisi',
+                'verifikasiParalel.user',
+                'alokasiMak.anggaranMak',
+                'paketPengadaan',
+            ]),
         ]);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit($nomorSurat): JsonResponse
+    public function update(Request $request, PermohonanPengadaan $permohonan_pengadaan): JsonResponse
     {
-        $permohonan = PermohonanPengadaan::findOrFail($nomorSurat);
-
-        return response()->json([
-            'status' => 'success',
-            'data' => $permohonan,
-        ]);
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, $nomorSurat): JsonResponse
-    {
-        $permohonan = PermohonanPengadaan::findOrFail($nomorSurat);
-
         $validated = $request->validate([
-            'judul_pengadaan' => ['sometimes', 'required', 'string', 'max:255'],
-            'asal_unit' => ['sometimes', 'required', 'string', 'max:100'],
-            'tujuan_ringkas' => ['sometimes', 'required', 'string'],
-            'file_pdf_srikandi' => ['sometimes', 'required', 'string', 'max:255'],
-            'status_permohonan' => ['sometimes', 'required', 'string', Rule::in([
-                PermohonanPengadaan::STATUS_DIAJUKAN,
-                PermohonanPengadaan::STATUS_REVIU_PARALEL,
-                PermohonanPengadaan::STATUS_PENDING_ANGGARAN,
-                PermohonanPengadaan::STATUS_DISETUJUI,
-                PermohonanPengadaan::STATUS_DITOLAK,
-                PermohonanPengadaan::STATUS_DIPROSES_PPBJ,
-            ])],
-            'no_draft_srikandi' => ['nullable', 'string', 'max:100'],
-            'nomor_surat_induk' => ['nullable', 'exists:permohonan_pengadaan,nomor_surat'],
+            'judul_pengadaan' => 'sometimes|required|string|max:255',
+            'tujuan_pengadaan_ringkas' => 'sometimes|required|string',
+            'file_permohonan' => 'sometimes|required|string|max:255',
+            'status_permohonan' => 'sometimes|required|string',
+            'status_anggaran' => 'sometimes|required|string',
+            'estimasi_total_pagu' => 'nullable|numeric|min:0',
+            'kode_mak' => 'nullable|exists:anggaran_mak,kode_mak',
         ]);
 
-        $permohonan->update($validated);
+        $permohonan_pengadaan->update($validated);
 
         return response()->json([
             'status' => 'success',
             'message' => 'Permohonan pengadaan berhasil diperbarui',
-            'data' => $permohonan,
+            'data' => $permohonan_pengadaan->load(['unit', 'user', 'anggaranMak']),
         ]);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy($nomorSurat): JsonResponse
+    public function split(Request $request, PermohonanPengadaan $permohonan_pengadaan): JsonResponse
     {
-        $permohonan = PermohonanPengadaan::findOrFail($nomorSurat);
-        $permohonan->delete();
+        $validated = $request->validate([
+            'nomor_surat_baru' => 'required|string|max:100|unique:permohonan_pengadaan,nomor_surat',
+            'judul_pengadaan' => 'required|string|max:255',
+            'alasan_pemecahan' => 'required|string',
+            'estimasi_total_pagu' => 'nullable|numeric|min:0',
+            'kode_mak' => 'nullable|exists:anggaran_mak,kode_mak',
+        ]);
+
+        $anak = PermohonanPengadaan::create([
+            'nomor_surat' => $validated['nomor_surat_baru'],
+            'judul_pengadaan' => $validated['judul_pengadaan'],
+            'tujuan_pengadaan_ringkas' => $permohonan_pengadaan->tujuan_pengadaan_ringkas,
+            'file_permohonan' => $permohonan_pengadaan->file_permohonan,
+            'status_permohonan' => PermohonanPengadaan::STATUS_REVIU_PARALEL,
+            'status_anggaran' => 'pending',
+            'revisi_ke' => 0,
+            'estimasi_total_pagu' => $validated['estimasi_total_pagu'] ?? $permohonan_pengadaan->estimasi_total_pagu,
+            'kode_unit' => $permohonan_pengadaan->kode_unit,
+            'id_user' => $permohonan_pengadaan->id_user,
+            'nomor_surat_induk_split' => $permohonan_pengadaan->nomor_surat,
+            'tanggal_pemecahan' => now(),
+            'alasan_pemecahan' => $validated['alasan_pemecahan'],
+            'kode_mak' => $validated['kode_mak'] ?? $permohonan_pengadaan->kode_mak,
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Permohonan pengadaan berhasil dipecah (split)',
+            'data' => $anak,
+        ], 201);
+    }
+
+    public function destroy(PermohonanPengadaan $permohonan_pengadaan): JsonResponse
+    {
+        $permohonan_pengadaan->delete();
 
         return response()->json([
             'status' => 'success',

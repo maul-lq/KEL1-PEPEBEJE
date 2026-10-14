@@ -2,16 +2,19 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class RiwayatPenugasanPPK extends Model
 {
+    use HasFactory;
+
     protected $table = 'riwayat_penugasan_ppk';
 
     protected $primaryKey = 'id_riwayat';
 
-    public $timestamps = false;
+    public $timestamps = true;
 
     protected $fillable = [
         'nomor_paket',

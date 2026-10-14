@@ -11,17 +11,21 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('reviu_pengadaan', function (Blueprint $table) {
+        Schema::create('reviu_dokumen', function (Blueprint $table) {
             $table->id('id_reviu');
             $table->string('nomor_paket', 100);
             $table->unsignedBigInteger('id_user');
+            $table->integer('putaran_ke')->default(1);
+            $table->string('role_reviewer', 50); // pp, ppk
             $table->string('status_reviu', 50); // disetujui, perlu_perbaikan, ditolak
             $table->text('catatan_perbaikan')->nullable();
             $table->timestamp('tanggal_reviu')->useCurrent();
+            $table->timestamps();
 
             $table->foreign('nomor_paket')
                 ->references('nomor_paket')
                 ->on('paket_pengadaan')
+                ->cascadeOnDelete()
                 ->cascadeOnUpdate();
 
             $table->foreign('id_user')
@@ -36,6 +40,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('reviu_pengadaan');
+        Schema::dropIfExists('reviu_dokumen');
     }
 };

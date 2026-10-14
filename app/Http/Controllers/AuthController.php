@@ -2,10 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Unit;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class AuthController extends Controller
@@ -23,41 +27,59 @@ class AuthController extends Controller
      */
     public function showRegistrationForm(): View
     {
-        return view('tes_registrasi');
+        $units = Unit::all();
+
+        return view('tes_registrasi', compact('units'));
     }
 
     /**
      * Proses pendaftaran user baru.
+     * Menerapkan batasan 1 user = 1 akun PP (FR 2.1).
      */
     public function register(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'nip' => ['required', 'string', 'max:30', 'unique:users,nip'],
+            'username' => ['required', 'string', 'max:50', 'unique:users,username'],
             'email' => ['required', 'email', 'max:100', 'unique:users,email'],
             'nama' => ['required', 'string', 'max:150'],
             'password' => ['required', 'string', 'min:6', 'confirmed'],
             'jabatan' => ['required', 'string', 'max:100'],
-            'unit_kerja' => ['required', 'string', 'max:100'],
+            'kode_unit' => ['required', 'string', 'exists:units,kode_unit'],
             'no_hp' => ['required', 'string', 'max:20'],
             'no_telp_kantor' => ['nullable', 'string', 'max:20'],
+            'role' => ['nullable', 'string', 'in:user,staff_bidang_2,wadir_2,perencanaan,ppbj,pp,ppk,perlengkapan,keuangan'],
         ]);
 
-        // Role default pemohon pengadaan
-        $validated['role'] = User::ROLE_USER_PENGAJU;
+        // Default role: user (pemohon)
+        $targetRole = $validated['role'] ?? 'user';
 
-        // Akun baru wajib diverifikasi/disetujui oleh Super Admin sebelum aktif
-        $validated['status_aktif'] = false;
+        // FR 2.1: Batasan 1 user = 1 akun Pejabat Pengadaan (PP) aktif
+        if ($targetRole === 'pp') {
+            $existingPP = User::where('role', 'pp')->where('status_aktif', true)->exists();
+            if ($existingPP) {
+                return back()->withErrors([
+                    'role' => 'Batasan sistem: Hanya diizinkan 1 akun Pejabat Pengadaan (PP) aktif di institusi (FR 2.1).',
+                ])->withInput();
+            }
+        }
+
+        $validated['role'] = $targetRole;
+        $validated['status_aktif'] = true; // Aktif untuk verifikasi prototipe
 
         User::create($validated);
 
         return redirect()->route('login')->with(
             'success',
-            'Pendaftaran akun berhasil! Akun Anda sedang menunggu verifikasi & persetujuan Super Admin sebelum dapat digunakan untuk login.'
+            'Pendaftaran akun berhasil! Silakan login menggunakan Username, NIP, atau Email Anda.'
         );
     }
 
     /**
      * Proses login pengguna.
+     * FR 1.1: Memasukkan username/nip/email dan password.
+     * FR 1.2: Memvalidasi kredensial pengguna & proteksi rate limiting.
+     * FR 1.3: Mengalihkan pengguna ke dashboard sesuai role.
      */
     public function login(Request $request): RedirectResponse
     {
@@ -66,30 +88,49 @@ class AuthController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        $fieldType = filter_var($credentials['login'], FILTER_VALIDATE_EMAIL) ? 'email' : 'nip';
+        $loginInput = $credentials['login'];
+        $throttleKey = Str::transliterate(Str::lower($loginInput).'|'.$request->ip());
 
-        // Cek autentikasi
-        if (Auth::attempt([$fieldType => $credentials['login'], 'password' => $credentials['password']])) {
-            $user = Auth::user();
+        // FR 1.2: Proteksi brute-force login (maksimal 5 percobaan gagal per menit)
+        if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
+            $seconds = RateLimiter::availableIn($throttleKey);
 
-            // Cek apakah akun sudah disetujui / aktif
+            return back()->withErrors([
+                'login' => "Terlalu banyak percobaan login gagal. Silakan coba kembali dalam {$seconds} detik.",
+            ])->onlyInput('login');
+        }
+
+        // Cari user berdasarkan username, email, atau nip
+        $user = User::where('username', $loginInput)
+            ->orWhere('email', $loginInput)
+            ->orWhere('nip', $loginInput)
+            ->first();
+
+        if ($user && Hash::check($credentials['password'], $user->password)) {
             if (! $user->status_aktif) {
-                Auth::logout();
-                $request->session()->invalidate();
-                $request->session()->regenerateToken();
-
                 return back()->withErrors([
-                    'login' => 'Akun Anda belum disetujui atau sedang dinonaktifkan oleh Administrator. Silakan hubungi Super Admin.',
+                    'login' => 'Akun Anda sedang dinonaktifkan oleh Administrator.',
                 ])->onlyInput('login');
             }
 
-            $request->session()->regenerate();
+            // Bersihkan riwayat throttle saat berhasil
+            RateLimiter::clear($throttleKey);
 
-            return redirect()->intended(route('home'));
+            Auth::login($user, $request->filled('remember'));
+            $request->session()->regenerate();
+            $request->session()->put('last_activity', time());
+
+            // FR 1.3: Pengalihan pengguna ke dashboard sesuai role
+            return redirect()->intended(route('home', ['role' => $user->role]))->with(
+                'success',
+                "Selamat datang kembali, {$user->nama}! Masuk sebagai ".strtoupper(str_replace('_', ' ', $user->role)).'.'
+            );
         }
 
+        RateLimiter::hit($throttleKey, 60);
+
         return back()->withErrors([
-            'login' => 'Kombinasi NIP/Email dan password tidak sesuai.',
+            'login' => 'Kombinasi Username/NIP/Email dan password tidak sesuai.',
         ])->onlyInput('login');
     }
 
@@ -99,7 +140,6 @@ class AuthController extends Controller
     public function logout(Request $request): RedirectResponse
     {
         Auth::logout();
-
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 

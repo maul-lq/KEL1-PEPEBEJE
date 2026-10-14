@@ -12,14 +12,14 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('verifikasi_paralel', function (Blueprint $table) {
+            $table->id();
             $table->unsignedBigInteger('id_user');
             $table->string('nomor_surat', 100);
-            $table->string('role_verifikator', 50); // staff_bidang_2, wadir_2, perencanaan
-            $table->string('status_keputusan', 50); // pending, disetujui, ditolak, hold_anggaran
-            $table->text('catatan_alasan')->nullable();
-            $table->timestamp('tanggal_keputusan')->useCurrent();
-
-            $table->primary(['id_user', 'nomor_surat']);
+            $table->string('role_verifikator', 50); // perencanaan, staff_bidang_2, wadir_2
+            $table->string('status_keputusan', 50)->default('menunggu'); // menunggu, disetujui, ditolak, revisi, pending_anggaran
+            $table->text('catatan_alasan')->nullable(); // Wajib diisi jika ditolak / revisi
+            $table->timestamp('tanggal_keputusan')->nullable();
+            $table->timestamps();
 
             $table->foreign('id_user')
                 ->references('id_user')
@@ -29,7 +29,10 @@ return new class extends Migration
             $table->foreign('nomor_surat')
                 ->references('nomor_surat')
                 ->on('permohonan_pengadaan')
+                ->cascadeOnDelete()
                 ->cascadeOnUpdate();
+
+            $table->unique(['id_user', 'nomor_surat', 'role_verifikator'], 'uq_verif_user_surat_role');
         });
     }
 

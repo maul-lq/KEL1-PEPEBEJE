@@ -2,179 +2,118 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\DokumentasiPenerimaanBarang;
+use App\Models\PaketPengadaan;
 use App\Models\PenerimaanBarang;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class PenerimaanBarangController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index(Request $request): JsonResponse
     {
         $query = PenerimaanBarang::with(['paket', 'user', 'fotoDokumentasi']);
-
-        if ($request->filled('nomor_paket')) {
-            $query->where('nomor_paket', $request->nomor_paket);
-        }
 
         if ($request->filled('status_fisik')) {
             $query->where('status_fisik', $request->status_fisik);
         }
 
-        $penerimaan = $query->latest('created_at')->paginate(15);
+        if ($request->filled('nomor_paket')) {
+            $query->where('nomor_paket', $request->nomor_paket);
+        }
 
         return response()->json([
             'status' => 'success',
-            'data' => $penerimaan,
+            'data' => $query->latest('tanggal_penerimaan')->paginate(15),
         ]);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create(): JsonResponse
-    {
-        return response()->json([
-            'status' => 'success',
-            'status_fisik' => [
-                PenerimaanBarang::STATUS_DITERIMA_LENGKAP,
-                PenerimaanBarang::STATUS_DITERIMA_SEBAGIAN,
-                PenerimaanBarang::STATUS_PENDING_RUSAK,
-                PenerimaanBarang::STATUS_DITOLAK,
-            ],
-        ]);
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'nomor_bast' => ['required', 'string', 'max:100'],
-            'nomor_paket' => ['required', 'exists:paket_pengadaan,nomor_paket'],
-            'tanggal_penerimaan' => ['required', 'date'],
-            'status_fisik' => ['required', 'string', Rule::in([
-                PenerimaanBarang::STATUS_DITERIMA_LENGKAP,
-                PenerimaanBarang::STATUS_DITERIMA_SEBAGIAN,
-                PenerimaanBarang::STATUS_PENDING_RUSAK,
-                PenerimaanBarang::STATUS_DITOLAK,
-            ])],
-            'ttd_digital_bast' => ['required', 'string'],
-            'file_bast_signed' => ['required', 'string', 'max:255'],
-            'file_penerimaan_pihak3' => ['nullable', 'string', 'max:255'],
-            'catatan_pemeriksaan' => ['nullable', 'string'],
-            'id_user' => ['required', 'exists:users,id_user'],
+            'nomor_bast' => 'nullable|string|max:100|unique:penerimaan_barang,nomor_bast',
+            'nomor_paket' => 'required|exists:paket_pengadaan,nomor_paket',
+            'id_user' => 'required|exists:users,id_user',
+            'tanggal_penerimaan' => 'required|date',
+            'status_fisik' => 'required|string|in:terima,pending,tidak_sesuai',
+            'ttd_digital_bast' => 'nullable|string',
+            'file_bast_signed' => 'nullable|string|max:255',
+            'file_penerimaan_pihak3' => 'nullable|string|max:255',
+            'catatan_pemeriksaan' => 'nullable|string',
+            'foto_dokumentasi' => 'nullable|array',
+            'foto_dokumentasi.*' => 'string|max:255',
         ]);
 
-        $exists = PenerimaanBarang::where('nomor_bast', $validated['nomor_bast'])
-            ->where('nomor_paket', $validated['nomor_paket'])
-            ->exists();
+        $validated['waktu_selesai_inspeksi'] = now();
 
-        if ($exists) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'BAST untuk nomor dan paket ini sudah ada',
-            ], 422);
+        // NFR Integritas Data MAK & TTD Digital: Amankan TTD digital dengan token kriptografis
+        if (! empty($validated['ttd_digital_bast'])) {
+            $validated['ttd_digital_bast'] = PenerimaanBarang::generateSignatureToken(
+                $validated['nomor_bast'] ?? 'BAST-'.time(),
+                (int) $validated['id_user']
+            );
         }
 
         $penerimaan = PenerimaanBarang::create($validated);
 
+        if (! empty($validated['foto_dokumentasi'])) {
+            foreach ($validated['foto_dokumentasi'] as $idx => $foto) {
+                DokumentasiPenerimaanBarang::create([
+                    'id_penerimaan' => $penerimaan->id_penerimaan,
+                    'foto_dokumentasi' => $foto,
+                    'keterangan_foto' => 'Foto fisik barang #'.($idx + 1),
+                ]);
+            }
+        }
+
+        // Update status paket pengadaan
+        $paket = PaketPengadaan::find($penerimaan->nomor_paket);
+        if ($paket) {
+            $paket->status_paket = ($penerimaan->status_fisik === 'terima') ? 'penerimaan_selesai' : 'penerimaan_pending';
+            $paket->save();
+        }
+
         return response()->json([
             'status' => 'success',
-            'message' => 'Penerimaan barang BAST berhasil disimpan',
-            'data' => $penerimaan,
+            'message' => 'Data penerimaan barang dan BAST berhasil dicatat',
+            'data' => $penerimaan->load(['paket', 'user', 'fotoDokumentasi']),
         ], 201);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Request $request, $id): JsonResponse
+    public function show(PenerimaanBarang $penerimaan_barang): JsonResponse
     {
-        $penerimaan = $this->findRecord($request, $id);
-
         return response()->json([
             'status' => 'success',
-            'data' => $penerimaan->load(['paket', 'user', 'fotoDokumentasi']),
+            'data' => $penerimaan_barang->load(['paket.vendor', 'user', 'fotoDokumentasi']),
         ]);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Request $request, $id): JsonResponse
+    public function update(Request $request, PenerimaanBarang $penerimaan_barang): JsonResponse
     {
-        $penerimaan = $this->findRecord($request, $id);
-
-        return response()->json([
-            'status' => 'success',
-            'data' => $penerimaan,
-        ]);
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, $id): JsonResponse
-    {
-        $penerimaan = $this->findRecord($request, $id);
-
         $validated = $request->validate([
-            'tanggal_penerimaan' => ['sometimes', 'required', 'date'],
-            'status_fisik' => ['sometimes', 'required', 'string', Rule::in([
-                PenerimaanBarang::STATUS_DITERIMA_LENGKAP,
-                PenerimaanBarang::STATUS_DITERIMA_SEBAGIAN,
-                PenerimaanBarang::STATUS_PENDING_RUSAK,
-                PenerimaanBarang::STATUS_DITOLAK,
-            ])],
-            'ttd_digital_bast' => ['sometimes', 'required', 'string'],
-            'file_bast_signed' => ['sometimes', 'required', 'string', 'max:255'],
-            'file_penerimaan_pihak3' => ['nullable', 'string', 'max:255'],
-            'catatan_pemeriksaan' => ['nullable', 'string'],
+            'status_fisik' => 'sometimes|required|string|in:terima,pending,tidak_sesuai',
+            'ttd_digital_bast' => 'nullable|string',
+            'file_bast_signed' => 'nullable|string|max:255',
+            'file_penerimaan_pihak3' => 'nullable|string|max:255',
+            'catatan_pemeriksaan' => 'nullable|string',
         ]);
 
-        $penerimaan->update($validated);
+        $penerimaan_barang->update($validated);
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Penerimaan barang BAST berhasil diperbarui',
-            'data' => $penerimaan,
+            'message' => 'Data penerimaan barang berhasil diperbarui',
+            'data' => $penerimaan_barang->load(['paket', 'fotoDokumentasi']),
         ]);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Request $request, $id): JsonResponse
+    public function destroy(PenerimaanBarang $penerimaan_barang): JsonResponse
     {
-        $penerimaan = $this->findRecord($request, $id);
-        $penerimaan->delete();
+        $penerimaan_barang->delete();
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Penerimaan barang BAST berhasil dihapus',
+            'message' => 'Data penerimaan barang berhasil dihapus',
         ]);
-    }
-
-    protected function findRecord(Request $request, $id): PenerimaanBarang
-    {
-        if ($request->filled('nomor_bast') && $request->filled('nomor_paket')) {
-            return PenerimaanBarang::where('nomor_bast', $request->nomor_bast)
-                ->where('nomor_paket', $request->nomor_paket)
-                ->firstOrFail();
-        }
-
-        $parts = explode(':', $id, 2);
-        if (count($parts) === 2) {
-            return PenerimaanBarang::where('nomor_bast', $parts[0])
-                ->where('nomor_paket', $parts[1])
-                ->firstOrFail();
-        }
-
-        return PenerimaanBarang::where('nomor_bast', $id)->firstOrFail();
     }
 }

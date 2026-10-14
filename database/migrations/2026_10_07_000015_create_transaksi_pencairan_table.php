@@ -14,18 +14,18 @@ return new class extends Migration
         Schema::create('transaksi_pencairan', function (Blueprint $table) {
             $table->string('nomor_transaksi_bank', 100)->primary();
             $table->string('nomor_pembayaran', 100);
-            $table->string('nomor_paket', 100);
+            $table->unsignedBigInteger('id_user'); // Staf Keuangan
             $table->timestamp('tanggal_transfer')->useCurrent();
             $table->decimal('nominal_transfer', 15, 2);
             $table->string('file_bukti_transfer', 255);
             $table->text('catatan_keuangan')->nullable();
-            $table->unsignedBigInteger('id_user'); // Staf Keuangan
             $table->timestamps();
 
-            $table->foreign(['nomor_pembayaran', 'nomor_paket'])
-                ->references(['nomor_pembayaran', 'nomor_paket'])
+            $table->foreign('nomor_pembayaran')
+                ->references('nomor_pembayaran')
                 ->on('pembayaran')
-                ->cascadeOnDelete();
+                ->cascadeOnDelete()
+                ->cascadeOnUpdate();
 
             $table->foreign('id_user')
                 ->references('id_user')

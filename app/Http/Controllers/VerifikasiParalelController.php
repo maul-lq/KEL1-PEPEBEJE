@@ -2,190 +2,142 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\PermohonanPengadaan;
 use App\Models\VerifikasiParalel;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class VerifikasiParalelController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index(Request $request): JsonResponse
     {
-        $query = VerifikasiParalel::with(['user', 'permohonan']);
+        $query = VerifikasiParalel::with(['user', 'permohonan.unit']);
 
         if ($request->filled('nomor_surat')) {
             $query->where('nomor_surat', $request->nomor_surat);
         }
 
-        if ($request->filled('id_user')) {
-            $query->where('id_user', $request->id_user);
+        if ($request->filled('role_verifikator')) {
+            $query->where('role_verifikator', $request->role_verifikator);
         }
 
-        if ($request->filled('status')) {
-            $query->where('status_keputusan', $request->status);
+        if ($request->filled('status_keputusan')) {
+            $query->where('status_keputusan', $request->status_keputusan);
         }
-
-        $verifikasi = $query->latest('tanggal_keputusan')->paginate(15);
 
         return response()->json([
             'status' => 'success',
-            'data' => $verifikasi,
+            'data' => $query->paginate(15),
         ]);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create(): JsonResponse
-    {
-        return response()->json([
-            'status' => 'success',
-            'roles' => ['staff_bidang_2', 'wadir_2', 'perencanaan'],
-            'statuses' => [
-                VerifikasiParalel::STATUS_PENDING,
-                VerifikasiParalel::STATUS_DISETUJUI,
-                VerifikasiParalel::STATUS_DITOLAK,
-                VerifikasiParalel::STATUS_HOLD_ANGGARAN,
-            ],
-        ]);
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'id_user' => ['required', 'exists:users,id_user'],
-            'nomor_surat' => ['required', 'exists:permohonan_pengadaan,nomor_surat'],
-            'role_verifikator' => ['required', 'string', Rule::in(['staff_bidang_2', 'wadir_2', 'perencanaan'])],
-            'status_keputusan' => ['required', 'string', Rule::in([
-                VerifikasiParalel::STATUS_PENDING,
-                VerifikasiParalel::STATUS_DISETUJUI,
-                VerifikasiParalel::STATUS_DITOLAK,
-                VerifikasiParalel::STATUS_HOLD_ANGGARAN,
-            ])],
-            'catatan_alasan' => ['nullable', 'string'],
-            'tanggal_keputusan' => ['nullable', 'date'],
+            'id_user' => 'required|exists:users,id_user',
+            'nomor_surat' => 'required|exists:permohonan_pengadaan,nomor_surat',
+            'role_verifikator' => 'required|string|in:perencanaan,staff_bidang_2,wadir_2',
+            'status_keputusan' => 'required|string|in:menunggu,disetujui,ditolak,revisi,pending_anggaran',
+            'catatan_alasan' => 'nullable|string',
         ]);
 
-        $exists = VerifikasiParalel::where('id_user', $validated['id_user'])
-            ->where('nomor_surat', $validated['nomor_surat'])
-            ->exists();
-
-        if ($exists) {
+        if (in_array($validated['status_keputusan'], ['ditolak', 'revisi']) && empty($validated['catatan_alasan'])) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Verifikasi paralel untuk user dan permohonan ini sudah ada',
+                'message' => 'Catatan alasan wajib diisi saat menolak atau meminta revisi permohonan.',
             ], 422);
         }
 
-        $validated['tanggal_keputusan'] = $validated['tanggal_keputusan'] ?? now();
+        $validated['tanggal_keputusan'] = now();
 
-        $verifikasi = VerifikasiParalel::create($validated);
+        $verif = VerifikasiParalel::create($validated);
+        $this->cekKelulusanParalel($verif->nomor_surat);
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Verifikasi paralel berhasil dicatat',
-            'data' => $verifikasi,
+            'message' => 'Keputusan verifikasi paralel berhasil disimpan',
+            'data' => $verif->load(['user', 'permohonan']),
         ], 201);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Request $request, $id): JsonResponse
+    public function show(VerifikasiParalel $verifikasi_paralel): JsonResponse
     {
-        $verifikasi = $this->findComposite($request, $id);
-
         return response()->json([
             'status' => 'success',
-            'data' => $verifikasi->load(['user', 'permohonan']),
+            'data' => $verifikasi_paralel->load(['user', 'permohonan']),
         ]);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Request $request, $id): JsonResponse
+    public function update(Request $request, VerifikasiParalel $verifikasi_paralel): JsonResponse
     {
-        $verifikasi = $this->findComposite($request, $id);
-
-        return response()->json([
-            'status' => 'success',
-            'data' => $verifikasi,
-        ]);
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, $id): JsonResponse
-    {
-        $verifikasi = $this->findComposite($request, $id);
-
         $validated = $request->validate([
-            'role_verifikator' => ['sometimes', 'required', 'string', Rule::in(['staff_bidang_2', 'wadir_2', 'perencanaan'])],
-            'status_keputusan' => ['sometimes', 'required', 'string', Rule::in([
-                VerifikasiParalel::STATUS_PENDING,
-                VerifikasiParalel::STATUS_DISETUJUI,
-                VerifikasiParalel::STATUS_DITOLAK,
-                VerifikasiParalel::STATUS_HOLD_ANGGARAN,
-            ])],
-            'catatan_alasan' => ['nullable', 'string'],
-            'tanggal_keputusan' => ['nullable', 'date'],
+            'status_keputusan' => 'required|string|in:menunggu,disetujui,ditolak,revisi,pending_anggaran',
+            'catatan_alasan' => 'nullable|string',
         ]);
 
-        VerifikasiParalel::where('id_user', $verifikasi->id_user)
-            ->where('nomor_surat', $verifikasi->nomor_surat)
-            ->update($validated);
+        if (in_array($validated['status_keputusan'], ['ditolak', 'revisi']) && empty($validated['catatan_alasan'])) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Catatan alasan wajib diisi saat menolak atau meminta revisi permohonan.',
+            ], 422);
+        }
+
+        $validated['tanggal_keputusan'] = now();
+        $verifikasi_paralel->update($validated);
+
+        $this->cekKelulusanParalel($verifikasi_paralel->nomor_surat);
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Verifikasi paralel berhasil diperbarui',
-            'data' => $verifikasi->fresh(),
+            'message' => 'Keputusan verifikasi paralel berhasil diperbarui',
+            'data' => $verifikasi_paralel->load(['user', 'permohonan']),
         ]);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Request $request, $id): JsonResponse
+    private function cekKelulusanParalel(string $nomor_surat): void
     {
-        $verifikasi = $this->findComposite($request, $id);
+        $verifikasi = VerifikasiParalel::where('nomor_surat', $nomor_surat)->get();
+        $permohonan = PermohonanPengadaan::find($nomor_surat);
 
-        VerifikasiParalel::where('id_user', $verifikasi->id_user)
-            ->where('nomor_surat', $verifikasi->nomor_surat)
-            ->delete();
+        if (! $permohonan || $verifikasi->isEmpty()) {
+            return;
+        }
+
+        // Jika salah satu menolak
+        if ($verifikasi->contains('status_keputusan', 'ditolak')) {
+            $permohonan->status_permohonan = PermohonanPengadaan::STATUS_DITOLAK;
+            $permohonan->save();
+
+            return;
+        }
+
+        // Jika ada status pending anggaran
+        if ($verifikasi->contains('status_keputusan', 'pending_anggaran')) {
+            $permohonan->status_permohonan = PermohonanPengadaan::STATUS_PENDING_ANGGARAN;
+            $permohonan->status_anggaran = 'hold';
+            $permohonan->save();
+
+            return;
+        }
+
+        // Jika keduanya menyetujui (Perencanaan & Wadir 2)
+        $perencanaanOk = $verifikasi->where('role_verifikator', 'perencanaan')->where('status_keputusan', 'disetujui')->isNotEmpty();
+        $wadirOk = $verifikasi->where('role_verifikator', 'wadir_2')->where('status_keputusan', 'disetujui')->isNotEmpty();
+
+        if ($perencanaanOk && $wadirOk) {
+            $permohonan->status_permohonan = PermohonanPengadaan::STATUS_DISETUJUI;
+            $permohonan->status_anggaran = 'disetujui';
+            $permohonan->save();
+        }
+    }
+
+    public function destroy(VerifikasiParalel $verifikasi_paralel): JsonResponse
+    {
+        $verifikasi_paralel->delete();
 
         return response()->json([
             'status' => 'success',
             'message' => 'Verifikasi paralel berhasil dihapus',
         ]);
-    }
-
-    /**
-     * Helper to resolve composite primary key record.
-     */
-    protected function findComposite(Request $request, $id): VerifikasiParalel
-    {
-        if ($request->filled('id_user') && $request->filled('nomor_surat')) {
-            return VerifikasiParalel::where('id_user', $request->id_user)
-                ->where('nomor_surat', $request->nomor_surat)
-                ->firstOrFail();
-        }
-
-        // Support composite key encoded as id_user:nomor_surat
-        $parts = explode(':', $id, 2);
-        if (count($parts) === 2) {
-            return VerifikasiParalel::where('id_user', $parts[0])
-                ->where('nomor_surat', $parts[1])
-                ->firstOrFail();
-        }
-
-        return VerifikasiParalel::where('nomor_surat', $id)->firstOrFail();
     }
 }

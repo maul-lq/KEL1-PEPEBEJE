@@ -2,24 +2,14 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Reminder extends Model
 {
-    public const ROLE_PPBJ = 'ppbj';
-
-    public const ROLE_PP = 'pp';
-
-    public const ROLE_PPK = 'ppk';
-
-    public const ROLE_KEUANGAN = 'keuangan';
-
-    public const TIPE_PENGIRIMAN = 'pengiriman';
-
-    public const TIPE_H_MINUS_2_TERMIN = 'h_minus_2_termin';
-
-    public const TIPE_BULANAN_TAHUNAN = 'bulanan_tahunan';
+    use HasFactory;
 
     protected $table = 'reminder';
 
@@ -27,22 +17,20 @@ class Reminder extends Model
 
     protected $fillable = [
         'nomor_paket',
-        'target_role',
         'tipe_reminder',
+        'waktu_trigger',
+        'is_recurring',
+        'interval_bulan',
         'judul_alert',
         'pesan_alert',
-        'tanggal_pemicu',
-        'is_read',
-        'is_dismissed',
-        'id_user',
     ];
 
     protected function casts(): array
     {
         return [
-            'tanggal_pemicu' => 'datetime',
-            'is_read' => 'boolean',
-            'is_dismissed' => 'boolean',
+            'waktu_trigger' => 'datetime',
+            'is_recurring' => 'boolean',
+            'interval_bulan' => 'integer',
         ];
     }
 
@@ -51,8 +39,8 @@ class Reminder extends Model
         return $this->belongsTo(PaketPengadaan::class, 'nomor_paket', 'nomor_paket');
     }
 
-    public function user(): BelongsTo
+    public function notifikasiUser(): HasMany
     {
-        return $this->belongsTo(User::class, 'id_user', 'id_user');
+        return $this->hasMany(NotifikasiUser::class, 'id_reminder', 'id_reminder');
     }
 }

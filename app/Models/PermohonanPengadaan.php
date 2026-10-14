@@ -2,23 +2,14 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PermohonanPengadaan extends Model
 {
-    public const STATUS_DIAJUKAN = 'diajukan';
-
-    public const STATUS_REVIU_PARALEL = 'reviu_paralel';
-
-    public const STATUS_PENDING_ANGGARAN = 'pending_anggaran';
-
-    public const STATUS_DISETUJUI = 'disetujui';
-
-    public const STATUS_DITOLAK = 'ditolak';
-
-    public const STATUS_DIPROSES_PPBJ = 'diproses_ppbj';
+    use HasFactory;
 
     protected $table = 'permohonan_pengadaan';
 
@@ -28,36 +19,85 @@ class PermohonanPengadaan extends Model
 
     protected $keyType = 'string';
 
+    const STATUS_DIAJUKAN = 'diajukan';
+
+    const STATUS_REVIU_PARALEL = 'reviu_paralel';
+
+    const STATUS_PENDING_ANGGARAN = 'pending_anggaran';
+
+    const STATUS_DISETUJUI = 'disetujui';
+
+    const STATUS_DITOLAK = 'ditolak';
+
+    const STATUS_DIPROSES_PPBJ = 'diproses_ppbj';
+
+    const STATUS_SELESAI = 'selesai';
+
     protected $fillable = [
         'nomor_surat',
         'judul_pengadaan',
-        'asal_unit',
-        'tujuan_ringkas',
-        'file_pdf_srikandi',
+        'tujuan_pengadaan_ringkas',
+        'file_permohonan',
         'status_permohonan',
-        'no_draft_srikandi',
+        'status_anggaran',
+        'revisi_ke',
+        'estimasi_total_pagu',
+        'tanggal_pengajuan',
+        'kode_unit',
         'id_user',
-        'nomor_surat_induk',
+        'nomor_surat_induk_split',
+        'tanggal_pemecahan',
+        'alasan_pemecahan',
+        'nomor_surat_revisi',
+        'tanggal_revisi',
+        'alasan_revisi',
+        'kode_mak',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'revisi_ke' => 'integer',
+            'estimasi_total_pagu' => 'decimal:2',
+            'tanggal_pengajuan' => 'datetime',
+            'tanggal_pemecahan' => 'datetime',
+            'tanggal_revisi' => 'datetime',
+        ];
+    }
+
+    public function unit(): BelongsTo
+    {
+        return $this->belongsTo(Unit::class, 'kode_unit', 'kode_unit');
+    }
 
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'id_user', 'id_user');
     }
 
-    public function induk(): BelongsTo
+    public function indukSplit(): BelongsTo
     {
-        return $this->belongsTo(self::class, 'nomor_surat_induk', 'nomor_surat');
+        return $this->belongsTo(self::class, 'nomor_surat_induk_split', 'nomor_surat');
     }
 
     public function anakSplit(): HasMany
     {
-        return $this->hasMany(self::class, 'nomor_surat_induk', 'nomor_surat');
+        return $this->hasMany(self::class, 'nomor_surat_induk_split', 'nomor_surat');
     }
 
-    public function paketPengadaan(): HasMany
+    public function suratAsalRevisi(): BelongsTo
     {
-        return $this->hasMany(PaketPengadaan::class, 'nomor_surat', 'nomor_surat');
+        return $this->belongsTo(self::class, 'nomor_surat_revisi', 'nomor_surat');
+    }
+
+    public function suratHasilRevisi(): HasMany
+    {
+        return $this->hasMany(self::class, 'nomor_surat_revisi', 'nomor_surat');
+    }
+
+    public function anggaranMak(): BelongsTo
+    {
+        return $this->belongsTo(AnggaranMAK::class, 'kode_mak', 'kode_mak');
     }
 
     public function verifikasiParalel(): HasMany
@@ -68,5 +108,10 @@ class PermohonanPengadaan extends Model
     public function alokasiMak(): HasMany
     {
         return $this->hasMany(AlokasiMAK::class, 'nomor_surat', 'nomor_surat');
+    }
+
+    public function paketPengadaan(): HasMany
+    {
+        return $this->hasMany(PaketPengadaan::class, 'nomor_surat', 'nomor_surat');
     }
 }

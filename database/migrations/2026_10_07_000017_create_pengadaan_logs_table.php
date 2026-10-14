@@ -11,19 +11,23 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('pengadaan_logs', function (Blueprint $table) {
+        Schema::create('audit_log', function (Blueprint $table) {
             $table->id('id_log');
-            $table->string('nomor_surat', 100)->nullable();
-            $table->string('nomor_paket', 100)->nullable();
-            $table->unsignedBigInteger('id_user');
-            $table->string('aksi', 100); // SPLIT_MAK, ASSIGN_PPK, LOCK_MAK, ACC_WADIR2, dll.
-            $table->text('keterangan');
-            $table->string('ip_address', 45);
-            $table->timestamp('created_at')->useCurrent();
+            $table->unsignedBigInteger('id_user')->nullable();
+            $table->timestamp('waktu_log')->useCurrent();
+            $table->string('jenis_aksi', 50); // revisi_surat, penetapan_mak, kunci_mak, split_permohonan, penugasan_ppk, penerbitan_spk, ttd_bast, memo_bayar, transfer_pencairan
+            $table->string('nama_entitas', 100);
+            $table->string('id_entitas', 100);
+            $table->text('nilai_lama')->nullable();
+            $table->text('nilai_baru')->nullable();
+            $table->text('alasan')->nullable();
+            $table->string('ip_address', 45)->nullable();
+            $table->timestamps();
 
             $table->foreign('id_user')
                 ->references('id_user')
                 ->on('users')
+                ->nullOnDelete()
                 ->cascadeOnUpdate();
         });
     }
@@ -33,6 +37,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('pengadaan_logs');
+        Schema::dropIfExists('audit_log');
     }
 };

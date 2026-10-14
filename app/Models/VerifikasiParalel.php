@@ -2,24 +2,15 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class VerifikasiParalel extends Model
 {
-    public const STATUS_PENDING = 'pending';
-
-    public const STATUS_DISETUJUI = 'disetujui';
-
-    public const STATUS_DITOLAK = 'ditolak';
-
-    public const STATUS_HOLD_ANGGARAN = 'hold_anggaran';
+    use HasFactory;
 
     protected $table = 'verifikasi_paralel';
-
-    public $incrementing = false;
-
-    public $timestamps = false;
 
     protected $fillable = [
         'id_user',
