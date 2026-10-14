@@ -3,24 +3,26 @@
 namespace App\Http\Controllers;
 
 use App\Models\AnggaranMAK;
+use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class AnggaranMAKController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index(Request $request): JsonResponse
     {
         $query = AnggaranMAK::with('user');
 
-        if ($request->filled('tahun')) {
-            $query->where('tahun_anggaran', $request->tahun);
+        if ($request->filled('tahun_anggaran')) {
+            $query->where('tahun_anggaran', $request->tahun_anggaran);
+        }
+
+        if ($request->filled('sumber_dana')) {
+            $query->where('sumber_dana', $request->sumber_dana);
         }
 
         if ($request->filled('is_locked')) {
-            $query->where('is_locked', $request->boolean('is_locked'));
+            $query->where('is_locked', filter_var($request->is_locked, FILTER_VALIDATE_BOOLEAN));
         }
 
         if ($request->filled('search')) {
@@ -31,7 +33,7 @@ class AnggaranMAKController extends Controller
             });
         }
 
-        $anggaran = $query->latest('created_at')->paginate(15);
+        $anggaran = $query->paginate(15);
 
         return response()->json([
             'status' => 'success',
@@ -39,106 +41,94 @@ class AnggaranMAKController extends Controller
         ]);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create(): JsonResponse
-    {
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Ready to create Anggaran MAK',
-        ]);
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'kode_mak' => ['required', 'string', 'max:100', 'unique:anggaran_mak,kode_mak'],
-            'uraian_mak' => ['required', 'string', 'max:255'],
-            'pagu_anggaran' => ['required', 'numeric', 'min:0'],
-            'sumber_dana' => ['required', 'string', 'max:100'],
-            'tahun_anggaran' => ['required', 'integer', 'min:2000', 'max:2100'],
-            'is_locked' => ['nullable', 'boolean'],
-            'tanggal_kunci' => ['nullable', 'date'],
-            'id_user' => ['required', 'exists:users,id_user'],
+            'kode_mak' => 'required|string|max:50|unique:anggaran_mak,kode_mak',
+            'uraian_mak' => 'required|string|max:255',
+            'pagu_anggaran' => 'required|numeric|min:0',
+            'sumber_dana' => 'required|string|max:100',
+            'tahun_anggaran' => 'required|integer|digits:4',
+            'catatan_mak' => 'nullable|string',
+            'id_user' => 'nullable|exists:users,id_user',
         ]);
 
-        $validated['is_locked'] = $request->boolean('is_locked', false);
+        $validated['sisa_pagu_mak'] = $validated['pagu_anggaran'];
+        $validated['tanggal_penetapan'] = now();
 
         $anggaran = AnggaranMAK::create($validated);
 
         return response()->json([
             'status' => 'success',
             'message' => 'Anggaran MAK berhasil dibuat',
-            'data' => $anggaran,
+            'data' => $anggaran->load('user'),
         ], 201);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show($kodeMak): JsonResponse
+    public function show(AnggaranMAK $anggaran_mak): JsonResponse
     {
-        $anggaran = AnggaranMAK::with(['user', 'paketPengadaan', 'alokasiMak'])->findOrFail($kodeMak);
-
         return response()->json([
             'status' => 'success',
-            'data' => $anggaran,
+            'data' => $anggaran_mak->load(['user', 'permohonanPengadaan', 'alokasiMak']),
         ]);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit($kodeMak): JsonResponse
+    public function update(Request $request, AnggaranMAK $anggaran_mak): JsonResponse
     {
-        $anggaran = AnggaranMAK::findOrFail($kodeMak);
-
-        return response()->json([
-            'status' => 'success',
-            'data' => $anggaran,
-        ]);
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, $kodeMak): JsonResponse
-    {
-        $anggaran = AnggaranMAK::findOrFail($kodeMak);
-
-        $validated = $request->validate([
-            'uraian_mak' => ['sometimes', 'required', 'string', 'max:255'],
-            'pagu_anggaran' => ['sometimes', 'required', 'numeric', 'min:0'],
-            'sumber_dana' => ['sometimes', 'required', 'string', 'max:100'],
-            'tahun_anggaran' => ['sometimes', 'required', 'integer', 'min:2000', 'max:2100'],
-            'is_locked' => ['nullable', 'boolean'],
-            'tanggal_kunci' => ['nullable', 'date'],
-        ]);
-
-        if ($request->has('is_locked')) {
-            $validated['is_locked'] = $request->boolean('is_locked');
+        if ($anggaran_mak->is_locked) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Anggaran MAK telah dikunci permanen karena SPK telah terbit dan tidak dapat diubah.',
+            ], 422);
         }
 
-        $anggaran->update($validated);
+        $validated = $request->validate([
+            'uraian_mak' => 'sometimes|required|string|max:255',
+            'pagu_anggaran' => 'sometimes|required|numeric|min:0',
+            'sisa_pagu_mak' => 'sometimes|required|numeric|min:0',
+            'sumber_dana' => 'sometimes|required|string|max:100',
+            'tahun_anggaran' => 'sometimes|required|integer|digits:4',
+            'catatan_mak' => 'nullable|string',
+            'id_user' => 'nullable|exists:users,id_user',
+        ]);
+
+        try {
+            $anggaran_mak->update($validated);
+        } catch (Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage(),
+            ], 422);
+        }
 
         return response()->json([
             'status' => 'success',
             'message' => 'Anggaran MAK berhasil diperbarui',
-            'data' => $anggaran,
+            'data' => $anggaran_mak->load('user'),
         ]);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy($kodeMak): JsonResponse
+    public function lock(AnggaranMAK $anggaran_mak): JsonResponse
     {
-        $anggaran = AnggaranMAK::findOrFail($kodeMak);
-        $anggaran->delete();
+        $anggaran_mak->lock();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Anggaran MAK berhasil dikunci permanen',
+            'data' => $anggaran_mak,
+        ]);
+    }
+
+    public function destroy(AnggaranMAK $anggaran_mak): JsonResponse
+    {
+        if ($anggaran_mak->is_locked) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Anggaran MAK yang telah dikunci tidak dapat dihapus.',
+            ], 422);
+        }
+
+        $anggaran_mak->delete();
 
         return response()->json([
             'status' => 'success',

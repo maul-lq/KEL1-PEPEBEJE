@@ -8,122 +8,52 @@ use Illuminate\Http\Request;
 
 class DokumentasiPenerimaanBarangController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index(Request $request): JsonResponse
     {
         $query = DokumentasiPenerimaanBarang::with('penerimaanBarang');
 
-        if ($request->filled('nomor_bast')) {
-            $query->where('nomor_bast', $request->nomor_bast);
+        if ($request->filled('id_penerimaan')) {
+            $query->where('id_penerimaan', $request->id_penerimaan);
         }
-
-        if ($request->filled('nomor_paket')) {
-            $query->where('nomor_paket', $request->nomor_paket);
-        }
-
-        $fotos = $query->latest('uploaded_at')->paginate(15);
 
         return response()->json([
             'status' => 'success',
-            'data' => $fotos,
+            'data' => $query->get(),
         ]);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create(): JsonResponse
-    {
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Ready to upload documentation photo',
-        ]);
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'nomor_bast' => ['required', 'string', 'max:100'],
-            'nomor_paket' => ['required', 'string', 'max:100'],
-            'foto_dokumentasi' => ['required', 'string', 'max:255'],
-            'keterangan_foto' => ['nullable', 'string', 'max:255'],
-            'uploaded_at' => ['nullable', 'date'],
+            'id_penerimaan' => 'required|exists:penerimaan_barang,id_penerimaan',
+            'foto_dokumentasi' => 'required|string|max:255',
+            'keterangan_foto' => 'nullable|string|max:255',
         ]);
-
-        $validated['uploaded_at'] = $validated['uploaded_at'] ?? now();
 
         $foto = DokumentasiPenerimaanBarang::create($validated);
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Foto dokumentasi barang berhasil disimpan',
+            'message' => 'Foto dokumentasi barang berhasil ditambahkan',
             'data' => $foto,
         ], 201);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show($id): JsonResponse
+    public function show(DokumentasiPenerimaanBarang $dokumentasi_penerimaan_barang): JsonResponse
     {
-        $foto = DokumentasiPenerimaanBarang::with('penerimaanBarang')->findOrFail($id);
-
         return response()->json([
             'status' => 'success',
-            'data' => $foto,
+            'data' => $dokumentasi_penerimaan_barang->load('penerimaanBarang'),
         ]);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit($id): JsonResponse
+    public function destroy(DokumentasiPenerimaanBarang $dokumentasi_penerimaan_barang): JsonResponse
     {
-        $foto = DokumentasiPenerimaanBarang::findOrFail($id);
+        $dokumentasi_penerimaan_barang->delete();
 
         return response()->json([
             'status' => 'success',
-            'data' => $foto,
-        ]);
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, $id): JsonResponse
-    {
-        $foto = DokumentasiPenerimaanBarang::findOrFail($id);
-
-        $validated = $request->validate([
-            'foto_dokumentasi' => ['sometimes', 'required', 'string', 'max:255'],
-            'keterangan_foto' => ['nullable', 'string', 'max:255'],
-        ]);
-
-        $foto->update($validated);
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Foto dokumentasi berhasil diperbarui',
-            'data' => $foto,
-        ]);
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy($id): JsonResponse
-    {
-        $foto = DokumentasiPenerimaanBarang::findOrFail($id);
-        $foto->delete();
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Foto dokumentasi berhasil dihapus',
+            'message' => 'Foto dokumentasi barang berhasil dihapus',
         ]);
     }
 }

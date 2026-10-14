@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Unit;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\View\View;
 
 class AuthController extends Controller
@@ -23,7 +25,9 @@ class AuthController extends Controller
      */
     public function showRegistrationForm(): View
     {
-        return view('tes_registrasi');
+        $units = Unit::all();
+
+        return view('tes_registrasi', compact('units'));
     }
 
     /**
@@ -33,26 +37,26 @@ class AuthController extends Controller
     {
         $validated = $request->validate([
             'nip' => ['required', 'string', 'max:30', 'unique:users,nip'],
+            'username' => ['required', 'string', 'max:50', 'unique:users,username'],
             'email' => ['required', 'email', 'max:100', 'unique:users,email'],
             'nama' => ['required', 'string', 'max:150'],
             'password' => ['required', 'string', 'min:6', 'confirmed'],
             'jabatan' => ['required', 'string', 'max:100'],
-            'unit_kerja' => ['required', 'string', 'max:100'],
+            'kode_unit' => ['required', 'string', 'exists:units,kode_unit'],
             'no_hp' => ['required', 'string', 'max:20'],
             'no_telp_kantor' => ['nullable', 'string', 'max:20'],
+            'role' => ['nullable', 'string', 'in:user,staff_bidang_2,wadir_2,perencanaan,ppbj,pp,ppk,perlengkapan,keuangan'],
         ]);
 
-        // Role default pemohon pengadaan
-        $validated['role'] = User::ROLE_USER_PENGAJU;
-
-        // Akun baru wajib diverifikasi/disetujui oleh Super Admin sebelum aktif
-        $validated['status_aktif'] = false;
+        // Default role: user (pemohon)
+        $validated['role'] = $validated['role'] ?? 'user';
+        $validated['status_aktif'] = true; // Langsung aktif untuk kemudahan pengujian prototype
 
         User::create($validated);
 
         return redirect()->route('login')->with(
             'success',
-            'Pendaftaran akun berhasil! Akun Anda sedang menunggu verifikasi & persetujuan Super Admin sebelum dapat digunakan untuk login.'
+            'Pendaftaran akun berhasil! Silakan login menggunakan Username, NIP, atau Email Anda.'
         );
     }
 
@@ -66,30 +70,29 @@ class AuthController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        $fieldType = filter_var($credentials['login'], FILTER_VALIDATE_EMAIL) ? 'email' : 'nip';
+        $loginInput = $credentials['login'];
 
-        // Cek autentikasi
-        if (Auth::attempt([$fieldType => $credentials['login'], 'password' => $credentials['password']])) {
-            $user = Auth::user();
+        // Cari user berdasarkan username, email, atau nip
+        $user = User::where('username', $loginInput)
+            ->orWhere('email', $loginInput)
+            ->orWhere('nip', $loginInput)
+            ->first();
 
-            // Cek apakah akun sudah disetujui / aktif
+        if ($user && Hash::check($credentials['password'], $user->password)) {
             if (! $user->status_aktif) {
-                Auth::logout();
-                $request->session()->invalidate();
-                $request->session()->regenerateToken();
-
                 return back()->withErrors([
-                    'login' => 'Akun Anda belum disetujui atau sedang dinonaktifkan oleh Administrator. Silakan hubungi Super Admin.',
+                    'login' => 'Akun Anda sedang dinonaktifkan oleh Administrator.',
                 ])->onlyInput('login');
             }
 
+            Auth::login($user, $request->filled('remember'));
             $request->session()->regenerate();
 
             return redirect()->intended(route('home'));
         }
 
         return back()->withErrors([
-            'login' => 'Kombinasi NIP/Email dan password tidak sesuai.',
+            'login' => 'Kombinasi Username/NIP/Email dan password tidak sesuai.',
         ])->onlyInput('login');
     }
 
@@ -99,7 +102,6 @@ class AuthController extends Controller
     public function logout(Request $request): RedirectResponse
     {
         Auth::logout();
-
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
