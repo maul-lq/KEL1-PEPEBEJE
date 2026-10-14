@@ -42,6 +42,10 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/tes-home', [HomeController::class, 'index'])->name('home');
     Route::get('/tes-api', [HomeController::class, 'testApi'])->name('test.api');
+    Route::get('/tes-permohonan', [HomeController::class, 'tesPermohonan'])->name('permohonan.web');
+    Route::post('/tes-permohonan', [HomeController::class, 'storePermohonan'])->name('permohonan.web.store');
+    Route::post('/tes-permohonan/revisi', [HomeController::class, 'revisiPermohonan'])->name('permohonan.web.revisi');
+    Route::get('/tes-monitoring', [HomeController::class, 'tesMonitoring'])->name('monitoring.web');
     Route::post('/tes-logout', [AuthController::class, 'logout'])->name('logout');
 });
 
@@ -52,9 +56,19 @@ Route::prefix('api')->group(function () {
     Route::apiResource('users', UserController::class);
     Route::apiResource('vendors', VendorController::class);
 
-    // Permohonan Pengadaan & Split (Split hanya untuk Perencanaan & PPBJ)
+    // Permohonan Pengadaan & Split & Revisi & Tracking (FR 3 & NFR 7)
     Route::post('permohonan-pengadaan/{permohonan_pengadaan}/split', [PermohonanPengadaanController::class, 'split'])
-        ->middleware('role:perencanaan,ppbj');
+        ->name('permohonan-pengadaan.split')
+        ->middleware('role:perencanaan,ppbj')
+        ->where(['permohonan_pengadaan' => '.*']);
+    Route::post('permohonan-pengadaan/{permohonan_pengadaan}/revisi', [PermohonanPengadaanController::class, 'revisi'])
+        ->name('permohonan-pengadaan.revisi')
+        ->where(['permohonan_pengadaan' => '.*']);
+    Route::get('permohonan-pengadaan/{permohonan_pengadaan}/tracking', [PermohonanPengadaanController::class, 'tracking'])
+        ->name('permohonan-pengadaan.tracking')
+        ->where(['permohonan_pengadaan' => '.*']);
+    Route::get('monitoring-status', [PermohonanPengadaanController::class, 'monitoringStatus'])
+        ->name('monitoring.status');
     Route::apiResource('permohonan-pengadaan', PermohonanPengadaanController::class)->where(['permohonan_pengadaan' => '.*']);
 
     // Anggaran MAK & Lock (Lock & Manajemen hanya untuk Perencanaan)

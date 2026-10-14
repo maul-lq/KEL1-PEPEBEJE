@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Tes API Backend - Sistem PBJ</title>
+    @vite('resources/js/tes_api.js')
 </head>
 <body>
     <h1>Halaman Tes API Backend (17 Entitas)</h1>
@@ -13,7 +14,7 @@
     <hr>
 
     <h3>Form Pengujian Permintaan API:</h3>
-    <form id="apiTestForm" onsubmit="event.preventDefault(); sendApiRequest();">
+    <form id="apiTestForm" onsubmit="event.preventDefault(); window.sendApiRequest();">
         <p>
             <label for="endpoint">Pilih Entitas Endpoint:</label><br>
             <select id="endpoint">
@@ -49,7 +50,7 @@
 
         <p>
             <label for="paramId">ID / Parameter Tambahan (Opsional):</label><br>
-            <input type="text" id="paramId" placeholder="Contoh: 1 atau nomor_surat (untuk show/update/delete)" style="width: 400px;">
+            <input type="text" id="paramId" placeholder="Contoh: 1 atau nomor_surat (untuk show/update/delete)" size="50">
         </p>
 
         <p>
@@ -59,8 +60,8 @@
 
         <p>
             <button type="submit">Kirim Permintaan (Send Request)</button>
-            <button type="button" onclick="quickGetAll();">Quick GET (Ambil Semua Data)</button>
-            <button type="button" onclick="clearOutput();">Bersihkan Hasil</button>
+            <button type="button" onclick="window.quickGetAll();">Quick GET (Ambil Semua Data)</button>
+            <button type="button" onclick="window.clearOutput();">Bersihkan Hasil</button>
         </p>
     </form>
 
@@ -72,76 +73,6 @@
         <strong>Status HTTP:</strong> <span id="httpStatus">-</span>
     </p>
 
-    <pre id="outputResult" style="border: 1px solid black; padding: 10px; background-color: #f4f4f4; white-space: pre-wrap; word-break: break-all;">[Hasil respons JSON dari server akan ditampilkan di sini...]</pre>
-
-    <script>
-        async function sendApiRequest() {
-            const endpoint = document.getElementById('endpoint').value;
-            const method = document.getElementById('method').value;
-            const paramId = document.getElementById('paramId').value.trim();
-            const jsonBody = document.getElementById('jsonBody').value.trim();
-
-            let url = endpoint;
-            if (paramId) {
-                url += '/' + paramId;
-            }
-
-            document.getElementById('targetUrl').textContent = `${method} ${url}`;
-            document.getElementById('httpStatus').textContent = 'Memuat (Loading)...';
-            document.getElementById('outputResult').textContent = 'Sedang mengirim permintaan ke server...';
-
-            const headers = {
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
-            };
-
-            const options = {
-                method: method,
-                headers: headers
-            };
-
-            if (method === 'POST' || method === 'PUT') {
-                headers['Content-Type'] = 'application/json';
-                if (jsonBody) {
-                    try {
-                        JSON.parse(jsonBody); // validasi sintaks JSON
-                        options.body = jsonBody;
-                    } catch (e) {
-                        alert('Format JSON pada Request Body tidak valid: ' + e.message);
-                        document.getElementById('httpStatus').textContent = 'Error JSON Client';
-                        return;
-                    }
-                }
-            }
-
-            try {
-                const response = await fetch(url, options);
-                document.getElementById('httpStatus').textContent = `${response.status} ${response.statusText}`;
-
-                const data = await response.json().catch(() => null);
-                if (data !== null) {
-                    document.getElementById('outputResult').textContent = JSON.stringify(data, null, 2);
-                } else {
-                    const text = await response.text();
-                    document.getElementById('outputResult').textContent = text;
-                }
-            } catch (err) {
-                document.getElementById('httpStatus').textContent = 'Error Jaringan / Server';
-                document.getElementById('outputResult').textContent = err.toString();
-            }
-        }
-
-        function quickGetAll() {
-            document.getElementById('method').value = 'GET';
-            document.getElementById('paramId').value = '';
-            sendApiRequest();
-        }
-
-        function clearOutput() {
-            document.getElementById('targetUrl').textContent = '-';
-            document.getElementById('httpStatus').textContent = '-';
-            document.getElementById('outputResult').textContent = '[Hasil respons dibersihkan]';
-        }
-    </script>
+    <pre id="outputResult">[Hasil respons JSON dari server akan ditampilkan di sini...]</pre>
 </body>
 </html>

@@ -93,15 +93,33 @@
                     </p>
                 </div>
 
-                <div class="flex items-center gap-3 shrink-0">
+                <div class="flex flex-wrap items-center gap-3 shrink-0">
+                    <a 
+                        href="{{ route('permohonan.web') }}" 
+                        class="px-4 py-2.5 rounded-xl text-sm font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30 transition-all flex items-center gap-2"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        <span>Simulasi FR 3 (Permohonan)</span>
+                    </a>
+                    <a 
+                        href="{{ route('monitoring.web') }}" 
+                        class="px-4 py-2.5 rounded-xl text-sm font-semibold bg-sky-600 hover:bg-sky-500 text-white shadow-lg shadow-sky-600/30 transition-all flex items-center gap-2"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                        </svg>
+                        <span>Monitoring NFR 7</span>
+                    </a>
                     <a 
                         href="{{ route('test.api') }}" 
-                        class="px-5 py-2.5 rounded-xl text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30 transition-all flex items-center gap-2"
+                        class="px-4 py-2.5 rounded-xl text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30 transition-all flex items-center gap-2"
                     >
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
                         </svg>
-                        <span>Halaman Tes API (18 Model)</span>
+                        <span>Tes API (18 Model)</span>
                     </a>
                 </div>
             </div>
@@ -458,6 +476,30 @@
                         <p class="text-xs text-slate-400 mb-3">Akses konsol uji mandiri untuk memastikan integritas data, validasi role, dan relasi tabel ERD.</p>
                         <a href="{{ route('test.api') }}" class="text-xs font-semibold text-indigo-400 hover:text-indigo-300 inline-flex items-center gap-1">
                             Buka Konsol Tes &rarr;
+                        </a>
+                    </div>
+
+                    {{-- Common Card: FR 3 Simulasi Permohonan & Revisi Srikandi --}}
+                    <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-emerald-500/40 transition">
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="text-sm font-semibold text-slate-200">Simulasi Permohonan & Revisi (FR 3)</h3>
+                            <span class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono">FR 3.1 - 3.4</span>
+                        </div>
+                        <p class="text-xs text-slate-400 mb-3">Formulir usulan Srikandi (PDF &le;10MB), verifikasi paralel otomatis, dan penerbitan nomor revisi baru.</p>
+                        <a href="{{ route('permohonan.web') }}" class="text-xs font-semibold text-emerald-400 hover:text-emerald-300 inline-flex items-center gap-1">
+                            Buka Simulasi Permohonan &rarr;
+                        </a>
+                    </div>
+
+                    {{-- Common Card: NFR 7 Monitoring Real-Time Status Berkas --}}
+                    <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-sky-500/40 transition">
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="text-sm font-semibold text-slate-200">Pelacakan Berkas Real-Time (NFR 7)</h3>
+                            <span class="text-[10px] px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 font-mono">SLA &lt;5s</span>
+                        </div>
+                        <p class="text-xs text-slate-400 mb-3">Visualisasi status dokumen dalam 8 tahapan siklus pengadaan dengan pelacakan respon waktu instan.</p>
+                        <a href="{{ route('monitoring.web') }}" class="text-xs font-semibold text-sky-400 hover:text-sky-300 inline-flex items-center gap-1">
+                            Buka Monitoring Status &rarr;
                         </a>
                     </div>
 

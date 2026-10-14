@@ -114,4 +114,41 @@ class PermohonanPengadaan extends Model
     {
         return $this->hasMany(PaketPengadaan::class, 'nomor_surat', 'nomor_surat');
     }
+
+    public function isRevisi(): bool
+    {
+        return ! empty($this->nomor_surat_revisi);
+    }
+
+    public function isSplit(): bool
+    {
+        return ! empty($this->nomor_surat_induk_split);
+    }
+
+    public function isApproved(): bool
+    {
+        return $this->status_permohonan === self::STATUS_DISETUJUI;
+    }
+
+    public function isRejected(): bool
+    {
+        return $this->status_permohonan === self::STATUS_DITOLAK;
+    }
+
+    public function isPendingAnggaran(): bool
+    {
+        return $this->status_permohonan === self::STATUS_PENDING_ANGGARAN;
+    }
+
+    /**
+     * Scope query sesuai hak akses user (User pemohon hanya melihat usulan miliknya).
+     */
+    public function scopeForUser($query, User $user)
+    {
+        if ($user->role === 'user') {
+            return $query->where('id_user', $user->id_user);
+        }
+
+        return $query;
+    }
 }

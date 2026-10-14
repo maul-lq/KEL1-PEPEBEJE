@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AuditLog;
 use App\Models\PermohonanPengadaan;
+use App\Models\User;
 use App\Models\VerifikasiParalel;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -33,13 +35,19 @@ class VerifikasiParalelController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        $user = $request->user();
+
         $validated = $request->validate([
-            'id_user' => 'required|exists:users,id_user',
+            'id_user' => 'nullable|exists:users,id_user',
             'nomor_surat' => 'required|exists:permohonan_pengadaan,nomor_surat',
             'role_verifikator' => 'required|string|in:perencanaan,staff_bidang_2,wadir_2',
             'status_keputusan' => 'required|string|in:menunggu,disetujui,ditolak,revisi,pending_anggaran',
             'catatan_alasan' => 'nullable|string',
         ]);
+
+        if (empty($validated['id_user'])) {
+            $validated['id_user'] = $user?->id_user ?? User::first()->id_user;
+        }
 
         if (in_array($validated['status_keputusan'], ['ditolak', 'revisi']) && empty($validated['catatan_alasan'])) {
             return response()->json([
@@ -51,7 +59,7 @@ class VerifikasiParalelController extends Controller
         $validated['tanggal_keputusan'] = now();
 
         $verif = VerifikasiParalel::create($validated);
-        $this->cekKelulusanParalel($verif->nomor_surat);
+        $this->cekKelulusanParalel($verif->nomor_surat, $validated['id_user']);
 
         return response()->json([
             'status' => 'success',
@@ -70,22 +78,23 @@ class VerifikasiParalelController extends Controller
 
     public function update(Request $request, VerifikasiParalel $verifikasi_paralel): JsonResponse
     {
+        $user = $request->user();
+
         $validated = $request->validate([
             'status_keputusan' => 'required|string|in:menunggu,disetujui,ditolak,revisi,pending_anggaran',
-            'catatan_alasan' => 'nullable|string',
+            'catatan_alasan' => 'required_if:status_keputusan,ditolak,revisi|nullable|string',
+        ], [
+            'catatan_alasan.required_if' => 'Catatan alasan wajib diisi saat menolak atau meminta revisi permohonan.',
         ]);
 
-        if (in_array($validated['status_keputusan'], ['ditolak', 'revisi']) && empty($validated['catatan_alasan'])) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Catatan alasan wajib diisi saat menolak atau meminta revisi permohonan.',
-            ], 422);
+        if ($user) {
+            $verifikasi_paralel->id_user = $user->id_user;
         }
 
         $validated['tanggal_keputusan'] = now();
         $verifikasi_paralel->update($validated);
 
-        $this->cekKelulusanParalel($verifikasi_paralel->nomor_surat);
+        $this->cekKelulusanParalel($verifikasi_paralel->nomor_surat, $verifikasi_paralel->id_user);
 
         return response()->json([
             'status' => 'success',
@@ -94,7 +103,7 @@ class VerifikasiParalelController extends Controller
         ]);
     }
 
-    private function cekKelulusanParalel(string $nomor_surat): void
+    private function cekKelulusanParalel(string $nomor_surat, ?int $operatorId = null): void
     {
         $verifikasi = VerifikasiParalel::where('nomor_surat', $nomor_surat)->get();
         $permohonan = PermohonanPengadaan::find($nomor_surat);
@@ -103,19 +112,41 @@ class VerifikasiParalelController extends Controller
             return;
         }
 
+        $statusLama = $permohonan->status_permohonan;
+
         // Jika salah satu menolak
         if ($verifikasi->contains('status_keputusan', 'ditolak')) {
             $permohonan->status_permohonan = PermohonanPengadaan::STATUS_DITOLAK;
             $permohonan->save();
 
+            AuditLog::catat(
+                $operatorId ?? $permohonan->id_user,
+                'KEPUTUSAN_VERIFIKASI_DITOLAK',
+                'permohonan_pengadaan',
+                $nomor_surat,
+                $statusLama,
+                PermohonanPengadaan::STATUS_DITOLAK,
+                'Permohonan ditolak oleh verifikator dalam verifikasi paralel'
+            );
+
             return;
         }
 
-        // Jika ada status pending anggaran
+        // Jika ada status pending anggaran (Hold) - FR 6.2
         if ($verifikasi->contains('status_keputusan', 'pending_anggaran')) {
             $permohonan->status_permohonan = PermohonanPengadaan::STATUS_PENDING_ANGGARAN;
             $permohonan->status_anggaran = 'hold';
             $permohonan->save();
+
+            AuditLog::catat(
+                $operatorId ?? $permohonan->id_user,
+                'KEPUTUSAN_VERIFIKASI_HOLD_ANGGARAN',
+                'permohonan_pengadaan',
+                $nomor_surat,
+                $statusLama,
+                PermohonanPengadaan::STATUS_PENDING_ANGGARAN,
+                'Permohonan ditahan (Hold/Pending) karena anggaran belum tersedia di Perencanaan'
+            );
 
             return;
         }
@@ -128,6 +159,16 @@ class VerifikasiParalelController extends Controller
             $permohonan->status_permohonan = PermohonanPengadaan::STATUS_DISETUJUI;
             $permohonan->status_anggaran = 'disetujui';
             $permohonan->save();
+
+            AuditLog::catat(
+                $operatorId ?? $permohonan->id_user,
+                'KEPUTUSAN_VERIFIKASI_DISETUJUI_PARALEL',
+                'permohonan_pengadaan',
+                $nomor_surat,
+                $statusLama,
+                PermohonanPengadaan::STATUS_DISETUJUI,
+                'Permohonan disetujui penuh oleh Perencanaan & Wadir 2 dan siap diregistrasi PPBJ (FR 3.3)'
+            );
         }
     }
 
