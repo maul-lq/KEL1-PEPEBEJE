@@ -29,4 +29,8 @@ Homestead.json
 .phpactor.json
 auth.json
 
-DokumenPendukungMahPBL/
+1DokumenPendukungMahPBL/**/*.*
+1Jorking/**/*.*
+
+PROMPTS.md
+.agents/skills/hitung-progress-backend/SKILL.md
