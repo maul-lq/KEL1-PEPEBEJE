@@ -33,6 +33,14 @@ class PenerimaanBarang extends Model
      */
     protected $primaryKey = 'id_penerimaan';
 
+    public const STATUS_DITERIMA_LENGKAP = 'diterima_lengkap';
+
+    public const STATUS_TERIMA = 'terima';
+
+    public const STATUS_PENDING = 'pending';
+
+    public const STATUS_TIDAK_SESUAI = 'tidak_sesuai';
+
     /**
      * Kolom-kolom yang dapat diisi secara massal (mass assignment).
      *

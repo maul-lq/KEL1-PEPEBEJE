@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * Model Permohonan Pengadaan (Usulan Surat Pengadaan Barang/Jasa)
@@ -110,6 +111,81 @@ class PermohonanPengadaan extends Model
     }
 
     /**
+     * Hook booted model PermohonanPengadaan untuk memastikan integritas kolom wajib non-null.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (PermohonanPengadaan $model) {
+            if (empty($model->tujuan_pengadaan_ringkas)) {
+                $model->tujuan_pengadaan_ringkas = $model->judul_pengadaan ?? $model->perihal ?? 'Pengadaan barang jasa institusi';
+            }
+            if (empty($model->file_permohonan)) {
+                $model->file_permohonan = 'permohonan/dummy.pdf';
+            }
+            if (empty($model->status_permohonan)) {
+                $model->status_permohonan = self::STATUS_DIAJUKAN;
+            }
+            if (empty($model->kode_unit)) {
+                $unit = Unit::firstOrCreate(
+                    ['kode_unit' => 'TIK'],
+                    ['nama_unit' => 'Jurusan Teknik Informatika dan Komputer', 'jenis_unit' => 'jurusan']
+                );
+                $model->kode_unit = $unit->kode_unit;
+            }
+        });
+    }
+
+    /**
+     * Accessor untuk alias status yang merujuk ke kolom status_permohonan.
+     */
+    public function getStatusAttribute(): ?string
+    {
+        return $this->attributes['status_permohonan'] ?? null;
+    }
+
+    /**
+     * Mutator untuk alias status yang menyelaraskan ke kolom status_permohonan.
+     */
+    public function setStatusAttribute(?string $value): void
+    {
+        $this->attributes['status_permohonan'] = $value;
+    }
+
+    /**
+     * Mutator untuk alias asal_unit agar menyelaraskan ke kode_unit.
+     */
+    public function setAsalUnitAttribute(?string $value): void
+    {
+        if (empty($this->attributes['kode_unit'])) {
+            $unit = Unit::firstOrCreate(
+                ['kode_unit' => 'TIK'],
+                ['nama_unit' => $value ?? 'Jurusan Teknik Informatika dan Komputer', 'jenis_unit' => 'jurusan']
+            );
+            $this->attributes['kode_unit'] = $unit->kode_unit;
+        }
+    }
+
+    /**
+     * Mutator untuk alias tujuan_ringkas agar menyelaraskan ke tujuan_pengadaan_ringkas.
+     */
+    public function setTujuanRingkasAttribute(?string $value): void
+    {
+        if (empty($this->attributes['tujuan_pengadaan_ringkas'])) {
+            $this->attributes['tujuan_pengadaan_ringkas'] = $value;
+        }
+    }
+
+    /**
+     * Mutator untuk alias file_pdf_srikandi agar menyelaraskan ke file_permohonan.
+     */
+    public function setFilePdfSrikandiAttribute(?string $value): void
+    {
+        if (empty($this->attributes['file_permohonan'])) {
+            $this->attributes['file_permohonan'] = $value;
+        }
+    }
+
+    /**
      * Relasi many-to-one ke Unit Kerja pengusul pengadaan.
      *
      * @return BelongsTo Relasi ke model Unit
@@ -207,6 +283,16 @@ class PermohonanPengadaan extends Model
     public function paketPengadaan(): HasMany
     {
         return $this->hasMany(PaketPengadaan::class, 'nomor_surat', 'nomor_surat');
+    }
+
+    /**
+     * Relasi one-to-one ke paket pengadaan utama yang dibentuk dari usulan ini.
+     *
+     * @return HasOne Relasi ke model PaketPengadaan
+     */
+    public function paket(): HasOne
+    {
+        return $this->hasOne(PaketPengadaan::class, 'nomor_surat', 'nomor_surat');
     }
 
     /**

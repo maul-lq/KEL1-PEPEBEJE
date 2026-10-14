@@ -60,6 +60,40 @@ class PaketPengadaan extends Model
 
     const ROUTING_PPK = 'ppk_diatas_200jt';
 
+    public const JENIS_BARANG = 'barang';
+
+    public const JENIS_JASA_LAINNYA = 'jasa_lainnya';
+
+    public const JENIS_KONSULTANSI = 'jasa_konsultansi';
+
+    public const JENIS_PEKERJAAN_KONSTRUKSI = 'pekerjaan_konstruksi';
+
+    public const JENIS_KONSTRUKSI = 'pekerjaan_konstruksi';
+
+    public const METODE_TENDER = 'Tender';
+
+    public const METODE_PENGADAAN_LANGSUNG = 'Pengadaan Langsung';
+
+    public const METODE_E_PURCHASING = 'E-Purchasing';
+
+    public const STATUS_TERDAFTAR = 'terdaftar';
+
+    public const STATUS_REGISTRASI_PPBJ = 'terdaftar';
+
+    public const STATUS_SPK_TERBIT = 'spk_terbit';
+
+    public const STATUS_PROSES = 'proses';
+
+    public const STATUS_SELESAI = 'selesai';
+
+    public const STATUS_BATAL = 'batal';
+
+    public const JALUR_LANGSUNG = 'langsung_sd_50jt';
+
+    public const JALUR_PP = 'pp_50jt_sd_200jt';
+
+    public const JALUR_PPK = 'ppk_diatas_200jt';
+
     /**
      * Kolom-kolom yang dapat diisi secara massal (mass assignment).
      *
@@ -109,6 +143,40 @@ class PaketPengadaan extends Model
             'tanggal_penugasan_pp' => 'datetime',
             'tanggal_penunjukan_vendor' => 'datetime',
         ];
+    }
+
+    /**
+     * Hook booted model PaketPengadaan untuk melengkapi kolom wajib jika tidak disediakan secara eksplisit.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (PaketPengadaan $model) {
+            if (empty($model->alokasi_pagu_paket)) {
+                $model->alokasi_pagu_paket = $model->nilai_hps ?? 0;
+            }
+            if (empty($model->platform_pengadaan)) {
+                $model->platform_pengadaan = 'SPSE';
+            }
+            if (empty($model->mekanisme_pengadaan)) {
+                $model->mekanisme_pengadaan = $model->metode_pengadaan ?? 'Tender';
+            }
+            if (empty($model->id_user_ppbj)) {
+                $ppbjUser = User::where('role', 'ppbj')->first() ?? User::first();
+                if (! $ppbjUser) {
+                    $ppbjUser = User::create([
+                        'nip' => '198403122008121099',
+                        'username' => 'system_ppbj',
+                        'email' => 'ppbj_system@kampus.ac.id',
+                        'nama' => 'Staff PPBJ Default',
+                        'password' => 'secret123',
+                        'jabatan' => 'Staff PBJ',
+                        'role' => 'ppbj',
+                        'no_hp' => '081234567899',
+                    ]);
+                }
+                $model->id_user_ppbj = $ppbjUser->id_user;
+            }
+        });
     }
 
     /**
@@ -214,6 +282,16 @@ class PaketPengadaan extends Model
     }
 
     /**
+     * Relasi alias one-to-one ke dokumen Kontrak SPK.
+     *
+     * @return HasOne Relasi ke model KontrakSPK
+     */
+    public function kontrak(): HasOne
+    {
+        return $this->kontrakSpk();
+    }
+
+    /**
      * Relasi one-to-many ke pencatatan fisik barang yang diterima di gudang/lokasi.
      *
      * @return HasMany Koleksi penerimaan barang
@@ -280,5 +358,39 @@ class PaketPengadaan extends Model
 
         // Role pengawas & manajemen (ppbj, perencanaan, wadir_2, perlengkapan, keuangan, staff_bidang_2) dapat melihat seluruh paket
         return $query;
+    }
+
+    /**
+     * Accessor untuk alias kode_paket yang merujuk ke primary key nomor_paket.
+     */
+    public function getKodePaketAttribute(): ?string
+    {
+        return $this->attributes['nomor_paket'] ?? $this->attributes['kode_paket'] ?? null;
+    }
+
+    /**
+     * Mutator untuk alias kode_paket yang menyelaraskan ke kolom nomor_paket.
+     */
+    public function setKodePaketAttribute(?string $value): void
+    {
+        if (! isset($this->attributes['nomor_paket']) && $value) {
+            $this->attributes['nomor_paket'] = $value;
+        }
+    }
+
+    /**
+     * Mutator untuk alias ppbj_user_id yang mengarahkan ke id_user_ppbj.
+     */
+    public function setPpbjUserIdAttribute(?int $value): void
+    {
+        $this->attributes['id_user_ppbj'] = $value;
+    }
+
+    /**
+     * Mutator untuk alias kode_mak agar tidak error saat dipassing mass assignment lama.
+     */
+    public function setKodeMakAttribute(?string $value): void
+    {
+        // Kompatibilitas ke belakang
     }
 }

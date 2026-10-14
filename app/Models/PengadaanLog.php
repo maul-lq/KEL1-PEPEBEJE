@@ -10,5 +10,11 @@ namespace App\Models;
  */
 class PengadaanLog extends AuditLog
 {
-    // Mewarisi seluruh fungsionalitas pencatatan log audit dari AuditLog
+    public const AKSI_ASSIGN_PPK = 'ASSIGN_PPK';
+
+    public const AKSI_CREATE = 'CREATE';
+
+    public const AKSI_UPDATE = 'UPDATE';
+
+    public const AKSI_DELETE = 'DELETE';
 }

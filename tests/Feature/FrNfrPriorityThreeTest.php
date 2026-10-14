@@ -332,18 +332,18 @@ test('Frontend simulation views: /tes-permohonan and /tes-monitoring render prop
     // Halaman simulasi permohonan
     $response = $this->get(route('permohonan.web'));
     $response->assertStatus(200)
-        ->assertSee('Simulasi Pengajuan Permohonan');
+        ->assertSee('Status Usulan Permohonan Pengadaan');
 
     // Halaman simulasi monitoring
     $response = $this->get(route('monitoring.web'));
     $response->assertStatus(200)
-        ->assertSee('Simulasi Monitoring Real-Time Status Berkas');
+        ->assertSee('Pelacakan 8 Tahapan Siklus Pengadaan');
 
     // Lacak berkas spesifik pada halaman simulasi monitoring
     if ($permohonan) {
         $response = $this->get(route('monitoring.web', ['nomor_surat' => $permohonan->nomor_surat]));
         $response->assertStatus(200)
             ->assertSee($permohonan->nomor_surat)
-            ->assertSee('Hasil Pelacakan Berkas');
+            ->assertSee('Pelacakan 8 Tahapan Siklus Pengadaan');
     }
 });

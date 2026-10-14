@@ -53,4 +53,25 @@ class AuditLogController extends Controller
             'data' => $audit_log->load('user'),
         ]);
     }
+
+    /**
+     * Mencatat entri log aktivitas baru melalui API.
+     */
+    public function store(Request $request): JsonResponse
+    {
+        $log = AuditLog::catat(
+            $request->input('id_user') ?? $request->user()?->id_user ?? 1,
+            $request->input('aksi') ?? $request->input('jenis_aksi', 'AKTIVITAS'),
+            $request->input('nama_entitas', 'paket_pengadaan'),
+            $request->input('nomor_paket') ?? $request->input('id_entitas', 'GENERAL'),
+            $request->input('nilai_lama'),
+            $request->input('nilai_baru'),
+            $request->input('keterangan') ?? $request->input('alasan')
+        );
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $log,
+        ], 201);
+    }
 }

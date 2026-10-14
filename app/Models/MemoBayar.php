@@ -25,6 +25,20 @@ class MemoBayar extends Model
      */
     protected $table = 'memo_bayar';
 
+    public const ROLE_PPK = 'ppk';
+
+    public const ROLE_WADIR_2 = 'wadir_2';
+
+    public const ROLE_KEUANGAN = 'keuangan';
+
+    public const STATUS_DRAFT = 'draft';
+
+    public const STATUS_DIAJUKAN = 'diajukan';
+
+    public const STATUS_DISETUJUI = 'disetujui';
+
+    public const STATUS_DITOLAK = 'ditolak';
+
     /**
      * Kolom-kolom yang dapat diisi melalui mass assignment.
      *

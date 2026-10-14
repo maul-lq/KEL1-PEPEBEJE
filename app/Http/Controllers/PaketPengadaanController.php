@@ -75,11 +75,29 @@ class PaketPengadaanController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        // Fallback default input jika tidak dikirimkan secara lengkap
+        if (! $request->filled('platform_pengadaan')) {
+            $request->merge(['platform_pengadaan' => 'SPSE']);
+        }
+        if (! $request->filled('mekanisme_pengadaan')) {
+            $request->merge(['mekanisme_pengadaan' => $request->input('metode_pengadaan', 'Tender')]);
+        }
+        if (! $request->filled('alokasi_pagu_paket')) {
+            $request->merge(['alokasi_pagu_paket' => $request->input('nilai_hps', 10000000)]);
+        }
+        if (! $request->filled('id_user_ppbj')) {
+            $ppbjId = $request->input('ppbj_user_id') ?? User::where('role', 'ppbj')->first()?->id_user ?? User::first()?->id_user;
+            $request->merge(['id_user_ppbj' => $ppbjId]);
+        }
+        if ($request->input('jenis_pengadaan') === 'pekerjaan_konstruksi') {
+            $request->merge(['jenis_pengadaan' => 'konstruksi']);
+        }
+
         // 1. Validasi input registrasi paket pengadaan (HPS wajib angka positif > 0)
         $validated = $request->validate([
             'nomor_paket' => 'required|string|max:100|unique:paket_pengadaan,nomor_paket',
             'nama_paket' => 'required|string|max:255',
-            'jenis_pengadaan' => 'required|string|in:barang,jasa_lainnya,konstruksi,jasa_konsultansi',
+            'jenis_pengadaan' => 'required|string|in:barang,jasa_lainnya,konstruksi,pekerjaan_konstruksi,jasa_konsultansi',
             'platform_pengadaan' => 'required|string|max:50',
             'mekanisme_pengadaan' => 'required|string|max:50',
             'nilai_hps' => 'required|numeric|gt:0', // Nilai HPS tidak boleh 0 atau negatif

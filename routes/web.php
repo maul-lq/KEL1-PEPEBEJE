@@ -33,72 +33,111 @@ use Illuminate\Support\Facades\Route;
 | Jika user sudah memiliki sesi login aktif, mereka akan dialihkan otomatis.
 */
 Route::middleware('guest')->group(function () {
-    // Menampilkan halaman formulir simulasi login (mendukung Username, NIP, atau Email resmi)
-    Route::get('/tes-login', [AuthController::class, 'showLoginForm'])->name('login');
+    // Halaman resmi formulir login (mendukung Username, NIP 18-digit, atau Email PNJ)
+    Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
+    Route::post('/login', [AuthController::class, 'login']);
 
-    // Menangani pengiriman form login dengan rate limiting & verifikasi password
+    // Halaman resmi formulir pendaftaran akun pemohon baru
+    Route::get('/register', [AuthController::class, 'showRegistrationForm'])->name('register');
+    Route::post('/register', [AuthController::class, 'register']);
+
+    // Backward-compatibility aliases untuk rute pengujian sebelumnya
+    Route::get('/tes-login', [AuthController::class, 'showLoginForm']);
     Route::post('/tes-login', [AuthController::class, 'login']);
-
-    // Menampilkan halaman formulir simulasi registrasi akun staf/pejabat pengadaan baru
-    Route::get('/tes-registrasi', [AuthController::class, 'showRegistrationForm'])->name('register');
-
-    // Memproses data pendaftaran akun baru ke tabel users dengan role dan unit kerja
+    Route::get('/tes-registrasi', [AuthController::class, 'showRegistrationForm']);
     Route::post('/tes-registrasi', [AuthController::class, 'register']);
 });
 
 /*
 |--------------------------------------------------------------------------
-| RUTE TERAUTENTIKASI (Sudah Login)
+| RUTE TERAUTENTIKASI (Sudah Login) - PROGRAM RIIL BERBASIS PERAN TANPA CSS
 |--------------------------------------------------------------------------
-| Rute-rute antarmuka simulasi backend (TANPA CSS TOTAL) untuk pengujian alur data oleh Overseer.
+| Mengatur navigasi dan aksi seluruh 9 peran resmi sistem SIM-PBJ Politeknik Negeri Jakarta.
 */
 Route::middleware('auth')->group(function () {
-    // Redirect halaman root (/) langsung menuju dashboard simulasi
+    // Redirect halaman beranda ke dashboard resmi
     Route::get('/', function () {
-        return redirect()->route('home');
+        return redirect()->route('dashboard');
     });
 
-    // Dashboard utama simulasi peran: memilih peran operasional dan melihat ringkasan status
-    Route::get('/tes-home', [HomeController::class, 'index'])->name('home');
+    // Dashboard utama operasional dinamis sesuai peran pengguna
+    Route::get('/dashboard', [HomeController::class, 'index'])->name('dashboard');
+    Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
-    // Halaman alat bantu simulasi pengujian interaktif endpoint API JSON
-    Route::get('/tes-api', [HomeController::class, 'testApi'])->name('test.api');
+    // -------------------------------------------------------------------------
+    // Modul 1: Permohonan Pengadaan (User / Jurusan)
+    // -------------------------------------------------------------------------
+    Route::get('/permohonan', [HomeController::class, 'permohonanIndex'])->name('permohonan.index');
+    Route::get('/permohonan/create', [HomeController::class, 'permohonanCreate'])->name('permohonan.create');
+    Route::post('/permohonan', [HomeController::class, 'storePermohonan'])->name('permohonan.store');
+    Route::post('/permohonan/revisi', [HomeController::class, 'revisiPermohonan'])->name('permohonan.revisi');
 
-    // Halaman simulasi formulir pengajuan usulan permohonan pengadaan (Unit Pemohon / Srikandi)
-    Route::get('/tes-permohonan', [HomeController::class, 'tesPermohonan'])->name('permohonan.web');
+    // -------------------------------------------------------------------------
+    // Modul 2 & 3: Verifikasi Paralel (Staf B2, Wadir 2, & Perencanaan)
+    // -------------------------------------------------------------------------
+    Route::get('/verifikasi/bidang-2', [HomeController::class, 'verifikasiBidang2'])->name('verifikasi.bidang-2');
+    Route::post('/verifikasi/bidang-2/teruskan', [HomeController::class, 'teruskanStaffB2'])->name('verifikasi.bidang-2.teruskan');
 
-    // Memproses submit pengajuan usulan baru dari form simulasi
+    Route::get('/verifikasi/wadir-2', [HomeController::class, 'verifikasiWadir2'])->name('verifikasi.wadir-2');
+    Route::post('/verifikasi/wadir-2/keputusan', [HomeController::class, 'keputusanWadir2'])->name('verifikasi.wadir-2.keputusan');
+
+    Route::get('/verifikasi/perencanaan', [HomeController::class, 'verifikasiPerencanaan'])->name('verifikasi.perencanaan');
+    Route::post('/verifikasi/perencanaan/mak', [HomeController::class, 'alokasiMakPerencanaan'])->name('verifikasi.perencanaan.mak');
+
+    // -------------------------------------------------------------------------
+    // Modul 4: Paket Pengadaan (Koordinator PPBJ)
+    // -------------------------------------------------------------------------
+    Route::get('/paket-pengadaan', [HomeController::class, 'paketIndex'])->name('paket.index');
+    Route::get('/paket-pengadaan/create', [HomeController::class, 'paketCreate'])->name('paket.create');
+    Route::post('/paket-pengadaan', [HomeController::class, 'storePaket'])->name('paket.store');
+    Route::post('/paket-pengadaan/reassign-ppk', [HomeController::class, 'reassignPpkWeb'])->name('paket.reassign-ppk');
+
+    // -------------------------------------------------------------------------
+    // Modul 5: Kontrak SPK (Pejabat Pengadaan & 4 Akun PPK Terisolasi)
+    // -------------------------------------------------------------------------
+    Route::get('/kontrak-spk', [HomeController::class, 'kontrakIndex'])->name('kontrak.index');
+    Route::post('/kontrak-spk', [HomeController::class, 'storeKontrak'])->name('kontrak.store');
+
+    // -------------------------------------------------------------------------
+    // Modul 6: Penerimaan Barang & BAST (Unit Perlengkapan / BMN)
+    // -------------------------------------------------------------------------
+    Route::get('/penerimaan-barang', [HomeController::class, 'penerimaanIndex'])->name('penerimaan.index');
+    Route::post('/penerimaan-barang', [HomeController::class, 'storePenerimaan'])->name('penerimaan.store');
+
+    // -------------------------------------------------------------------------
+    // Modul 7: Tagihan SPP & Pencairan Dana (Bagian Keuangan)
+    // -------------------------------------------------------------------------
+    Route::get('/pembayaran', [HomeController::class, 'pembayaranIndex'])->name('pembayaran.index');
+    Route::post('/pembayaran', [HomeController::class, 'storePembayaran'])->name('pembayaran.store');
+
+    // -------------------------------------------------------------------------
+    // Modul 8: Monitoring 8 Siklus Pengadaan & Audit Trail Transparansi
+    // -------------------------------------------------------------------------
+    Route::get('/monitoring', [HomeController::class, 'monitoringIndex'])->name('monitoring.index');
+
+    // -------------------------------------------------------------------------
+    // Helper Unduh Berkas Resmi Format PDF (< 3 Detik - NFR 12)
+    // -------------------------------------------------------------------------
+    Route::get('/dokumen-pdf/{jenis}/{id}', [HomeController::class, 'unduhDokumenPdf'])
+        ->name('dokumen.pdf')
+        ->where(['id' => '.*']);
+
+    // -------------------------------------------------------------------------
+    // Backward-Compatibility Aliases (Menjaga Kompatibilitas Tautan Pengujian Lama)
+    // -------------------------------------------------------------------------
+    Route::get('/tes-home', fn () => redirect()->route('dashboard'))->name('home');
+    Route::get('/tes-permohonan', [HomeController::class, 'permohonanIndex'])->name('permohonan.web');
     Route::post('/tes-permohonan', [HomeController::class, 'storePermohonan'])->name('permohonan.web.store');
-
-    // Memproses pengajuan revisi usulan permohonan yang sebelumnya ditolak oleh verifikator
     Route::post('/tes-permohonan/revisi', [HomeController::class, 'revisiPermohonan'])->name('permohonan.web.revisi');
-
-    // Halaman pemantauan (monitoring) 8 tahapan siklus pengadaan secara agregat
-    Route::get('/tes-monitoring', [HomeController::class, 'tesMonitoring'])->name('monitoring.web');
-
-    // Halaman pembuatan paket pengadaan & simulasi alih tugas (reassign) PPK
-    Route::get('/tes-paket', [HomeController::class, 'tesPaket'])->name('paket.web');
-
-    // Memproses simpan paket pengadaan baru dengan auto-routing ambang batas HPS
+    Route::get('/tes-monitoring', [HomeController::class, 'monitoringIndex'])->name('monitoring.web');
+    Route::get('/tes-paket', [HomeController::class, 'paketIndex'])->name('paket.web');
     Route::post('/tes-paket', [HomeController::class, 'storePaket'])->name('paket.web.store');
-
-    // Memproses mutasi atau alih penugasan paket ke PPK lain melalui antarmuka simulasi
     Route::post('/tes-paket/reassign-ppk', [HomeController::class, 'reassignPpkWeb'])->name('paket.web.reassign');
-
-    // Halaman simulasi verifikasi berkas oleh Staf Bidang 2 dan keputusan mutlak Wadir 2
-    Route::get('/tes-verifikasi-b2', [HomeController::class, 'tesVerifikasiB2'])->name('verifikasi-b2.web');
-
-    // Memproses telaah kelengkapan berkas fisik oleh Staf Bidang 2 untuk diteruskan ke Wadir 2
+    Route::get('/tes-verifikasi-b2', [HomeController::class, 'verifikasiBidang2'])->name('verifikasi-b2.web');
     Route::post('/tes-verifikasi-b2/teruskan-staff', [HomeController::class, 'teruskanStaffB2'])->name('verifikasi-b2.web.teruskan');
-
-    // Memproses keputusan mutlak Wadir 2 (Setujui atau Tolak dengan catatan wajib)
     Route::post('/tes-verifikasi-b2/keputusan-wadir', [HomeController::class, 'keputusanWadir2'])->name('verifikasi-b2.web.keputusan');
-
-    // Helper unduh berkas resmi PDF melalui antarmuka web simulasi (Permohonan, SPK, BAST, Bukti Transfer)
     Route::get('/tes-unduh-pdf/{jenis}/{id}', [HomeController::class, 'unduhDokumenPdf'])->name('unduh.pdf.web')->where(['id' => '.*']);
-
-    // Menghancurkan sesi pengguna saat ini dan mengarahkan kembali ke halaman login
-    Route::post('/tes-logout', [AuthController::class, 'logout'])->name('logout');
+    Route::post('/tes-logout', [AuthController::class, 'logout']);
 });
 
 /*
@@ -233,6 +272,6 @@ Route::prefix('api')->group(function () {
     Route::post('notifikasi-user/{notifikasi}/dismiss', [NotifikasiUserController::class, 'dismiss']);
 
     // Jejak audit otomatis setiap mutasi data untuk pengawasan auditor dan pimpinan
-    Route::apiResource('audit-logs', AuditLogController::class)->only(['index', 'show']);
-    Route::apiResource('pengadaan-logs', PengadaanLogController::class)->only(['index', 'show']);
+    Route::apiResource('audit-logs', AuditLogController::class)->only(['index', 'show', 'store']);
+    Route::apiResource('pengadaan-logs', PengadaanLogController::class)->only(['index', 'show', 'store']);
 });
