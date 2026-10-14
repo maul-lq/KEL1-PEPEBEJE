@@ -1,37 +1,48 @@
 <?php
 
+use App\Models\Unit;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 
 uses(RefreshDatabase::class);
 
-test('login view renders successfully with simple HTML', function () {
+beforeEach(function () {
+    Unit::create([
+        'kode_unit' => 'TIK',
+        'nama_unit' => 'Jurusan Teknik Informatika dan Komputer',
+        'jenis_unit' => 'jurusan',
+    ]);
+});
+
+test('login view renders successfully with plain HTML', function () {
     $response = $this->get('/tes-login');
 
     $response->assertStatus(200)
-        ->assertSee('Halaman Tes Login Sistem PBJ')
-        ->assertSee('tes_pengaju@kampus.ac.id')
-        ->assertSee('tes_password123');
+        ->assertSee('Login - Sistem Informasi Pengadaan Barang dan Jasa')
+        ->assertSee('user_pengaju')
+        ->assertSee('password123');
 });
 
-test('registrasi view renders successfully with super admin approval notice', function () {
+test('registrasi view renders successfully with plain HTML', function () {
     $response = $this->get('/tes-registrasi');
 
     $response->assertStatus(200)
-        ->assertSee('Halaman Tes Registrasi Pengguna Baru')
-        ->assertSee('persetujuan Super Admin');
+        ->assertSee('Daftar Akun Baru - Sistem Informasi PBJ')
+        ->assertSee('Unit Kerja / Jurusan');
 });
 
-test('user registration saves user as inactive pending super admin approval', function () {
+test('user registration saves user as active user', function () {
     $registrationData = [
-        'nip' => 'tes_199812122022011001',
-        'nama' => 'tes_Dosen Baru TIK',
-        'email' => 'tes_dosenbaru@kampus.ac.id',
-        'password' => 'tes_password123',
-        'password_confirmation' => 'tes_password123',
+        'nip' => '199812122022011001',
+        'username' => 'dosen_baru_tik',
+        'nama' => 'Dosen Baru TIK',
+        'email' => 'dosenbaru@pnj.ac.id',
+        'password' => 'password123',
+        'password_confirmation' => 'password123',
         'jabatan' => 'Dosen Pengajar',
-        'unit_kerja' => 'Jurusan Teknik Informatika',
+        'kode_unit' => 'TIK',
+        'role' => 'user',
         'no_hp' => '081299887766',
         'no_telp_kantor' => '0217279999',
     ];
@@ -41,29 +52,30 @@ test('user registration saves user as inactive pending super admin approval', fu
     $response->assertRedirect('/tes-login');
     $response->assertSessionHas('success');
 
-    $newUser = User::where('email', 'tes_dosenbaru@kampus.ac.id')->first();
+    $newUser = User::where('email', 'dosenbaru@pnj.ac.id')->first();
     expect($newUser)->not->toBeNull()
-        ->and($newUser->nip)->toBe('tes_199812122022011001')
-        ->and($newUser->role)->toBe(User::ROLE_USER_PENGAJU)
-        ->and($newUser->status_aktif)->toBeFalse();
+        ->and($newUser->nip)->toBe('199812122022011001')
+        ->and($newUser->role)->toBe('user')
+        ->and($newUser->status_aktif)->toBeTrue();
 });
 
 test('inactive user cannot login and gets waiting for approval error', function () {
     User::create([
-        'nip' => 'tes_199901012023011002',
-        'email' => 'tes_menunggu@kampus.ac.id',
-        'nama' => 'tes_Pengguna Belum Aktif',
-        'password' => Hash::make('tes_password123'),
+        'nip' => '199901012023011002',
+        'username' => 'tes_menunggu',
+        'email' => 'menunggu@pnj.ac.id',
+        'nama' => 'Pengguna Belum Aktif',
+        'password' => Hash::make('password123'),
         'jabatan' => 'Staf Laboratorium',
-        'unit_kerja' => 'Lab Komputer',
-        'role' => User::ROLE_USER_PENGAJU,
+        'kode_unit' => 'TIK',
+        'role' => 'user',
         'status_aktif' => false,
         'no_hp' => '081300001111',
     ]);
 
     $response = $this->from('/tes-login')->post('/tes-login', [
-        'login' => 'tes_menunggu@kampus.ac.id',
-        'password' => 'tes_password123',
+        'login' => 'menunggu@pnj.ac.id',
+        'password' => 'password123',
     ]);
 
     $response->assertRedirect('/tes-login');
@@ -73,23 +85,24 @@ test('inactive user cannot login and gets waiting for approval error', function 
 
 test('active user can login successfully and redirect to tes-home', function () {
     User::create([
-        'nip' => 'tes_198501012010011003',
-        'email' => 'tes_aktif@kampus.ac.id',
-        'nama' => 'tes_User Aktif Terverifikasi',
-        'password' => Hash::make('tes_password123'),
+        'nip' => '198501012010011003',
+        'username' => 'tes_aktif',
+        'email' => 'aktif@pnj.ac.id',
+        'nama' => 'User Aktif Terverifikasi',
+        'password' => Hash::make('password123'),
         'jabatan' => 'Ketua Jurusan',
-        'unit_kerja' => 'Jurusan Elektro',
-        'role' => User::ROLE_USER_PENGAJU,
+        'kode_unit' => 'TIK',
+        'role' => 'user',
         'status_aktif' => true,
         'no_hp' => '081300002222',
     ]);
 
     $response = $this->post('/tes-login', [
-        'login' => 'tes_aktif@kampus.ac.id',
-        'password' => 'tes_password123',
+        'login' => 'aktif@pnj.ac.id',
+        'password' => 'password123',
     ]);
 
-    $response->assertRedirect('/tes-home');
+    $response->assertRedirect(route('home', ['role' => 'user']));
     $this->assertAuthenticated();
 });
 
@@ -100,23 +113,23 @@ test('unauthenticated user cannot access tes-home or tes-api', function () {
 
 test('authenticated user can view tes-home and tes-api', function () {
     $user = User::create([
-        'nip' => 'tes_198801012015011004',
-        'email' => 'tes_staff@kampus.ac.id',
-        'nama' => 'tes_Staff Terdaftar',
-        'password' => Hash::make('tes_password123'),
+        'nip' => '198801012015011004',
+        'username' => 'staff_ppbj_user',
+        'email' => 'staff_ppbj@pnj.ac.id',
+        'nama' => 'Staff Terdaftar PPBJ',
+        'password' => Hash::make('password123'),
         'jabatan' => 'Staff Pengadaan',
-        'unit_kerja' => 'ULP',
-        'role' => User::ROLE_PPBJ,
+        'kode_unit' => 'TIK',
+        'role' => 'ppbj',
         'status_aktif' => true,
         'no_hp' => '081300003333',
     ]);
 
     $homeResponse = $this->actingAs($user)->get('/tes-home');
     $homeResponse->assertStatus(200)
-        ->assertSee('Halaman Tes Beranda (Home) Sistem PBJ')
-        ->assertSee('tes_Staff Terdaftar')
-        ->assertSee('tes_staff@kampus.ac.id')
-        ->assertSee('ppbj');
+        ->assertSee('Beranda Dashboard - SIM-PBJ Politeknik Negeri Jakarta')
+        ->assertSee('Staff Terdaftar PPBJ')
+        ->assertSee('PPBJ');
 
     $apiResponse = $this->actingAs($user)->get('/tes-api');
     $apiResponse->assertStatus(200)
@@ -127,13 +140,14 @@ test('authenticated user can view tes-home and tes-api', function () {
 
 test('authenticated user can logout', function () {
     $user = User::create([
-        'nip' => 'tes_198901012016011005',
-        'email' => 'tes_logout@kampus.ac.id',
-        'nama' => 'tes_User Logout',
-        'password' => Hash::make('tes_password123'),
+        'nip' => '198901012016011005',
+        'username' => 'user_logout',
+        'email' => 'logout@pnj.ac.id',
+        'nama' => 'User Logout',
+        'password' => Hash::make('password123'),
         'jabatan' => 'Staff Biasa',
-        'unit_kerja' => 'Unit Umum',
-        'role' => User::ROLE_USER_PENGAJU,
+        'kode_unit' => 'TIK',
+        'role' => 'user',
         'status_aktif' => true,
         'no_hp' => '081300004444',
     ]);
