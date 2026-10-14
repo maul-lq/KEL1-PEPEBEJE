@@ -63,6 +63,7 @@
                 @if(Auth::user()->role === 'ppbj')
                     <li><a href="{{ route('paket.index') }}">Daftar Paket Pengadaan & Alih Tugas PPK</a></li>
                     <li><a href="{{ route('paket.create') }}">Registrasi Paket Baru (Auto-Routing HPS)</a></li>
+                    <li><a href="{{ route('pembayaran.index') }}">Pengajuan Berkas Pembayaran & Terbitkan SPP</a></li>
                 @endif
 
                 {{-- Menu Khusus Peran: Pejabat Pengadaan (PP) --}}
@@ -73,6 +74,12 @@
                 {{-- Menu Khusus Peran: Pejabat Pembuat Komitmen (PPK 1-4 Terisolasi) --}}
                 @if(Auth::user()->role === 'ppk')
                     <li><a href="{{ route('kontrak.index') }}">Paket Komitmen Saya (> 200 Juta - Terisolasi)</a></li>
+                    <li><a href="{{ route('pembayaran.index') }}">Persetujuan Memo Pembayaran (PPK)</a></li>
+                @endif
+
+                {{-- Menu Khusus Peran: Wadir 2 --}}
+                @if(Auth::user()->role === 'wadir_2')
+                    <li><a href="{{ route('pembayaran.index') }}">Disposisi Memo Pembayaran (Wadir II)</a></li>
                 @endif
 
                 {{-- Menu Khusus Peran: Perlengkapan / BMN --}}
@@ -86,7 +93,8 @@
                 @endif
 
                 {{-- Menu Terbuka untuk Seluruh Peran --}}
-                <li><a href="{{ route('monitoring.index') }}">Monitoring 8 Siklus Pengadaan & Jejak Audit</a></li>
+                <li><a href="{{ route('monitoring.index') }}">Monitoring Tahapan Siklus Pengadaan & Jejak Audit</a></li>
+                <li><a href="{{ route('laporan.rekapitulasi') }}">Laporan Rekapitulasi Total Anggaran</a></li>
             </ul>
         </nav>
         <hr>
@@ -95,21 +103,21 @@
     {{-- Penampil Notifikasi Flash & Validasi --}}
     @if(session('success'))
         <section>
-            <p><strong>[STATUS SUKSES]:</strong> {{ session('success') }}</p>
+            <p><strong>[PEMBERITAHUAN BERHASIL]:</strong> {{ session('success') }}</p>
         </section>
         <hr>
     @endif
 
     @if(session('error'))
         <section>
-            <p><strong>[PERINGATAN / KESALAHAN]:</strong> {{ session('error') }}</p>
+            <p><strong>[PERINGATAN / KENDALA]:</strong> {{ session('error') }}</p>
         </section>
         <hr>
     @endif
 
     @if($errors->any())
         <section>
-            <strong>[KESALAHAN VALIDASI FORM]:</strong>
+            <strong>[DATA MASUKAN BELUM LENGKAP]:</strong>
             <ul>
                 @foreach($errors->all() as $error)
                     <li>{{ $error }}</li>
@@ -124,14 +132,14 @@
         @yield('content')
     </main>
 
-    {{-- Footer Semantik Informasi Institusi & Testing --}}
+    {{-- Footer Resmi Informasi Institusi Politeknik Negeri Jakarta --}}
     <footer>
         <hr>
         <p>
             <small>
                 &copy; {{ date('Y') }} <strong>SIM-PBJ Politeknik Negeri Jakarta</strong>. Seluruh hak cipta dilindungi.
                 <br>
-                <em>Mode Tampilan Program Riil Semantik TANPA CSS (Zero CSS) &bull; Standar Pengujian Fungsional Manual Overseer & Otomatisasi PHPUnit.</em>
+                <em>Sistem Informasi Manajemen Pengadaan Barang dan Jasa &bull; Kampus Politeknik Negeri Jakarta.</em>
             </small>
         </p>
     </footer>

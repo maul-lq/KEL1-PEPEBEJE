@@ -469,7 +469,7 @@
 {{-- Notifikasi Sistem Pengguna Aktif --}}
 <section>
     <fieldset>
-        <legend>Pemberitahuan & Reminder Sistem Terbaru</legend>
+        <legend>Pemberitahuan & Pengingat Jadwal Sistem</legend>
         @if($notifications->isEmpty())
             <p><em>Tidak ada pemberitahuan atau alert pengingat baru untuk Anda saat ini.</em></p>
         @else
@@ -477,7 +477,11 @@
                 @foreach($notifications as $notif)
                     <li>
                         <strong>[{{ date('d-m-Y H:i', strtotime($notif->created_at)) }}]</strong>
-                        {{ $notif->judul }}: {{ $notif->pesan }}
+                        <strong>{{ $notif->judul }}</strong>: {{ $notif->pesan }}
+                        <form action="{{ route('notifikasi.dismiss', $notif->id) }}" method="POST">
+                            @csrf
+                            <button type="submit">Tandai Telah Dibaca</button>
+                        </form>
                     </li>
                 @endforeach
             </ul>

@@ -78,9 +78,9 @@
 
     <hr>
 
-    {{-- 2. Formulir Pemecahan (Split) Permohonan Pengadaan Berdasarkan Anggaran MAK (FR 6.3) --}}
+    {{-- 2. Formulir Pemecahan (Split) Permohonan Pengadaan Berdasarkan Anggaran MAK --}}
     <fieldset>
-        <legend><strong>Pemecahan (Split) Usulan Permohonan Berdasarkan Anggaran MAK (FR 6.3)</strong></legend>
+        <legend><strong>Pemecahan (Split) Usulan Permohonan Berdasarkan Pos Anggaran MAK</strong></legend>
         <p>
             Jika terdapat usulan permohonan yang perlu dipisahkan pembebanan anggarannya ke mata anggaran (MAK) yang berbeda,
             Perencanaan dapat memecah berkas usulan menjadi nomor surat pecahan baru.
@@ -128,7 +128,7 @@
             </p>
 
             <p>
-                <label for="alasan_pemecahan"><strong>Alasan Pemecahan MAK (FR 6.3 & NFR 9):</strong></label><br>
+                <label for="alasan_pemecahan"><strong>Alasan Pemecahan Anggaran MAK:</strong></label><br>
                 <textarea id="alasan_pemecahan" name="alasan_pemecahan" rows="2" cols="60" required placeholder="Contoh: Pemisahan item belanja modal dan operasional ke pos MAK terpisah"></textarea>
             </p>
 

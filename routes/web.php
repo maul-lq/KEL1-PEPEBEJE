@@ -107,15 +107,25 @@ Route::middleware('auth')->group(function () {
     Route::post('/penerimaan-barang', [HomeController::class, 'storePenerimaan'])->name('penerimaan.store');
 
     // -------------------------------------------------------------------------
-    // Modul 7: Tagihan SPP & Pencairan Dana (Bagian Keuangan)
+    // Modul 7: Tagihan SPP & Pencairan Dana (Bagian Keuangan & PPBJ & PPK & Wadir 2)
     // -------------------------------------------------------------------------
     Route::get('/pembayaran', [HomeController::class, 'pembayaranIndex'])->name('pembayaran.index');
     Route::post('/pembayaran', [HomeController::class, 'storePembayaran'])->name('pembayaran.store');
+    Route::post('/pembayaran/pengajuan', [HomeController::class, 'storePengajuanBayarWeb'])->name('pembayaran.pengajuan');
+    Route::post('/pembayaran/memo/approve', [HomeController::class, 'approveMemoBayarWeb'])->name('pembayaran.memo.approve');
+    Route::post('/pembayaran/terbitkan-spp', [HomeController::class, 'terbitkanSppWeb'])->name('pembayaran.terbitkan-spp');
 
     // -------------------------------------------------------------------------
     // Modul 8: Monitoring 8 Siklus Pengadaan & Audit Trail Transparansi
     // -------------------------------------------------------------------------
     Route::get('/monitoring', [HomeController::class, 'monitoringIndex'])->name('monitoring.index');
+
+    // -------------------------------------------------------------------------
+    // Modul 9: Laporan Rekapitulasi Anggaran & Unduh PDF (FR 20)
+    // -------------------------------------------------------------------------
+    Route::get('/laporan/rekapitulasi-anggaran', [HomeController::class, 'laporanRekapitulasiIndex'])->name('laporan.rekapitulasi');
+    Route::get('/laporan/rekapitulasi-anggaran/pdf', [HomeController::class, 'unduhRekapitulasiPdf'])->name('laporan.rekapitulasi.pdf');
+    Route::post('/notifikasi/{id}/dismiss', [HomeController::class, 'dismissNotificationWeb'])->name('notifikasi.dismiss');
 
     // -------------------------------------------------------------------------
     // Helper Unduh Berkas Resmi Format PDF (< 3 Detik - NFR 12)
@@ -269,7 +279,12 @@ Route::prefix('api')->group(function () {
     Route::apiResource('transaksi-pencairan', TransaksiPencairanController::class)->where(['transaksi_pencairan' => '.*']);
 
     // Pengelolaan jadwal pengingat masa kontrak, BAST, dan jatuh tempo termin (NFR 5)
+    Route::post('reminders/sync', [ReminderController::class, 'sinkronkanOtomatis'])->name('reminders.sync');
     Route::apiResource('reminders', ReminderController::class);
+
+    // Endpoint Laporan Rekapitulasi Anggaran JSON & Health-Check Uptime
+    Route::get('laporan/rekapitulasi-anggaran', [HomeController::class, 'laporanRekapitulasiIndex']);
+    Route::get('health-check', [HomeController::class, 'healthCheck'])->name('api.health-check');
 
     // Feed daftar notifikasi personal bagi pengguna yang sedang login
     Route::get('notifikasi-user', [NotifikasiUserController::class, 'index']);
@@ -284,3 +299,7 @@ Route::prefix('api')->group(function () {
     Route::apiResource('audit-logs', AuditLogController::class)->only(['index', 'show', 'store']);
     Route::apiResource('pengadaan-logs', PengadaanLogController::class)->only(['index', 'show', 'store']);
 });
+
+// Endpoint Pemeriksaan Ketersediaan & Kesehatan Sistem (NFR 10)
+Route::get('/health', [HomeController::class, 'healthCheck'])->name('health');
+Route::get('/health-check', [HomeController::class, 'healthCheck']);

@@ -36,12 +36,12 @@
 
 <hr>
 
-{{-- Panel Akses Cepat untuk Pengujian Manual oleh Overseer --}}
+{{-- Direktori Akun Dinas Terdaftar Politeknik Negeri Jakarta --}}
 <section>
     <fieldset>
-        <legend><strong>Panel Bantuan Pengujian Manual Overseer (Daftar Akun 9 Peran Resmi PNJ)</strong></legend>
+        <legend><strong>Direktori Akun Dinas Pengguna Resmi Politeknik Negeri Jakarta</strong></legend>
         <p>
-            <em>Klik tombol <strong>"Gunakan Akun Ini"</strong> pada salah satu baris untuk mengisi kolom formulir login secara otomatis, lalu tekan tombol "Masuk ke Sistem".</em>
+            <em>Pilih salah satu akun jabatan di bawah ini untuk mengisi kredensial masuk secara langsung:</em>
         </p>
 
         <table border="1" cellpadding="6" cellspacing="0">

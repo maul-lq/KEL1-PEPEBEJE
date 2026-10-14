@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AuditLog;
 use App\Models\DokumentasiPenerimaanBarang;
 use App\Models\PaketPengadaan;
 use App\Models\PenerimaanBarang;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -74,19 +76,37 @@ class PenerimaanBarangController extends Controller
 
         $validated['waktu_selesai_inspeksi'] = now();
 
-        // 2. NFR Integritas Digital: Amankan BAST dengan token kriptografis HMAC-SHA256
-        if (! empty($validated['ttd_digital_bast'])) {
-            $validated['ttd_digital_bast'] = PenerimaanBarang::generateSignatureToken(
-                $validated['nomor_bast'] ?? 'BAST-'.time(),
-                (int) $validated['id_user']
-            );
+        if (empty($validated['nomor_bast'])) {
+            $validated['nomor_bast'] = 'BAST/'.date('Ymd').'/'.strtoupper(Str::random(6));
         }
+
+        // Simpan dokumen serah terima pihak ketiga jika diunggah
+        if ($request->hasFile('file_penerimaan_pihak3')) {
+            $validated['file_penerimaan_pihak3'] = $request->file('file_penerimaan_pihak3')->store('pihak3', 'public');
+        }
+
+        // 2. NFR Integritas Digital: Amankan BAST dengan token kriptografis HMAC-SHA256 (FR 14.3 & NFR 6)
+        $validated['ttd_digital_bast'] = PenerimaanBarang::generateSignatureToken(
+            $validated['nomor_bast'],
+            (int) $validated['id_user']
+        );
 
         // 3. Simpan data BAST ke tabel penerimaan_barang
         $penerimaan = PenerimaanBarang::create($validated);
 
-        // 4. Simpan riwayat path foto dokumentasi barang fisik ke tabel penerimaan_barang_foto_dokumentasi
-        if (! empty($validated['foto_dokumentasi'])) {
+        // 4. Simpan riwayat path foto dokumentasi barang fisik ke tabel penerimaan_barang_foto_dokumentasi (FR 14.2)
+        // Mendukung multiple upload file foto fisik (jumlah fleksibel)
+        if ($request->hasFile('foto_barang')) {
+            $files = is_array($request->file('foto_barang')) ? $request->file('foto_barang') : [$request->file('foto_barang')];
+            foreach ($files as $idx => $file) {
+                $path = $file->store('dokumentasi_barang', 'public');
+                DokumentasiPenerimaanBarang::create([
+                    'id_penerimaan' => $penerimaan->id_penerimaan,
+                    'foto_dokumentasi' => $path,
+                    'keterangan_foto' => 'Foto fisik barang #'.($idx + 1),
+                ]);
+            }
+        } elseif (! empty($validated['foto_dokumentasi'])) {
             foreach ($validated['foto_dokumentasi'] as $idx => $foto) {
                 DokumentasiPenerimaanBarang::create([
                     'id_penerimaan' => $penerimaan->id_penerimaan,
@@ -102,6 +122,17 @@ class PenerimaanBarangController extends Controller
             $paket->status_paket = ($penerimaan->status_fisik === 'terima') ? 'penerimaan_selesai' : 'penerimaan_pending';
             $paket->save();
         }
+
+        // 6. Catat riwayat audit trail (NFR 9)
+        AuditLog::catat(
+            $validated['id_user'],
+            'PENERIMAAN_BARANG_BAST',
+            'penerimaan_barang',
+            $penerimaan->nomor_bast,
+            null,
+            $penerimaan->status_fisik,
+            "Penerimaan fisik barang paket {$penerimaan->nomor_paket} status {$penerimaan->status_fisik} dan terbit BAST {$penerimaan->nomor_bast} token HMAC"
+        );
 
         return response()->json([
             'status' => 'success',

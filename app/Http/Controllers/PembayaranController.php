@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AuditLog;
 use App\Models\MemoBayar;
 use App\Models\PaketPengadaan;
 use App\Models\Pembayaran;
@@ -92,6 +93,11 @@ class PembayaranController extends Controller
 
         // 2. FR 16.1: Buat memo bayar bertingkat secara otomatis
         $paket = PaketPengadaan::find($pembayaran->nomor_paket);
+        if ($paket) {
+            $paket->status_paket = 'pengajuan_pembayaran';
+            $paket->save();
+        }
+
         $ppkUserId = $paket->id_user_ppk ?? $pembayaran->id_user_pengaju;
 
         // Level 1: Persetujuan memo oleh Pejabat Pembuat Komitmen (PPK) penanggung jawab paket
@@ -114,6 +120,17 @@ class PembayaranController extends Controller
                 'status_memo' => 'menunggu',
             ]);
         }
+
+        // Catat Audit Trail Pengajuan Pembayaran (FR 15 & NFR 9)
+        AuditLog::catat(
+            $validated['id_user_pengaju'],
+            'PENGAJUAN_BERKAS_PEMBAYARAN',
+            'pembayaran',
+            $pembayaran->nomor_pembayaran,
+            null,
+            'reviu_memo',
+            "PPBJ mengajukan berkas pembayaran {$pembayaran->nomor_pembayaran} termin ke-{$pembayaran->tahap_termin} nilai Rp ".number_format($pembayaran->nominal_pengajuan)
+        );
 
         return response()->json([
             'status' => 'success',
@@ -160,6 +177,22 @@ class PembayaranController extends Controller
         $pembayaran->catatan_reviu_akhir = $validated['catatan_reviu_akhir'] ?? 'Dokumen telah diverifikasi lengkap';
         $pembayaran->status_pembayaran = 'perintah_bayar';
         $pembayaran->save();
+
+        $paket = PaketPengadaan::find($pembayaran->nomor_paket);
+        if ($paket) {
+            $paket->status_paket = 'perintah_bayar';
+            $paket->save();
+        }
+
+        AuditLog::catat(
+            $validated['id_user_reviu'],
+            'TERBITKAN_PERINTAH_BAYAR_SPP',
+            'pembayaran',
+            $pembayaran->nomor_pembayaran,
+            'reviu_memo',
+            'perintah_bayar',
+            "PPBJ menerbitkan Surat Perintah Pembayaran (SPP) {$pembayaran->nomor_pembayaran} ke Bagian Keuangan (FR 17)"
+        );
 
         return response()->json([
             'status' => 'success',
