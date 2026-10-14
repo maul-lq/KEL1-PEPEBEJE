@@ -34,3 +34,5 @@ auth.json
 
 PROMPTS.md
 .agents/skills/hitung-progress-backend/SKILL.md
+
+.venv

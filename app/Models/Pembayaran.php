@@ -48,6 +48,14 @@ class Pembayaran extends Model
      */
     protected $keyType = 'string';
 
+    public const STATUS_PENGAJUAN = 'pengajuan';
+
+    public const STATUS_PERINTAH_BAYAR = 'perintah_bayar';
+
+    public const STATUS_LUNAS = 'lunas';
+
+    public const STATUS_DITOLAK = 'ditolak';
+
     /**
      * Kolom-kolom yang dapat diisi melalui mass assignment.
      *
@@ -86,6 +94,21 @@ class Pembayaran extends Model
             'jatuh_tempo' => 'date',
             'tanggal_perintah_bayar' => 'datetime',
         ];
+    }
+
+    /**
+     * Hook booted model Pembayaran untuk memastikan kolom tanggal_pengajuan dan jatuh_tempo tidak null.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (Pembayaran $model) {
+            if (empty($model->jatuh_tempo)) {
+                $model->jatuh_tempo = now()->addDays(30)->toDateString();
+            }
+            if (empty($model->tanggal_pengajuan)) {
+                $model->tanggal_pengajuan = now()->toDateString();
+            }
+        });
     }
 
     /**

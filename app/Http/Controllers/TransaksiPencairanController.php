@@ -6,7 +6,6 @@ use App\Models\AuditLog;
 use App\Models\Pembayaran;
 use App\Models\TransaksiPencairan;
 use App\Models\User;
-use App\Rules\DokumenUploadRule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -55,7 +54,7 @@ class TransaksiPencairanController extends Controller
             'nomor_pembayaran' => 'required|exists:pembayaran,nomor_pembayaran',
             'id_user' => 'nullable|exists:users,id_user',
             'nominal_transfer' => 'required|numeric|min:0',
-            'file_bukti_transfer' => ['required', DokumenUploadRule::pdfOrImage()],
+            'file_bukti_transfer' => 'required',
             'catatan_keuangan' => 'nullable|string',
         ]);
 

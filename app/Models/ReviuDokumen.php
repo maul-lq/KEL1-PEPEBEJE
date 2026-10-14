@@ -25,6 +25,12 @@ class ReviuDokumen extends Model
      */
     protected $table = 'reviu_dokumen';
 
+    public const STATUS_DRAFT = 'draft';
+
+    public const STATUS_PERLU_REVISI = 'perlu_revisi';
+
+    public const STATUS_DISETUJUI = 'disetujui';
+
     /**
      * Primary key tabel.
      *

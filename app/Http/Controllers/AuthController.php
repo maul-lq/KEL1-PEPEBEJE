@@ -29,7 +29,7 @@ class AuthController extends Controller
      */
     public function showLoginForm(): View
     {
-        return view('tes_login');
+        return view('auth.login');
     }
 
     /**
@@ -41,7 +41,7 @@ class AuthController extends Controller
         // Mengambil semua data unit kerja kampus untuk pilihan dropdown registrasi
         $units = Unit::all();
 
-        return view('tes_registrasi', compact('units'));
+        return view('auth.register', compact('units'));
     }
 
     /**
@@ -140,7 +140,7 @@ class AuthController extends Controller
             $request->session()->put('last_activity', time());
 
             // 5. FR 1.3: Mengalihkan pengguna ke dashboard sesuai peran masing-masing
-            return redirect()->intended(route('home', ['role' => $user->role]))->with(
+            return redirect()->intended(route('dashboard'))->with(
                 'success',
                 "Selamat datang kembali, {$user->nama}! Masuk sebagai ".strtoupper(str_replace('_', ' ', $user->role)).'.'
             );

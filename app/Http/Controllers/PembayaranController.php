@@ -49,6 +49,13 @@ class PembayaranController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        if (! $request->filled('id_user_pengaju')) {
+            $request->merge(['id_user_pengaju' => $request->user()?->id_user ?? User::first()?->id_user]);
+        }
+        if (! $request->filled('tanggal_pengajuan')) {
+            $request->merge(['tanggal_pengajuan' => now()->toDateString()]);
+        }
+
         // 1. Validasi input pengajuan pembayaran SPP
         $validated = $request->validate([
             'nomor_pembayaran' => 'required|string|max:100|unique:pembayaran,nomor_pembayaran',
@@ -78,8 +85,9 @@ class PembayaranController extends Controller
             $validated['file_memo'] = $request->file('file_memo')->store('memo', 'public');
         }
 
-        // Set status awal pembayaran menuju tahap reviu memo
-        $validated['status_pembayaran'] = 'reviu_memo';
+        // Set status awal pembayaran menuju tahap reviu memo dan tetapkan jatuh tempo
+        $validated['jatuh_tempo'] = $request->input('jatuh_tempo') ?? now()->addDays(30)->toDateString();
+        $validated['status_pembayaran'] = $request->input('status_pembayaran', 'reviu_memo');
         $pembayaran = Pembayaran::create($validated);
 
         // 2. FR 16.1: Buat memo bayar bertingkat secara otomatis
