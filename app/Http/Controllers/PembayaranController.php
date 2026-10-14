@@ -10,16 +10,30 @@ use App\Rules\DokumenUploadRule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
+/**
+ * Controller Manajemen Pengajuan Tagihan Pembayaran SPP (PembayaranController)
+ *
+ * Mengelola siklus tagihan dan instruksi pembayaran SPP kampus:
+ * - Pengajuan tagihan SPP termin / pelunasan oleh PPK atau Bendahara (FR 16.1).
+ * - Pembangkitan memo bayar bertingkat otomatis: Level 1 (PPK) & Level 2 (Wadir 2).
+ * - Penerbitan perintah bayar resmi oleh PPBJ setelah memo disetujui penuh (FR 17.1).
+ * - Koordinasi dokumen penunjang tagihan vendor (invoice, faktur pajak, slip).
+ */
 class PembayaranController extends Controller
 {
+    /**
+     * Menampilkan daftar riwayat pengajuan pembayaran SPP dengan filter status dan nomor paket.
+     */
     public function index(Request $request): JsonResponse
     {
         $query = Pembayaran::with(['paket.vendor', 'pengaju', 'memoBayar', 'transaksiPencairan']);
 
+        // Filter berdasarkan status pembayaran ('reviu_memo', 'perintah_bayar', 'lunas', dll.)
         if ($request->filled('status')) {
             $query->where('status_pembayaran', $request->status);
         }
 
+        // Filter berdasarkan nomor paket pengadaan spesifik
         if ($request->filled('nomor_paket')) {
             $query->where('nomor_paket', $request->nomor_paket);
         }
@@ -30,8 +44,12 @@ class PembayaranController extends Controller
         ]);
     }
 
+    /**
+     * Menyimpan pengajuan pembayaran SPP baru dan otomatis membangkitkan memo bertingkat (FR 16.1).
+     */
     public function store(Request $request): JsonResponse
     {
+        // 1. Validasi input pengajuan pembayaran SPP
         $validated = $request->validate([
             'nomor_pembayaran' => 'required|string|max:100|unique:pembayaran,nomor_pembayaran',
             'nomor_paket' => 'required|exists:paket_pengadaan,nomor_paket',
@@ -45,25 +63,30 @@ class PembayaranController extends Controller
             'file_memo' => ['nullable', DokumenUploadRule::pdfOnly()],
         ]);
 
+        // Simpan dokumen tagihan vendor ke penyimpanan disk
         if ($request->hasFile('file_tagihan_vendor')) {
             $validated['file_tagihan_vendor'] = $request->file('file_tagihan_vendor')->store('tagihan', 'public');
         }
 
+        // Simpan dokumen penunjang lainnya
         if ($request->hasFile('file_dokumen_penunjang')) {
             $validated['file_dokumen_penunjang'] = $request->file('file_dokumen_penunjang')->store('penunjang', 'public');
         }
 
+        // Simpan dokumen memo internal jika ada
         if ($request->hasFile('file_memo')) {
             $validated['file_memo'] = $request->file('file_memo')->store('memo', 'public');
         }
 
+        // Set status awal pembayaran menuju tahap reviu memo
         $validated['status_pembayaran'] = 'reviu_memo';
         $pembayaran = Pembayaran::create($validated);
 
-        // Buat memo bayar bertingkat otomatis: Level 1 (PPK) & Level 2 (Wadir 2) (FR 16.1)
+        // 2. FR 16.1: Buat memo bayar bertingkat secara otomatis
         $paket = PaketPengadaan::find($pembayaran->nomor_paket);
         $ppkUserId = $paket->id_user_ppk ?? $pembayaran->id_user_pengaju;
 
+        // Level 1: Persetujuan memo oleh Pejabat Pembuat Komitmen (PPK) penanggung jawab paket
         MemoBayar::create([
             'id_user' => $ppkUserId,
             'nomor_pembayaran' => $pembayaran->nomor_pembayaran,
@@ -72,7 +95,7 @@ class PembayaranController extends Controller
             'status_memo' => 'menunggu',
         ]);
 
-        // Cari user wadir 2
+        // Level 2: Persetujuan memo oleh Pimpinan Eksekutif (Wadir 2)
         $wadirUser = User::where('role', 'wadir_2')->first();
         if ($wadirUser) {
             MemoBayar::create([
@@ -91,6 +114,9 @@ class PembayaranController extends Controller
         ], 201);
     }
 
+    /**
+     * Menampilkan rincian satu pembayaran SPP beserta status memo bayar bertingkatnya.
+     */
     public function show(Pembayaran $pembayaran): JsonResponse
     {
         return response()->json([
@@ -99,14 +125,18 @@ class PembayaranController extends Controller
         ]);
     }
 
+    /**
+     * Menerbitkan perintah pembayaran resmi ke Bagian Keuangan setelah memo disetujui (FR 17.1).
+     */
     public function terbitkanPerintahBayar(Request $request, Pembayaran $pembayaran): JsonResponse
     {
+        // 1. Validasi ID verifikator PPBJ
         $validated = $request->validate([
             'id_user_reviu' => 'required|exists:users,id_user',
             'catatan_reviu_akhir' => 'nullable|string',
         ]);
 
-        // Pastikan memo sudah disetujui kedua approver
+        // 2. Pastikan seluruh memo bayar bertingkat (PPK & Wadir 2) sudah berstatus 'disetujui'
         $memoPending = $pembayaran->memoBayar()->where('status_memo', '!=', 'disetujui')->count();
         if ($memoPending > 0) {
             return response()->json([
@@ -115,6 +145,7 @@ class PembayaranController extends Controller
             ], 422);
         }
 
+        // 3. Perbarui status pembayaran menjadi 'perintah_bayar' siap dicairkan Keuangan
         $pembayaran->id_user_reviu = $validated['id_user_reviu'];
         $pembayaran->tanggal_perintah_bayar = now();
         $pembayaran->status_reviu_akhir = 'disetujui';
@@ -129,6 +160,9 @@ class PembayaranController extends Controller
         ]);
     }
 
+    /**
+     * Memperbarui informasi atau jatuh tempo pembayaran SPP.
+     */
     public function update(Request $request, Pembayaran $pembayaran): JsonResponse
     {
         $validated = $request->validate([
@@ -148,6 +182,9 @@ class PembayaranController extends Controller
         ]);
     }
 
+    /**
+     * Menghapus baris data pengajuan pembayaran dari database.
+     */
     public function destroy(Pembayaran $pembayaran): JsonResponse
     {
         $pembayaran->delete();

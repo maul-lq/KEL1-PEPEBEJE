@@ -14,16 +14,33 @@ use App\Models\VerifikasiParalel;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
+/**
+ * Seeder Basis Data Utama (Database Seeder)
+ *
+ * Bertanggung jawab membenihkan data awal (seed) demo dan master institusi untuk pengujian
+ * komprehensif sistem SIM-PBJ.
+ * Menghasilkan:
+ * 1. Master Unit Kerja (Jurusan, Bidang II, Unit Perlengkapan, Keuangan).
+ * 2. 9 Peran Pengguna Resmi (Pemohon, Staf Bidang 2, Wadir 2, Perencanaan, PPBJ, 1 Akun PP aktif,
+ *    serta 4 Akun PPK mandiri untuk validasi isolasi berkas).
+ * 3. Mata Anggaran Kegiatan (MAK) dengan pagu dan sumber dana (BOPTN, BLU, RM).
+ * 4. Master Penyedia / Vendor terverifikasi beserta lampiran berkas legalitas.
+ * 5. Sampel usulan Permohonan Pengadaan, Verifikasi Paralel, dan Alokasi MAK.
+ * 6. Sampel Paket Pengadaan bernilai di atas Rp 200 juta (jalur routing PPK) berstatus SPK terbit.
+ */
 class DatabaseSeeder extends Seeder
 {
     /**
-     * Seed the application's database with demo data.
+     * Menjalankan pembenihan data awal sistem secara terstruktur.
      */
     public function run(): void
     {
+        // Standar enkripsi hash kata sandi untuk seluruh akun seeder demo
         $defaultPassword = Hash::make('password123');
 
-        // 1. Seed Master Unit
+        // =========================================================================
+        // 1. Pembenihan Data Master Unit Kerja & Jurusan (Units)
+        // =========================================================================
         $units = [
             ['kode_unit' => 'TIK', 'nama_unit' => 'Jurusan Teknik Informatika dan Komputer', 'jenis_unit' => 'jurusan'],
             ['kode_unit' => 'TM', 'nama_unit' => 'Jurusan Teknik Mesin', 'jenis_unit' => 'jurusan'],
@@ -43,8 +60,11 @@ class DatabaseSeeder extends Seeder
             Unit::updateOrCreate(['kode_unit' => $u['kode_unit']], $u);
         }
 
-        // 2. Seed Users (9 Roles, 4 Akun PPK terisolasi, 1 Akun PP)
+        // =========================================================================
+        // 2. Pembenihan Pengguna (9 Peran, Batasan 1 Akun PP Aktif, 4 Akun PPK Terisolasi)
+        // =========================================================================
         $users = [
+            // Peran 1: Pengusul (User) dari unit kerja akademik
             [
                 'nip' => '198501012010011001',
                 'username' => 'user_pengaju',
@@ -58,6 +78,7 @@ class DatabaseSeeder extends Seeder
                 'no_telp_kantor' => '0217270001',
                 'kode_unit' => 'TIK',
             ],
+            // Peran 2: Staf Bidang II (Pemeriksa administrasi permohonan)
             [
                 'nip' => '198602022011011002',
                 'username' => 'staff_b2',
@@ -71,6 +92,7 @@ class DatabaseSeeder extends Seeder
                 'no_telp_kantor' => '0217270002',
                 'kode_unit' => 'B2',
             ],
+            // Peran 3: Wakil Direktur II (Pemegang hak veto dan persetujuan mutlak)
             [
                 'nip' => '197001011995011001',
                 'username' => 'wadir2',
@@ -84,6 +106,7 @@ class DatabaseSeeder extends Seeder
                 'no_telp_kantor' => '0217270002',
                 'kode_unit' => 'B2',
             ],
+            // Peran 4: Perencanaan (Verifikator anggaran MAK)
             [
                 'nip' => '198503032007031004',
                 'username' => 'perencanaan',
@@ -97,6 +120,7 @@ class DatabaseSeeder extends Seeder
                 'no_telp_kantor' => '0217270003',
                 'kode_unit' => 'B2',
             ],
+            // Peran 5: PPBJ (Pengelola registrasi paket dan disposisi PP/PPK)
             [
                 'nip' => '198001012005011002',
                 'username' => 'ppbj',
@@ -110,6 +134,7 @@ class DatabaseSeeder extends Seeder
                 'no_telp_kantor' => '0217270004',
                 'kode_unit' => 'B2',
             ],
+            // Peran 6: Pejabat Pengadaan (PP) - Mematuhi batas tepat 1 akun PP aktif (FR 2.1)
             [
                 'nip' => '198102022006021003',
                 'username' => 'pp_user',
@@ -123,6 +148,7 @@ class DatabaseSeeder extends Seeder
                 'no_telp_kantor' => '0217270005',
                 'kode_unit' => 'B2',
             ],
+            // Peran 7 (Akun 1/4): Pejabat Pembuat Komitmen I (Sarana)
             [
                 'nip' => '198203032007031001',
                 'username' => 'ppk_1',
@@ -136,6 +162,7 @@ class DatabaseSeeder extends Seeder
                 'no_telp_kantor' => '0217270006',
                 'kode_unit' => 'B2',
             ],
+            // Peran 7 (Akun 2/4): Pejabat Pembuat Komitmen II (Laboratorium)
             [
                 'nip' => '198203032007031002',
                 'username' => 'ppk_2',
@@ -149,6 +176,7 @@ class DatabaseSeeder extends Seeder
                 'no_telp_kantor' => '0217270006',
                 'kode_unit' => 'B2',
             ],
+            // Peran 7 (Akun 3/4): Pejabat Pembuat Komitmen III (Konstruksi)
             [
                 'nip' => '198203032007031003',
                 'username' => 'ppk_3',
@@ -162,6 +190,7 @@ class DatabaseSeeder extends Seeder
                 'no_telp_kantor' => '0217270006',
                 'kode_unit' => 'B2',
             ],
+            // Peran 7 (Akun 4/4): Pejabat Pembuat Komitmen IV (Jasa)
             [
                 'nip' => '198203032007031004',
                 'username' => 'ppk_4',
@@ -175,6 +204,7 @@ class DatabaseSeeder extends Seeder
                 'no_telp_kantor' => '0217270006',
                 'kode_unit' => 'B2',
             ],
+            // Peran 8: Perlengkapan (Pemeriksa fisik & penerbit BAST)
             [
                 'nip' => '198405052009051006',
                 'username' => 'perlengkapan',
@@ -188,6 +218,7 @@ class DatabaseSeeder extends Seeder
                 'no_telp_kantor' => '0217270007',
                 'kode_unit' => 'LKP',
             ],
+            // Peran 9: Keuangan (Verifikator memo bayar & eksekutor transfer dana)
             [
                 'nip' => '198704042008041005',
                 'username' => 'keuangan',
@@ -207,13 +238,16 @@ class DatabaseSeeder extends Seeder
             User::updateOrCreate(['username' => $u['username']], $u);
         }
 
+        // Ambil referensi user untuk foreign key data relasional berikutnya
         $perencanaanUser = User::where('username', 'perencanaan')->first();
         $pengajuUser = User::where('username', 'user_pengaju')->first();
         $ppbjUser = User::where('username', 'ppbj')->first();
         $ppUser = User::where('username', 'pp_user')->first();
         $ppk1User = User::where('username', 'ppk_1')->first();
 
-        // 3. Seed Anggaran MAK
+        // =========================================================================
+        // 3. Pembenihan Master Anggaran MAK (Mata Anggaran Kegiatan)
+        // =========================================================================
         $maks = [
             [
                 'kode_mak' => 'MAK-TIK-2026-001',
@@ -257,7 +291,9 @@ class DatabaseSeeder extends Seeder
             AnggaranMAK::updateOrCreate(['kode_mak' => $mak['kode_mak']], $mak);
         }
 
-        // 4. Seed Vendors
+        // =========================================================================
+        // 4. Pembenihan Data Rekanan (Vendor) & Berkas Legalitas
+        // =========================================================================
         $vendors = [
             [
                 'npwp' => '01.234.567.8-012.000',
@@ -295,7 +331,9 @@ class DatabaseSeeder extends Seeder
             );
         }
 
-        // 5. Seed Sample Permohonan Pengadaan & Verifikasi Paralel
+        // =========================================================================
+        // 5. Pembenihan Usulan Permohonan Pengadaan & Keputusan Verifikasi Paralel
+        // =========================================================================
         $permohonan1 = PermohonanPengadaan::updateOrCreate(
             ['nomor_surat' => '001/PL3.TIK/PG/2026'],
             [
@@ -313,22 +351,27 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
+        // Alokasi pagu dana MAK untuk surat usulan permohonan 1
         AlokasiMAK::updateOrCreate(
             ['nomor_surat' => $permohonan1->nomor_surat, 'kode_mak' => 'MAK-TIK-2026-001'],
             ['nominal_alokasi' => 240000000.00, 'tanggal_alokasi' => now()->subDays(4)]
         );
 
+        // Keputusan Verifikasi Paralel: Pihak Perencanaan
         VerifikasiParalel::updateOrCreate(
             ['id_user' => $perencanaanUser->id_user, 'nomor_surat' => $permohonan1->nomor_surat, 'role_verifikator' => 'perencanaan'],
             ['status_keputusan' => 'disetujui', 'catatan_alasan' => 'Anggaran BOPTN 2026 sesuai dan mencukupi', 'tanggal_keputusan' => now()->subDays(4)]
         );
 
+        // Keputusan Verifikasi Paralel: Pihak Pimpinan (Wadir 2)
         VerifikasiParalel::updateOrCreate(
             ['id_user' => User::where('role', 'wadir_2')->first()->id_user, 'nomor_surat' => $permohonan1->nomor_surat, 'role_verifikator' => 'wadir_2'],
             ['status_keputusan' => 'disetujui', 'catatan_alasan' => 'Disetujui untuk diteruskan ke PPBJ', 'tanggal_keputusan' => now()->subDays(4)]
         );
 
-        // 6. Seed Sample Paket Pengadaan (>200M -> Routing: ppk_diatas_200jt)
+        // =========================================================================
+        // 6. Pembenihan Sampel Paket Pengadaan (>200 Juta -> Jalur Routing: PPK)
+        // =========================================================================
         PaketPengadaan::updateOrCreate(
             ['nomor_paket' => 'PKT-TIK-2026-001'],
             [

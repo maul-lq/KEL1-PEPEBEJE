@@ -162,5 +162,6 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 
 - **Wajib Memperbarui Dokumentasi Front End**: Agen/pengembang WAJIB memperbarui file dokumentasi frontend di `1Jorking/PANDUAN_INTEGRASI_FRONTEND_FR_NFR.md` setiap kali overseer backend meminta pembuatan/implementasi FR maupun NFR selanjutnya, sehingga pengembang frontend selalu memiliki referensi endpoint, struktur payload request/response, batasan validasi, dan kode status terkini.
 - **Aturan Pengujian / Simulasi Backend**: Aturan khusus pembuatan file simulasi/antarmuka pengujian oleh backend (termasuk aturan TANPA CSS TOTAL dan penempatan JavaScript pengujian pada `resources/js/tes_*.js`) telah dipindahkan dan WAJIB mematuhi panduan di `AGENTS-BACKEND.md`.
+- **Wajib Komentar Kode dengan Bahasa Natural dan Jelas**: Seluruh file backend WAJIB memiliki komentar penjelasan pada setiap blok kode, method, alur logika, dan baris kode penting menggunakan bahasa natural, lugas, dan jelas agar manusia (overseer) maupun agen AI dapat langsung memahami fungsi, maksud, alur data, serta validasi yang terjadi.
 
 </laravel-boost-guidelines>

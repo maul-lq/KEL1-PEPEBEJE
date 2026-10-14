@@ -6,19 +6,28 @@ use App\Models\AlokasiMAK;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
+/**
+ * Controller Alokasi Pagu MAK ke Permohonan Pengadaan (AlokasiMAKController)
+ *
+ * Mengelola pemetaan mata anggaran kas (MAK) terhadap surat usulan permohonan yang disetujui:
+ * - Menetapkan porsi nominal pagu MAK yang dialokasikan ke permohonan (Tabel relasi many-to-many composite key: nomor_surat + kode_mak).
+ * - Mencegah alokasi duplikat pada pasangan nomor surat dan kode MAK yang sama.
+ */
 class AlokasiMAKController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Menampilkan daftar pemetaan alokasi MAK dengan filter nomor surat dan kode MAK.
      */
     public function index(Request $request): JsonResponse
     {
         $query = AlokasiMAK::with(['permohonan', 'anggaranMak']);
 
+        // Filter berdasarkan nomor surat permohonan pengadaan
         if ($request->filled('nomor_surat')) {
             $query->where('nomor_surat', $request->nomor_surat);
         }
 
+        // Filter berdasarkan kode MAK anggaran
         if ($request->filled('kode_mak')) {
             $query->where('kode_mak', $request->kode_mak);
         }
@@ -32,7 +41,7 @@ class AlokasiMAKController extends Controller
     }
 
     /**
-     * Show the form for creating a new resource.
+     * Helper status kesiapan alokasi pagu anggaran.
      */
     public function create(): JsonResponse
     {
@@ -43,10 +52,11 @@ class AlokasiMAKController extends Controller
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Menyimpan pemetaan alokasi pagu MAK baru ke usulan permohonan.
      */
     public function store(Request $request): JsonResponse
     {
+        // 1. Validasi keberadaan nomor surat, kode MAK, dan nominal alokasi non-negatif
         $validated = $request->validate([
             'nomor_surat' => ['required', 'exists:permohonan_pengadaan,nomor_surat'],
             'kode_mak' => ['required', 'exists:anggaran_mak,kode_mak'],
@@ -54,6 +64,7 @@ class AlokasiMAKController extends Controller
             'tanggal_alokasi' => ['nullable', 'date'],
         ]);
 
+        // 2. Cegah duplikasi alokasi: kombinasi nomor_surat dan kode_mak harus unik
         $exists = AlokasiMAK::where('nomor_surat', $validated['nomor_surat'])
             ->where('kode_mak', $validated['kode_mak'])
             ->exists();
@@ -67,6 +78,7 @@ class AlokasiMAKController extends Controller
 
         $validated['tanggal_alokasi'] = $validated['tanggal_alokasi'] ?? now();
 
+        // 3. Simpan baris alokasi MAK ke database
         $alokasi = AlokasiMAK::create($validated);
 
         return response()->json([
@@ -77,7 +89,7 @@ class AlokasiMAKController extends Controller
     }
 
     /**
-     * Display the specified resource.
+     * Menampilkan detail satu pemetaan alokasi MAK berdasarkan composite key.
      */
     public function show(Request $request, $id): JsonResponse
     {
@@ -90,7 +102,7 @@ class AlokasiMAKController extends Controller
     }
 
     /**
-     * Show the form for editing the specified resource.
+     * Menampilkan form edit untuk pemetaan alokasi MAK.
      */
     public function edit(Request $request, $id): JsonResponse
     {
@@ -103,7 +115,7 @@ class AlokasiMAKController extends Controller
     }
 
     /**
-     * Update the specified resource in storage.
+     * Memperbarui nominal pagu MAK yang dialokasikan ke permohonan.
      */
     public function update(Request $request, $id): JsonResponse
     {
@@ -126,7 +138,7 @@ class AlokasiMAKController extends Controller
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Menghapus alokasi MAK dari permohonan pengadaan.
      */
     public function destroy(Request $request, $id): JsonResponse
     {
@@ -143,7 +155,7 @@ class AlokasiMAKController extends Controller
     }
 
     /**
-     * Helper to resolve composite primary key record.
+     * Helper internal untuk memecahkan komposit primary key (nomor_surat:kode_mak).
      */
     protected function findComposite(Request $request, $id): AlokasiMAK
     {

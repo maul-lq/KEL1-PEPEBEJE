@@ -9,33 +9,53 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
+/**
+ * Controller Manajemen Paket Pengadaan Barang/Jasa (PaketPengadaanController)
+ *
+ * Mengelola siklus paket pengadaan di Bagian PPBJ:
+ * - Registrasi paket baru dari usulan permohonan yang telah disetujui (FR 7.1).
+ * - Auto-routing 100% deterministik berdasarkan ambang batas HPS positif (NFR 4 & FR 8.0):
+ *   * HPS <= 50 juta      => Pengadaan Langsung (Staf PPBJ)
+ *   * 50jt < HPS <= 200jt => Pejabat Pengadaan Tunggal (PP)
+ *   * HPS > 200 juta      => Tender/Seleksi oleh 4 akun individual PPK (PPK 1, 2, 3, 4)
+ * - Isolasi berkas 4 akun PPK (NFR RBAC).
+ * - Alih tugas (reassign) paket ke PPK lain disertai pencatatan riwayat & jejak audit (FR 7.3 & NFR 4).
+ */
 class PaketPengadaanController extends Controller
 {
+    /**
+     * Menampilkan daftar paket pengadaan dengan penyaringan otomatis sesuai wewenang peran (NFR RBAC).
+     */
     public function index(Request $request): JsonResponse
     {
         $query = PaketPengadaan::with(['permohonan.unit', 'ppbjUser', 'ppkUser', 'ppUser', 'vendor']);
 
-        // NFR RBAC: Isolasi berkas 4 akun PPK & hak akses role
+        // 1. Terapkan isolasi berkas: PPK hanya melihat paket miliknya, Pemohon melihat usulannya
         if ($request->user()) {
             $query->forUser($request->user());
         }
 
+        // 2. Filter berdasarkan status paket ('draft', 'proses_pemilihan', 'kontrak_terbit', 'selesai', dll.)
         if ($request->filled('status')) {
             $query->where('status_paket', $request->status);
         }
 
+        // 3. Filter berdasarkan jalur routing pengadaan
         if ($request->filled('jalur_routing')) {
             $query->where('jalur_routing', $request->jalur_routing);
         }
 
+        // 4. Filter berdasarkan jenis pengadaan ('barang', 'konstruksi', 'jasa_konsultansi', 'jasa_lainnya')
         if ($request->filled('jenis_pengadaan')) {
             $query->where('jenis_pengadaan', $request->jenis_pengadaan);
         }
 
+        // 5. Filter spesifik berdasarkan ID akun PPK yang ditugaskan
         if ($request->filled('id_user_ppk')) {
             $query->where('id_user_ppk', $request->id_user_ppk);
         }
 
+        // 6. Pencarian kata kunci pada nomor paket atau nama paket
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
@@ -50,15 +70,19 @@ class PaketPengadaanController extends Controller
         ]);
     }
 
+    /**
+     * Mendaftarkan paket pengadaan baru dengan auto-routing deterministik HPS (FR 7.1 & NFR 4).
+     */
     public function store(Request $request): JsonResponse
     {
+        // 1. Validasi input registrasi paket pengadaan (HPS wajib angka positif > 0)
         $validated = $request->validate([
             'nomor_paket' => 'required|string|max:100|unique:paket_pengadaan,nomor_paket',
             'nama_paket' => 'required|string|max:255',
             'jenis_pengadaan' => 'required|string|in:barang,jasa_lainnya,konstruksi,jasa_konsultansi',
             'platform_pengadaan' => 'required|string|max:50',
             'mekanisme_pengadaan' => 'required|string|max:50',
-            'nilai_hps' => 'required|numeric|gt:0',
+            'nilai_hps' => 'required|numeric|gt:0', // Nilai HPS tidak boleh 0 atau negatif
             'alokasi_pagu_paket' => 'required|numeric|gt:0',
             'file_dokumen_pengadaan' => 'nullable|string|max:255',
             'id_paket_lkpp' => 'nullable|string|max:100',
@@ -70,7 +94,7 @@ class PaketPengadaanController extends Controller
             'npwp_vendor' => 'nullable|exists:vendors,npwp',
         ]);
 
-        // NFR 4: Validasi bahwa id_user_ppk merupakan akun PPK aktif
+        // 2. NFR 4: Validasi bahwa pejabat yang ditugaskan sebagai PPK benar-benar memiliki peran 'ppk'
         if (! empty($validated['id_user_ppk'])) {
             $ppkUser = User::find($validated['id_user_ppk']);
             if (! $ppkUser || $ppkUser->role !== 'ppk') {
@@ -83,7 +107,7 @@ class PaketPengadaanController extends Controller
             }
         }
 
-        // NFR 4: Validasi bahwa id_user_pp merupakan akun PP aktif
+        // 3. NFR 4: Validasi bahwa pejabat yang ditugaskan sebagai PP benar-benar memiliki peran 'pp'
         if (! empty($validated['id_user_pp'])) {
             $ppUser = User::find($validated['id_user_pp']);
             if (! $ppUser || $ppUser->role !== 'pp') {
@@ -96,20 +120,23 @@ class PaketPengadaanController extends Controller
             }
         }
 
-        // NFR 4: Hitung jalur routing otomatis deterministik 100% dari nilai HPS
+        // 4. NFR 4: Kalkulasi jalur routing otomatis deterministik 100% dari nilai HPS
         $validated['jalur_routing'] = PaketPengadaan::tentukanRouting((float) $validated['nilai_hps']);
         $validated['tanggal_registrasi_paket'] = now();
         $validated['status_paket'] = 'draft';
 
+        // Catat tanggal penugasan PPK jika telah dipilih
         if (! empty($validated['id_user_ppk'])) {
             $validated['tanggal_penugasan_ppk'] = now();
             $validated['status_penugasan_ppk'] = 'ditugaskan';
         }
 
+        // Catat tanggal penugasan PP jika telah dipilih
         if (! empty($validated['id_user_pp'])) {
             $validated['tanggal_penugasan_pp'] = now();
         }
 
+        // 5. Simpan data paket pengadaan ke database
         $paket = PaketPengadaan::create($validated);
 
         return response()->json([
@@ -119,9 +146,12 @@ class PaketPengadaanController extends Controller
         ], 201);
     }
 
+    /**
+     * Menampilkan detail lengkap satu paket pengadaan dengan otorisasi isolasi berkas PPK.
+     */
     public function show(Request $request, PaketPengadaan $paket_pengadaan): JsonResponse
     {
-        // NFR RBAC: Isolasi berkas 4 akun PPK
+        // Menegakkan isolasi berkas: PPK dilarang melihat paket milik PPK lain (HTTP 403)
         $user = $request->user();
         if ($user && $user->cannot('view', $paket_pengadaan)) {
             return response()->json([
@@ -148,9 +178,12 @@ class PaketPengadaanController extends Controller
         ]);
     }
 
+    /**
+     * Memperbarui informasi paket pengadaan (termasuk negosiasi harga dan vendor pemenang).
+     */
     public function update(Request $request, PaketPengadaan $paket_pengadaan): JsonResponse
     {
-        // NFR RBAC: Otorisasi pembaruan paket
+        // Otorisasi hak ubah paket
         $user = $request->user();
         if ($user && $user->cannot('update', $paket_pengadaan)) {
             return response()->json([
@@ -174,6 +207,7 @@ class PaketPengadaanController extends Controller
             'npwp_vendor' => 'nullable|exists:vendors,npwp',
         ]);
 
+        // Jika nilai HPS diperbarui, hitung ulang jalur routing otomatisnya
         if (isset($validated['nilai_hps'])) {
             $validated['jalur_routing'] = PaketPengadaan::tentukanRouting((float) $validated['nilai_hps']);
         }
@@ -187,9 +221,13 @@ class PaketPengadaanController extends Controller
         ]);
     }
 
+    /**
+     * Mengalihkan penugasan paket ke akun PPK lain (Reassign PPK) (FR 7.3 & NFR 4).
+     * Hanya dapat dilakukan oleh Bagian PPBJ atau Perencanaan.
+     */
     public function reassignPpk(Request $request, PaketPengadaan $paket_pengadaan): JsonResponse
     {
-        // FR 7.3 & Notulensi 2: Hanya PPBJ dan Perencanaan yang boleh mengubah penugasan PPK
+        // 1. Otorisasi peran: hanya PPBJ dan Perencanaan yang boleh memutasi tugas PPK
         $user = $request->user();
         if ($user && $user->cannot('reassignPpk', $paket_pengadaan)) {
             return response()->json([
@@ -197,12 +235,15 @@ class PaketPengadaanController extends Controller
                 'message' => 'Akses Ditolak: Hanya PPBJ dan Perencanaan yang dapat mengubah penugasan PPK (FR 7.3).',
             ], 403);
         }
+
+        // 2. Validasi ID akun PPK baru dan alasan pengalihan tugas
         $validated = $request->validate([
             'ppk_baru_user_id' => 'required|exists:users,id_user',
             'diubah_oleh_user_id' => 'required|exists:users,id_user',
             'alasan_perubahan' => 'required|string',
         ]);
 
+        // Pastikan akun target memang berstatus peran PPK aktif
         $ppkBaru = User::find($validated['ppk_baru_user_id']);
         if (! $ppkBaru || $ppkBaru->role !== 'ppk') {
             return response()->json([
@@ -213,13 +254,14 @@ class PaketPengadaanController extends Controller
             ], 422);
         }
 
+        // 3. Mutasikan penugasan pada record paket pengadaan
         $ppkLama = $paket_pengadaan->id_user_ppk;
-
         $paket_pengadaan->id_user_ppk = $validated['ppk_baru_user_id'];
         $paket_pengadaan->tanggal_penugasan_ppk = now();
         $paket_pengadaan->alasan_pengalihan_ppk = $validated['alasan_perubahan'];
         $paket_pengadaan->save();
 
+        // 4. Catat riwayat pergantian penugasan ke tabel riwayat_penugasan_ppk
         RiwayatPenugasanPPK::create([
             'nomor_paket' => $paket_pengadaan->nomor_paket,
             'ppk_lama_user_id' => $ppkLama,
@@ -229,6 +271,7 @@ class PaketPengadaanController extends Controller
             'tanggal_penugasan' => now(),
         ]);
 
+        // 5. Rekam ke audit log institusi
         AuditLog::catat(
             $validated['diubah_oleh_user_id'],
             'REASSIGN_PPK',
@@ -246,6 +289,9 @@ class PaketPengadaanController extends Controller
         ]);
     }
 
+    /**
+     * Menghapus paket pengadaan dari database.
+     */
     public function destroy(PaketPengadaan $paket_pengadaan): JsonResponse
     {
         $paket_pengadaan->delete();

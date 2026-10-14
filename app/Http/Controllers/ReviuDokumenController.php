@@ -7,23 +7,37 @@ use App\Models\ReviuDokumen;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
+/**
+ * Controller Reviu Dokumen Teknis & Penelaahan HPS (ReviuDokumenController)
+ *
+ * Mengelola evaluasi dokumen persiapan pengadaan oleh Pejabat Pengadaan (PP) atau PPK:
+ * - Penelaahan spesifikasi teknis, rancangan kontrak, dan rincian HPS (FR 9.1).
+ * - Menegakkan isolasi berkas 4 akun PPK: PPK dilarang mereviu paket milik PPK lain (NFR RBAC).
+ * - Mewajibkan catatan perbaikan jika status reviu bernilai 'perlu_perbaikan' atau 'ditolak'.
+ * - Memperbarui status tahapan paket menjadi 'reviu_dokumen_disetujui'.
+ */
 class ReviuDokumenController extends Controller
 {
+    /**
+     * Menampilkan daftar penelaahan dokumen dengan penyaringan otomatis isolasi PPK.
+     */
     public function index(Request $request): JsonResponse
     {
         $query = ReviuDokumen::with(['paket', 'user']);
 
-        // NFR RBAC: Isolasi berkas 4 akun PPK
+        // 1. NFR RBAC: Isolasi berkas 4 akun PPK (PPK hanya melihat reviu pada paket yang ditugaskan kepadanya)
         if ($request->user() && $request->user()->role === 'ppk') {
             $query->whereHas('paket', function ($q) use ($request) {
                 $q->where('id_user_ppk', $request->user()->id_user);
             });
         }
 
+        // Filter berdasarkan nomor paket pengadaan
         if ($request->filled('nomor_paket')) {
             $query->where('nomor_paket', $request->nomor_paket);
         }
 
+        // Filter berdasarkan peran penelaah ('pp' atau 'ppk')
         if ($request->filled('role_reviewer')) {
             $query->where('role_reviewer', $request->role_reviewer);
         }
@@ -34,8 +48,12 @@ class ReviuDokumenController extends Controller
         ]);
     }
 
+    /**
+     * Menyimpan hasil penelaahan dokumen pengadaan dan mengevaluasi status paket (FR 9.1).
+     */
     public function store(Request $request): JsonResponse
     {
+        // 1. Validasi input reviu dokumen
         $validated = $request->validate([
             'nomor_paket' => 'required|exists:paket_pengadaan,nomor_paket',
             'id_user' => 'required|exists:users,id_user',
@@ -45,7 +63,7 @@ class ReviuDokumenController extends Controller
             'catatan_perbaikan' => 'nullable|string',
         ]);
 
-        // NFR RBAC: Isolasi berkas 4 akun PPK saat mereviu
+        // 2. NFR RBAC: Tegakkan isolasi berkas 4 akun PPK saat mereviu paket
         $user = $request->user();
         if ($user && $user->role === 'ppk') {
             $paket = PaketPengadaan::find($validated['nomor_paket']);
@@ -57,6 +75,7 @@ class ReviuDokumenController extends Controller
             }
         }
 
+        // 3. Catatan perbaikan wajib disertakan jika hasil reviu menuntut perbaikan atau menolak dokumen
         if (in_array($validated['status_reviu'], ['perlu_perbaikan', 'ditolak']) && empty($validated['catatan_perbaikan'])) {
             return response()->json([
                 'status' => 'error',
@@ -66,9 +85,10 @@ class ReviuDokumenController extends Controller
 
         $validated['tanggal_reviu'] = now();
 
+        // 4. Simpan hasil reviu ke database
         $reviu = ReviuDokumen::create($validated);
 
-        // Update status paket pengadaan
+        // 5. Perbarui status tahapan pada tabel paket_pengadaan
         $paket = $reviu->paket;
         if ($paket) {
             if ($validated['status_reviu'] === 'disetujui') {
@@ -86,6 +106,9 @@ class ReviuDokumenController extends Controller
         ], 201);
     }
 
+    /**
+     * Menampilkan detail satu dokumen hasil reviu teknis pengadaan.
+     */
     public function show(ReviuDokumen $reviu_dokumen): JsonResponse
     {
         return response()->json([
@@ -94,6 +117,9 @@ class ReviuDokumenController extends Controller
         ]);
     }
 
+    /**
+     * Memperbarui status atau catatan tindak lanjut reviu dokumen.
+     */
     public function update(Request $request, ReviuDokumen $reviu_dokumen): JsonResponse
     {
         $validated = $request->validate([
@@ -110,6 +136,9 @@ class ReviuDokumenController extends Controller
         ]);
     }
 
+    /**
+     * Menghapus baris reviu dokumen dari database.
+     */
     public function destroy(ReviuDokumen $reviu_dokumen): JsonResponse
     {
         $reviu_dokumen->delete();
