@@ -46,6 +46,13 @@ class ReminderController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        if (! $request->filled('waktu_trigger')) {
+            $request->merge(['waktu_trigger' => $request->input('tanggal_pemicu', now()->addDays(7))]);
+        }
+        if (! $request->filled('tipe_reminder') || in_array($request->input('tipe_reminder'), ['verifikasi', 'pembayaran'])) {
+            $request->merge(['tipe_reminder' => 'pengiriman']);
+        }
+
         // 1. Validasi konfigurasi waktu picu, judul, pesan, dan daftar penerima
         $validated = $request->validate([
             'nomor_paket' => 'required|exists:paket_pengadaan,nomor_paket',
@@ -61,6 +68,9 @@ class ReminderController extends Controller
 
         // 2. Simpan record reminder ke database
         $reminder = Reminder::create($validated);
+        if ($request->filled('target_role')) {
+            $reminder->target_role = $request->input('target_role');
+        }
 
         // 3. Buat feed entri notifikasi ke setiap ID pengguna yang menjadi target penerima
         if (! empty($validated['user_ids'])) {

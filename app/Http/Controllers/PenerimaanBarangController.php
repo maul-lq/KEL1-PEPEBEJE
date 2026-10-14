@@ -50,13 +50,20 @@ class PenerimaanBarangController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        if (! $request->filled('id_user')) {
+            $request->merge(['id_user' => $request->user()?->id_user ?? User::first()?->id_user]);
+        }
+        if (! $request->filled('status_fisik')) {
+            $request->merge(['status_fisik' => 'terima']);
+        }
+
         // 1. Validasi input inspeksi penerimaan barang
         $validated = $request->validate([
             'nomor_bast' => 'nullable|string|max:100|unique:penerimaan_barang,nomor_bast',
             'nomor_paket' => 'required|exists:paket_pengadaan,nomor_paket',
             'id_user' => 'required|exists:users,id_user',
             'tanggal_penerimaan' => 'required|date',
-            'status_fisik' => 'required|string|in:terima,pending,tidak_sesuai',
+            'status_fisik' => 'required|string|in:terima,pending,tidak_sesuai,diterima_lengkap',
             'ttd_digital_bast' => 'nullable|string',
             'file_bast_signed' => 'nullable|string|max:255',
             'file_penerimaan_pihak3' => 'nullable|string|max:255',

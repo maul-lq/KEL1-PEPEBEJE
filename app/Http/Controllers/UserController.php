@@ -76,6 +76,13 @@ class UserController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        // Auto-fill username dari prefix email jika tidak dikirimkan secara eksplisit
+        if (! $request->filled('username') && $request->filled('email')) {
+            $request->merge([
+                'username' => explode('@', $request->email)[0],
+            ]);
+        }
+
         // Validasi format data dan keunikan kredensial pengguna
         $validated = $request->validate([
             'nip' => 'required|string|max:30|unique:users,nip',

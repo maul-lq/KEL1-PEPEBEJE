@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * Model Kontrak SPK (Surat Perintah Kerja / Kontrak Pengadaan)
@@ -26,6 +27,24 @@ class KontrakSPK extends Model
      * @var string
      */
     protected $table = 'kontrak_spk';
+
+    public const TIPE_SEKALI_SELESAI = 'sekali_selesai';
+
+    public const TIPE_LUMPSUM = 'lumpsum';
+
+    public const TIPE_HARGA_SATUAN = 'harga_satuan';
+
+    public const TIPE_TERMIN_BULANAN = 'termin_bulanan';
+
+    public const TIPE_KONTRAK_TAHUNAN = 'kontrak_tahunan';
+
+    public const STATUS_DRAFT = 'draft';
+
+    public const STATUS_TERBIT = 'terbit';
+
+    public const STATUS_AKTIF = 'aktif';
+
+    public const STATUS_SELESAI = 'selesai';
 
     /**
      * Primary key tabel berupa nomor string unik SPK.
@@ -141,5 +160,15 @@ class KontrakSPK extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'id_user', 'id_user');
+    }
+
+    /**
+     * Relasi one-to-one ke rekaman Penerimaan Barang / BAST (berdasarkan kesamaan nomor_paket).
+     *
+     * @return HasOne Relasi ke model PenerimaanBarang
+     */
+    public function penerimaan(): HasOne
+    {
+        return $this->hasOne(PenerimaanBarang::class, 'nomor_paket', 'nomor_paket');
     }
 }

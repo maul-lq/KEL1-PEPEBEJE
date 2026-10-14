@@ -49,6 +49,11 @@ class MemoBayarController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        if (! $request->filled('urutan_level')) {
+            $urutan = ($request->input('role_approver') === 'wadir_2') ? 2 : 1;
+            $request->merge(['urutan_level' => $urutan]);
+        }
+
         // 1. Validasi data payload memo bayar
         $validated = $request->validate([
             'id_user' => 'required|exists:users,id_user',

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\PaketPengadaan;
 use App\Models\ReviuDokumen;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -53,6 +54,17 @@ class ReviuDokumenController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        // Fallback putaran_ke dan role_reviewer jika tidak disertakan
+        if (! $request->filled('putaran_ke')) {
+            $nextRound = (ReviuDokumen::where('nomor_paket', $request->nomor_paket)->max('putaran_ke') ?? 0) + 1;
+            $request->merge(['putaran_ke' => $nextRound]);
+        }
+        if (! $request->filled('role_reviewer')) {
+            $reviewer = User::find($request->id_user);
+            $roleReviewer = ($reviewer && in_array($reviewer->role, ['pp', 'ppk'])) ? $reviewer->role : 'ppk';
+            $request->merge(['role_reviewer' => $roleReviewer]);
+        }
+
         // 1. Validasi input reviu dokumen
         $validated = $request->validate([
             'nomor_paket' => 'required|exists:paket_pengadaan,nomor_paket',

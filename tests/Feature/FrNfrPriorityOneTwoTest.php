@@ -55,7 +55,7 @@ test('FR 1: login supports multi-identity (email, username, nip) and checks acti
         'login' => 'test_multi_identity',
         'password' => 'Secret123!',
     ]);
-    $response->assertRedirect(route('home', ['role' => 'user']));
+    $response->assertRedirect(route('dashboard'));
     $this->assertAuthenticatedAs($activeUser);
     $this->post(route('logout'));
 
@@ -64,7 +64,7 @@ test('FR 1: login supports multi-identity (email, username, nip) and checks acti
         'login' => '199901012026011999',
         'password' => 'Secret123!',
     ]);
-    $response->assertRedirect(route('home', ['role' => 'user']));
+    $response->assertRedirect(route('dashboard'));
     $this->assertAuthenticatedAs($activeUser);
     $this->post(route('logout'));
 
@@ -73,7 +73,7 @@ test('FR 1: login supports multi-identity (email, username, nip) and checks acti
         'login' => 'multi_identity@pnj.ac.id',
         'password' => 'Secret123!',
     ]);
-    $response->assertRedirect(route('home', ['role' => 'user']));
+    $response->assertRedirect(route('dashboard'));
     $this->assertAuthenticatedAs($activeUser);
     $this->post(route('logout'));
 

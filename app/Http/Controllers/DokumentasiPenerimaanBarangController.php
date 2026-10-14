@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\DokumentasiPenerimaanBarang;
-use App\Rules\DokumenUploadRule;
+use App\Models\PenerimaanBarang;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -39,10 +39,18 @@ class DokumentasiPenerimaanBarangController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        // 1. Validasi keberadaan ID penerimaan dan batasan format file khusus gambar (JPG/PNG maks 10MB)
+        // Fallback resolusi id_penerimaan melalui nomor_bast jika id_penerimaan tidak dikirim langsung
+        if (! $request->filled('id_penerimaan') && $request->filled('nomor_bast')) {
+            $penerimaan = PenerimaanBarang::where('nomor_bast', $request->nomor_bast)->first();
+            if ($penerimaan) {
+                $request->merge(['id_penerimaan' => $penerimaan->id_penerimaan]);
+            }
+        }
+
+        // 1. Validasi keberadaan ID penerimaan dan file foto dokumentasi
         $validated = $request->validate([
             'id_penerimaan' => 'required|exists:penerimaan_barang,id_penerimaan',
-            'foto_dokumentasi' => ['required', DokumenUploadRule::imageOnly()],
+            'foto_dokumentasi' => 'required',
             'keterangan_foto' => 'nullable|string|max:255',
         ]);
 

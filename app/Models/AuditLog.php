@@ -50,6 +50,32 @@ class AuditLog extends Model
     ];
 
     /**
+     * Atribut tambahan yang otomatis disertakan dalam serialisasi model (JSON/Array).
+     *
+     * @var array<int, string>
+     */
+    protected $appends = [
+        'aksi',
+        'keterangan',
+    ];
+
+    /**
+     * Accessor untuk atribut 'aksi' agar kompatibel dengan pembacaan log terdahulu.
+     */
+    public function getAksiAttribute(): ?string
+    {
+        return $this->attributes['jenis_aksi'] ?? null;
+    }
+
+    /**
+     * Accessor untuk atribut 'keterangan' agar kompatibel dengan pembacaan log terdahulu.
+     */
+    public function getKeteranganAttribute(): ?string
+    {
+        return $this->attributes['alasan'] ?? null;
+    }
+
+    /**
      * Atribut yang harus dikonversi ke tipe data waktu.
      *
      * @return array<string, string>

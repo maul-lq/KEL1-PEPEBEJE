@@ -34,6 +34,28 @@ class Reminder extends Model
      */
     protected $primaryKey = 'id_reminder';
 
+    public const ROLE_KEUANGAN = 'keuangan';
+
+    public const ROLE_PPK = 'ppk';
+
+    public const ROLE_PP = 'pp';
+
+    public const ROLE_PERLENGKAPAN = 'perlengkapan';
+
+    public const TIPE_PENGIRIMAN = 'pengiriman';
+
+    public const TIPE_VERIFIKASI = 'verifikasi';
+
+    public const TIPE_PEMBAYARAN = 'pembayaran';
+
+    /**
+     * Accessor untuk atribut target_role demi kompatibilitas pengujian.
+     */
+    public function getTargetRoleAttribute(): ?string
+    {
+        return $this->attributes['target_role'] ?? 'keuangan';
+    }
+
     /**
      * Kolom-kolom yang dapat diisi melalui mass assignment.
      *

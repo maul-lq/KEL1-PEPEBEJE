@@ -77,6 +77,8 @@ class User extends Authenticatable
         'username',
         'email',
         'nama',
+        'name',
+        'unit_kerja',
         'password',
         'jabatan',
         'role',
@@ -107,6 +109,47 @@ class User extends Authenticatable
             'password' => 'hashed',
             'status_aktif' => 'boolean',
         ];
+    }
+
+    /**
+     * Hook booted model User untuk fallback otomatis pengisian username jika kosong.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (User $user) {
+            if (empty($user->username)) {
+                $user->username = ! empty($user->email)
+                    ? explode('@', $user->email)[0]
+                    : (! empty($user->nip) ? $user->nip : 'user_'.uniqid());
+            }
+            if (empty($user->nama)) {
+                $user->nama = $user->name ?? $user->username ?? 'Pengguna Sistem';
+            }
+        });
+    }
+
+    /**
+     * Accessor untuk alias name yang merujuk ke kolom nama.
+     */
+    public function getNameAttribute(): ?string
+    {
+        return $this->attributes['nama'] ?? null;
+    }
+
+    /**
+     * Mutator untuk alias name yang menyelaraskan ke kolom nama.
+     */
+    public function setNameAttribute(?string $value): void
+    {
+        $this->attributes['nama'] = $value;
+    }
+
+    /**
+     * Mutator untuk alias unit_kerja agar tidak error saat dipassing mass assignment lama.
+     */
+    public function setUnitKerjaAttribute(?string $value): void
+    {
+        // Opsional: alias untuk unit_kerja jika ada pemanggilan lama
     }
 
     /**

@@ -26,6 +26,14 @@ class VerifikasiParalel extends Model
      */
     protected $table = 'verifikasi_paralel';
 
+    public const STATUS_MENUNGGU = 'menunggu';
+
+    public const STATUS_DISETUJUI = 'disetujui';
+
+    public const STATUS_DITOLAK = 'ditolak';
+
+    public const STATUS_REVISI = 'revisi';
+
     /**
      * Kolom-kolom yang dapat diisi melalui mass assignment.
      *
