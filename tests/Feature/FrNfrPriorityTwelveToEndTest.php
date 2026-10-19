@@ -105,7 +105,7 @@ class FrNfrPriorityTwelveToEndTest extends TestCase
             'nip' => '198101012005011001',
             'email' => 'ppbj@pnj.ac.id',
             'password' => Hash::make('Password123!'),
-            'role' => 'pbj',
+            'role' => 'ppbj',
             'kode_unit' => 'TIK',
             'jabatan' => 'Koordinator Pengadaan Barang dan Jasa',
             'no_hp' => '081211110001',
@@ -749,14 +749,16 @@ class FrNfrPriorityTwelveToEndTest extends TestCase
         $this->actingAs($this->userPbj);
 
         $authUrls = [
-            route('monitoring.index'),
-            route('kontrak.index'),
-            route('penerimaan.index'),
-            route('pembayaran.index'),
-            route('laporan.rekapitulasi'),
+            ['user' => $this->userPbj, 'url' => route('monitoring.index')],
+            ['user' => $this->userPbj, 'url' => route('kontrak.index')],
+            ['user' => $this->userPerlengkapan, 'url' => route('penerimaan.index')],
+            ['user' => $this->userPbj, 'url' => route('pembayaran.index')],
+            ['user' => $this->userPbj, 'url' => route('laporan.rekapitulasi')],
         ];
 
-        foreach ($authUrls as $url) {
+        foreach ($authUrls as $item) {
+            $this->actingAs($item['user']);
+            $url = $item['url'];
             $response = $this->get($url);
             $response->assertStatus(200);
             $content = $response->getContent();

@@ -91,7 +91,7 @@ class HomeController extends Controller
 
         $units = Unit::all();
 
-        return view('dashboard.index', compact('user', 'stats', 'recentPermohonan', 'recentPaket', 'notifications', 'units'));
+        return view('dashboard.tes_index', compact('user', 'stats', 'recentPermohonan', 'recentPaket', 'notifications', 'units'));
     }
 
     // =========================================================================
@@ -113,7 +113,7 @@ class HomeController extends Controller
         $permohonanList = $query->latest('tanggal_pengajuan')->paginate(15);
         $units = Unit::all();
 
-        return view('permohonan.index', compact('permohonanList', 'user', 'units'));
+        return view('permohonan.tes_index', compact('permohonanList', 'user', 'units'));
     }
 
     /**
@@ -123,7 +123,7 @@ class HomeController extends Controller
     {
         $units = Unit::all();
 
-        return view('permohonan.create', compact('units'));
+        return view('permohonan.tes_create', compact('units'));
     }
 
     /**
@@ -159,15 +159,16 @@ class HomeController extends Controller
         // Buat baris data permohonan pengadaan
         $permohonan = PermohonanPengadaan::create([
             'nomor_surat' => $validated['nomor_surat'],
+            'judul_pengadaan' => $validated['perihal'],
+            'tujuan_pengadaan_ringkas' => $validated['perihal'],
+            'estimasi_total_pagu' => $validated['anggaran_diajukan'],
             'perihal' => $validated['perihal'],
             'anggaran_diajukan' => $validated['anggaran_diajukan'],
             'kode_unit' => $validated['kode_unit'],
             'id_user' => $user->id_user,
             'tanggal_pengajuan' => $validated['tanggal_pengajuan'],
-            'file_surat_permohonan' => $filePermohonanPath,
-            'file_kak' => $fileKakPath,
-            'file_spesifikasi_teknis' => $fileSpekPath,
-            'status' => 'diajukan',
+            'file_permohonan' => $filePermohonanPath ?? 'permohonan/dummy.pdf',
+            'file_surat_permohonan' => $filePermohonanPath ?? 'permohonan/dummy.pdf',
             'status_permohonan' => PermohonanPengadaan::STATUS_REVIU_PARALEL,
             'status_anggaran' => 'pending',
         ]);
@@ -235,15 +236,16 @@ class HomeController extends Controller
 
         $revisi = PermohonanPengadaan::create([
             'nomor_surat' => $validated['nomor_surat_baru'],
+            'judul_pengadaan' => $validated['perihal'],
+            'tujuan_pengadaan_ringkas' => $validated['perihal'],
+            'estimasi_total_pagu' => $validated['anggaran_diajukan'],
             'perihal' => $validated['perihal'],
             'anggaran_diajukan' => $validated['anggaran_diajukan'],
             'kode_unit' => $induk->kode_unit,
             'id_user' => $user->id_user,
             'tanggal_pengajuan' => now(),
-            'file_surat_permohonan' => $induk->file_surat_permohonan,
-            'file_kak' => $fileKakPath,
-            'file_spesifikasi_teknis' => $induk->file_spesifikasi_teknis,
-            'status' => 'diajukan',
+            'file_permohonan' => $induk->file_permohonan ?? 'permohonan/dummy.pdf',
+            'file_surat_permohonan' => $induk->file_permohonan ?? 'permohonan/dummy.pdf',
             'status_permohonan' => PermohonanPengadaan::STATUS_REVIU_PARALEL,
             'status_anggaran' => 'pending',
             'revisi_ke' => ($induk->revisi_ke ?? 0) + 1,
@@ -283,11 +285,11 @@ class HomeController extends Controller
     public function verifikasiBidang2(): View
     {
         $permohonanMasuk = PermohonanPengadaan::with(['unit', 'user'])
-            ->whereIn('status', ['diajukan', 'reviu_paralel'])
+            ->whereIn('status_permohonan', ['diajukan', 'reviu_paralel'])
             ->latest('tanggal_pengajuan')
             ->get();
 
-        return view('verifikasi.bidang_2', compact('permohonanMasuk'));
+        return view('verifikasi.tes_bidang_2', compact('permohonanMasuk'));
     }
 
     /**
@@ -336,11 +338,11 @@ class HomeController extends Controller
     public function verifikasiWadir2(): View
     {
         $permohonanAntrean = PermohonanPengadaan::with(['unit', 'user', 'verifikasiParalel'])
-            ->whereIn('status', ['diajukan', 'reviu_paralel'])
+            ->whereIn('status_permohonan', ['diajukan', 'reviu_paralel'])
             ->latest('tanggal_pengajuan')
             ->get();
 
-        return view('verifikasi.wadir_2', compact('permohonanAntrean'));
+        return view('verifikasi.tes_wadir_2', compact('permohonanAntrean'));
     }
 
     /**
@@ -439,13 +441,13 @@ class HomeController extends Controller
     public function verifikasiPerencanaan(): View
     {
         $permohonanAntrean = PermohonanPengadaan::with(['unit', 'user'])
-            ->whereIn('status', ['diajukan', 'reviu_paralel'])
+            ->whereIn('status_permohonan', ['diajukan', 'reviu_paralel'])
             ->latest('tanggal_pengajuan')
             ->get();
 
         $makList = AnggaranMAK::orderBy('kode_mak')->get();
 
-        return view('verifikasi.perencanaan', compact('permohonanAntrean', 'makList'));
+        return view('verifikasi.tes_perencanaan', compact('permohonanAntrean', 'makList'));
     }
 
     /**
@@ -657,7 +659,7 @@ class HomeController extends Controller
         $ppkUsers = User::where('role', 'ppk')->where('status_aktif', true)->get();
         $riwayatPenugasan = RiwayatPenugasanPPK::with(['ppkLama', 'ppkBaru', 'userPenetap'])->latest()->take(20)->get();
 
-        return view('paket.index', compact('paketList', 'ppkUsers', 'riwayatPenugasan'));
+        return view('paket.tes_index', compact('paketList', 'ppkUsers', 'riwayatPenugasan'));
     }
 
     /**
@@ -665,14 +667,13 @@ class HomeController extends Controller
      */
     public function paketCreate(): View
     {
-        $permohonanDisetujui = PermohonanPengadaan::whereIn('status', ['disetujui'])
-            ->orWhere('status_permohonan', PermohonanPengadaan::STATUS_DISETUJUI)
+        $permohonanDisetujui = PermohonanPengadaan::where('status_permohonan', PermohonanPengadaan::STATUS_DISETUJUI)
             ->get();
 
         $ppkUsers = User::where('role', 'ppk')->where('status_aktif', true)->get();
         $ppUsers = User::where('role', 'pp')->where('status_aktif', true)->get();
 
-        return view('paket.create', compact('permohonanDisetujui', 'ppkUsers', 'ppUsers'));
+        return view('paket.tes_create', compact('permohonanDisetujui', 'ppkUsers', 'ppUsers'));
     }
 
     /**
@@ -683,7 +684,7 @@ class HomeController extends Controller
         $user = Auth::user();
 
         $validated = $request->validate([
-            'kode_paket' => ['required', 'string', 'max:100', 'unique:paket_pengadaan,kode_paket', 'unique:paket_pengadaan,nomor_paket'],
+            'kode_paket' => ['required', 'string', 'max:100', 'unique:paket_pengadaan,nomor_paket'],
             'nama_paket' => ['required', 'string', 'max:255'],
             'nomor_surat' => ['required', 'exists:permohonan_pengadaan,nomor_surat'],
             'jenis_pengadaan' => ['required', 'string'],
@@ -749,8 +750,7 @@ class HomeController extends Controller
             'alasan_pengalihan' => ['required', 'string'],
         ]);
 
-        $paket = PaketPengadaan::where('kode_paket', $validated['kode_paket'])
-            ->orWhere('nomor_paket', $validated['kode_paket'])
+        $paket = PaketPengadaan::where('nomor_paket', $validated['kode_paket'])
             ->firstOrFail();
 
         $ppkBaru = User::findOrFail($validated['id_user_ppk_baru']);
@@ -809,7 +809,12 @@ class HomeController extends Controller
         }
 
         $paketList = $paketQuery->get();
-        $kontrakList = KontrakSPK::with(['paket', 'vendor'])->latest()->paginate(15);
+
+        $kontrakQuery = KontrakSPK::with(['paket.vendor', 'paket.ppkUser']);
+        if ($user) {
+            $kontrakQuery->forUser($user);
+        }
+        $kontrakList = $kontrakQuery->latest()->paginate(15);
         $vendors = Vendor::all();
 
         // Ambil paket yang siap atau dalam proses reviu dokumen oleh PP/PPK (FR 9)
@@ -819,7 +824,7 @@ class HomeController extends Controller
         }
         $paketReviu = $reviuQuery->whereIn('status_paket', ['terdaftar', 'reviu_dokumen', 'perlu_perbaikan', 'reviu_dokumen_disetujui'])->get();
 
-        return view('kontrak.index', compact('paketList', 'kontrakList', 'vendors', 'paketReviu'));
+        return view('kontrak.tes_index', compact('paketList', 'kontrakList', 'vendors', 'paketReviu'));
     }
 
     /**
@@ -840,8 +845,7 @@ class HomeController extends Controller
             'file_spk' => ['nullable', DokumenUploadRule::pdfOnly()],
         ]);
 
-        $paket = PaketPengadaan::where('kode_paket', $validated['kode_paket'])
-            ->orWhere('nomor_paket', $validated['kode_paket'])
+        $paket = PaketPengadaan::where('nomor_paket', $validated['kode_paket'])
             ->firstOrFail();
 
         // Hubungkan rekanan ke paket pengadaan
@@ -955,10 +959,10 @@ class HomeController extends Controller
      */
     public function penerimaanIndex(): View
     {
-        $kontrakList = KontrakSPK::with(['paket', 'vendor'])->whereIn('status_spk', ['aktif', 'terbit'])->get();
+        $kontrakList = KontrakSPK::with(['paket.vendor'])->whereIn('status_spk', ['aktif', 'terbit'])->get();
         $bastList = PenerimaanBarang::with(['kontrak', 'paket'])->latest()->paginate(15);
 
-        return view('penerimaan.index', compact('kontrakList', 'bastList'));
+        return view('penerimaan.tes_index', compact('kontrakList', 'bastList'));
     }
 
     /**
@@ -1106,7 +1110,7 @@ class HomeController extends Controller
         // 6. Daftar transaksi SP2D yang telah dicairkan oleh Keuangan
         $transaksiList = TransaksiPencairan::with(['pembayaran.paket', 'user'])->latest('tanggal_transfer')->paginate(15);
 
-        return view('pembayaran.index', compact(
+        return view('pembayaran.tes_index', compact(
             'bastSiapBayar',
             'pembayaranList',
             'memoMenungguReview',
@@ -1178,7 +1182,8 @@ class HomeController extends Controller
         }
 
         // Bentuk memo bertingkat: Level 1 (PPK) & Level 2 (Wadir 2) (FR 16.1)
-        $ppkUserId = $paket->id_user_ppk ?? $user->id_user;
+        $defaultPpk = User::where('role', 'ppk')->first();
+        $ppkUserId = $paket->id_user_ppk ?? $defaultPpk?->id_user ?? $user->id_user;
         MemoBayar::create([
             'id_user' => $ppkUserId,
             'nomor_pembayaran' => $pembayaran->nomor_pembayaran,
@@ -1462,7 +1467,7 @@ class HomeController extends Controller
             ]);
         }
 
-        return view('laporan.rekapitulasi', compact(
+        return view('laporan.tes_rekapitulasi', compact(
             'tahun',
             'bulan',
             'kodeUnit',
@@ -1573,7 +1578,7 @@ class HomeController extends Controller
         $auditLogs = AuditLog::with('user')->latest()->take(25)->get();
         $units = Unit::all();
 
-        return view('monitoring.index', compact('permohonanList', 'auditLogs', 'units'));
+        return view('monitoring.tes_index', compact('permohonanList', 'auditLogs', 'units'));
     }
 
     // =========================================================================

@@ -29,7 +29,7 @@ class AuthController extends Controller
      */
     public function showLoginForm(): View
     {
-        return view('auth.login');
+        return view('auth.tes_login');
     }
 
     /**
@@ -41,7 +41,7 @@ class AuthController extends Controller
         // Mengambil semua data unit kerja kampus untuk pilihan dropdown registrasi
         $units = Unit::all();
 
-        return view('auth.register', compact('units'));
+        return view('auth.tes_register', compact('units'));
     }
 
     /**

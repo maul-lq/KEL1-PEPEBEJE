@@ -92,6 +92,11 @@ class PermohonanPengadaan extends Model
         'tanggal_revisi',
         'alasan_revisi',
         'kode_mak',
+        // Alias pendukung mass-assignment dari formulir web
+        'perihal',
+        'anggaran_diajukan',
+        'file_surat_permohonan',
+        'status',
     ];
 
     /**
@@ -149,6 +154,41 @@ class PermohonanPengadaan extends Model
     public function setStatusAttribute(?string $value): void
     {
         $this->attributes['status_permohonan'] = $value;
+    }
+
+    /**
+     * Accessor untuk alias perihal yang merujuk ke kolom judul_pengadaan.
+     */
+    public function getPerihalAttribute(): ?string
+    {
+        return $this->attributes['judul_pengadaan'] ?? null;
+    }
+
+    /**
+     * Mutator untuk alias perihal yang menyelaraskan ke kolom judul_pengadaan.
+     */
+    public function setPerihalAttribute(?string $value): void
+    {
+        $this->attributes['judul_pengadaan'] = $value;
+        if (empty($this->attributes['tujuan_pengadaan_ringkas'])) {
+            $this->attributes['tujuan_pengadaan_ringkas'] = $value;
+        }
+    }
+
+    /**
+     * Accessor untuk alias file_surat_permohonan yang merujuk ke kolom file_permohonan.
+     */
+    public function getFileSuratPermohonanAttribute(): ?string
+    {
+        return $this->attributes['file_permohonan'] ?? null;
+    }
+
+    /**
+     * Mutator untuk alias file_surat_permohonan yang menyelaraskan ke kolom file_permohonan.
+     */
+    public function setFileSuratPermohonanAttribute(?string $value): void
+    {
+        $this->attributes['file_permohonan'] = $value;
     }
 
     /**
