@@ -71,4 +71,20 @@ class NotifikasiUser extends Model
     {
         return $this->belongsTo(Reminder::class, 'id_reminder', 'id_reminder');
     }
+
+    /**
+     * Accessor judul notifikasi dari master reminder.
+     */
+    public function getJudulAttribute(): string
+    {
+        return $this->reminder?->judul_alert ?? 'Pemberitahuan Sistem';
+    }
+
+    /**
+     * Accessor pesan alert dari master reminder.
+     */
+    public function getPesanAttribute(): string
+    {
+        return $this->reminder?->pesan_alert ?? 'Pembaruan status operasional pengadaan barang dan jasa.';
+    }
 }

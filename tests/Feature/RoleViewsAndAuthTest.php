@@ -47,7 +47,7 @@ class RoleViewsAndAuthTest extends TestCase
 
         $response->assertStatus(200)
             ->assertSee('Sistem Informasi Manajemen Pengadaan Barang dan Jasa (SIM-PBJ)')
-            ->assertSee('Panel Bantuan Pengujian Manual Overseer')
+            ->assertSee('Direktori Akun Dinas Pengguna Resmi Politeknik Negeri Jakarta')
             ->assertSee('user_pengaju')
             ->assertSee('wadir2')
             ->assertSee('ppbj')

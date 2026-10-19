@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AuditLog;
 use App\Models\PaketPengadaan;
 use App\Models\ReviuDokumen;
 use App\Models\User;
@@ -54,7 +55,10 @@ class ReviuDokumenController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        // Fallback putaran_ke dan role_reviewer jika tidak disertakan
+        // Fallback id_user, putaran_ke dan role_reviewer jika tidak disertakan
+        if (! $request->filled('id_user') && $request->user()) {
+            $request->merge(['id_user' => $request->user()->id_user]);
+        }
         if (! $request->filled('putaran_ke')) {
             $nextRound = (ReviuDokumen::where('nomor_paket', $request->nomor_paket)->max('putaran_ke') ?? 0) + 1;
             $request->merge(['putaran_ke' => $nextRound]);
@@ -110,6 +114,17 @@ class ReviuDokumenController extends Controller
             }
             $paket->save();
         }
+
+        // 6. Rekam jejak hasil penelaahan ke audit log institusi (FR 9 & NFR 9)
+        AuditLog::catat(
+            $validated['id_user'],
+            $validated['status_reviu'] === 'disetujui' ? 'REVIU_DOKUMEN_DISETUJUI' : 'REVIU_DOKUMEN_PERBAIKAN',
+            'paket_pengadaan',
+            $validated['nomor_paket'],
+            $paket?->status_paket,
+            $paket?->status_paket,
+            'Penelaahan dokumen oleh '.strtoupper($validated['role_reviewer']).' (FR 9): '.($validated['catatan_perbaikan'] ?? 'Dokumen spesifikasi teknis dan HPS disetujui untuk penerbitan SPK')
+        );
 
         return response()->json([
             'status' => 'success',

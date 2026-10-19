@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasOneThrough;
 
 /**
  * Model Kontrak SPK (Surat Perintah Kerja / Kontrak Pengadaan)
@@ -170,5 +172,70 @@ class KontrakSPK extends Model
     public function penerimaan(): HasOne
     {
         return $this->hasOne(PenerimaanBarang::class, 'nomor_paket', 'nomor_paket');
+    }
+
+    /**
+     * Relasi has-one-through ke model Vendor melalui PaketPengadaan.
+     *
+     * @return HasOneThrough Relasi ke model Vendor
+     */
+    public function vendor(): HasOneThrough
+    {
+        return $this->hasOneThrough(
+            Vendor::class,
+            PaketPengadaan::class,
+            'nomor_paket',
+            'npwp',
+            'nomor_paket',
+            'npwp_vendor'
+        );
+    }
+
+    /**
+     * Scope query untuk membatasi akses Kontrak SPK sesuai hak akses peran pengguna (NFR RBAC PPK).
+     *
+     * @param  Builder  $query  Query builder Eloquent
+     * @param  User  $user  Objek pengguna aktif
+     * @return Builder Query terisolasi
+     */
+    public function scopeForUser($query, User $user)
+    {
+        return $query->whereHas('paket', function ($q) use ($user) {
+            $q->forUser($user);
+        });
+    }
+
+    /**
+     * Accessor alias nomor_kontrak_spk untuk nomor_spk.
+     */
+    public function getNomorKontrakSpkAttribute(): ?string
+    {
+        return $this->nomor_spk;
+    }
+
+    /**
+     * Accessor alias kode_paket untuk nomor_paket.
+     */
+    public function getKodePaketAttribute(): ?string
+    {
+        return $this->nomor_paket;
+    }
+
+    /**
+     * Accessor alias status_kontrak untuk status_spk.
+     */
+    public function getStatusKontrakAttribute(): ?string
+    {
+        return $this->status_spk;
+    }
+
+    /**
+     * Mengambil model Vendor rekanan penyedia melalui relasi Paket Pengadaan.
+     *
+     * @return Vendor|null Objek vendor rekanan
+     */
+    public function getVendorAttribute(): ?Vendor
+    {
+        return $this->paket?->vendor;
     }
 }

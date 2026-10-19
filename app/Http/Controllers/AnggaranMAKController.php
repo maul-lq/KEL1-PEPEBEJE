@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\AnggaranMAK;
+use App\Models\AuditLog;
+use App\Models\PermohonanPengadaan;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -75,9 +77,21 @@ class AnggaranMAKController extends Controller
         // Sisa pagu awal bernilai sama dengan pagu anggaran yang baru ditetapkan
         $validated['sisa_pagu_mak'] = $validated['pagu_anggaran'];
         $validated['tanggal_penetapan'] = now();
+        $validated['is_locked'] = false;
 
         // 2. Simpan MAK baru ke tabel anggaran_mak
         $anggaran = AnggaranMAK::create($validated);
+
+        // Rekam jejak penetapan MAK ke audit log (FR 6.1 & NFR 9)
+        AuditLog::catat(
+            $anggaran->id_user ?? $request->user()?->id_user ?? 1,
+            'PENETAPAN_MAK',
+            'anggaran_mak',
+            $anggaran->kode_mak,
+            null,
+            (string) $anggaran->pagu_anggaran,
+            'Penetapan mata anggaran kas baru (FR 6.1): '.$anggaran->uraian_mak
+        );
 
         return response()->json([
             'status' => 'success',
@@ -121,6 +135,8 @@ class AnggaranMAKController extends Controller
             'id_user' => 'nullable|exists:users,id_user',
         ]);
 
+        $nilaiLama = (string) $anggaran_mak->pagu_anggaran;
+
         try {
             // 2. Eksekusi pembaruan (model booted akan memverifikasi immutabilitas)
             $anggaran_mak->update($validated);
@@ -130,6 +146,17 @@ class AnggaranMAKController extends Controller
                 'message' => $e->getMessage(),
             ], 422);
         }
+
+        // Rekam jejak perubahan MAK ke audit log sebelum SPK terbit (FR 6.4 & NFR 9)
+        AuditLog::catat(
+            $request->user()?->id_user ?? $anggaran_mak->id_user ?? 1,
+            'PERUBAHAN_MAK',
+            'anggaran_mak',
+            $anggaran_mak->kode_mak,
+            $nilaiLama,
+            (string) $anggaran_mak->pagu_anggaran,
+            'Pembaruan rincian/pagu MAK sebelum SPK terbit (FR 6.4 & NFR 9): '.($validated['catatan_mak'] ?? 'Penyesuaian MAK')
+        );
 
         return response()->json([
             'status' => 'success',
@@ -145,10 +172,59 @@ class AnggaranMAKController extends Controller
     {
         $anggaran_mak->lock();
 
+        // Rekam aksi penguncian ke audit log (NFR 6 & NFR 9)
+        AuditLog::catat(
+            request()->user()?->id_user ?? $anggaran_mak->id_user ?? 1,
+            'KUNCI_MAK_PERMANEN',
+            'anggaran_mak',
+            $anggaran_mak->kode_mak,
+            'unlocked',
+            'locked',
+            'Penguncian permanen anggaran MAK (NFR 6 & FR 11.2)'
+        );
+
         return response()->json([
             'status' => 'success',
             'message' => 'Anggaran MAK berhasil dikunci permanen',
             'data' => $anggaran_mak,
+        ]);
+    }
+
+    /**
+     * Menetapkan status Hold / Pending Anggaran pada permohonan pengadaan jika pagu belum tersedia (FR 6.2).
+     */
+    public function holdAnggaran(Request $request): JsonResponse
+    {
+        if (! $request->filled('catatan_alasan') && $request->filled('catatan')) {
+            $request->merge(['catatan_alasan' => $request->input('catatan')]);
+        }
+
+        $validated = $request->validate([
+            'nomor_surat' => 'required|exists:permohonan_pengadaan,nomor_surat',
+            'catatan_alasan' => 'required|string',
+        ]);
+
+        $permohonan = PermohonanPengadaan::findOrFail($validated['nomor_surat']);
+        $statusLama = $permohonan->status_permohonan;
+
+        $permohonan->status_permohonan = PermohonanPengadaan::STATUS_PENDING_ANGGARAN;
+        $permohonan->status_anggaran = 'hold';
+        $permohonan->save();
+
+        AuditLog::catat(
+            $request->user()?->id_user ?? 1,
+            'HOLD_ANGGARAN_MAK',
+            'permohonan_pengadaan',
+            $permohonan->nomor_surat,
+            $statusLama,
+            PermohonanPengadaan::STATUS_PENDING_ANGGARAN,
+            'Permohonan ditahan (Hold/Pending) oleh Perencanaan karena anggaran belum siap (FR 6.2): '.$validated['catatan_alasan']
+        );
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Status usulan permohonan berhasil ditetapkan menjadi Pending Anggaran (Hold) (FR 6.2)',
+            'data' => $permohonan,
         ]);
     }
 
