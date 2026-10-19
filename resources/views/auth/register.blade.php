@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Buat Akun Baru - SIM-PBJ</title>
 
-    <!-- Dynamic Favicon (Mengacu ke file di public/favicon.ico) -->
+    <!-- Dynamic Favicon -->
     <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
 
     <!-- Vite Assets -->
@@ -35,7 +35,6 @@
             <aside class="flex flex-col items-start justify-between gap-10 bg-[radial-gradient(203%_267%_at_187%_-91%,rgba(35,76,144,0.85)_0%,rgba(59,130,246,0.85)_100%)] p-8 text-white lg:w-[485px] lg:shrink-0 lg:px-[52px] lg:pb-[16px] lg:pt-[95px]">
                 <div class="flex w-full flex-col">
                     <div class="flex items-center gap-3">
-                        <!-- Dynamic Logo dari favicon -->
                         <img
                             src="{{ asset('favicon.ico') }}"
                             alt="Logo SIM-PBJ"
@@ -197,19 +196,19 @@
                         <span class="text-lg font-medium text-black">
                             Password <span class="text-red-600">*</span>
                         </span>
-                        <span class="relative block">
+                        <div class="relative flex items-center">
                             <input
                                 name="password"
                                 :type="showPassword ? 'text' : 'password'"
                                 placeholder="Minimal 8 karakter"
                                 required
-                                class="h-[60px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] pl-[22px] pr-14 text-lg text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6]"
+                                class="h-[60px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] pl-[22px] pr-14 text-lg text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6] [&::-ms-reveal]:hidden"
                             />
                             <button
                                 type="button"
                                 @click="showPassword = !showPassword"
                                 :aria-label="showPassword ? 'Sembunyikan password' : 'Tampilkan password'"
-                                class="absolute right-[22px] top-1/2 -translate-y-1/2 text-[#787878]"
+                                class="absolute right-[22px] flex items-center justify-center text-[#787878] hover:text-black transition-colors"
                             >
                                 <template x-if="showPassword">
                                     <svg class="size-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
@@ -226,7 +225,7 @@
                                     </svg>
                                 </template>
                             </button>
-                        </span>
+                        </div>
                     </label>
 
                     <!-- Konfirmasi Password -->
@@ -234,19 +233,19 @@
                         <span class="text-lg font-medium text-black">
                             Konfirmasi Password <span class="text-red-600">*</span>
                         </span>
-                        <span class="relative block">
+                        <div class="relative flex items-center">
                             <input
                                 name="password_confirmation"
                                 :type="showPasswordConfirm ? 'text' : 'password'"
                                 placeholder="Ulangi password"
                                 required
-                                class="h-[60px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] pl-[22px] pr-14 text-lg text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6]"
+                                class="h-[60px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] pl-[22px] pr-14 text-lg text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6] [&::-ms-reveal]:hidden"
                             />
                             <button
                                 type="button"
                                 @click="showPasswordConfirm = !showPasswordConfirm"
                                 :aria-label="showPasswordConfirm ? 'Sembunyikan password' : 'Tampilkan password'"
-                                class="absolute right-[22px] top-1/2 -translate-y-1/2 text-[#787878]"
+                                class="absolute right-[22px] flex items-center justify-center text-[#787878] hover:text-black transition-colors"
                             >
                                 <template x-if="showPasswordConfirm">
                                     <svg class="size-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
@@ -263,7 +262,7 @@
                                     </svg>
                                 </template>
                             </button>
-                        </span>
+                        </div>
                     </label>
 
                     <!-- Submit Button -->
