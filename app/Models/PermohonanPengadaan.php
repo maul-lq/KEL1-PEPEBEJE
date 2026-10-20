@@ -92,6 +92,11 @@ class PermohonanPengadaan extends Model
         'tanggal_revisi',
         'alasan_revisi',
         'kode_mak',
+        // Alias pendukung mass-assignment dari formulir web
+        'perihal',
+        'anggaran_diajukan',
+        'file_surat_permohonan',
+        'status',
     ];
 
     /**
@@ -152,6 +157,41 @@ class PermohonanPengadaan extends Model
     }
 
     /**
+     * Accessor untuk alias perihal yang merujuk ke kolom judul_pengadaan.
+     */
+    public function getPerihalAttribute(): ?string
+    {
+        return $this->attributes['judul_pengadaan'] ?? null;
+    }
+
+    /**
+     * Mutator untuk alias perihal yang menyelaraskan ke kolom judul_pengadaan.
+     */
+    public function setPerihalAttribute(?string $value): void
+    {
+        $this->attributes['judul_pengadaan'] = $value;
+        if (empty($this->attributes['tujuan_pengadaan_ringkas'])) {
+            $this->attributes['tujuan_pengadaan_ringkas'] = $value;
+        }
+    }
+
+    /**
+     * Accessor untuk alias file_surat_permohonan yang merujuk ke kolom file_permohonan.
+     */
+    public function getFileSuratPermohonanAttribute(): ?string
+    {
+        return $this->attributes['file_permohonan'] ?? null;
+    }
+
+    /**
+     * Mutator untuk alias file_surat_permohonan yang menyelaraskan ke kolom file_permohonan.
+     */
+    public function setFileSuratPermohonanAttribute(?string $value): void
+    {
+        $this->attributes['file_permohonan'] = $value;
+    }
+
+    /**
      * Mutator untuk alias asal_unit agar menyelaraskan ke kode_unit.
      */
     public function setAsalUnitAttribute(?string $value): void
@@ -183,6 +223,22 @@ class PermohonanPengadaan extends Model
         if (empty($this->attributes['file_permohonan'])) {
             $this->attributes['file_permohonan'] = $value;
         }
+    }
+
+    /**
+     * Accessor untuk alias anggaran_diajukan yang merujuk ke estimasi_total_pagu.
+     */
+    public function getAnggaranDiajukanAttribute(): mixed
+    {
+        return $this->attributes['estimasi_total_pagu'] ?? 0;
+    }
+
+    /**
+     * Mutator untuk alias anggaran_diajukan yang menyelaraskan ke estimasi_total_pagu.
+     */
+    public function setAnggaranDiajukanAttribute(mixed $value): void
+    {
+        $this->attributes['estimasi_total_pagu'] = $value;
     }
 
     /**

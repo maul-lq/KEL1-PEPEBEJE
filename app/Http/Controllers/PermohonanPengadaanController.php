@@ -343,6 +343,17 @@ class PermohonanPengadaanController extends Controller
             'kode_mak' => $validated['kode_mak'] ?? $permohonan_pengadaan->kode_mak,
         ]);
 
+        // 3. Rekam jejak pemecahan (split) permohonan ke audit log (FR 6.3 & NFR 9)
+        AuditLog::catat(
+            $request->user()?->id_user ?? $anak->id_user,
+            'SPLIT_PERMOHONAN_MAK',
+            'permohonan_pengadaan',
+            $anak->nomor_surat,
+            $permohonan_pengadaan->nomor_surat,
+            PermohonanPengadaan::STATUS_REVIU_PARALEL,
+            'Pemecahan usulan permohonan berdasarkan jenis anggaran MAK (FR 6.3 & NFR 9): '.$validated['alasan_pemecahan']
+        );
+
         return response()->json([
             'status' => 'success',
             'message' => 'Permohonan pengadaan berhasil dipecah (split)',
@@ -589,9 +600,24 @@ class PermohonanPengadaanController extends Controller
             $query->forUser($user);
         }
 
-        // Terapkan filter berdasarkan unit kerja
+        // Terapkan filter berdasarkan nomor surat (FR 19.2)
+        if ($request->filled('nomor_surat')) {
+            $query->where('nomor_surat', 'like', "%{$request->nomor_surat}%");
+        }
+
+        // Terapkan filter berdasarkan unit kerja / jurusan (FR 19.2)
         if ($request->filled('kode_unit')) {
             $query->where('kode_unit', $request->kode_unit);
+        }
+
+        // Terapkan filter berdasarkan tahun pengajuan / anggaran
+        if ($request->filled('tahun')) {
+            $query->whereYear('tanggal_pengajuan', $request->tahun);
+        }
+
+        // Terapkan filter berdasarkan bulan pengajuan
+        if ($request->filled('bulan')) {
+            $query->whereMonth('tanggal_pengajuan', $request->bulan);
         }
 
         // Terapkan filter berdasarkan status permohonan
@@ -599,7 +625,7 @@ class PermohonanPengadaanController extends Controller
             $query->where('status_permohonan', $request->status);
         }
 
-        // Terapkan pencarian kata kunci
+        // Terapkan pencarian kata kunci umum
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
