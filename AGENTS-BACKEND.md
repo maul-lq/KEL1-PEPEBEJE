@@ -4,9 +4,9 @@ Dokumen ini berisi aturan baku bagi pengembang backend dan agen AI yang bekerja 
 
 ---
 
-## 1. Filosofi Antarmuka: Program Riil Berbasis Peran TANPA CSS (Zero CSS)
+## 1. Filosofi Antarmuka: Program Riil Berbasis Peran TANPA CSS (Zero CSS pada Berkas `tes_*`)
 - **Program Riil Berbasis Peran (Role-Based Real Web Application)**:
-  - Antarmuka web yang dibangun pada folder `resources/views/` **BUKAN** sekadar form uji coba/mockup ad-hoc terisolasi, melainkan **program aplikasi web riil yang utuh dan berfungsi penuh** mencakup sisi backend dan front-end semantik.
+  - Antarmuka web pengujian backend yang dibangun pada folder `resources/views/` (dengan prefiks `tes_*`) **BUKAN** sekadar form uji coba/mockup ad-hoc terisolasi, melainkan **program aplikasi web riil yang utuh dan berfungsi penuh** mencakup sisi backend dan front-end semantik.
   - Tampilan setiap peran pengguna (9 peran resmi institusi PNJ) harus disajikan berbeda secara fungsional sesuai wewenang, batasan data, ERD, dan Sequence Diagram (`1Jorking/Kode Sequence Diagram.txt`):
     1. **User (Pemohon / Jurusan / Unit)**: Pengajuan permohonan Srikandi (upload KAK & spesifikasi), pemantauan riwayat status usulan, transparansi alasan penolakan & verifikator penolak, pengajuan revisi surat, dan unduh PDF resmi.
     2. **Staff Bidang 2**: Antrean permohonan masuk, telaah kelengkapan berkas administrasi (checklist berkas), dan meneruskan telaah ke Wadir 2.
@@ -17,11 +17,11 @@ Dokumen ini berisi aturan baku bagi pengembang backend dan agen AI yang bekerja 
     7. **Pejabat Pembuat Komitmen (PPK)**: Pengelolaan paket bernilai > Rp 200 juta dengan **penegakan isolasi data ketat** (setiap akun dari 4 PPK hanya dapat mengakses paket yang ditugaskan kepadanya), tinjauan dokumen, dan penerbitan SPK komitmen.
     8. **Perlengkapan**: Penerimaan fisik barang dari rekanan, upload dokumentasi/foto barang (minimal 1 foto item terlihat), dan penerbitan BAST resmi bertoken validasi HMAC.
     9. **Keuangan**: Verifikasi berkas tagihan/BAST, eksekusi pencairan dana SP2D dengan proteksi anti-duplikasi bayar, dan upload bukti slip transfer pemindahbukuan bank.
-- **Aturan TANPA CSS TOTAL (Zero CSS Strict Rule)**:
-  - Seluruh tampilan web di `resources/views/` **WAJIB 100% BEBAS DARI CSS**.
-  - **DILARANG** menyertakan tag `<style> ... </style>` di dalam berkas Blade view.
-  - **DILARANG** menggunakan inline styling seperti atribut `style="..."`.
-  - **DILARANG** menyertakan class-class CSS dari framework (seperti Tailwind CSS, Bootstrap) maupun class CSS kustom.
+- **Aturan TANPA CSS TOTAL (Zero CSS Strict Rule pada Berkas `tes_*`)**:
+  - Seluruh tampilan web pengujian backend di `resources/views/**/tes_*.blade.php` **WAJIB 100% BEBAS DARI CSS**.
+  - **DILARANG** menyertakan tag `<style> ... </style>` di dalam berkas Blade view `tes_*`.
+  - **DILARANG** menggunakan inline styling seperti atribut `style="..."` pada berkas `tes_*`.
+  - **DILARANG** menyertakan class-class CSS dari framework (seperti Tailwind CSS, Bootstrap) maupun class CSS kustom pada berkas `tes_*`.
   - **Wajib Murni Struktur HTML Semantik**:
     - Heading: `<h1>`, `<h2>`, `<h3>`, `<h4>`
     - Struktur Layout: `<header>`, `<nav>`, `<main>`, `<section>`, `<article>`, `<aside>`, `<footer>`
@@ -34,52 +34,87 @@ Dokumen ini berisi aturan baku bagi pengembang backend dan agen AI yang bekerja 
 
 ## 2. Prinsip Pengujian Fungsional Manual oleh Overseer & Sinergi dengan PHPUnit
 - **Hak & Wewenang Pengujian Manual oleh Overseer**:
-  - Pengujian fungsional dan penerimaan sistem (*acceptance testing*) dilakukan secara **langsung / manual oleh Overseer** melalui antarmuka web semantik di browser.
+  - Pengujian fungsional dan penerimaan sistem (*acceptance testing*) dilakukan secara **langsung / manual oleh Overseer** melalui antarmuka web semantik di browser (pada berkas dan rute `tes_*`).
   - Agen AI berkewajiban memberikan ruang kerja (*workspace/UI space*) yang setara dan utuh pada tampilan web Zero CSS agar Overseer dapat menguji setiap tahap dari awal hingga akhir (*end-to-end*).
 - **Kewajiban Pengujian Otomatis PHPUnit oleh Agen AI**:
   - Di saat yang bersamaan, Agen AI **WAJIB** membuat pengujian otomatis berbasis kelas PHPUnit (`Tests\TestCase`) untuk setiap fitur, endpoint, dan aturan bisnis backend.
   - PHPUnit test berfungsi sebagai jaring pengaman otomatis (*automated regression guard*) untuk memastikan tidak ada logika atau validasi yang rusak selama pengembangan.
 - **Kemudahan Akses Testing (Quick-Login Switcher)**:
-  - Pada halaman `/login`, sistem wajib menyediakan panel tabel daftar 9 akun demo seeder institusi PNJ lengkap dengan tombol bantu 1-klik untuk autofill kredensial.
+  - Pada halaman `/login` dan `/tes-login`, sistem wajib menyediakan panel tabel daftar 9 akun demo seeder institusi PNJ lengkap dengan tombol bantu 1-klik untuk autofill kredensial.
   - Ini memungkinkan Overseer berganti peran secara instan (misal: Pemohon $\rightarrow$ Staf B2 $\rightarrow$ Wadir 2 $\rightarrow$ Perencanaan $\rightarrow$ PPBJ $\rightarrow$ PPK $\rightarrow$ Perlengkapan $\rightarrow$ Keuangan) saat memverifikasi alur pengadaan.
 
 ---
 
-## 3. Struktur Direktori Modular Views (Menghapus Keharusan Prefiks `tes_`)
-- **Penghapusan Keharusan Prefiks `tes_` pada Antarmuka Resmi**:
-  - Tampilan resmi aplikasi tidak lagi menggunakan awalan `tes_`, melainkan diorganisasikan secara profesional dan modular pada folder `resources/views/`:
-    - `resources/views/layouts/app.blade.php`: Kerangka layout semantik bersama (Header profil pengguna, Navigasi dinamis per peran, Flash message/alerts, Main content, Footer).
-    - `resources/views/auth/login.blade.php`: Form login resmi + panel akun demo seeder institusi.
-    - `resources/views/auth/register.blade.php`: Form registrasi akun dosen/staf baru.
-    - `resources/views/dashboard/index.blade.php`: Dashboard utama dinamis yang menampilkan statistik dan kartu aksi sesuai peran aktif.
-    - `resources/views/permohonan/`: Modul pengajuan usulan, riwayat penolakan, dan form revisi Srikandi.
-    - `resources/views/verifikasi/`: Modul telaah Staf Bidang 2, keputusan mutlak Wadir 2, dan verifikasi anggaran Perencanaan.
-    - `resources/views/paket/`: Modul registrasi paket pengadaan, indikator auto-routing HPS, dan alih tugas PPK (PPBJ).
-    - `resources/views/kontrak/`: Modul penerbitan SPK untuk Pejabat Pengadaan dan 4 Akun PPK mandiri.
-    - `resources/views/penerimaan/`: Modul pemeriksaan barang, upload foto dokumentasi, dan BAST (Perlengkapan).
-    - `resources/views/pembayaran/`: Modul tagihan, pencairan dana SP2D, dan upload bukti transfer bank (Keuangan).
-    - `resources/views/monitoring/`: Modul pemantauan 8 siklus pengadaan dan Jejak Audit (*Audit Trail*).
-- **Standarisasi Rute Web**:
-  - Rute aplikasi web pada `routes/web.php` menggunakan penamaan standar RESTful yang bersih: `/login`, `/dashboard`, `/permohonan`, `/verifikasi`, `/paket-pengadaan`, `/kontrak-spk`, `/penerimaan-barang`, `/pembayaran`, `/monitoring`.
-  - Untuk kompatibilitas ke belakang, rute lama `/tes-*` diarahkan (*redirect*) ke rute resmi terkait.
+## 3. Aturan Kerja Berkas di Folder `resources/`: Mode Backend Testing (`tes_*`) vs Mode Implementasi Frontend (Non-`tes_*`)
 
----
+Folder `resources/` memiliki dua kelompok berkas yang berdampingan dengan peruntukan yang berbeda secara tegas:
 
-## 4. Aturan JavaScript Tanpa Framework CSS (Folder `resources/js`)
-- Logika JavaScript interaktif di sisi klien (seperti autofill kredensial login, perhitungan otomatis tampilan routing HPS, konfirmasi aksi, atau interaksi DOM) diletakkan di `resources/js/app.js` atau modul terpisah di `resources/js/`.
-- **DILARANG** menuliskan kode JavaScript secara inline di dalam tag `<script> ... </script>` pada file Blade view.
-- Skrip dimuat ke dalam view layout utama menggunakan directive:
-  ```blade
-  @vite('resources/js/app.js')
+### A. Mode Standar / Backend Testing (Default - Berkas `tes_*`)
+- **Ruang Lingkup Berkas**:
+  - Views: `resources/views/**/tes_*.blade.php` (contoh: `auth/tes_login.blade.php`, `auth/tes_register.blade.php`, `dashboard/tes_index.blade.php`, `layouts/tes_app.blade.php`, `permohonan/tes_index.blade.php`, dst.)
+  - CSS: `resources/css/tes_app.css` (murni Zero CSS tanpa framework)
+  - JavaScript: `resources/js/tes_app.js` (skrip bantu pengujian semantik, autofill, dan kalkulasi hint)
+- **Aturan Eksekusi Agen**:
+  - Secara default, agen backend dan pengembang backend **HANYA BEKERJA** pada berkas-berkas dengan prefiks `tes_*`.
+  - Berkas `tes_*` digunakan untuk simulasi pengujian backend, verifikasi fungsi oleh Overseer, dan eksekusi rute pengujian tanpa beban frontend CSS.
+  - **DILARANG KERAS** menyentuh, mengubah, atau menimpa berkas non-`tes_*` (seperti `login.blade.php`, `register.blade.php`, `app.css`, dsb.) selama dalam mode backend testing ini agar tidak merusak hasil pekerjaan tim front end.
+
+### B. Mode Implementasi Frontend (Non-`tes_*`)
+- **Kondisi Aktivasi**:
+  - Mode ini **HANYA AKTIF** jika Overseer/pengguna memberikan instruksi eksplisit:
+    > *"implementasikan fitur backend ke frontend"* (atau frasa setara seperti *"implement the backend feature to frontend"*).
+- **Ruang Lingkup Berkas**:
+  - Views: `resources/views/**/<nama>.blade.php` (contoh: `auth/login.blade.php`, `auth/register.blade.php`, `dashboard/index.blade.php`, `layouts/app.blade.php`, dst.)
+  - CSS: `resources/css/app.css` (menggunakan `@import "tailwindcss";` dan konfigurasi desain front end)
+  - JavaScript: `resources/js/app.js` (skrip interaktivitas front end utama)
+- **Kewajiban Mutlak: Pemeriksaan Validitas `1Jorking/PANDUAN_INTEGRASI_FRONTEND_FR_NFR.md` Terlebih Dahulu**:
+  1. Sebelum membuat, mengedit, atau menyentuh berkas frontend non-`tes_*`, agen **WAJIB** membuka dan memeriksa berkas `1Jorking/PANDUAN_INTEGRASI_FRONTEND_FR_NFR.md`.
+  2. Agen **WAJIB mengecek validitas dan keselarasan** dokumen tersebut terhadap kondisi aktual implementasi backend:
+     - Apakah nama endpoint dan HTTP method di panduan sesuai dengan `routes/web.php` dan `routes/api.php`?
+     - Apakah parameter request (nama field input, tipe data, batas file upload, keharusan/opsional) sesuai dengan validasi di Controller atau FormRequest?
+     - Apakah struktur JSON response (field sukses, pesan error, kode status HTTP 200, 201, 403, 422) sesuai dengan apa yang dikembalikan controller backend?
+  3. **Jika ditemukan ketidaksesuaian atau terdapat fitur/endpoint baru yang belum tercantum**:
+     - Agen **WAJIB memperbarui dan menyelaraskan `1Jorking/PANDUAN_INTEGRASI_FRONTEND_FR_NFR.md` terlebih dahulu**.
+     - Setelah dokumen panduan tersebut tervalidasi 100% akurat, barulah agen mengeksekusi integrasi fitur backend ke dalam berkas antarmuka frontend non-`tes_*`.
+  4. Seluruh form action, AJAX/fetch request, payload binding, dan navigasi pada berkas frontend non-`tes_*` wajib mengacu penuh pada dokumen `1Jorking/PANDUAN_INTEGRASI_FRONTEND_FR_NFR.md` yang telah tervalidasi.
+
+### C. Konfigurasi Bundler Aset (`vite.config.js`)
+- Agar build Vite tidak gagal (*missing manifest entry*), kedua pasang file CSS dan JS wajib selalu didaftarkan pada konfigurasi `input` di `vite.config.js`:
+  ```javascript
+  input: [
+      'resources/css/app.css',
+      'resources/js/app.js',
+      'resources/css/tes_app.css',
+      'resources/js/tes_app.js',
+  ],
   ```
-- Seluruh file JavaScript yang aktif didaftarkan pada array `input` di `vite.config.js` dan diverifikasi dengan `npm run build`.
 
 ---
 
-## 5. Wajib Memperbarui Dokumentasi Integrasi Front End
+## 4. Aturan JavaScript (Folder `resources/js`)
+- **Pemisahan Berkas JavaScript**:
+  - `resources/js/tes_app.js`: Diperuntukkan khusus bagi antarmuka Zero CSS backend testing (`tes_*`), memuat logika autofill kredensial demo dan indikator jalur routing HPS.
+  - `resources/js/app.js`: Diperuntukkan bagi antarmuka front end utama, memuat interaktivitas klien modern (kompatibel dengan Tailwind & Alpine.js).
+- **Larangan Script Inline**:
+  - **DILARANG** menuliskan kode JavaScript secara inline di dalam tag `<script> ... </script>` pada file Blade view.
+- **Pemuatan Berkas Skrip**:
+  - Pada view backend testing (`tes_*`):
+    ```blade
+    @vite(['resources/css/tes_app.css', 'resources/js/tes_app.js'])
+    ```
+  - Pada view frontend utama (non-`tes_*`):
+    ```blade
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    ```
+- Seluruh file JavaScript yang aktif diverifikasi kelancaran kompilasinya melalui `npm run build` atau proses Vite.
+
+---
+
+## 5. Wajib Memperbarui & Memvalidasi Dokumentasi Integrasi Front End
 - Setiap kali pengembang atau agen backend mengimplementasikan atau merevisi Functional Requirements (FR) maupun Non-Functional Requirements (NFR) berikutnya:
   - **WAJIB** segera memperbarui file dokumentasi di `1Jorking/PANDUAN_INTEGRASI_FRONTEND_FR_NFR.md`.
   - Pastikan seluruh endpoint baru, metode HTTP, format payload request (beserta tipe data & validasi), struktur payload response (sukses & error HTTP 422/403), serta kode status terdokumentasi secara lengkap dan akurat bagi tim Front End.
+- Setiap kali beralih ke tugas implementasi front end (mode non-`tes_*`), validitas dokumen ini harus diperiksa ulang sebelum kode front end ditulis atau diperbarui.
 
 ---
 
