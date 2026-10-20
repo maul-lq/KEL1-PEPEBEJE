@@ -231,10 +231,10 @@
             <!-- Panel Akses Cepat untuk Pengujian Manual Overseer -->
             <section class="rounded-[10px] border border-slate-200 bg-white/95 p-6 shadow-md backdrop-blur-sm">
                 <h3 class="text-xl font-bold text-slate-800">
-                    Panel Bantuan Pengujian Manual Overseer (Daftar Akun 9 Peran Resmi PNJ)
+                    Panel Bantuan Pengujian Manual
                 </h3>
                 <p class="mt-1 text-sm text-slate-600 mb-4">
-                    <em>Klik tombol <strong>"Gunakan Akun Ini"</strong> pada salah satu baris untuk mengisi kolom formulir login secara otomatis.</em>
+                    <em>Klik tombol <strong>"Gunakan Akun Ini"</strong> pada kentang goreng.</em>
                 </p>
 
                 <div class="overflow-x-auto">
