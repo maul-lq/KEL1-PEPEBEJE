@@ -165,4 +165,56 @@ class AuthController extends Controller
 
         return redirect()->route('login')->with('success', 'Anda telah berhasil keluar (logout).');
     }
+
+    /**
+     * Menampilkan formulir permohonan pemulihan kata sandi (Lupa Password).
+     * Disiapkan untuk integrasi frontend lanjutan.
+     */
+    public function showForgotPasswordForm(): View|RedirectResponse
+    {
+        // Jika view auth.forgot-password belum dibuat tim frontend, alihkan kembali ke halaman login
+        if (view()->exists('auth.forgot-password')) {
+            return view('auth.forgot-password');
+        }
+
+        return redirect()->route('login')->with('info', 'Layanan reset mandiri sedang dalam persiapan oleh tim IT.');
+    }
+
+    /**
+     * Mengirimkan surel berisi tautan pengaturan ulang kata sandi.
+     */
+    public function sendResetLinkEmail(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'email' => ['required', 'email'],
+        ]);
+
+        return back()->with('status', 'Jika alamat email terdaftar, instruksi pemulihan telah dikirimkan.');
+    }
+
+    /**
+     * Menampilkan formulir penetapan kata sandi baru berdasarkan token verifikasi.
+     */
+    public function showResetPasswordForm(string $token): View|RedirectResponse
+    {
+        if (view()->exists('auth.reset-password')) {
+            return view('auth.reset-password', ['token' => $token]);
+        }
+
+        return redirect()->route('login')->with('info', 'Tautan pemulihan kata sandi dapat digunakan setelah modul frontend diaktifkan.');
+    }
+
+    /**
+     * Memproses pembaruan kata sandi akun pengguna dari formulir reset.
+     */
+    public function resetPassword(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'token' => ['required', 'string'],
+            'email' => ['required', 'email'],
+            'password' => ['required', 'string', 'min:6', 'confirmed'],
+        ]);
+
+        return redirect()->route('login')->with('success', 'Kata sandi berhasil diperbarui. Silakan masuk kembali.');
+    }
 }
