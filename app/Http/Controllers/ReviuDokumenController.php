@@ -109,6 +109,10 @@ class ReviuDokumenController extends Controller
         if ($paket) {
             if ($validated['status_reviu'] === 'disetujui') {
                 $paket->status_paket = 'reviu_dokumen_disetujui';
+                // Jika PPK yang menyetujui reviu dokumen, kunci Kode MAK terkait sesuai alur BPMN
+                if ($validated['role_reviewer'] === 'ppk') {
+                    $paket->kunciMakTerkait();
+                }
             } elseif ($validated['status_reviu'] === 'perlu_perbaikan') {
                 $paket->status_paket = 'perlu_perbaikan';
             }

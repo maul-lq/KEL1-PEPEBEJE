@@ -61,7 +61,7 @@ class AuthController extends Controller
             'kode_unit' => ['required', 'string', 'exists:units,kode_unit'],
             'no_hp' => ['required', 'string', 'max:20'],
             'no_telp_kantor' => ['nullable', 'string', 'max:20'],
-            'role' => ['nullable', 'string', 'in:user,staff_bidang_2,wadir_2,perencanaan,ppbj,pp,ppk,perlengkapan,keuangan'],
+            'role' => ['nullable', 'string', 'in:admin,user,staff_bidang_2,wadir_2,perencanaan,ppbj,pp,ppk,perlengkapan,keuangan'],
         ]);
 
         // Default peran pengguna baru adalah 'user' (unit pemohon usulan pengadaan)

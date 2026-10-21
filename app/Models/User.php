@@ -12,16 +12,18 @@ use Illuminate\Notifications\Notifiable;
  * Model Pengguna (User Model)
  *
  * Merepresentasikan akun pengguna terotentikasi pada SIM-PBJ.
- * Mengimplementasikan arsitektur Role-Based Access Control (RBAC) dengan 9 peran resmi institusi:
- * 1. user: Pengusul barang/jasa dari jurusan atau unit kerja.
- * 2. staff_bidang_2: Verifikator dokumen administrasi awal (read-only/pemeriksa).
- * 3. wadir_2: Wakil Direktur II, pemegang otoritas mutlak persetujuan atau penolakan pengadaan.
- * 4. perencanaan: Verifikator ketersediaan anggaran dan penetap kode MAK.
- * 5. ppbj: Pejabat Pengadaan Barang dan Jasa, pengelola paket & penugasan PP/PPK.
- * 6. pp: Pejabat Pengadaan untuk paket bernilai Rp 50jt s.d Rp 200jt.
- * 7. ppk: Pejabat Pembuat Komitmen untuk paket di atas Rp 200jt (terisolasi 4 akun).
- * 8. perlengkapan: Petugas pemeriksa fisik barang dan penerbit BAST.
- * 9. keuangan: Verifikator tagihan, otorisasi memo bayar, dan eksekutor transfer pencairan dana.
+ * Mengimplementasikan arsitektur Role-Based Access Control (RBAC) dengan 9 peran organisasi resmi institusi:
+ * 1. admin: Administrator sistem (manajemen pengguna, hak akses, dan pemantauan penuh).
+ * 2. user: Pengusul barang/jasa dari jurusan atau unit kerja.
+ * 3. bidang_2: Bidang II yang terdiri atas sub-hak akses:
+ *    - staff_bidang_2: Verifikator dokumen administrasi awal (read-only/pemeriksa kelengkapan).
+ *    - wadir_2: Wakil Direktur II, pemegang otoritas mutlak persetujuan (ACC) atau penolakan pengadaan.
+ * 4. perencanaan: Verifikator ketersediaan anggaran dan penetap/pemecah kode MAK.
+ * 5. ppbj: Unit Pengadaan Barang dan Jasa, pengelola paket, pemecah jenis pengadaan, penugasan PP/PPK, dan penerbit Kontrak/SPK.
+ * 6. pp: Pejabat Pengadaan untuk paket bernilai > Rp 50jt s.d < Rp 200jt (1 akun aktif).
+ * 7. ppk: Pejabat Pembuat Komitmen untuk paket > Rp 50jt (4 akun PPK mandiri terisolasi).
+ * 8. perlengkapan: Petugas pemeriksa fisik barang (Belanja Barang / Belanja Modal) dan penerbit BAST.
+ * 9. keuangan: Verifikator tagihan SPP dan eksekutor transfer pencairan dana (SP2D).
  */
 class User extends Authenticatable
 {
@@ -42,8 +44,10 @@ class User extends Authenticatable
     protected $primaryKey = 'id_user';
 
     /**
-     * Definisi konstanta 9 peran/role resmi dalam sistem SIM-PBJ.
+     * Definisi konstanta peran/role resmi dalam sistem SIM-PBJ.
      */
+    public const ROLE_ADMIN = 'admin';
+
     public const ROLE_USER = 'user';
 
     public const ROLE_STAFF_BIDANG_2 = 'staff_bidang_2';

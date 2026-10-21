@@ -58,6 +58,15 @@
             </thead>
             <tbody>
                 <tr>
+                    <td>0</td>
+                    <td><strong>Administrator Sistem (Admin)</strong></td>
+                    <td>Administrator Sistem SIM-PBJ</td>
+                    <td>Pusat Sistem Informasi</td>
+                    <td><code>admin</code></td>
+                    <td><code>password123</code></td>
+                    <td><button type="button" class="btn-autofill-login" data-username="admin" data-password="password123">Gunakan Akun Ini</button></td>
+                </tr>
+                <tr>
                     <td>1</td>
                     <td><strong>Pemohon (User)</strong></td>
                     <td>Dr. Ir. Maulana Pengaju, M.T.</td>

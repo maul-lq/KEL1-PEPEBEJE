@@ -9,11 +9,14 @@
         <p>
             @if(Auth::user()->role === 'ppk')
                 <strong>Pejabat Pembuat Komitmen (PPK):</strong>
-                Menangani paket pengadaan komitmen strategis bernilai di atas Rp 200 Juta yang ditugaskan kepada akun Anda (<strong>{{ Auth::user()->nama }}</strong>).
+                Meninjau dokumen pengadaan, mengunci Kode MAK, serta mengeksekusi pembelian barang/sewa jasa pada paket yang ditugaskan kepada akun Anda (<strong>{{ Auth::user()->nama }}</strong>).
                 <em>Paket milik akun PPK lain tidak dapat diakses dari akun ini demi menjaga integritas pembagian tugas.</em>
-            @else
+            @elseif(Auth::user()->role === 'pp')
                 <strong>Pejabat Pengadaan (PP):</strong>
-                Menangani paket pengadaan langsung dan pemilihan rekanan bernilai sampai dengan Rp 200 Juta.
+                Melakukan verifikasi dokumen teknis, negosiasi harga, dan menerbitkan Berita Acara hasil pengadaan untuk paket bernilai &gt; Rp 50 Juta s.d &lt; Rp 200 Juta sebelum diteruskan ke PPK.
+            @else
+                <strong>Unit Pengadaan Barang dan Jasa (PPBJ):</strong>
+                Membuat dan menerbitkan Surat Kontrak / Surat Perintah Kerja (SPK), menetapkan jadwal pengingat (Reminder) pengiriman barang, serta mendistribusikan tembusan otomatis ke Unit Perlengkapan dan Bagian Keuangan.
             @endif
         </p>
     </header>

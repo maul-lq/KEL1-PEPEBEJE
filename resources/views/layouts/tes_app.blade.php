@@ -61,19 +61,20 @@
 
                 {{-- Menu Khusus Peran: PPBJ --}}
                 @if(Auth::user()->role === 'ppbj')
-                    <li><a href="{{ route('paket.index') }}">Daftar Paket Pengadaan & Alih Tugas PPK</a></li>
+                    <li><a href="{{ route('paket.index') }}">Daftar Paket Pengadaan, Split Jenis & Alih Tugas PPK</a></li>
                     <li><a href="{{ route('paket.create') }}">Registrasi Paket Baru (Auto-Routing HPS)</a></li>
+                    <li><a href="{{ route('kontrak.index') }}">Penerbitan Surat Kontrak / SPK & Reminder (PPBJ)</a></li>
                     <li><a href="{{ route('pembayaran.index') }}">Pengajuan Berkas Pembayaran & Terbitkan SPP</a></li>
                 @endif
 
                 {{-- Menu Khusus Peran: Pejabat Pengadaan (PP) --}}
                 @if(Auth::user()->role === 'pp')
-                    <li><a href="{{ route('kontrak.index') }}">Paket Pengadaan & Penerbitan SPK (&le; 200 Juta)</a></li>
+                    <li><a href="{{ route('kontrak.index') }}">Verifikasi & Negosiasi Harga Paket (&gt; 50 Juta s.d &lt; 200 Juta)</a></li>
                 @endif
 
                 {{-- Menu Khusus Peran: Pejabat Pembuat Komitmen (PPK 1-4 Terisolasi) --}}
                 @if(Auth::user()->role === 'ppk')
-                    <li><a href="{{ route('kontrak.index') }}">Paket Komitmen Saya (> 200 Juta - Terisolasi)</a></li>
+                    <li><a href="{{ route('kontrak.index') }}">Tinjau Dokumen & Kunci MAK Paket Komitmen Saya (Terisolasi)</a></li>
                     <li><a href="{{ route('pembayaran.index') }}">Persetujuan Memo Pembayaran (PPK)</a></li>
                 @endif
 

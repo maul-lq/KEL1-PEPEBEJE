@@ -10,9 +10,9 @@
         menetapkan Harga Perkiraan Sendiri (HPS), dan menentukan jalur penugasan berdasarkan ambang batas anggaran:
     </p>
     <ul>
-        <li><strong>Nilai HPS &le; Rp 50.000.000:</strong> Pengadaan Langsung (PL).</li>
-        <li><strong>Nilai HPS Rp 50.000.001 s.d Rp 200.000.000:</strong> Ditugaskan ke Pejabat Pengadaan (PP).</li>
-        <li><strong>Nilai HPS &gt; Rp 200.000.000:</strong> Ditugaskan ke Pejabat Pembuat Komitmen (1 dari 4 akun PPK PNJ).</li>
+        <li><strong>Nilai HPS &le; Rp 50.000.000:</strong> Pengadaan Langsung (PPBJ langsung menerbitkan Surat Kontrak/SPK &amp; Reminder &rarr; Perlengkapan).</li>
+        <li><strong>Nilai HPS &gt; Rp 50.000.000 s.d &lt; Rp 200.000.000:</strong> Ditugaskan ke Pejabat Pengadaan (PP) untuk Verifikasi &amp; Negosiasi Harga &rarr; PPK &rarr; PPBJ (SPK) &rarr; Perlengkapan.</li>
+        <li><strong>Nilai HPS &ge; Rp 200.000.000:</strong> Ditugaskan langsung ke Pejabat Pembuat Komitmen (1 dari 4 akun PPK PNJ) tanpa Memo Pengadaan &rarr; PPBJ (SPK) &rarr; Perlengkapan.</li>
     </ul>
 
     <form action="{{ route('paket.store') }}" method="POST">
@@ -68,6 +68,13 @@
                 <input type="number" id="nilai_hps" name="nilai_hps" value="{{ old('nilai_hps') }}" step="0.01" min="1" required placeholder="Contoh: 250000000">
                 <br>
                 <small><em>Sistem backend akan memvalidasi nilai HPS secara otomatis dan mengarahkan jalur pengadaan.</em></small>
+            </p>
+
+            <p>
+                <label for="nomor_memo_ppbj"><strong>Nomor Memo Pengadaan PPBJ (Khusus Nilai &lt; Rp 200 Juta):</strong></label><br>
+                <input type="text" id="nomor_memo_ppbj" name="nomor_memo_ppbj" value="{{ old('nomor_memo_ppbj', 'MEMO-PPBJ/' . date('Y') . '/' . rand(100, 999)) }}" size="40">
+                <br>
+                <small><em>Catatan: Untuk pengadaan bernilai &ge; Rp 200.000.000 ke PPK, sistem otomatis mengosongkan memo pengadaan (tidak menggunakan memo pengadaan).</em></small>
             </p>
 
             <p>
