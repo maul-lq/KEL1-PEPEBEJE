@@ -122,17 +122,17 @@ class HomeController extends Controller
     public function permohonanShow(string $id): View
     {
         $permohonan = PermohonanPengadaan::with([
-            'unit', 
-            'user', 
-            'verifikasiParalel.user', 
-            'paket.kontrak.penerimaan'
+            'unit',
+            'user',
+            'verifikasiParalel.user',
+            'paket.kontrak.penerimaan',
         ])->where('nomor_surat', $id)
-          ->orWhere('id_permohonan', $id)
-          ->firstOrFail();
+            ->orWhere('id_permohonan', $id)
+            ->firstOrFail();
 
         return view('permohonan.show', compact('permohonan'));
     }
-    
+
     /**
      * Menampilkan formulir pendaftaran usulan permohonan pengadaan baru berbasis Srikandi.
      */
@@ -173,7 +173,7 @@ class HomeController extends Controller
             ? $request->file('file_spesifikasi_teknis')->store('spek', 'public')
             : null;
 
-     // Buat baris data permohonan pengadaan
+        // Buat baris data permohonan pengadaan
         $permohonan = PermohonanPengadaan::create([
             'nomor_surat' => $validated['nomor_surat'],
             'judul_pengadaan' => $validated['perihal'],
