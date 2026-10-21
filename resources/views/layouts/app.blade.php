@@ -71,33 +71,37 @@
     <!-- 2. WRAPPER UTAMA (Sidebar Ikon + Konten) -->
     <div class="flex flex-1">
 
-        <!-- SIDEBAR IKON RAMPING (Sesuai Presisi Figma) -->
+        <!-- SIDEBAR IKON RAMPING (Dinamis Berpindah Bulatan) -->
         @auth
         <aside class="flex w-16 shrink-0 flex-col items-center gap-6 bg-[#689EC2] pt-6 shadow-md">
             
             <!-- Icon 1: Permohonan / Dashboard -->
-            <a href="{{ route('permohonan.index') }}" title="Permohonan Saya" class="flex h-10 w-[46px] items-center justify-center rounded-[20px] bg-[#0088E8] text-[#E8F5FD] shadow-[inset_0_0_9px_rgba(0,0,0,0.25)] hover:scale-105 transition-transform">
+            <a href="{{ route('permohonan.index') }}" title="Permohonan Saya" 
+               class="flex h-10 items-center justify-center text-[#E8F5FD] transition-all {{ request()->routeIs('permohonan.*') ? 'w-[46px] rounded-[20px] bg-[#0088E8] shadow-[inset_0_0_9px_rgba(0,0,0,0.25)] scale-105' : 'w-10 hover:text-white hover:scale-110' }}">
                 <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                 </svg>
             </a>
 
             <!-- Icon 2: Analytics / Monitoring -->
-            <a href="{{ route('monitoring.index') }}" title="Monitoring 8 Siklus" class="flex h-10 w-10 items-center justify-center text-[#E8F5FD] hover:text-white hover:scale-110 transition-all">
+            <a href="{{ route('monitoring.index') }}" title="Monitoring 8 Siklus" 
+               class="flex h-10 items-center justify-center text-[#E8F5FD] transition-all {{ request()->routeIs('monitoring.*') ? 'w-[46px] rounded-[20px] bg-[#0088E8] shadow-[inset_0_0_9px_rgba(0,0,0,0.25)] scale-105' : 'w-10 hover:text-white hover:scale-110' }}">
                 <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
             </a>
 
             <!-- Icon 3: Notifikasi -->
-            <button type="button" title="Notifikasi" class="flex h-10 w-10 items-center justify-center text-[#E8F5FD] hover:text-white hover:scale-110 transition-all">
+            <a href="#" title="Notifikasi" 
+               class="flex h-10 items-center justify-center text-[#E8F5FD] transition-all {{ request()->routeIs('notifikasi.*') ? 'w-[46px] rounded-[20px] bg-[#0088E8] shadow-[inset_0_0_9px_rgba(0,0,0,0.25)] scale-105' : 'w-10 hover:text-white hover:scale-110' }}">
                 <svg class="size-5" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"/>
                 </svg>
-            </button>
+            </a>
 
             <!-- Icon 4: Profil User -->
-            <a href="#" title="Profil Saya" class="flex h-10 w-10 items-center justify-center text-[#E8F5FD] hover:text-white hover:scale-110 transition-all">
+            <a href="#" title="Profil Saya" 
+               class="flex h-10 items-center justify-center text-[#E8F5FD] transition-all {{ request()->routeIs('profile.*') ? 'w-[46px] rounded-[20px] bg-[#0088E8] shadow-[inset_0_0_9px_rgba(0,0,0,0.25)] scale-105' : 'w-10 hover:text-white hover:scale-110' }}">
                 <svg class="size-5" fill="currentColor" viewBox="0 0 20 20">
                     <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
                 </svg>
