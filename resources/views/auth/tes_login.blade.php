@@ -64,7 +64,7 @@
                     <td>Pusat Sistem Informasi</td>
                     <td><code>admin</code></td>
                     <td><code>password123</code></td>
-                    <td><button type="button" class="btn-autofill-login" data-username="admin" data-password="password123">Gunakan Akun Ini</button></td>
+                    <td><button type="button" data-username="admin" data-password="password123">Gunakan Akun Ini</button></td>
                 </tr>
                 <tr>
                     <td>1</td>
@@ -73,7 +73,7 @@
                     <td>Jurusan TIK</td>
                     <td><code>user_pengaju</code></td>
                     <td><code>password123</code></td>
-                    <td><button type="button" class="btn-autofill-login" data-username="user_pengaju" data-password="password123">Gunakan Akun Ini</button></td>
+                    <td><button type="button" data-username="user_pengaju" data-password="password123">Gunakan Akun Ini</button></td>
                 </tr>
                 <tr>
                     <td>2</td>
@@ -82,7 +82,7 @@
                     <td>Bidang II</td>
                     <td><code>staff_b2</code></td>
                     <td><code>password123</code></td>
-                    <td><button type="button" class="btn-autofill-login" data-username="staff_b2" data-password="password123">Gunakan Akun Ini</button></td>
+                    <td><button type="button" data-username="staff_b2" data-password="password123">Gunakan Akun Ini</button></td>
                 </tr>
                 <tr>
                     <td>3</td>
@@ -91,7 +91,7 @@
                     <td>Bidang II (Umum & Keuangan)</td>
                     <td><code>wadir2</code></td>
                     <td><code>password123</code></td>
-                    <td><button type="button" class="btn-autofill-login" data-username="wadir2" data-password="password123">Gunakan Akun Ini</button></td>
+                    <td><button type="button" data-username="wadir2" data-password="password123">Gunakan Akun Ini</button></td>
                 </tr>
                 <tr>
                     <td>4</td>
@@ -100,7 +100,7 @@
                     <td>Subbagian Perencanaan & MAK</td>
                     <td><code>perencanaan</code></td>
                     <td><code>password123</code></td>
-                    <td><button type="button" class="btn-autofill-login" data-username="perencanaan" data-password="password123">Gunakan Akun Ini</button></td>
+                    <td><button type="button" data-username="perencanaan" data-password="password123">Gunakan Akun Ini</button></td>
                 </tr>
                 <tr>
                     <td>5</td>
@@ -109,7 +109,7 @@
                     <td>Unit Kerja PBJ</td>
                     <td><code>ppbj</code></td>
                     <td><code>password123</code></td>
-                    <td><button type="button" class="btn-autofill-login" data-username="ppbj" data-password="password123">Gunakan Akun Ini</button></td>
+                    <td><button type="button" data-username="ppbj" data-password="password123">Gunakan Akun Ini</button></td>
                 </tr>
                 <tr>
                     <td>6</td>
@@ -118,7 +118,7 @@
                     <td>Pejabat Pengadaan (&le; 200 Juta)</td>
                     <td><code>pp_user</code></td>
                     <td><code>password123</code></td>
-                    <td><button type="button" class="btn-autofill-login" data-username="pp_user" data-password="password123">Gunakan Akun Ini</button></td>
+                    <td><button type="button" data-username="pp_user" data-password="password123">Gunakan Akun Ini</button></td>
                 </tr>
                 <tr>
                     <td>7</td>
@@ -127,7 +127,7 @@
                     <td>PPK I (> 200 Juta)</td>
                     <td><code>ppk_1</code></td>
                     <td><code>password123</code></td>
-                    <td><button type="button" class="btn-autofill-login" data-username="ppk_1" data-password="password123">Gunakan Akun Ini</button></td>
+                    <td><button type="button" data-username="ppk_1" data-password="password123">Gunakan Akun Ini</button></td>
                 </tr>
                 <tr>
                     <td>8</td>
@@ -136,7 +136,7 @@
                     <td>PPK II (> 200 Juta)</td>
                     <td><code>ppk_2</code></td>
                     <td><code>password123</code></td>
-                    <td><button type="button" class="btn-autofill-login" data-username="ppk_2" data-password="password123">Gunakan Akun Ini</button></td>
+                    <td><button type="button" data-username="ppk_2" data-password="password123">Gunakan Akun Ini</button></td>
                 </tr>
                 <tr>
                     <td>9</td>
@@ -145,7 +145,7 @@
                     <td>PPK III (> 200 Juta)</td>
                     <td><code>ppk_3</code></td>
                     <td><code>password123</code></td>
-                    <td><button type="button" class="btn-autofill-login" data-username="ppk_3" data-password="password123">Gunakan Akun Ini</button></td>
+                    <td><button type="button" data-username="ppk_3" data-password="password123">Gunakan Akun Ini</button></td>
                 </tr>
                 <tr>
                     <td>10</td>
@@ -154,7 +154,7 @@
                     <td>PPK IV (> 200 Juta)</td>
                     <td><code>ppk_4</code></td>
                     <td><code>password123</code></td>
-                    <td><button type="button" class="btn-autofill-login" data-username="ppk_4" data-password="password123">Gunakan Akun Ini</button></td>
+                    <td><button type="button" data-username="ppk_4" data-password="password123">Gunakan Akun Ini</button></td>
                 </tr>
                 <tr>
                     <td>11</td>
@@ -163,7 +163,7 @@
                     <td>Unit Perlengkapan & BMN</td>
                     <td><code>perlengkapan</code></td>
                     <td><code>password123</code></td>
-                    <td><button type="button" class="btn-autofill-login" data-username="perlengkapan" data-password="password123">Gunakan Akun Ini</button></td>
+                    <td><button type="button" data-username="perlengkapan" data-password="password123">Gunakan Akun Ini</button></td>
                 </tr>
                 <tr>
                     <td>12</td>
@@ -172,23 +172,10 @@
                     <td>Unit Keuangan & Pencairan</td>
                     <td><code>keuangan</code></td>
                     <td><code>password123</code></td>
-                    <td><button type="button" class="btn-autofill-login" data-username="keuangan" data-password="password123">Gunakan Akun Ini</button></td>
+                    <td><button type="button" data-username="keuangan" data-password="password123">Gunakan Akun Ini</button></td>
                 </tr>
             </tbody>
         </table>
     </fieldset>
 </section>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        document.querySelectorAll('.btn-autofill-login').forEach(function (button) {
-            button.addEventListener('click', function () {
-                const loginInput = document.getElementById('login');
-                const passwordInput = document.getElementById('password');
-                if (loginInput) loginInput.value = this.dataset.username;
-                if (passwordInput) passwordInput.value = this.dataset.password;
-            });
-        });
-    });
-</script>
 @endsection

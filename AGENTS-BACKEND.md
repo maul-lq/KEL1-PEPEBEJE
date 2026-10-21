@@ -22,6 +22,7 @@ Dokumen ini berisi aturan baku bagi pengembang backend dan agen AI yang bekerja 
   - **DILARANG** menyertakan tag `<style> ... </style>` di dalam berkas Blade view `tes_*`.
   - **DILARANG** menggunakan inline styling seperti atribut `style="..."` pada berkas `tes_*`.
   - **DILARANG** menyertakan class-class CSS dari framework (seperti Tailwind CSS, Bootstrap) maupun class CSS kustom pada berkas `tes_*`.
+  - **Aturan Selektor JavaScript pada `tes_*`**: Jika elemen HTML pada `tes_*` membutuhkan penanda/selektor untuk JavaScript di `tes_app.js`, **DILARANG** menggunakan atribut `class="..."`. Wajib menggunakan data attribute semantik murni (contoh: `data-username="..."`, `data-password="..."`, `data-action="..."`).
   - **Wajib Murni Struktur HTML Semantik**:
     - Heading: `<h1>`, `<h2>`, `<h3>`, `<h4>`
     - Struktur Layout: `<header>`, `<nav>`, `<main>`, `<section>`, `<article>`, `<aside>`, `<footer>`
@@ -39,6 +40,7 @@ Dokumen ini berisi aturan baku bagi pengembang backend dan agen AI yang bekerja 
 - **Kewajiban Pengujian Otomatis PHPUnit oleh Agen AI**:
   - Di saat yang bersamaan, Agen AI **WAJIB** membuat pengujian otomatis berbasis kelas PHPUnit (`Tests\TestCase`) untuk setiap fitur, endpoint, dan aturan bisnis backend.
   - PHPUnit test berfungsi sebagai jaring pengaman otomatis (*automated regression guard*) untuk memastikan tidak ada logika atau validasi yang rusak selama pengembangan.
+  - **Uji Kepatuhan Arsitektur View (`ViewArchitecturePolicyTest`)**: Sistem kini dilengkapi test guardrail otomatis pada `tests/Feature/ViewArchitecturePolicyTest.php` yang memindai seluruh berkas `tes_*.blade.php` untuk menjamin ketiadaan tag `<style>`, atribut `style="..."`, tag `<script>`, inline event handler (`on*="..."`), dan atribut `class="..."`, serta memastikan pendaftaran 4 input aset wajib pada `vite.config.js`.
 - **Kemudahan Akses Testing (Quick-Login Switcher)**:
   - Pada halaman `/login` dan `/tes-login`, sistem wajib menyediakan panel tabel daftar 9 akun demo seeder institusi PNJ lengkap dengan tombol bantu 1-klik untuk autofill kredensial.
   - Ini memungkinkan Overseer berganti peran secara instan (misal: Pemohon $\rightarrow$ Staf B2 $\rightarrow$ Wadir 2 $\rightarrow$ Perencanaan $\rightarrow$ PPBJ $\rightarrow$ PPK $\rightarrow$ Perlengkapan $\rightarrow$ Keuangan) saat memverifikasi alur pengadaan.
@@ -91,10 +93,16 @@ Folder `resources/` memiliki dua kelompok berkas yang berdampingan dengan perunt
 
 ---
 
-## 4. Aturan JavaScript (Folder `resources/js`)
-- **Pemisahan Berkas JavaScript**:
-  - `resources/js/tes_app.js`: Diperuntukkan khusus bagi antarmuka Zero CSS backend testing (`tes_*`), memuat logika autofill kredensial demo dan indikator jalur routing HPS.
-  - `resources/js/app.js`: Diperuntukkan bagi antarmuka front end utama, memuat interaktivitas klien modern (kompatibel dengan Tailwind & Alpine.js).
+## 4. Aturan JavaScript & Pola Modularitas (Folder `resources/js`)
+- **Pemisahan Berkas JavaScript & Prinsip Modularitas (ES Modules)**:
+  - `resources/js/tes_app.js` dan `resources/js/app.js` berfungsi murni sebagai **entrypoint orkestrasi global**.
+  - **DILARANG** menumpuk seluruh logika JavaScript berbagai halaman atau fitur di dalam satu berkas `*app.js` raksasa karena akan membengkak (*bloated*) dan sulit dirawat.
+  - **Pola Pemecahan Modular**:
+    - **Backend Testing (`tes_*`)**: Logika fitur/topik wajib dipecah ke dalam modul-modul mandiri di subdirektori `resources/js/tes/` (contoh: `resources/js/tes/autofill_login.js`, `resources/js/tes/routing_hint.js`) lalu diimpor ke dalam `resources/js/tes_app.js`.
+    - **Frontend Utama (`non-tes_*`)**: Logika fitur/topik dipecah ke dalam modul-modul mandiri di subdirektori `resources/js/modules/` (contoh: `resources/js/modules/tracking.js`, `resources/js/modules/charting.js`) lalu diimpor ke dalam `resources/js/app.js`.
+  - **Aturan Terkait Berkas CSS**:
+    - `resources/css/tes_app.css`: Tetap tunduk pada aturan Zero CSS total (kosong; dilarang membuat file CSS per halaman untuk `tes_*`).
+    - `resources/css/app.css`: Memuat `@import "tailwindcss";`. Jika tim front end memerlukan kustomisasi styling modular, dapat memecah ke subdirektori `resources/css/components/` lalu mengimpornya via `@import` di `app.css`.
 - **Larangan Script Inline**:
   - **DILARANG** menuliskan kode JavaScript secara inline di dalam tag `<script> ... </script>` pada file Blade view.
 - **Pemuatan Berkas Skrip**:
