@@ -117,6 +117,23 @@ class HomeController extends Controller
     }
 
     /**
+     * Menampilkan detail tracking & informasi permohonan pengadaan.
+     */
+    public function permohonanShow(string $id): View
+    {
+        $permohonan = PermohonanPengadaan::with([
+            'unit', 
+            'user', 
+            'verifikasiParalel.user', 
+            'paket.kontrak.penerimaan'
+        ])->where('nomor_surat', $id)
+          ->orWhere('id_permohonan', $id)
+          ->firstOrFail();
+
+        return view('permohonan.show', compact('permohonan'));
+    }
+    
+    /**
      * Menampilkan formulir pendaftaran usulan permohonan pengadaan baru berbasis Srikandi.
      */
     public function permohonanCreate(): View
@@ -156,7 +173,7 @@ class HomeController extends Controller
             ? $request->file('file_spesifikasi_teknis')->store('spek', 'public')
             : null;
 
-        // Buat baris data permohonan pengadaan
+     // Buat baris data permohonan pengadaan
         $permohonan = PermohonanPengadaan::create([
             'nomor_surat' => $validated['nomor_surat'],
             'judul_pengadaan' => $validated['perihal'],
@@ -171,6 +188,7 @@ class HomeController extends Controller
             'file_surat_permohonan' => $filePermohonanPath ?? 'permohonan/dummy.pdf',
             'status_permohonan' => PermohonanPengadaan::STATUS_REVIU_PARALEL,
             'status_anggaran' => 'pending',
+            'status' => 'diajukan',
         ]);
 
         // Inisialisasi entri verifikasi paralel untuk Staf Bidang 2 / Wadir 2 dan Perencanaan

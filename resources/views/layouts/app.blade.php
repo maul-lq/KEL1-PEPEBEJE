@@ -4,136 +4,137 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>@yield('title', 'SIM-PBJ Politeknik Negeri Jakarta')</title>
-    @vite('resources/js/app.js')
-</head>
-<body>
-    {{-- Header Utama Semantik --}}
-    <header>
-        <h1>Sistem Informasi Manajemen Pengadaan Barang dan Jasa (SIM-PBJ)</h1>
-        <p><strong>Politeknik Negeri Jakarta</strong> &bull; Jl. Prof. Dr. G.A. Siwabessy, Kampus UI Depok 16425</p>
 
+    <!-- Dynamic Favicon -->
+    <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
+
+    <!-- Vite Assets -->
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+
+    <!-- CDN Tailwind CSS & Alpine.js -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inder&display=swap');
+        body {
+            font-family: 'Inder', sans-serif;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-b from-white to-[#BAE5FF] text-gray-800 flex flex-col">
+
+    <!-- 1. HEADER ATAS FULL (Sesuai Figma) -->
+    <header class="z-20 flex h-[83px] w-full shrink-0 items-center justify-between bg-[#CCE1EF] px-6 shadow-[0_4px_4px_rgba(0,0,0,0.25)]">
+        <div class="flex items-center gap-4">
+            <span class="text-[40px] font-normal leading-none text-white tracking-wide" style="-webkit-text-stroke: 1px #689EC2; text-shadow: 0 0 4px rgba(0,0,0,0.25), 0 4px 4px rgba(0,0,0,0.25);">
+                SIM-PBJ
+            </span>
+        </div>
+
+        <!-- Profil User & Logout (Header Kanan) -->
         @auth
-            <fieldset>
-                <legend>Profil Pengguna Aktif</legend>
-                <p>
-                    <strong>Nama:</strong> {{ Auth::user()->nama }} &bull;
-                    <strong>NIP:</strong> {{ Auth::user()->nip }} &bull;
-                    <strong>Jabatan:</strong> {{ Auth::user()->jabatan }} &bull;
-                    <strong>Unit Kerja:</strong> {{ Auth::user()->unit->nama_unit ?? Auth::user()->kode_unit }} &bull;
-                    <strong>Peran Sistem:</strong> <u>{{ strtoupper(str_replace('_', ' ', Auth::user()->role)) }}</u>
-                </p>
-                <form action="{{ route('logout') }}" method="POST">
-                    @csrf
-                    <button type="submit">Keluar (Logout)</button>
-                </form>
-            </fieldset>
+        <div class="flex items-center gap-4" x-data="{ openProfile: false }">
+            <div class="text-right hidden sm:block">
+                <div class="text-sm font-semibold text-[#1E3156]">{{ Auth::user()->nama }}</div>
+                <div class="text-xs text-[#689EC2] font-medium">
+                    {{ Auth::user()->jabatan ?? 'Pegawai' }} &bull;
+                    <span class="uppercase font-bold text-blue-700">{{ str_replace('_', ' ', Auth::user()->role) }}</span>
+                </div>
+            </div>
+
+            <!-- Avatar Button -->
+            <div class="relative">
+                <button @click="openProfile = !openProfile" class="flex size-10 items-center justify-center rounded-full bg-[#0088E8] text-white font-bold shadow-md hover:brightness-110">
+                    {{ strtoupper(substr(Auth::user()->nama ?? 'U', 0, 1)) }}
+                </button>
+
+                <!-- Dropdown Logout -->
+                <div x-show="openProfile" @click.away="openProfile = false" x-transition class="absolute right-0 mt-2 w-48 rounded-lg bg-white p-2 shadow-xl border border-slate-200 z-50" style="display: none;">
+                    <div class="px-3 py-2 text-xs border-b border-slate-100 sm:hidden">
+                        <div class="font-bold text-gray-800">{{ Auth::user()->nama }}</div>
+                        <div class="text-gray-500">{{ Auth::user()->jabatan }}</div>
+                    </div>
+                    <form action="{{ route('logout') }}" method="POST">
+                        @csrf
+                        <button type="submit" class="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 rounded-md hover:bg-red-50 transition-colors">
+                            <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                            Keluar (Logout)
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
         @endauth
-        <hr>
     </header>
 
-    {{-- Navigasi Semantik Berbasis Peran (RBAC) --}}
-    @auth
-        <nav>
-            <strong>Menu Navigasi Operasional:</strong>
-            <ul>
-                <li><a href="{{ route('dashboard') }}">Beranda (Dashboard)</a></li>
+    <!-- 2. WRAPPER UTAMA (Sidebar Ikon + Konten) -->
+    <div class="flex flex-1">
 
-                {{-- Menu Khusus Peran: Pemohon / Jurusan (user) --}}
-                @if(Auth::user()->role === 'user')
-                    <li><a href="{{ route('permohonan.create') }}">Ajukan Permohonan Pengadaan Baru</a></li>
-                    <li><a href="{{ route('permohonan.index') }}">Daftar & Riwayat Permohonan Saya</a></li>
-                @endif
+        <!-- SIDEBAR IKON RAMPING (Dinamis Berpindah Bulatan) -->
+        @auth
+        <aside class="flex w-16 shrink-0 flex-col items-center gap-6 bg-[#689EC2] pt-6 shadow-md">
+            
+            <!-- Icon 1: Permohonan / Dashboard -->
+            <a href="{{ route('permohonan.index') }}" title="Permohonan Saya" 
+               class="flex h-10 items-center justify-center text-[#E8F5FD] transition-all {{ request()->routeIs('permohonan.*') ? 'w-[46px] rounded-[20px] bg-[#0088E8] shadow-[inset_0_0_9px_rgba(0,0,0,0.25)] scale-105' : 'w-10 hover:text-white hover:scale-110' }}">
+                <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                </svg>
+            </a>
 
-                {{-- Menu Khusus Peran: Staf Bidang 2 --}}
-                @if(Auth::user()->role === 'staff_bidang_2')
-                    <li><a href="{{ route('verifikasi.bidang-2') }}">Antrean Telaah Berkas Permohonan Masuk</a></li>
-                @endif
+            <!-- Icon 2: Analytics / Monitoring -->
+            <a href="{{ route('monitoring.index') }}" title="Monitoring 8 Siklus" 
+               class="flex h-10 items-center justify-center text-[#E8F5FD] transition-all {{ request()->routeIs('monitoring.*') ? 'w-[46px] rounded-[20px] bg-[#0088E8] shadow-[inset_0_0_9px_rgba(0,0,0,0.25)] scale-105' : 'w-10 hover:text-white hover:scale-110' }}">
+                <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+            </a>
 
-                {{-- Menu Khusus Peran: Wadir 2 --}}
-                @if(Auth::user()->role === 'wadir_2')
-                    <li><a href="{{ route('verifikasi.wadir-2') }}">Antrean Verifikasi Eksekutif Wadir 2 (ACC/Tolak)</a></li>
-                @endif
+            <!-- Icon 3: Notifikasi -->
+            <a href="#" title="Notifikasi" 
+               class="flex h-10 items-center justify-center text-[#E8F5FD] transition-all {{ request()->routeIs('notifikasi.*') ? 'w-[46px] rounded-[20px] bg-[#0088E8] shadow-[inset_0_0_9px_rgba(0,0,0,0.25)] scale-105' : 'w-10 hover:text-white hover:scale-110' }}">
+                <svg class="size-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"/>
+                </svg>
+            </a>
 
-                {{-- Menu Khusus Peran: Perencanaan --}}
-                @if(Auth::user()->role === 'perencanaan')
-                    <li><a href="{{ route('verifikasi.perencanaan') }}">Verifikasi Anggaran MAK & Penetapan Pagu</a></li>
-                @endif
+            <!-- Icon 4: Profil User -->
+            <a href="#" title="Profil Saya" 
+               class="flex h-10 items-center justify-center text-[#E8F5FD] transition-all {{ request()->routeIs('profile.*') ? 'w-[46px] rounded-[20px] bg-[#0088E8] shadow-[inset_0_0_9px_rgba(0,0,0,0.25)] scale-105' : 'w-10 hover:text-white hover:scale-110' }}">
+                <svg class="size-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
+                </svg>
+            </a>
+        </aside>
+        @endauth
 
-                {{-- Menu Khusus Peran: PPBJ --}}
-                @if(Auth::user()->role === 'ppbj')
-                    <li><a href="{{ route('paket.index') }}">Daftar Paket Pengadaan & Alih Tugas PPK</a></li>
-                    <li><a href="{{ route('paket.create') }}">Registrasi Paket Baru (Auto-Routing HPS)</a></li>
-                @endif
+        <!-- 3. KONTEN UTAMA (Injeksi dari View) -->
+        <main class="min-w-0 flex-1 p-6 md:p-10">
+            
+            <!-- Notifikasi Success / Error -->
+            @if(session('success'))
+                <div class="mb-6 p-4 rounded-[10px] bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-medium shadow-sm">
+                    {{ session('success') }}
+                </div>
+            @endif
 
-                {{-- Menu Khusus Peran: Pejabat Pengadaan (PP) --}}
-                @if(Auth::user()->role === 'pp')
-                    <li><a href="{{ route('kontrak.index') }}">Paket Pengadaan & Penerbitan SPK (&le; 200 Juta)</a></li>
-                @endif
+            @if(session('error'))
+                <div class="mb-6 p-4 rounded-[10px] bg-rose-50 border border-rose-200 text-rose-800 text-sm font-medium shadow-sm">
+                    {{ session('error') }}
+                </div>
+            @endif
 
-                {{-- Menu Khusus Peran: Pejabat Pembuat Komitmen (PPK 1-4 Terisolasi) --}}
-                @if(Auth::user()->role === 'ppk')
-                    <li><a href="{{ route('kontrak.index') }}">Paket Komitmen Saya (> 200 Juta - Terisolasi)</a></li>
-                @endif
+            {{-- Tempat Konten Halaman Ditempatkan --}}
+            @yield('content')
 
-                {{-- Menu Khusus Peran: Perlengkapan / BMN --}}
-                @if(Auth::user()->role === 'perlengkapan')
-                    <li><a href="{{ route('penerimaan.index') }}">Penerimaan Fisik Barang & Penerbitan BAST</a></li>
-                @endif
+        </main>
+    </div>
 
-                {{-- Menu Khusus Peran: Keuangan / Bendahara --}}
-                @if(Auth::user()->role === 'keuangan')
-                    <li><a href="{{ route('pembayaran.index') }}">Verifikasi Tagihan SPP & Pencairan Dana (SP2D)</a></li>
-                @endif
-
-                {{-- Menu Terbuka untuk Seluruh Peran --}}
-                <li><a href="{{ route('monitoring.index') }}">Monitoring 8 Siklus Pengadaan & Jejak Audit</a></li>
-            </ul>
-        </nav>
-        <hr>
-    @endauth
-
-    {{-- Penampil Notifikasi Flash & Validasi --}}
-    @if(session('success'))
-        <section>
-            <p><strong>[STATUS SUKSES]:</strong> {{ session('success') }}</p>
-        </section>
-        <hr>
-    @endif
-
-    @if(session('error'))
-        <section>
-            <p><strong>[PERINGATAN / KESALAHAN]:</strong> {{ session('error') }}</p>
-        </section>
-        <hr>
-    @endif
-
-    @if($errors->any())
-        <section>
-            <strong>[KESALAHAN VALIDASI FORM]:</strong>
-            <ul>
-                @foreach($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
-        </section>
-        <hr>
-    @endif
-
-    {{-- Konten Utama Halaman --}}
-    <main>
-        @yield('content')
-    </main>
-
-    {{-- Footer Semantik Informasi Institusi & Testing --}}
-    <footer>
-        <hr>
-        <p>
-            <small>
-                &copy; {{ date('Y') }} <strong>SIM-PBJ Politeknik Negeri Jakarta</strong>. Seluruh hak cipta dilindungi.
-                <br>
-                <em>Mode Tampilan Program Riil Semantik TANPA CSS (Zero CSS) &bull; Standar Pengujian Fungsional Manual Overseer & Otomatisasi PHPUnit.</em>
-            </small>
-        </p>
+    <!-- FOOTER -->
+    <footer class="py-3 px-6 text-center text-xs text-slate-500">
+        &copy; {{ date('Y') }} <strong>SIM-PBJ Politeknik Negeri Jakarta</strong>. Jl. Prof. Dr. G.A. Siwabessy, Kampus UI Depok 16425.
     </footer>
+
 </body>
 </html>

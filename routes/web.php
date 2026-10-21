@@ -78,6 +78,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/permohonan', [HomeController::class, 'storePermohonan'])->name('permohonan.store');
     Route::post('/permohonan/revisi', [HomeController::class, 'revisiPermohonan'])->name('permohonan.revisi');
 
+    // TAMBAHKAN BARIS INI:
+    Route::get('/permohonan/{id}', [HomeController::class, 'permohonanShow'])->name('permohonan.show');
     // -------------------------------------------------------------------------
     // -------------------------------------------------------------------------
     // Modul 2 & 3: Verifikasi Paralel (Staf B2, Wadir 2, & Perencanaan)
