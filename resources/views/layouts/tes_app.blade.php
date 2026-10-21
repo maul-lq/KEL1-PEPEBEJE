@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>@yield('title', 'SIM-PBJ Politeknik Negeri Jakarta')</title>
-    @vite('resources/js/tes_app.js')
+    @vite(['resources/css/tes_app.css', 'resources/js/tes_app.js'])
 </head>
 <body>
     {{-- Header Utama Semantik --}}

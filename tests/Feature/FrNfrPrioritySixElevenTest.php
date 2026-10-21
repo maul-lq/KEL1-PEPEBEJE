@@ -816,27 +816,38 @@ class FrNfrPrioritySixElevenTest extends TestCase
     }
 
     /**
-     * Uji Antarmuka Program Riil Zero CSS: Halaman Kontrak SPK dan Monitoring Pengadaan
-     * mematuhi aturan bebas tag CSS (<style>) dan atribut inline style.
+     * Memverifikasi render dan konten semantik halaman Kontrak SPK (/kontrak-spk).
+     *
+     * Catatan: Kebijakan Zero CSS dan ketiadaan script inline secara menyeluruh
+     * pada view tes_* kini ditegakkan secara global oleh test arsitektur terpisah
+     * (Tests\Feature\ViewArchitecturePolicyTest).
      */
-    public function test_zero_css_views_contract_and_monitoring_render_semantic_html(): void
+    public function test_halaman_kontrak_spk_merender_konten_semantik_dengan_benar(): void
     {
         $this->actingAs($this->userPpk1);
 
-        // Halaman Kontrak SPK
         $resKontrak = $this->get('/kontrak-spk');
         $resKontrak->assertStatus(200)
             ->assertSee('Manajemen Penelaahan (Reviu) Dokumen', false)
             ->assertSee('Penelaahan (Reviu) Dokumen Teknis', false)
-            ->assertSee('Penerbitan Kontrak / Surat Perintah Kerja (SPK)', false)
-            ->assertDontSee('<style>', false);
+            ->assertSee('Penerbitan Kontrak / Surat Perintah Kerja (SPK)', false);
+    }
 
-        // Halaman Monitoring 8 Siklus Pengadaan
+    /**
+     * Memverifikasi render dan konten semantik halaman Monitoring Pengadaan (/monitoring).
+     *
+     * Catatan: Kebijakan Zero CSS dan ketiadaan script inline secara menyeluruh
+     * pada view tes_* kini ditegakkan secara global oleh test arsitektur terpisah
+     * (Tests\Feature\ViewArchitecturePolicyTest).
+     */
+    public function test_halaman_monitoring_merender_konten_semantik_dengan_benar(): void
+    {
+        $this->actingAs($this->userPpk1);
+
         $resMonitoring = $this->get('/monitoring');
         $resMonitoring->assertStatus(200)
             ->assertSee('Pemantauan Real-Time 8 Siklus Pengadaan', false)
             ->assertSee('Pencarian Multi-Filter Siklus Pengadaan', false)
-            ->assertSee('Jejak Audit Transaksi', false)
-            ->assertDontSee('<style>', false);
+            ->assertSee('Jejak Audit Transaksi', false);
     }
 }
