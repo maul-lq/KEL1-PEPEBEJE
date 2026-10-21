@@ -111,6 +111,23 @@ class HomeController extends Controller
     }
 
     /**
+     * Menampilkan detail tracking & informasi permohonan pengadaan.
+     */
+    public function permohonanShow(string $id): View
+    {
+        $permohonan = PermohonanPengadaan::with([
+            'unit', 
+            'user', 
+            'verifikasiParalel.user', 
+            'paket.kontrak.penerimaan'
+        ])->where('nomor_surat', $id)
+          ->orWhere('id_permohonan', $id)
+          ->firstOrFail();
+
+        return view('permohonan.show', compact('permohonan'));
+    }
+    
+    /**
      * Menampilkan formulir pendaftaran usulan permohonan pengadaan baru berbasis Srikandi.
      */
     public function permohonanCreate(): View
