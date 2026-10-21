@@ -36,3 +36,9 @@ PROMPTS.md
 .agents/skills/hitung-progress-backend/SKILL.md
 
 .venv
+
+# File tambahan dari Changes
+public/fonts-manifest.dev.json
+resources/views/auth/teslogin.html
+resources/views/auth/tesregister
+resources/views/permohonan/tesindex
