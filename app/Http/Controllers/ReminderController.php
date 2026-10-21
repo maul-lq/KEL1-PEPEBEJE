@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\NotifikasiUser;
 use App\Models\Reminder;
+use App\Models\User;
+use App\Services\ReminderService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -62,6 +64,8 @@ class ReminderController extends Controller
             'interval_bulan' => 'nullable|integer',
             'judul_alert' => 'required|string|max:150',
             'pesan_alert' => 'required|string',
+            'target_roles' => 'nullable|array',
+            'target_roles.*' => 'string|in:ppbj,pp,ppk,keuangan,perlengkapan',
             'user_ids' => 'nullable|array',
             'user_ids.*' => 'exists:users,id_user',
         ]);
@@ -73,13 +77,17 @@ class ReminderController extends Controller
         }
 
         // 3. Buat feed entri notifikasi ke setiap ID pengguna yang menjadi target penerima
-        if (! empty($validated['user_ids'])) {
-            foreach ($validated['user_ids'] as $uid) {
-                NotifikasiUser::create([
-                    'id_user' => $uid,
-                    'id_reminder' => $reminder->id_reminder,
-                ]);
-            }
+        $targetUserIds = $validated['user_ids'] ?? [];
+        if (! empty($validated['target_roles'])) {
+            $roleUserIds = User::whereIn('role', $validated['target_roles'])->pluck('id_user')->toArray();
+            $targetUserIds = array_unique(array_merge($targetUserIds, $roleUserIds));
+        }
+
+        foreach ($targetUserIds as $uid) {
+            NotifikasiUser::firstOrCreate([
+                'id_user' => $uid,
+                'id_reminder' => $reminder->id_reminder,
+            ]);
         }
 
         return response()->json([
@@ -87,6 +95,20 @@ class ReminderController extends Controller
             'message' => 'Pengingat jadwal (reminder) berhasil dibuat',
             'data' => $reminder->load(['paket', 'notifikasiUser']),
         ], 201);
+    }
+
+    /**
+     * Memicu proses sinkronisasi jadwal otomatis pengingat hari H pengiriman & H-2 termin (FR 12.2 & NFR 5).
+     */
+    public function sinkronkanOtomatis(ReminderService $service): JsonResponse
+    {
+        $hasil = $service->sinkronkanJadwal();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Sinkronisasi pengingat jadwal berhasil dijalankan',
+            'data' => $hasil,
+        ]);
     }
 
     /**

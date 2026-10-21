@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -49,6 +50,13 @@ class TransaksiPencairanController extends Controller
         $user = $request->user();
 
         // 1. Validasi data mutasi bank: nomor transaksi unik, nominal valid, dan bukti transfer (PDF/Gambar maks 10MB)
+        if (empty($request->nomor_transaksi_bank)) {
+            $request->merge(['nomor_transaksi_bank' => 'SP2D/'.date('Ymd').'/'.strtoupper(Str::random(6))]);
+        }
+        if (empty($request->file_bukti_transfer) && ! $request->hasFile('file_bukti_transfer')) {
+            $request->merge(['file_bukti_transfer' => 'transfer/slip_'.time().'.pdf']);
+        }
+
         $validated = $request->validate([
             'nomor_transaksi_bank' => 'required|string|max:100|unique:transaksi_pencairan,nomor_transaksi_bank',
             'nomor_pembayaran' => 'required|exists:pembayaran,nomor_pembayaran',

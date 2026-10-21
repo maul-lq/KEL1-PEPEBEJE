@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * Model Penerimaan Barang (Berita Acara Serah Terima / BAST)
@@ -41,6 +42,10 @@ class PenerimaanBarang extends Model
 
     public const STATUS_TIDAK_SESUAI = 'tidak_sesuai';
 
+    public const KATEGORI_BELANJA_BARANG = 'belanja_barang';
+
+    public const KATEGORI_BELANJA_MODAL = 'belanja_modal';
+
     /**
      * Kolom-kolom yang dapat diisi secara massal (mass assignment).
      *
@@ -52,6 +57,7 @@ class PenerimaanBarang extends Model
         'id_user',
         'tanggal_penerimaan',
         'status_fisik',
+        'kategori_belanja',
         'ttd_digital_bast',
         'file_bast_signed',
         'file_penerimaan_pihak3',
@@ -80,6 +86,16 @@ class PenerimaanBarang extends Model
     public function paket(): BelongsTo
     {
         return $this->belongsTo(PaketPengadaan::class, 'nomor_paket', 'nomor_paket');
+    }
+
+    /**
+     * Relasi one-to-one ke Kontrak SPK yang diserahterimakan melalui nomor paket.
+     *
+     * @return HasOne Relasi ke model KontrakSPK
+     */
+    public function kontrak(): HasOne
+    {
+        return $this->hasOne(KontrakSPK::class, 'nomor_paket', 'nomor_paket');
     }
 
     /**

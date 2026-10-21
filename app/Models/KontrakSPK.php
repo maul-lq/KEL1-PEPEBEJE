@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasOneThrough;
 
 /**
  * Model Kontrak SPK (Surat Perintah Kerja / Kontrak Pengadaan)
@@ -113,15 +115,8 @@ class KontrakSPK extends Model
             // Jika SPK terbit/aktif, picu penguncian permanen data MAK terkait (FR 6.4, FR 11.2, NFR Integritas Data MAK)
             if (in_array($spk->status_spk, ['terbit', 'aktif', 'selesai'])) {
                 $paket = $spk->paket;
-                if ($paket && $paket->permohonan) {
-                    // Kunci MAK utama pada surat permohonan
-                    if ($paket->permohonan->anggaranMak) {
-                        $paket->permohonan->anggaranMak->lock();
-                    }
-                    // Kunci seluruh pecahan alokasi MAK jika usulan didukung multi-MAK
-                    foreach ($paket->permohonan->alokasiMak ?? [] as $alokasi) {
-                        $alokasi->mak?->lock();
-                    }
+                if ($paket) {
+                    $paket->kunciMakTerkait();
                 }
 
                 // Buat rekaman pengingat otomatis (Reminder) jadwal pengiriman barang jika belum ada (FR 12.2)
@@ -138,6 +133,39 @@ class KontrakSPK extends Model
                         'pesan_alert' => 'Pengingat otomatis jadwal pengiriman barang sesuai kontrak/SPK '.$spk->nomor_spk,
                     ]
                 );
+
+                // Distribusi tembusan otomatis SPK ke Unit Perlengkapan dan Bagian Keuangan (FR 11.3 & Notulensi ke-2)
+                $reminderTembusan = Reminder::firstOrCreate(
+                    [
+                        'nomor_paket' => $spk->nomor_paket,
+                        'tipe_reminder' => 'tembusan_spk',
+                    ],
+                    [
+                        'waktu_trigger' => now(),
+                        'is_recurring' => false,
+                        'interval_bulan' => null,
+                        'judul_alert' => 'Tembusan SPK Terbit: '.$spk->nomor_spk,
+                        'pesan_alert' => "Dokumen Kontrak/SPK {$spk->nomor_spk} untuk paket {$spk->nomor_paket} senilai Rp ".number_format((float) $spk->nilai_kontrak, 0, ',', '.').' telah diterbitkan.',
+                    ]
+                );
+
+                $targetRoles = ['perlengkapan', 'keuangan'];
+                $penerimaTembusan = User::whereIn('role', $targetRoles)
+                    ->where('status_aktif', true)
+                    ->get();
+
+                foreach ($penerimaTembusan as $targetUser) {
+                    NotifikasiUser::firstOrCreate(
+                        [
+                            'id_user' => $targetUser->id_user,
+                            'id_reminder' => $reminderTembusan->id_reminder,
+                        ],
+                        [
+                            'is_read' => false,
+                            'is_dismissed' => false,
+                        ]
+                    );
+                }
             }
         });
     }
@@ -170,5 +198,70 @@ class KontrakSPK extends Model
     public function penerimaan(): HasOne
     {
         return $this->hasOne(PenerimaanBarang::class, 'nomor_paket', 'nomor_paket');
+    }
+
+    /**
+     * Relasi has-one-through ke model Vendor melalui PaketPengadaan.
+     *
+     * @return HasOneThrough Relasi ke model Vendor
+     */
+    public function vendor(): HasOneThrough
+    {
+        return $this->hasOneThrough(
+            Vendor::class,
+            PaketPengadaan::class,
+            'nomor_paket',
+            'npwp',
+            'nomor_paket',
+            'npwp_vendor'
+        );
+    }
+
+    /**
+     * Scope query untuk membatasi akses Kontrak SPK sesuai hak akses peran pengguna (NFR RBAC PPK).
+     *
+     * @param  Builder  $query  Query builder Eloquent
+     * @param  User  $user  Objek pengguna aktif
+     * @return Builder Query terisolasi
+     */
+    public function scopeForUser($query, User $user)
+    {
+        return $query->whereHas('paket', function ($q) use ($user) {
+            $q->forUser($user);
+        });
+    }
+
+    /**
+     * Accessor alias nomor_kontrak_spk untuk nomor_spk.
+     */
+    public function getNomorKontrakSpkAttribute(): ?string
+    {
+        return $this->nomor_spk;
+    }
+
+    /**
+     * Accessor alias kode_paket untuk nomor_paket.
+     */
+    public function getKodePaketAttribute(): ?string
+    {
+        return $this->nomor_paket;
+    }
+
+    /**
+     * Accessor alias status_kontrak untuk status_spk.
+     */
+    public function getStatusKontrakAttribute(): ?string
+    {
+        return $this->status_spk;
+    }
+
+    /**
+     * Mengambil model Vendor rekanan penyedia melalui relasi Paket Pengadaan.
+     *
+     * @return Vendor|null Objek vendor rekanan
+     */
+    public function getVendorAttribute(): ?Vendor
+    {
+        return $this->paket?->vendor;
     }
 }

@@ -42,3 +42,4 @@ public/fonts-manifest.dev.json
 resources/views/auth/teslogin.html
 resources/views/auth/tesregister
 resources/views/permohonan/tesindex
+.venv/**/*.*

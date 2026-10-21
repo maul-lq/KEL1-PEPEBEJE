@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AuditLog;
 use App\Models\MemoBayar;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -102,6 +103,18 @@ class MemoBayarController extends Controller
         // Set tanggal acc otomatis saat status diubah menjadi disetujui
         $validated['tanggal_acc'] = ($validated['status_memo'] === 'disetujui') ? now() : null;
         $memo_bayar->update($validated);
+
+        // Catat Audit Trail Disposisi Memo (FR 16 & NFR 9)
+        $userPengubah = $request->user()?->id_user ?? $memo_bayar->id_user;
+        AuditLog::catat(
+            $userPengubah,
+            'DISPOSISI_MEMO_PEMBAYARAN',
+            'memo_bayar',
+            (string) $memo_bayar->id,
+            null,
+            $memo_bayar->status_memo,
+            "Persetujuan memo pembayaran tingkat {$memo_bayar->urutan_level} ({$memo_bayar->role_approver}) diubah menjadi {$memo_bayar->status_memo} (FR 16)"
+        );
 
         return response()->json([
             'status' => 'success',

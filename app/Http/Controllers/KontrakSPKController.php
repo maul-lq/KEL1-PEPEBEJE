@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AuditLog;
 use App\Models\KontrakSPK;
 use App\Models\PaketPengadaan;
 use App\Models\User;
+use App\Rules\DokumenUploadRule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -13,9 +15,10 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Controller Penerbitan Dokumen Kontrak & SPK (KontrakSPKController)
  *
- * Mengelola penerbitan perjanjian resmi dengan vendor rekanan:
- * - Penerbitan Surat Perintah Kerja (SPK) / Surat Kontrak / Surat Pesanan.
+ * Mengelola penerbitan perjanjian resmi dengan vendor rekanan oleh Unit PPBJ (role: ppbj):
+ * - Penerbitan Surat Perintah Kerja (SPK) / Surat Kontrak / Surat Pesanan oleh PPBJ setelah persetujuan PPK (atau langsung untuk <= 50jt).
  * - Memicu penguncian otomatis (auto-lock) anggaran MAK agar pagu tidak dapat diubah (NFR Integritas MAK).
+ * - Memicu distribusi tembusan otomatis SPK ke Unit Perlengkapan dan Bagian Keuangan (FR 11.3).
  * - Pemutakhiran otomatis status paket menjadi 'spk_terbit'.
  * - Unduh salinan PDF resmi berkas kontrak (< 3 detik) (NFR 12).
  */
@@ -45,7 +48,7 @@ class KontrakSPKController extends Controller
     }
 
     /**
-     * Menerbitkan berkas kontrak / SPK baru dan memicu penguncian otomatis anggaran MAK (NFR Integritas MAK).
+     * Menerbitkan berkas kontrak / SPK baru oleh PPBJ dan memicu penguncian otomatis anggaran MAK (NFR Integritas MAK).
      */
     public function store(Request $request): JsonResponse
     {
@@ -63,7 +66,7 @@ class KontrakSPKController extends Controller
             $request->merge(['file_spk' => 'spk/spk_dummy.pdf']);
         }
         if (! $request->filled('id_user')) {
-            $request->merge(['id_user' => $request->user()?->id_user ?? User::where('role', 'ppk')->first()?->id_user ?? User::first()?->id_user]);
+            $request->merge(['id_user' => $request->user()?->id_user ?? User::where('role', 'ppbj')->first()?->id_user ?? User::first()?->id_user]);
         }
 
         // 1. Validasi input penerbitan kontrak/SPK
@@ -79,7 +82,7 @@ class KontrakSPKController extends Controller
             'tanggal_selesai' => 'nullable|date',
             'jadwal_pengiriman' => 'required|date',
             'nilai_kontrak' => 'nullable|numeric|min:0',
-            'file_spk' => 'required',
+            'file_spk' => ['required', DokumenUploadRule::pdfOnly()],
         ]);
 
         if (empty($validated['nilai_kontrak'])) {
@@ -100,6 +103,17 @@ class KontrakSPKController extends Controller
             $paket->status_paket = 'spk_terbit';
             $paket->save();
         }
+
+        // 4. Rekam penerbitan SPK dan penguncian permanen MAK ke audit log (FR 11 & NFR 9)
+        AuditLog::catat(
+            $spk->id_user ?? $request->user()?->id_user ?? 1,
+            'PENERBITAN_SPK',
+            'kontrak_spk',
+            $spk->nomor_spk,
+            'draft',
+            $spk->status_spk,
+            'Penerbitan surat perintah kerja/kontrak pengadaan (FR 11.1) dan penguncian permanen data MAK (FR 11.2 & NFR 6)'
+        );
 
         return response()->json([
             'status' => 'success',

@@ -68,7 +68,7 @@ Route::middleware('auth')->group(function () {
 
     // Dashboard utama operasional dinamis sesuai peran pengguna
     Route::get('/dashboard', [HomeController::class, 'index'])->name('dashboard');
-    Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+    Route::match(['GET', 'POST'], '/logout', [AuthController::class, 'logout'])->name('logout');
 
     // -------------------------------------------------------------------------
     // Modul 1: Permohonan Pengadaan (User / Jurusan)
@@ -81,47 +81,71 @@ Route::middleware('auth')->group(function () {
     // TAMBAHKAN BARIS INI:
     Route::get('/permohonan/{id}', [HomeController::class, 'permohonanShow'])->name('permohonan.show');
     // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
     // Modul 2 & 3: Verifikasi Paralel (Staf B2, Wadir 2, & Perencanaan)
     // -------------------------------------------------------------------------
-    Route::get('/verifikasi/bidang-2', [HomeController::class, 'verifikasiBidang2'])->name('verifikasi.bidang-2');
-    Route::post('/verifikasi/bidang-2/teruskan', [HomeController::class, 'teruskanStaffB2'])->name('verifikasi.bidang-2.teruskan');
+    Route::middleware('role:staff_bidang_2')->group(function () {
+        Route::get('/verifikasi/bidang-2', [HomeController::class, 'verifikasiBidang2'])->name('verifikasi.bidang-2');
+        Route::post('/verifikasi/bidang-2/teruskan', [HomeController::class, 'teruskanStaffB2'])->name('verifikasi.bidang-2.teruskan');
+    });
 
-    Route::get('/verifikasi/wadir-2', [HomeController::class, 'verifikasiWadir2'])->name('verifikasi.wadir-2');
-    Route::post('/verifikasi/wadir-2/keputusan', [HomeController::class, 'keputusanWadir2'])->name('verifikasi.wadir-2.keputusan');
+    Route::middleware('role:wadir_2')->group(function () {
+        Route::get('/verifikasi/wadir-2', [HomeController::class, 'verifikasiWadir2'])->name('verifikasi.wadir-2');
+        Route::post('/verifikasi/wadir-2/keputusan', [HomeController::class, 'keputusanWadir2'])->name('verifikasi.wadir-2.keputusan');
+    });
 
-    Route::get('/verifikasi/perencanaan', [HomeController::class, 'verifikasiPerencanaan'])->name('verifikasi.perencanaan');
-    Route::post('/verifikasi/perencanaan/mak', [HomeController::class, 'alokasiMakPerencanaan'])->name('verifikasi.perencanaan.mak');
+    Route::middleware('role:perencanaan')->group(function () {
+        Route::get('/verifikasi/perencanaan', [HomeController::class, 'verifikasiPerencanaan'])->name('verifikasi.perencanaan');
+        Route::post('/verifikasi/perencanaan/mak', [HomeController::class, 'alokasiMakPerencanaan'])->name('verifikasi.perencanaan.mak');
+        Route::post('/verifikasi/perencanaan/split', [HomeController::class, 'splitMakPerencanaan'])->name('verifikasi.perencanaan.split');
+    });
 
     // -------------------------------------------------------------------------
     // Modul 4: Paket Pengadaan (Koordinator PPBJ)
     // -------------------------------------------------------------------------
     Route::get('/paket-pengadaan', [HomeController::class, 'paketIndex'])->name('paket.index');
-    Route::get('/paket-pengadaan/create', [HomeController::class, 'paketCreate'])->name('paket.create');
-    Route::post('/paket-pengadaan', [HomeController::class, 'storePaket'])->name('paket.store');
-    Route::post('/paket-pengadaan/reassign-ppk', [HomeController::class, 'reassignPpkWeb'])->name('paket.reassign-ppk');
+    Route::middleware('role:ppbj')->group(function () {
+        Route::get('/paket-pengadaan/create', [HomeController::class, 'paketCreate'])->name('paket.create');
+        Route::post('/paket-pengadaan', [HomeController::class, 'storePaket'])->name('paket.store');
+        Route::post('/paket-pengadaan/reassign-ppk', [HomeController::class, 'reassignPpkWeb'])->name('paket.reassign-ppk');
+        Route::post('/paket-pengadaan/split-jenis', [HomeController::class, 'splitJenisPpbj'])->name('paket.split-jenis');
+    });
 
     // -------------------------------------------------------------------------
     // Modul 5: Kontrak SPK (Pejabat Pengadaan & 4 Akun PPK Terisolasi)
     // -------------------------------------------------------------------------
     Route::get('/kontrak-spk', [HomeController::class, 'kontrakIndex'])->name('kontrak.index');
     Route::post('/kontrak-spk', [HomeController::class, 'storeKontrak'])->name('kontrak.store');
+    Route::post('/kontrak-spk/reviu', [HomeController::class, 'storeReviuWeb'])->name('kontrak.reviu');
 
     // -------------------------------------------------------------------------
     // Modul 6: Penerimaan Barang & BAST (Unit Perlengkapan / BMN)
     // -------------------------------------------------------------------------
-    Route::get('/penerimaan-barang', [HomeController::class, 'penerimaanIndex'])->name('penerimaan.index');
-    Route::post('/penerimaan-barang', [HomeController::class, 'storePenerimaan'])->name('penerimaan.store');
+    Route::middleware('role:perlengkapan')->group(function () {
+        Route::get('/penerimaan-barang', [HomeController::class, 'penerimaanIndex'])->name('penerimaan.index');
+        Route::post('/penerimaan-barang', [HomeController::class, 'storePenerimaan'])->name('penerimaan.store');
+    });
 
     // -------------------------------------------------------------------------
-    // Modul 7: Tagihan SPP & Pencairan Dana (Bagian Keuangan)
+    // Modul 7: Tagihan SPP & Pencairan Dana (Bagian Keuangan & PPBJ & PPK & Wadir 2)
     // -------------------------------------------------------------------------
-    Route::get('/pembayaran', [HomeController::class, 'pembayaranIndex'])->name('pembayaran.index');
-    Route::post('/pembayaran', [HomeController::class, 'storePembayaran'])->name('pembayaran.store');
+    Route::get('/pembayaran', [HomeController::class, 'pembayaranIndex'])->name('pembayaran.index')->middleware('role:ppbj,ppk,wadir_2,keuangan');
+    Route::post('/pembayaran/pengajuan', [HomeController::class, 'storePengajuanBayarWeb'])->name('pembayaran.pengajuan')->middleware('role:ppbj');
+    Route::post('/pembayaran/memo/approve', [HomeController::class, 'approveMemoBayarWeb'])->name('pembayaran.memo.approve')->middleware('role:ppk,wadir_2');
+    Route::post('/pembayaran/terbitkan-spp', [HomeController::class, 'terbitkanSppWeb'])->name('pembayaran.terbitkan-spp')->middleware('role:ppbj');
+    Route::post('/pembayaran', [HomeController::class, 'storePembayaran'])->name('pembayaran.store')->middleware('role:keuangan');
 
     // -------------------------------------------------------------------------
     // Modul 8: Monitoring 8 Siklus Pengadaan & Audit Trail Transparansi
     // -------------------------------------------------------------------------
     Route::get('/monitoring', [HomeController::class, 'monitoringIndex'])->name('monitoring.index');
+
+    // -------------------------------------------------------------------------
+    // Modul 9: Laporan Rekapitulasi Anggaran & Unduh PDF (FR 20)
+    // -------------------------------------------------------------------------
+    Route::get('/laporan/rekapitulasi-anggaran', [HomeController::class, 'laporanRekapitulasiIndex'])->name('laporan.rekapitulasi');
+    Route::get('/laporan/rekapitulasi-anggaran/pdf', [HomeController::class, 'unduhRekapitulasiPdf'])->name('laporan.rekapitulasi.pdf');
+    Route::post('/notifikasi/{id}/dismiss', [HomeController::class, 'dismissNotificationWeb'])->name('notifikasi.dismiss');
 
     // -------------------------------------------------------------------------
     // Helper Unduh Berkas Resmi Format PDF (< 3 Detik - NFR 12)
@@ -139,11 +163,11 @@ Route::middleware('auth')->group(function () {
     Route::post('/tes-permohonan/revisi', [HomeController::class, 'revisiPermohonan'])->name('permohonan.web.revisi');
     Route::get('/tes-monitoring', [HomeController::class, 'monitoringIndex'])->name('monitoring.web');
     Route::get('/tes-paket', [HomeController::class, 'paketIndex'])->name('paket.web');
-    Route::post('/tes-paket', [HomeController::class, 'storePaket'])->name('paket.web.store');
-    Route::post('/tes-paket/reassign-ppk', [HomeController::class, 'reassignPpkWeb'])->name('paket.web.reassign');
-    Route::get('/tes-verifikasi-b2', [HomeController::class, 'verifikasiBidang2'])->name('verifikasi-b2.web');
-    Route::post('/tes-verifikasi-b2/teruskan-staff', [HomeController::class, 'teruskanStaffB2'])->name('verifikasi-b2.web.teruskan');
-    Route::post('/tes-verifikasi-b2/keputusan-wadir', [HomeController::class, 'keputusanWadir2'])->name('verifikasi-b2.web.keputusan');
+    Route::post('/tes-paket', [HomeController::class, 'storePaket'])->name('paket.web.store')->middleware('role:ppbj');
+    Route::post('/tes-paket/reassign-ppk', [HomeController::class, 'reassignPpkWeb'])->name('paket.web.reassign')->middleware('role:ppbj');
+    Route::get('/tes-verifikasi-b2', [HomeController::class, 'verifikasiBidang2'])->name('verifikasi-b2.web')->middleware('role:staff_bidang_2');
+    Route::post('/tes-verifikasi-b2/teruskan-staff', [HomeController::class, 'teruskanStaffB2'])->name('verifikasi-b2.web.teruskan')->middleware('role:staff_bidang_2');
+    Route::post('/tes-verifikasi-b2/keputusan-wadir', [HomeController::class, 'keputusanWadir2'])->name('verifikasi-b2.web.keputusan')->middleware('role:wadir_2');
     Route::get('/tes-unduh-pdf/{jenis}/{id}', [HomeController::class, 'unduhDokumenPdf'])->name('unduh.pdf.web')->where(['id' => '.*']);
     Route::post('/tes-logout', [AuthController::class, 'logout']);
 });
@@ -174,10 +198,15 @@ Route::prefix('api')->group(function () {
         ->name('permohonan-pengadaan.unduh-pdf')
         ->where(['permohonan_pengadaan' => '.*']);
 
-    // Memecah (split) usulan permohonan pengadaan jika terdapat item yang ditolak sebagian (FR Unary Split)
+    // Memecah (split) usulan permohonan pengadaan berdasarkan Kode MAK (FR 6.3 - Perencanaan) atau Jenis Pengadaan (FR 7.2 - PPBJ)
     Route::post('permohonan-pengadaan/{permohonan_pengadaan}/split', [PermohonanPengadaanController::class, 'split'])
         ->name('permohonan-pengadaan.split')
-        ->middleware('role:perencanaan,ppbj')
+        ->middleware('role:perencanaan,ppbj,admin')
+        ->where(['permohonan_pengadaan' => '.*']);
+
+    Route::post('permohonan/{permohonan_pengadaan}/split-ppbj', [PermohonanPengadaanController::class, 'split'])
+        ->name('permohonan.split-ppbj')
+        ->middleware('role:ppbj,admin')
         ->where(['permohonan_pengadaan' => '.*']);
 
     // Mengajukan revisi permohonan yang ditolak dengan nomor surat baru dan relasi unary (FR 3.4)
@@ -190,12 +219,19 @@ Route::prefix('api')->group(function () {
         ->name('permohonan-pengadaan.tracking')
         ->where(['permohonan_pengadaan' => '.*']);
 
-    // Endpoint pemantauan agregat status pengadaan di kampus dengan filter dan paginasi (NFR 7)
+    // Endpoint pemantauan agregat status pengadaan di kampus dengan filter dan paginasi (NFR 7 & FR 19)
     Route::get('monitoring-status', [PermohonanPengadaanController::class, 'monitoringStatus'])
         ->name('monitoring.status');
+    Route::get('permohonan-pengadaan/monitoring', [PermohonanPengadaanController::class, 'monitoringStatus'])
+        ->name('permohonan-pengadaan.monitoring');
 
     // Operasi CRUD standar untuk usulan permohonan pengadaan
     Route::apiResource('permohonan-pengadaan', PermohonanPengadaanController::class)->where(['permohonan_pengadaan' => '.*']);
+
+    // Menetapkan status Hold / Pending Anggaran pada permohonan pengadaan (FR 6.2)
+    Route::post('anggaran-mak/hold', [AnggaranMAKController::class, 'holdAnggaran'])
+        ->name('anggaran-mak.hold')
+        ->middleware('role:perencanaan');
 
     // Penguncian pagu MAK secara manual atau otomatis untuk mencegah mutasi anggaran (NFR Integritas MAK)
     Route::post('anggaran-mak/{anggaran_mak}/lock', [AnggaranMAKController::class, 'lock'])
@@ -268,7 +304,12 @@ Route::prefix('api')->group(function () {
     Route::apiResource('transaksi-pencairan', TransaksiPencairanController::class)->where(['transaksi_pencairan' => '.*']);
 
     // Pengelolaan jadwal pengingat masa kontrak, BAST, dan jatuh tempo termin (NFR 5)
+    Route::post('reminders/sync', [ReminderController::class, 'sinkronkanOtomatis'])->name('reminders.sync');
     Route::apiResource('reminders', ReminderController::class);
+
+    // Endpoint Laporan Rekapitulasi Anggaran JSON & Health-Check Uptime
+    Route::get('laporan/rekapitulasi-anggaran', [HomeController::class, 'laporanRekapitulasiIndex']);
+    Route::get('health-check', [HomeController::class, 'healthCheck'])->name('api.health-check');
 
     // Feed daftar notifikasi personal bagi pengguna yang sedang login
     Route::get('notifikasi-user', [NotifikasiUserController::class, 'index']);
@@ -283,3 +324,7 @@ Route::prefix('api')->group(function () {
     Route::apiResource('audit-logs', AuditLogController::class)->only(['index', 'show', 'store']);
     Route::apiResource('pengadaan-logs', PengadaanLogController::class)->only(['index', 'show', 'store']);
 });
+
+// Endpoint Pemeriksaan Ketersediaan & Kesehatan Sistem (NFR 10)
+Route::get('/health', [HomeController::class, 'healthCheck'])->name('health');
+Route::get('/health-check', [HomeController::class, 'healthCheck']);

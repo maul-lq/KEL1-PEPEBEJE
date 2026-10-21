@@ -15,9 +15,9 @@ use Illuminate\Http\Request;
  * Mengelola siklus paket pengadaan di Bagian PPBJ:
  * - Registrasi paket baru dari usulan permohonan yang telah disetujui (FR 7.1).
  * - Auto-routing 100% deterministik berdasarkan ambang batas HPS positif (NFR 4 & FR 8.0):
- *   * HPS <= 50 juta      => Pengadaan Langsung (Staf PPBJ)
- *   * 50jt < HPS <= 200jt => Pejabat Pengadaan Tunggal (PP)
- *   * HPS > 200 juta      => Tender/Seleksi oleh 4 akun individual PPK (PPK 1, 2, 3, 4)
+ *   * HPS <= 50 juta           => Pengadaan Langsung (PPBJ langsung menerbitkan SPK -> Perlengkapan)
+ *   * 50jt < HPS < 200jt       => Pejabat Pengadaan (PP) -> PPK -> PPBJ (SPK) -> Perlengkapan
+ *   * HPS >= 200 juta          => Pejabat Pembuat Komitmen (4 akun PPK mandiri) -> PPBJ (SPK) -> Perlengkapan (Tanpa Memo Pengadaan)
  * - Isolasi berkas 4 akun PPK (NFR RBAC).
  * - Alih tugas (reassign) paket ke PPK lain disertai pencatatan riwayat & jejak audit (FR 7.3 & NFR 4).
  */
@@ -142,6 +142,11 @@ class PaketPengadaanController extends Controller
         $validated['jalur_routing'] = PaketPengadaan::tentukanRouting((float) $validated['nilai_hps']);
         $validated['tanggal_registrasi_paket'] = now();
         $validated['status_paket'] = 'draft';
+
+        // Aturan bisnis: Paket >= 200 juta (jalur PPK) tidak menggunakan memo pengadaan PPBJ
+        if ($validated['jalur_routing'] === PaketPengadaan::ROUTING_PPK) {
+            $validated['nomor_memo_ppbj'] = null;
+        }
 
         // Catat tanggal penugasan PPK jika telah dipilih
         if (! empty($validated['id_user_ppk'])) {
