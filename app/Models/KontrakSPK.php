@@ -115,15 +115,8 @@ class KontrakSPK extends Model
             // Jika SPK terbit/aktif, picu penguncian permanen data MAK terkait (FR 6.4, FR 11.2, NFR Integritas Data MAK)
             if (in_array($spk->status_spk, ['terbit', 'aktif', 'selesai'])) {
                 $paket = $spk->paket;
-                if ($paket && $paket->permohonan) {
-                    // Kunci MAK utama pada surat permohonan
-                    if ($paket->permohonan->anggaranMak) {
-                        $paket->permohonan->anggaranMak->lock();
-                    }
-                    // Kunci seluruh pecahan alokasi MAK jika usulan didukung multi-MAK
-                    foreach ($paket->permohonan->alokasiMak ?? [] as $alokasi) {
-                        $alokasi->mak?->lock();
-                    }
+                if ($paket) {
+                    $paket->kunciMakTerkait();
                 }
 
                 // Buat rekaman pengingat otomatis (Reminder) jadwal pengiriman barang jika belum ada (FR 12.2)
@@ -140,6 +133,39 @@ class KontrakSPK extends Model
                         'pesan_alert' => 'Pengingat otomatis jadwal pengiriman barang sesuai kontrak/SPK '.$spk->nomor_spk,
                     ]
                 );
+
+                // Distribusi tembusan otomatis SPK ke Unit Perlengkapan dan Bagian Keuangan (FR 11.3 & Notulensi ke-2)
+                $reminderTembusan = Reminder::firstOrCreate(
+                    [
+                        'nomor_paket' => $spk->nomor_paket,
+                        'tipe_reminder' => 'tembusan_spk',
+                    ],
+                    [
+                        'waktu_trigger' => now(),
+                        'is_recurring' => false,
+                        'interval_bulan' => null,
+                        'judul_alert' => 'Tembusan SPK Terbit: '.$spk->nomor_spk,
+                        'pesan_alert' => "Dokumen Kontrak/SPK {$spk->nomor_spk} untuk paket {$spk->nomor_paket} senilai Rp ".number_format((float) $spk->nilai_kontrak, 0, ',', '.').' telah diterbitkan.',
+                    ]
+                );
+
+                $targetRoles = ['perlengkapan', 'keuangan'];
+                $penerimaTembusan = User::whereIn('role', $targetRoles)
+                    ->where('status_aktif', true)
+                    ->get();
+
+                foreach ($penerimaTembusan as $targetUser) {
+                    NotifikasiUser::firstOrCreate(
+                        [
+                            'id_user' => $targetUser->id_user,
+                            'id_reminder' => $reminderTembusan->id_reminder,
+                        ],
+                        [
+                            'is_read' => false,
+                            'is_dismissed' => false,
+                        ]
+                    );
+                }
             }
         });
     }

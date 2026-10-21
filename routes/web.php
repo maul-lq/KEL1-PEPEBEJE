@@ -106,6 +106,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/paket-pengadaan/create', [HomeController::class, 'paketCreate'])->name('paket.create');
         Route::post('/paket-pengadaan', [HomeController::class, 'storePaket'])->name('paket.store');
         Route::post('/paket-pengadaan/reassign-ppk', [HomeController::class, 'reassignPpkWeb'])->name('paket.reassign-ppk');
+        Route::post('/paket-pengadaan/split-jenis', [HomeController::class, 'splitJenisPpbj'])->name('paket.split-jenis');
     });
 
     // -------------------------------------------------------------------------
@@ -195,10 +196,15 @@ Route::prefix('api')->group(function () {
         ->name('permohonan-pengadaan.unduh-pdf')
         ->where(['permohonan_pengadaan' => '.*']);
 
-    // Memecah (split) usulan permohonan pengadaan jika terdapat item yang ditolak sebagian (FR Unary Split)
+    // Memecah (split) usulan permohonan pengadaan berdasarkan Kode MAK (FR 6.3 - Perencanaan) atau Jenis Pengadaan (FR 7.2 - PPBJ)
     Route::post('permohonan-pengadaan/{permohonan_pengadaan}/split', [PermohonanPengadaanController::class, 'split'])
         ->name('permohonan-pengadaan.split')
-        ->middleware('role:perencanaan,ppbj')
+        ->middleware('role:perencanaan,ppbj,admin')
+        ->where(['permohonan_pengadaan' => '.*']);
+
+    Route::post('permohonan/{permohonan_pengadaan}/split-ppbj', [PermohonanPengadaanController::class, 'split'])
+        ->name('permohonan.split-ppbj')
+        ->middleware('role:ppbj,admin')
         ->where(['permohonan_pengadaan' => '.*']);
 
     // Mengajukan revisi permohonan yang ditolak dengan nomor surat baru dan relasi unary (FR 3.4)

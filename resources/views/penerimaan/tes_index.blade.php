@@ -52,6 +52,14 @@
                 </p>
 
                 <p>
+                    <label for="kategori_belanja"><strong>Penentuan Kategori Belanja (Persediaan / Aset BMN):</strong></label><br>
+                    <select id="kategori_belanja" name="kategori_belanja" required>
+                        <option value="belanja_barang">Belanja Barang (Dicatat sebagai Persediaan)</option>
+                        <option value="belanja_modal">Belanja Modal (Dicatat sebagai Aset BMN)</option>
+                    </select>
+                </p>
+
+                <p>
                     <label for="foto_barang"><strong>Unggah Foto Dokumentasi Fisik Barang (Dapat lebih dari 1 file):</strong></label><br>
                     <input type="file" id="foto_barang" name="foto_barang[]" accept="image/*,.pdf" multiple>
                     <br>
@@ -92,6 +100,7 @@
                             <th>Nomor Paket</th>
                             <th>Tanggal Terima</th>
                             <th>Status Fisik</th>
+                            <th>Kategori Belanja</th>
                             <th>Tanda Tangan Digital (HMAC)</th>
                             <th>Salinan Dokumen</th>
                         </tr>
@@ -103,6 +112,7 @@
                                 <td>{{ $b->nomor_paket }}</td>
                                 <td>{{ $b->tanggal_penerimaan ? $b->tanggal_penerimaan->format('d/m/Y') : '-' }}</td>
                                 <td>{{ strtoupper($b->status_fisik) }}</td>
+                                <td>{{ $b->kategori_belanja === 'belanja_modal' ? 'BELANJA MODAL (BMN)' : 'BELANJA BARANG (PERSEDIAAN)' }}</td>
                                 <td><code>{{ substr($b->ttd_digital_bast ?? md5($b->nomor_bast), 0, 20) }}...</code></td>
                                 <td>
                                     <a href="{{ route('dokumen.pdf', ['jenis' => 'bast', 'id' => $b->nomor_bast]) }}">

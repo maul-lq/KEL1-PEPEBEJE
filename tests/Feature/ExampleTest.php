@@ -1,13 +1,25 @@
 <?php
 
-test('the application root redirects to login', function () {
-    $response = $this->get('/');
+namespace Tests\Feature;
 
-    $response->assertRedirect(route('login'));
-});
+use Tests\TestCase;
 
-test('login page returns a successful response', function () {
-    $response = $this->get(route('login'));
+/**
+ * Pengujian Dasar Halaman Utama & Login (ExampleTest)
+ */
+class ExampleTest extends TestCase
+{
+    public function test_the_application_root_redirects_to_login(): void
+    {
+        $response = $this->get('/');
 
-    $response->assertStatus(200);
-});
+        $response->assertRedirect(route('login'));
+    }
+
+    public function test_login_page_returns_a_successful_response(): void
+    {
+        $response = $this->get(route('login'));
+
+        $response->assertStatus(200);
+    }
+}

@@ -6,6 +6,8 @@ use App\Models\AuditLog;
 use App\Models\DokumentasiPenerimaanBarang;
 use App\Models\PaketPengadaan;
 use App\Models\PenerimaanBarang;
+use App\Models\User;
+use App\Rules\DokumenUploadRule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -58,6 +60,13 @@ class PenerimaanBarangController extends Controller
         if (! $request->filled('status_fisik')) {
             $request->merge(['status_fisik' => 'terima']);
         }
+        if (! $request->filled('kategori_belanja')) {
+            $request->merge(['kategori_belanja' => PenerimaanBarang::KATEGORI_BELANJA_BARANG]);
+        }
+
+        $fileBastSignedRule = $request->hasFile('file_bast_signed')
+            ? ['nullable', DokumenUploadRule::pdfOrImage()]
+            : 'nullable|string|max:255';
 
         // 1. Validasi input inspeksi penerimaan barang
         $validated = $request->validate([
@@ -66,10 +75,12 @@ class PenerimaanBarangController extends Controller
             'id_user' => 'required|exists:users,id_user',
             'tanggal_penerimaan' => 'required|date',
             'status_fisik' => 'required|string|in:terima,pending,tidak_sesuai,diterima_lengkap',
+            'kategori_belanja' => 'nullable|string|in:belanja_barang,belanja_modal',
             'ttd_digital_bast' => 'nullable|string',
-            'file_bast_signed' => 'nullable|string|max:255',
-            'file_penerimaan_pihak3' => 'nullable|string|max:255',
+            'file_bast_signed' => $fileBastSignedRule,
+            'file_penerimaan_pihak3' => ['nullable', DokumenUploadRule::pdfOrImage()],
             'catatan_pemeriksaan' => 'nullable|string',
+            'catatan_perlengkapan' => 'nullable|string',
             'foto_dokumentasi' => 'nullable|array',
             'foto_dokumentasi.*' => 'string|max:255',
         ]);
@@ -78,6 +89,11 @@ class PenerimaanBarangController extends Controller
 
         if (empty($validated['nomor_bast'])) {
             $validated['nomor_bast'] = 'BAST/'.date('Ymd').'/'.strtoupper(Str::random(6));
+        }
+
+        // Simpan dokumen BAST bertanda tangan jika diunggah sebagai file
+        if ($request->hasFile('file_bast_signed')) {
+            $validated['file_bast_signed'] = $request->file('file_bast_signed')->store('bast', 'public');
         }
 
         // Simpan dokumen serah terima pihak ketiga jika diunggah
@@ -159,6 +175,7 @@ class PenerimaanBarangController extends Controller
     {
         $validated = $request->validate([
             'status_fisik' => 'sometimes|required|string|in:terima,pending,tidak_sesuai',
+            'kategori_belanja' => 'sometimes|required|string|in:belanja_barang,belanja_modal',
             'ttd_digital_bast' => 'nullable|string',
             'file_bast_signed' => 'nullable|string|max:255',
             'file_penerimaan_pihak3' => 'nullable|string|max:255',

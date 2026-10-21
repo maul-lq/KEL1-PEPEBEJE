@@ -42,6 +42,10 @@ class PenerimaanBarang extends Model
 
     public const STATUS_TIDAK_SESUAI = 'tidak_sesuai';
 
+    public const KATEGORI_BELANJA_BARANG = 'belanja_barang';
+
+    public const KATEGORI_BELANJA_MODAL = 'belanja_modal';
+
     /**
      * Kolom-kolom yang dapat diisi secara massal (mass assignment).
      *
@@ -53,6 +57,7 @@ class PenerimaanBarang extends Model
         'id_user',
         'tanggal_penerimaan',
         'status_fisik',
+        'kategori_belanja',
         'ttd_digital_bast',
         'file_bast_signed',
         'file_penerimaan_pihak3',

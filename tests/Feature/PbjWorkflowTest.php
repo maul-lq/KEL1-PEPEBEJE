@@ -55,7 +55,7 @@ class PbjWorkflowTest extends TestCase
             'email' => 'ppbj@kampus.ac.id',
             'username' => 'staff_ppbj',
             'password' => bcrypt('password123'),
-            'role' => 'pbj',
+            'role' => 'ppbj',
             'nip' => '198403122008121002',
             'kode_unit' => 'TIK',
             'jabatan' => 'Koordinator PBJ',
@@ -70,13 +70,17 @@ class PbjWorkflowTest extends TestCase
 
     public function test_budget_threshold_logic_correctly_determines_procurement_jalur(): void
     {
-        // Under 50M: Pengadaan Langsung
+        // Under or equal 50M: Pengadaan Langsung (<= Rp 50.000.000)
         $this->assertEquals(PaketPengadaan::ROUTING_LANGSUNG, PaketPengadaan::tentukanRouting(35000000));
+        $this->assertEquals(PaketPengadaan::ROUTING_LANGSUNG, PaketPengadaan::tentukanRouting(50000000));
 
-        // 50M to 200M: Pejabat Pengadaan
+        // > 50M and < 200M: Pejabat Pengadaan
+        $this->assertEquals(PaketPengadaan::ROUTING_PP, PaketPengadaan::tentukanRouting(50000001));
         $this->assertEquals(PaketPengadaan::ROUTING_PP, PaketPengadaan::tentukanRouting(125000000));
+        $this->assertEquals(PaketPengadaan::ROUTING_PP, PaketPengadaan::tentukanRouting(199999999));
 
-        // Over 200M: PPK
+        // >= 200M: PPK
+        $this->assertEquals(PaketPengadaan::ROUTING_PPK, PaketPengadaan::tentukanRouting(200000000));
         $this->assertEquals(PaketPengadaan::ROUTING_PPK, PaketPengadaan::tentukanRouting(350000000));
     }
 
@@ -111,7 +115,7 @@ class PbjWorkflowTest extends TestCase
             'email' => 'ppbj_staff@kampus.ac.id',
             'username' => 'staff_pbj_2',
             'password' => bcrypt('password123'),
-            'role' => 'pbj',
+            'role' => 'ppbj',
             'nip' => '198601012009121001',
             'kode_unit' => 'TIK',
             'jabatan' => 'Staff PBJ',

@@ -92,6 +92,7 @@ class PermohonanPengadaan extends Model
         'tanggal_revisi',
         'alasan_revisi',
         'kode_mak',
+        'jenis_pengadaan_split',
         // Alias pendukung mass-assignment dari formulir web
         'perihal',
         'anggaran_diajukan',

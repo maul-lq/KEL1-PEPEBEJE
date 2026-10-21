@@ -312,18 +312,99 @@ class PermohonanPengadaanController extends Controller
     }
 
     /**
-     * Memecah (split) usulan permohonan pengadaan menjadi usulan pecahan baru (FR Unary Split).
+     * Memecah (split) usulan permohonan pengadaan menjadi usulan pecahan baru (FR 6.3 & FR 7.2).
+     * Mendukung pemecahan berdasarkan Kode MAK oleh Perencanaan (FR 6.3) maupun berdasarkan
+     * Jenis Pengadaan (barang, jasa, konstruksi) oleh PPBJ (FR 7.2), baik single-item maupun array 'items'.
      */
     public function split(Request $request, PermohonanPengadaan $permohonan_pengadaan): JsonResponse
     {
-        // 1. Validasi atribut usulan pecahan baru
+        // Mendukung pengiriman batch array 'items' (FR 6.3 / FR 7.2)
+        if ($request->has('items') && is_array($request->input('items'))) {
+            $validatedBatch = $request->validate([
+                'items' => 'required|array|min:1',
+                'items.*.nomor_surat_pecahan' => 'required|string|max:100|unique:permohonan_pengadaan,nomor_surat',
+                'items.*.judul_pengadaan' => 'required|string|max:255',
+                'items.*.estimasi_pagu_pecahan' => 'nullable|numeric|min:0',
+                'items.*.kode_mak' => 'nullable|exists:anggaran_mak,kode_mak',
+                'items.*.jenis_pengadaan_split' => 'nullable|string|in:barang,jasa,konstruksi,jasa_lainnya,jasa_konsultansi,pekerjaan_konstruksi',
+                'items.*.alasan_pemecahan' => 'nullable|string',
+            ]);
+
+            $statusAnak = ($permohonan_pengadaan->status_permohonan === PermohonanPengadaan::STATUS_DISETUJUI)
+                ? PermohonanPengadaan::STATUS_DISETUJUI
+                : PermohonanPengadaan::STATUS_REVIU_PARALEL;
+
+            $statusAnggaranAnak = ($permohonan_pengadaan->status_permohonan === PermohonanPengadaan::STATUS_DISETUJUI)
+                ? $permohonan_pengadaan->status_anggaran
+                : 'pending';
+
+            $createdChildren = [];
+            foreach ($validatedBatch['items'] as $item) {
+                $alasan = $item['alasan_pemecahan'] ?? 'Pemecahan berkas berdasarkan jenis pengadaan/kode MAK';
+                $anak = PermohonanPengadaan::create([
+                    'nomor_surat' => $item['nomor_surat_pecahan'],
+                    'judul_pengadaan' => $item['judul_pengadaan'],
+                    'tujuan_pengadaan_ringkas' => $permohonan_pengadaan->tujuan_pengadaan_ringkas,
+                    'file_permohonan' => $permohonan_pengadaan->file_permohonan,
+                    'status_permohonan' => $statusAnak,
+                    'status_anggaran' => $statusAnggaranAnak,
+                    'revisi_ke' => 0,
+                    'estimasi_total_pagu' => $item['estimasi_pagu_pecahan'] ?? $permohonan_pengadaan->estimasi_total_pagu,
+                    'kode_unit' => $permohonan_pengadaan->kode_unit,
+                    'id_user' => $permohonan_pengadaan->id_user,
+                    'nomor_surat_induk_split' => $permohonan_pengadaan->nomor_surat,
+                    'tanggal_pemecahan' => now(),
+                    'alasan_pemecahan' => $alasan,
+                    'kode_mak' => $item['kode_mak'] ?? $permohonan_pengadaan->kode_mak,
+                    'jenis_pengadaan_split' => $item['jenis_pengadaan_split'] ?? null,
+                ]);
+
+                $isPpbjSplit = ! empty($item['jenis_pengadaan_split']) || $request->user()?->role === 'ppbj';
+                AuditLog::catat(
+                    $request->user()?->id_user ?? $anak->id_user,
+                    $isPpbjSplit ? 'SPLIT_BERKAS_JENIS_PPBJ' : 'SPLIT_PERMOHONAN_MAK',
+                    'permohonan_pengadaan',
+                    $anak->nomor_surat,
+                    $permohonan_pengadaan->nomor_surat,
+                    $statusAnak,
+                    $alasan
+                );
+
+                $createdChildren[] = $anak;
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Permohonan pengadaan berhasil dipecah (split)',
+                'data' => $createdChildren,
+            ], 201);
+        }
+
+        // 1. Validasi atribut usulan pecahan tunggal
         $validated = $request->validate([
             'nomor_surat_baru' => 'required|string|max:100|unique:permohonan_pengadaan,nomor_surat',
             'judul_pengadaan' => 'required|string|max:255',
             'alasan_pemecahan' => 'required|string',
             'estimasi_total_pagu' => 'nullable|numeric|min:0',
             'kode_mak' => 'nullable|exists:anggaran_mak,kode_mak',
+            'jenis_pengadaan_split' => 'nullable|string|in:barang,jasa,konstruksi,jasa_lainnya,jasa_konsultansi,pekerjaan_konstruksi',
         ]);
+
+        // Jika nominal pecahan ditentukan dan lebih kecil dari pagu induk, kurangi pagu induk secara proporsional
+        $nominalSplit = (float) ($validated['estimasi_total_pagu'] ?? 0);
+        if ($nominalSplit > 0 && $permohonan_pengadaan->estimasi_total_pagu && $nominalSplit < (float) $permohonan_pengadaan->estimasi_total_pagu) {
+            $permohonan_pengadaan->estimasi_total_pagu = max(0, (float) $permohonan_pengadaan->estimasi_total_pagu - $nominalSplit);
+            $permohonan_pengadaan->save();
+        }
+
+        // Jika dipecah oleh PPBJ saat berkas sudah disetujui, warisi status disetujui agar langsung siap registrasi paket
+        $statusAnak = ($permohonan_pengadaan->status_permohonan === PermohonanPengadaan::STATUS_DISETUJUI)
+            ? PermohonanPengadaan::STATUS_DISETUJUI
+            : PermohonanPengadaan::STATUS_REVIU_PARALEL;
+
+        $statusAnggaranAnak = ($permohonan_pengadaan->status_permohonan === PermohonanPengadaan::STATUS_DISETUJUI)
+            ? $permohonan_pengadaan->status_anggaran
+            : 'pending';
 
         // 2. Buat record permohonan pecahan dengan mengaitkan nomor_surat_induk_split
         $anak = PermohonanPengadaan::create([
@@ -331,8 +412,8 @@ class PermohonanPengadaanController extends Controller
             'judul_pengadaan' => $validated['judul_pengadaan'],
             'tujuan_pengadaan_ringkas' => $permohonan_pengadaan->tujuan_pengadaan_ringkas,
             'file_permohonan' => $permohonan_pengadaan->file_permohonan,
-            'status_permohonan' => PermohonanPengadaan::STATUS_REVIU_PARALEL,
-            'status_anggaran' => 'pending',
+            'status_permohonan' => $statusAnak,
+            'status_anggaran' => $statusAnggaranAnak,
             'revisi_ke' => 0,
             'estimasi_total_pagu' => $validated['estimasi_total_pagu'] ?? $permohonan_pengadaan->estimasi_total_pagu,
             'kode_unit' => $permohonan_pengadaan->kode_unit,
@@ -341,17 +422,21 @@ class PermohonanPengadaanController extends Controller
             'tanggal_pemecahan' => now(),
             'alasan_pemecahan' => $validated['alasan_pemecahan'],
             'kode_mak' => $validated['kode_mak'] ?? $permohonan_pengadaan->kode_mak,
+            'jenis_pengadaan_split' => $validated['jenis_pengadaan_split'] ?? null,
         ]);
 
-        // 3. Rekam jejak pemecahan (split) permohonan ke audit log (FR 6.3 & NFR 9)
+        // 3. Rekam jejak pemecahan (split) permohonan ke audit log (FR 6.3, FR 7.2 & NFR 9)
+        $isPpbjSplit = ! empty($validated['jenis_pengadaan_split']) || $request->user()?->role === 'ppbj';
         AuditLog::catat(
             $request->user()?->id_user ?? $anak->id_user,
-            'SPLIT_PERMOHONAN_MAK',
+            $isPpbjSplit ? 'SPLIT_BERKAS_JENIS_PPBJ' : 'SPLIT_PERMOHONAN_MAK',
             'permohonan_pengadaan',
             $anak->nomor_surat,
             $permohonan_pengadaan->nomor_surat,
-            PermohonanPengadaan::STATUS_REVIU_PARALEL,
-            'Pemecahan usulan permohonan berdasarkan jenis anggaran MAK (FR 6.3 & NFR 9): '.$validated['alasan_pemecahan']
+            $statusAnak,
+            ($isPpbjSplit
+                ? 'Pemecahan berkas pengadaan berdasarkan jenis pengadaan oleh PPBJ (FR 7.2 & NFR 9): '
+                : 'Pemecahan usulan permohonan berdasarkan jenis anggaran MAK (FR 6.3 & NFR 9): ').$validated['alasan_pemecahan']
         );
 
         return response()->json([
@@ -499,15 +584,15 @@ class PermohonanPengadaanController extends Controller
             ] : null,
         ];
 
-        // TAHAP 6: Penerbitan Kontrak / Surat Perintah Kerja (SPK) dengan Rekanan
+        // TAHAP 6: Penerbitan Kontrak / Surat Perintah Kerja (SPK) dengan Rekanan oleh PPBJ
         $spk = $paket?->kontrakSpk;
         $statusStage6 = $spk ? 'selesai' : ($statusStage5 === 'selesai' ? 'sedang_berjalan' : 'menunggu');
 
         $stages[] = [
             'stage_number' => 6,
             'stage_name' => 'Penerbitan Kontrak / Surat Perintah Kerja (SPK)',
-            'role_in_charge' => 'PPK / PP',
-            'actor' => $paket?->ppkUser?->nama ?? $paket?->ppUser?->nama,
+            'role_in_charge' => 'Unit PPBJ (Pembuat Surat Kontrak / SPK)',
+            'actor' => $spk?->user?->nama ?? $paket?->ppbjUser?->nama ?? 'Staf PPBJ',
             'status' => $statusStage6,
             'timestamp' => $spk?->tanggal_spk?->toIso8601String() ?? null,
             'details' => $spk ? [

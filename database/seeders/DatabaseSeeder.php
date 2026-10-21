@@ -61,9 +61,23 @@ class DatabaseSeeder extends Seeder
         }
 
         // =========================================================================
-        // 2. Pembenihan Pengguna (9 Peran, Batasan 1 Akun PP Aktif, 4 Akun PPK Terisolasi)
+        // 2. Pembenihan Pengguna (9 Peran Organisasi, Batasan 1 Akun PP Aktif, 4 Akun PPK Terisolasi)
         // =========================================================================
         $users = [
+            // Peran 0: Administrator Sistem
+            [
+                'nip' => '198000002005011000',
+                'username' => 'admin',
+                'email' => 'admin@pnj.ac.id',
+                'nama' => 'Administrator Sistem SIM-PBJ',
+                'password' => $defaultPassword,
+                'jabatan' => 'Administrator Sistem Informasi',
+                'role' => 'admin',
+                'status_aktif' => true,
+                'no_hp' => '081100000001',
+                'no_telp_kantor' => '0217270000',
+                'kode_unit' => 'TIK',
+            ],
             // Peran 1: Pengusul (User) dari unit kerja akademik
             [
                 'nip' => '198501012010011001',
@@ -387,7 +401,7 @@ class DatabaseSeeder extends Seeder
                 'id_paket_lkpp' => 'LKPP-2026-998812',
                 'nomor_surat' => $permohonan1->nomor_surat,
                 'tanggal_registrasi_paket' => now()->subDays(3),
-                'nomor_memo_ppbj' => 'MEMO-PPBJ/2026/001',
+                'nomor_memo_ppbj' => null,
                 'id_user_ppbj' => $ppbjUser->id_user,
                 'id_user_ppk' => $ppk1User->id_user,
                 'tanggal_penugasan_ppk' => now()->subDays(3),
