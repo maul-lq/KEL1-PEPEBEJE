@@ -167,20 +167,19 @@ class HomeController extends Controller
             ? $request->file('file_spesifikasi_teknis')->store('spek', 'public')
             : null;
 
-        // Buat baris data permohonan pengadaan
+     // Buat baris data permohonan pengadaan
         $permohonan = PermohonanPengadaan::create([
             'nomor_surat' => $validated['nomor_surat'],
-            'perihal' => $validated['perihal'],
-            'anggaran_diajukan' => $validated['anggaran_diajukan'],
+            'judul_pengadaan' => $validated['perihal'], // Memenuhi NOT NULL constraint kolom judul_pengadaan
+            'tujuan_pengadaan_ringkas' => $validated['perihal'],
+            'file_permohonan' => $filePermohonanPath,
+            'estimasi_total_pagu' => $validated['anggaran_diajukan'],
             'kode_unit' => $validated['kode_unit'],
             'id_user' => $user->id_user,
             'tanggal_pengajuan' => $validated['tanggal_pengajuan'],
-            'file_surat_permohonan' => $filePermohonanPath,
-            'file_kak' => $fileKakPath,
-            'file_spesifikasi_teknis' => $fileSpekPath,
-            'status' => 'diajukan',
             'status_permohonan' => PermohonanPengadaan::STATUS_REVIU_PARALEL,
             'status_anggaran' => 'pending',
+            'status' => 'diajukan',
         ]);
 
         // Inisialisasi entri verifikasi paralel untuk Staf Bidang 2 / Wadir 2 dan Perencanaan
