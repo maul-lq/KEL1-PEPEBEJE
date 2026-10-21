@@ -117,6 +117,23 @@ class HomeController extends Controller
     }
 
     /**
+     * Menampilkan detail tracking & informasi permohonan pengadaan.
+     */
+    public function permohonanShow(string $id): View
+    {
+        $permohonan = PermohonanPengadaan::with([
+            'unit', 
+            'user', 
+            'verifikasiParalel.user', 
+            'paket.kontrak.penerimaan'
+        ])->where('nomor_surat', $id)
+          ->orWhere('id_permohonan', $id)
+          ->firstOrFail();
+
+        return view('permohonan.show', compact('permohonan'));
+    }
+    
+    /**
      * Menampilkan formulir pendaftaran usulan permohonan pengadaan baru berbasis Srikandi.
      */
     public function permohonanCreate(): View
@@ -140,8 +157,8 @@ class HomeController extends Controller
             'kode_unit' => ['required', 'string', 'exists:units,kode_unit'],
             'tanggal_pengajuan' => ['required', 'date'],
             'file_surat_permohonan' => ['nullable', DokumenUploadRule::pdfOnly()],
-            'file_kak' => ['nullable', 'file', 'mimes:pdf,doc,docx', 'max:10240'],
-            'file_spesifikasi_teknis' => ['nullable', 'file', 'mimes:pdf,doc,docx,xlsx,xls', 'max:10240'],
+            'file_kak' => ['nullable', DokumenUploadRule::pdfOnly()],
+            'file_spesifikasi_teknis' => ['nullable', DokumenUploadRule::pdfOnly()],
         ]);
 
         $filePermohonanPath = $request->hasFile('file_surat_permohonan')
@@ -156,7 +173,7 @@ class HomeController extends Controller
             ? $request->file('file_spesifikasi_teknis')->store('spek', 'public')
             : null;
 
-        // Buat baris data permohonan pengadaan
+     // Buat baris data permohonan pengadaan
         $permohonan = PermohonanPengadaan::create([
             'nomor_surat' => $validated['nomor_surat'],
             'judul_pengadaan' => $validated['perihal'],
@@ -171,6 +188,7 @@ class HomeController extends Controller
             'file_surat_permohonan' => $filePermohonanPath ?? 'permohonan/dummy.pdf',
             'status_permohonan' => PermohonanPengadaan::STATUS_REVIU_PARALEL,
             'status_anggaran' => 'pending',
+            'status' => 'diajukan',
         ]);
 
         // Inisialisasi entri verifikasi paralel untuk Staf Bidang 2 / Wadir 2 dan Perencanaan
@@ -225,7 +243,7 @@ class HomeController extends Controller
             'perihal' => ['required', 'string', 'max:255'],
             'anggaran_diajukan' => ['required', 'numeric', 'min:1'],
             'keterangan_revisi' => ['nullable', 'string'],
-            'file_kak' => ['nullable', 'file', 'mimes:pdf,doc,docx', 'max:10240'],
+            'file_kak' => ['nullable', DokumenUploadRule::pdfOnly()],
         ]);
 
         $induk = PermohonanPengadaan::findOrFail($validated['nomor_surat_lama']);
@@ -658,8 +676,71 @@ class HomeController extends Controller
         $paketList = $query->latest('tanggal_registrasi_paket')->paginate(15);
         $ppkUsers = User::where('role', 'ppk')->where('status_aktif', true)->get();
         $riwayatPenugasan = RiwayatPenugasanPPK::with(['ppkLama', 'ppkBaru', 'userPenetap'])->latest()->take(20)->get();
+        $permohonanDisetujui = PermohonanPengadaan::where('status_permohonan', PermohonanPengadaan::STATUS_DISETUJUI)->get();
 
-        return view('paket.tes_index', compact('paketList', 'ppkUsers', 'riwayatPenugasan'));
+        return view('paket.tes_index', compact('paketList', 'ppkUsers', 'riwayatPenugasan', 'permohonanDisetujui'));
+    }
+
+    /**
+     * Memproses pemecahan (split) berkas permohonan berdasarkan jenis pengadaan (Barang / Jasa / Konstruksi) oleh PPBJ (FR 7.2).
+     */
+    public function splitJenisPpbj(Request $request): RedirectResponse
+    {
+        $user = Auth::user();
+        $nomorInduk = $request->input('nomor_surat_induk');
+        if (! $request->filled('nomor_surat_baru') && $nomorInduk) {
+            $countChild = PermohonanPengadaan::where('nomor_surat_induk_split', $nomorInduk)->count();
+            $request->merge(['nomor_surat_baru' => $nomorInduk.'.PBJ.'.($countChild + 1)]);
+        }
+
+        $validated = $request->validate([
+            'nomor_surat_induk' => ['required', 'exists:permohonan_pengadaan,nomor_surat'],
+            'nomor_surat_baru' => ['required', 'string', 'max:100', 'unique:permohonan_pengadaan,nomor_surat'],
+            'judul_pengadaan' => ['required', 'string', 'max:255'],
+            'jenis_pengadaan_split' => ['required', 'string', 'in:barang,jasa,konstruksi,jasa_lainnya,jasa_konsultansi,pekerjaan_konstruksi'],
+            'estimasi_total_pagu' => ['required', 'numeric', 'min:1'],
+            'alasan_pemecahan' => ['required', 'string'],
+        ]);
+
+        $induk = PermohonanPengadaan::findOrFail($validated['nomor_surat_induk']);
+
+        // Kurangi pagu permohonan induk secara proporsional
+        $nominalSplit = (float) $validated['estimasi_total_pagu'];
+        $induk->estimasi_total_pagu = max(0, (float) ($induk->estimasi_total_pagu ?? 0) - $nominalSplit);
+        $induk->save();
+
+        $anak = PermohonanPengadaan::create([
+            'nomor_surat' => $validated['nomor_surat_baru'],
+            'judul_pengadaan' => $validated['judul_pengadaan'],
+            'tujuan_pengadaan_ringkas' => $induk->tujuan_pengadaan_ringkas,
+            'file_permohonan' => $induk->file_permohonan,
+            'status_permohonan' => PermohonanPengadaan::STATUS_DISETUJUI,
+            'status_anggaran' => $induk->status_anggaran ?? 'disetujui',
+            'revisi_ke' => 0,
+            'estimasi_total_pagu' => $validated['estimasi_total_pagu'],
+            'kode_unit' => $induk->kode_unit,
+            'id_user' => $induk->id_user,
+            'nomor_surat_induk_split' => $induk->nomor_surat,
+            'tanggal_pemecahan' => now(),
+            'alasan_pemecahan' => $validated['alasan_pemecahan'],
+            'kode_mak' => $induk->kode_mak,
+            'jenis_pengadaan_split' => $validated['jenis_pengadaan_split'],
+        ]);
+
+        AuditLog::catat(
+            $user->id_user,
+            'SPLIT_BERKAS_JENIS_PPBJ',
+            'permohonan_pengadaan',
+            $anak->nomor_surat,
+            $induk->nomor_surat,
+            PermohonanPengadaan::STATUS_DISETUJUI,
+            'Pemecahan berkas oleh PPBJ berdasarkan jenis pengadaan '.$validated['jenis_pengadaan_split'].' (FR 7.2): '.$validated['alasan_pemecahan']
+        );
+
+        return redirect()->route('paket.index')->with(
+            'success',
+            "Berkas berhasil dipecah menjadi surat baru {$anak->nomor_surat} untuk jenis pengadaan ".strtoupper($validated['jenis_pengadaan_split']).' (FR 7.2).'
+        );
     }
 
     /**
@@ -690,6 +771,7 @@ class HomeController extends Controller
             'jenis_pengadaan' => ['required', 'string'],
             'metode_pengadaan' => ['required', 'string'],
             'nilai_hps' => ['required', 'numeric', 'gt:0'],
+            'nomor_memo_ppbj' => ['nullable', 'string', 'max:100'],
             'id_user_ppk' => ['nullable', 'exists:users,id_user'],
             'id_user_pp' => ['nullable', 'exists:users,id_user'],
         ]);
@@ -697,9 +779,28 @@ class HomeController extends Controller
         $hps = (float) $validated['nilai_hps'];
         $jalur = PaketPengadaan::tentukanRouting($hps);
 
-        // Validasi penugasan PPK jika nilai > 200 juta
+        // Validasi penugasan PPK jika nilai >= 200 juta
         if ($jalur === 'ppk_diatas_200jt' && empty($validated['id_user_ppk'])) {
-            return back()->withErrors(['id_user_ppk' => 'Nilai HPS di atas Rp 200 Juta wajib menugaskan salah satu dari 4 akun PPK (NFR 4).'])->withInput();
+            return back()->withErrors(['id_user_ppk' => 'Nilai HPS >= Rp 200 Juta wajib menugaskan salah satu dari 4 akun PPK (NFR 4).'])->withInput();
+        }
+
+        // Aturan bisnis: Paket >= 200 Juta (jalur PPK) tidak menggunakan memo pengadaan PPBJ
+        $nomorMemoPpbj = ($jalur === 'ppk_diatas_200jt')
+            ? null
+            : ($validated['nomor_memo_ppbj'] ?? ('MEMO-PPBJ/'.date('Y').'/'.rand(100, 999)));
+
+        // Penentuan pejabat PP dan PPK sesuai jalur BPMN (bepemen.drawio):
+        // - <= 50jt (langsung_sd_50jt): Pengadaan Langsung, langsung dieksekusi PPBJ tanpa PP/PPK
+        // - > 50jt & < 200jt (pp_50jt_sd_200jt): Ke PP lalu ke PPK lalu ke PPBJ
+        // - >= 200jt (ppk_diatas_200jt): Langsung ke PPK lalu ke PPBJ
+        $idUserPp = null;
+        $idUserPpk = null;
+
+        if ($jalur === 'pp_50jt_sd_200jt') {
+            $idUserPp = $validated['id_user_pp'] ?? User::where('role', 'pp')->where('status_aktif', true)->first()?->id_user;
+            $idUserPpk = $validated['id_user_ppk'] ?? User::where('role', 'ppk')->where('status_aktif', true)->first()?->id_user;
+        } elseif ($jalur === 'ppk_diatas_200jt') {
+            $idUserPpk = $validated['id_user_ppk'];
         }
 
         $paket = PaketPengadaan::create([
@@ -714,11 +815,12 @@ class HomeController extends Controller
             'nilai_hps' => $hps,
             'alokasi_pagu_paket' => $hps,
             'jalur_routing' => $jalur,
+            'nomor_memo_ppbj' => $nomorMemoPpbj,
             'id_user_ppbj' => $user->id_user,
-            'id_user_ppk' => $validated['id_user_ppk'] ?? null,
-            'id_user_pp' => $validated['id_user_pp'] ?? null,
+            'id_user_ppk' => $idUserPpk,
+            'id_user_pp' => $idUserPp,
             'tanggal_registrasi_paket' => now(),
-            'status_paket' => 'terdaftar',
+            'status_paket' => ($jalur === 'langsung_sd_50jt') ? 'reviu_dokumen_disetujui' : 'terdaftar',
         ]);
 
         AuditLog::catat(
@@ -903,6 +1005,7 @@ class HomeController extends Controller
             'nomor_paket' => ['required', 'exists:paket_pengadaan,nomor_paket'],
             'status_reviu' => ['required', 'in:disetujui,perlu_perbaikan'],
             'catatan_perbaikan' => ['required_if:status_reviu,perlu_perbaikan', 'nullable', 'string'],
+            'nilai_hasil_negosiasi' => ['nullable', 'numeric', 'min:0'],
         ], [
             'catatan_perbaikan.required_if' => 'Catatan perbaikan wajib diisi saat meminta perbaikan dokumen pengadaan (FR 9.3).',
         ]);
@@ -926,8 +1029,21 @@ class HomeController extends Controller
             'tanggal_reviu' => now(),
         ]);
 
+        if ($user->role === 'pp') {
+            if (! empty($validated['nilai_hasil_negosiasi'])) {
+                $paket->nilai_hasil_negosiasi = $validated['nilai_hasil_negosiasi'];
+            }
+            if (! empty($validated['catatan_perbaikan'])) {
+                $paket->catatan_verifikasi_pp = $validated['catatan_perbaikan'];
+            }
+        }
+
         if ($validated['status_reviu'] === 'disetujui') {
             $paket->status_paket = 'reviu_dokumen_disetujui';
+            // Sesuai BPMN (bepemen.drawio): Saat PPK meninjau & menyetujui dokumen, PPK mengunci Kode MAK
+            if ($user->role === 'ppk') {
+                $paket->kunciMakTerkait();
+            }
         } else {
             $paket->status_paket = 'perlu_perbaikan';
         }
@@ -981,8 +1097,10 @@ class HomeController extends Controller
             'nomor_bast' => ['required', 'string', 'max:100', 'unique:penerimaan_barang,nomor_bast'],
             'tanggal_terima' => ['required', 'date'],
             'kondisi_barang' => ['required', 'string'],
+            'kategori_belanja' => ['nullable', 'string', 'in:belanja_barang,belanja_modal'],
             'foto_barang' => ['nullable'],
-            'file_penerimaan_pihak3' => ['nullable', 'file', 'max:10240'],
+            'foto_barang.*' => ['nullable', DokumenUploadRule::pdfOrImage()],
+            'file_penerimaan_pihak3' => ['nullable', DokumenUploadRule::pdfOrImage()],
             'catatan_pemeriksaan' => ['nullable', 'string'],
         ]);
 
@@ -997,13 +1115,14 @@ class HomeController extends Controller
         // 2. Buat token HMAC SHA-256 untuk verifikasi keabsahan hukum dokumen BAST (FR 14.3 & NFR 6)
         $tokenHmac = PenerimaanBarang::generateSignatureToken($validated['nomor_bast'], $user->id_user);
 
-        // 3. Simpan data BAST
+        // 3. Simpan data BAST beserta penentuan Belanja Barang (Persediaan) atau Belanja Modal (BMN)
         $penerimaan = PenerimaanBarang::create([
             'nomor_bast' => $validated['nomor_bast'],
             'nomor_paket' => $spk->nomor_paket,
             'id_user' => $user->id_user,
             'tanggal_penerimaan' => $validated['tanggal_terima'],
             'status_fisik' => $validated['kondisi_barang'],
+            'kategori_belanja' => $validated['kategori_belanja'] ?? PenerimaanBarang::KATEGORI_BELANJA_BARANG,
             'kondisi_barang' => $validated['kondisi_barang'],
             'ttd_digital_bast' => $tokenHmac,
             'file_bast_signed' => 'bast/'.$validated['nomor_bast'].'.pdf',

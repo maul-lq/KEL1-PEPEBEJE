@@ -41,6 +41,12 @@ Route::middleware('guest')->group(function () {
     Route::get('/register', [AuthController::class, 'showRegistrationForm'])->name('register');
     Route::post('/register', [AuthController::class, 'register']);
 
+    // Lupa Password & Reset Password
+    Route::get('/forgot-password', [AuthController::class, 'showForgotPasswordForm'])->name('password.request');
+    Route::post('/forgot-password', [AuthController::class, 'sendResetLinkEmail'])->name('password.email');
+    Route::get('/reset-password/{token}', [AuthController::class, 'showResetPasswordForm'])->name('password.reset');
+    Route::post('/reset-password', [AuthController::class, 'resetPassword'])->name('password.update');
+
     // Backward-compatibility aliases untuk rute pengujian sebelumnya
     Route::get('/tes-login', [AuthController::class, 'showLoginForm']);
     Route::post('/tes-login', [AuthController::class, 'login']);
@@ -72,6 +78,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/permohonan', [HomeController::class, 'storePermohonan'])->name('permohonan.store');
     Route::post('/permohonan/revisi', [HomeController::class, 'revisiPermohonan'])->name('permohonan.revisi');
 
+    // TAMBAHKAN BARIS INI:
+    Route::get('/permohonan/{id}', [HomeController::class, 'permohonanShow'])->name('permohonan.show');
     // -------------------------------------------------------------------------
     // -------------------------------------------------------------------------
     // Modul 2 & 3: Verifikasi Paralel (Staf B2, Wadir 2, & Perencanaan)
@@ -100,6 +108,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/paket-pengadaan/create', [HomeController::class, 'paketCreate'])->name('paket.create');
         Route::post('/paket-pengadaan', [HomeController::class, 'storePaket'])->name('paket.store');
         Route::post('/paket-pengadaan/reassign-ppk', [HomeController::class, 'reassignPpkWeb'])->name('paket.reassign-ppk');
+        Route::post('/paket-pengadaan/split-jenis', [HomeController::class, 'splitJenisPpbj'])->name('paket.split-jenis');
     });
 
     // -------------------------------------------------------------------------
@@ -189,10 +198,15 @@ Route::prefix('api')->group(function () {
         ->name('permohonan-pengadaan.unduh-pdf')
         ->where(['permohonan_pengadaan' => '.*']);
 
-    // Memecah (split) usulan permohonan pengadaan jika terdapat item yang ditolak sebagian (FR Unary Split)
+    // Memecah (split) usulan permohonan pengadaan berdasarkan Kode MAK (FR 6.3 - Perencanaan) atau Jenis Pengadaan (FR 7.2 - PPBJ)
     Route::post('permohonan-pengadaan/{permohonan_pengadaan}/split', [PermohonanPengadaanController::class, 'split'])
         ->name('permohonan-pengadaan.split')
-        ->middleware('role:perencanaan,ppbj')
+        ->middleware('role:perencanaan,ppbj,admin')
+        ->where(['permohonan_pengadaan' => '.*']);
+
+    Route::post('permohonan/{permohonan_pengadaan}/split-ppbj', [PermohonanPengadaanController::class, 'split'])
+        ->name('permohonan.split-ppbj')
+        ->middleware('role:ppbj,admin')
         ->where(['permohonan_pengadaan' => '.*']);
 
     // Mengajukan revisi permohonan yang ditolak dengan nomor surat baru dan relasi unary (FR 3.4)

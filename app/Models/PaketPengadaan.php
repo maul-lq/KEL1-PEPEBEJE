@@ -176,16 +176,28 @@ class PaketPengadaan extends Model
                 }
                 $model->id_user_ppbj = $ppbjUser->id_user;
             }
+
+            // Aturan bisnis: Paket >= 200 Juta (jalur PPK) tidak menggunakan memo pengadaan PPBJ
+            if ($model->jalur_routing === self::ROUTING_PPK || (float) ($model->nilai_hps ?? 0) >= 200000000) {
+                $model->nomor_memo_ppbj = null;
+            }
+        });
+
+        static::saving(function (PaketPengadaan $model) {
+            // Pastikan paket >= 200 Juta selalu tanpa nomor memo pengadaan PPBJ
+            if ($model->jalur_routing === self::ROUTING_PPK || (float) ($model->nilai_hps ?? 0) >= 200000000) {
+                $model->nomor_memo_ppbj = null;
+            }
         });
     }
 
     /**
      * Menghitung jalur pengadaan berdasarkan batas nilai nominal pagu atau HPS.
      *
-     * Aturan:
-     * - Nilai s.d Rp 50.000.000: Pengadaan Langsung / Pembelian Langsung
-     * - Nilai Rp 50.000.001 s.d Rp 200.000.000: Pejabat Pengadaan (PP)
-     * - Nilai > Rp 200.000.000: Pejabat Pembuat Komitmen (PPK)
+     * Aturan sesuai BPMN (bepemen.drawio) & Dokumen Alur Pekerjaan:
+     * - Nilai <= Rp 50.000.000: Pengadaan Langsung (PPBJ langsung menerbitkan SPK -> Perlengkapan)
+     * - Nilai > Rp 50.000.000 dan < Rp 200.000.000: Pejabat Pengadaan (PP) -> PPK -> PPBJ -> Perlengkapan
+     * - Nilai >= Rp 200.000.000: Pejabat Pembuat Komitmen (PPK) -> PPBJ -> Perlengkapan (Tanpa Memo Pengadaan)
      *
      * @param  float  $nominal  Nominal nilai paket pengadaan
      * @return string Kode jalur routing yang sesuai
@@ -194,10 +206,30 @@ class PaketPengadaan extends Model
     {
         if ($nominal <= 50000000) {
             return self::ROUTING_LANGSUNG;
-        } elseif ($nominal <= 200000000) {
+        } elseif ($nominal < 200000000) {
             return self::ROUTING_PP;
         } else {
             return self::ROUTING_PPK;
+        }
+    }
+
+    /**
+     * Mengunci secara permanen seluruh Mata Anggaran Kegiatan (MAK) yang terhubung dengan paket ini.
+     * Dipanggil saat PPK menyetujui dokumen & mengunci MAK atau saat Kontrak SPK diterbitkan.
+     */
+    public function kunciMakTerkait(): void
+    {
+        $permohonan = $this->permohonan;
+        if (! $permohonan) {
+            return;
+        }
+
+        if ($permohonan->anggaranMak) {
+            $permohonan->anggaranMak->lock();
+        }
+
+        foreach ($permohonan->alokasiMak ?? [] as $alokasi) {
+            $alokasi->mak?->lock();
         }
     }
 

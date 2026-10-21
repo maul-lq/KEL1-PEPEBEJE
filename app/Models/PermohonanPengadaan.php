@@ -75,13 +75,19 @@ class PermohonanPengadaan extends Model
      */
     protected $fillable = [
         'nomor_surat',
+        'perihal',
         'judul_pengadaan',
         'tujuan_pengadaan_ringkas',
         'file_permohonan',
+        'file_surat_permohonan',
+        'file_kak',
+        'file_spesifikasi_teknis',
+        'anggaran_diajukan',
+        'estimasi_total_pagu',
+        'status',
         'status_permohonan',
         'status_anggaran',
         'revisi_ke',
-        'estimasi_total_pagu',
         'tanggal_pengajuan',
         'kode_unit',
         'id_user',
@@ -92,6 +98,7 @@ class PermohonanPengadaan extends Model
         'tanggal_revisi',
         'alasan_revisi',
         'kode_mak',
+        'jenis_pengadaan_split',
         // Alias pendukung mass-assignment dari formulir web
         'perihal',
         'anggaran_diajukan',

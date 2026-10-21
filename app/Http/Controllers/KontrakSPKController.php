@@ -15,9 +15,10 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Controller Penerbitan Dokumen Kontrak & SPK (KontrakSPKController)
  *
- * Mengelola penerbitan perjanjian resmi dengan vendor rekanan:
- * - Penerbitan Surat Perintah Kerja (SPK) / Surat Kontrak / Surat Pesanan.
+ * Mengelola penerbitan perjanjian resmi dengan vendor rekanan oleh Unit PPBJ (role: ppbj):
+ * - Penerbitan Surat Perintah Kerja (SPK) / Surat Kontrak / Surat Pesanan oleh PPBJ setelah persetujuan PPK (atau langsung untuk <= 50jt).
  * - Memicu penguncian otomatis (auto-lock) anggaran MAK agar pagu tidak dapat diubah (NFR Integritas MAK).
+ * - Memicu distribusi tembusan otomatis SPK ke Unit Perlengkapan dan Bagian Keuangan (FR 11.3).
  * - Pemutakhiran otomatis status paket menjadi 'spk_terbit'.
  * - Unduh salinan PDF resmi berkas kontrak (< 3 detik) (NFR 12).
  */
@@ -47,7 +48,7 @@ class KontrakSPKController extends Controller
     }
 
     /**
-     * Menerbitkan berkas kontrak / SPK baru dan memicu penguncian otomatis anggaran MAK (NFR Integritas MAK).
+     * Menerbitkan berkas kontrak / SPK baru oleh PPBJ dan memicu penguncian otomatis anggaran MAK (NFR Integritas MAK).
      */
     public function store(Request $request): JsonResponse
     {
@@ -65,7 +66,7 @@ class KontrakSPKController extends Controller
             $request->merge(['file_spk' => 'spk/spk_dummy.pdf']);
         }
         if (! $request->filled('id_user')) {
-            $request->merge(['id_user' => $request->user()?->id_user ?? User::where('role', 'ppk')->first()?->id_user ?? User::first()?->id_user]);
+            $request->merge(['id_user' => $request->user()?->id_user ?? User::where('role', 'ppbj')->first()?->id_user ?? User::first()?->id_user]);
         }
 
         // 1. Validasi input penerbitan kontrak/SPK
