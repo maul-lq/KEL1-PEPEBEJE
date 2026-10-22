@@ -157,6 +157,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/notifikasi/mark-all-read', [HomeController::class, 'markAllReadWeb'])->name('notifikasi.mark-all-read');
     Route::post('/notifikasi/{id}/read', [HomeController::class, 'markAsReadWeb'])->name('notifikasi.read');
     Route::post('/notifikasi/{id}/dismiss', [HomeController::class, 'dismissNotificationWeb'])->name('notifikasi.dismiss');
+    Route::get('/api/notifikasi-terbaru', [NotifikasiUserController::class, 'notifikasiTerbaru'])->name('notifikasi.terbaru');
 
     // -------------------------------------------------------------------------
     // Modul 10: Administrasi Persetujuan Registrasi & Manajemen Role (Admin)
