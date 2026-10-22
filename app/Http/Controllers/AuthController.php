@@ -50,7 +50,7 @@ class AuthController extends Controller
      */
     public function register(Request $request): RedirectResponse
     {
-        // 1. Validasi seluruh data input pendaftaran
+        // 1. Validasi seluruh data input pendaftaran (tanpa pemilihan role oleh pendaftar, sesuai Opsi A)
         $validated = $request->validate([
             'nip' => ['required', 'string', 'max:30', 'unique:users,nip'],
             'username' => ['required', 'string', 'max:50', 'unique:users,username'],
@@ -61,24 +61,13 @@ class AuthController extends Controller
             'kode_unit' => ['required', 'string', 'exists:units,kode_unit'],
             'no_hp' => ['required', 'string', 'max:20'],
             'no_telp_kantor' => ['nullable', 'string', 'max:20'],
-            'role' => ['nullable', 'string', 'in:admin,user,staff_bidang_2,wadir_2,perencanaan,ppbj,pp,ppk,perlengkapan,keuangan'],
         ]);
 
-        // Default peran pengguna baru adalah 'user' (unit pemohon usulan pengadaan)
-        $targetRole = $validated['role'] ?? 'user';
-
-        // 2. FR 2.1: Batasan ketat 1 user = 1 akun Pejabat Pengadaan (PP) aktif di institusi
-        if ($targetRole === 'pp') {
-            $existingPP = User::where('role', 'pp')->where('status_aktif', true)->exists();
-            if ($existingPP) {
-                return back()->withErrors([
-                    'role' => 'Batasan sistem: Hanya diizinkan 1 akun Pejabat Pengadaan (PP) aktif di institusi (FR 2.1).',
-                ])->withInput();
-            }
-        }
-
-        $validated['role'] = $targetRole;
-        $validated['status_aktif'] = true; // Langsung diaktifkan untuk kemudahan simulasi
+        // 2. Status awal pendaftaran: Tidak aktif dan menunggu persetujuan Administrator
+        // Role definitif akan dipilihkan dan ditetapkan 100% oleh Admin saat tombol Setujui (ACC) ditekan
+        $validated['role'] = User::ROLE_USER; // Default sementara sebelum dipetakan Admin
+        $validated['status_aktif'] = false;
+        $validated['status_registrasi'] = User::STATUS_REGISTRASI_MENUNGGU;
 
         // 3. Simpan data user baru ke database
         User::create($validated);
@@ -86,7 +75,7 @@ class AuthController extends Controller
         // Berikan pesan sukses dan alihkan pengguna ke formulir login
         return redirect()->route('login')->with(
             'success',
-            'Pendaftaran akun berhasil! Silakan login menggunakan Username, NIP, atau Email Anda.'
+            'Pendaftaran akun berhasil diajukan! Akun Anda sedang menunggu verifikasi dan persetujuan (ACC) dari Administrator sebelum dapat digunakan.'
         );
     }
 
@@ -123,7 +112,22 @@ class AuthController extends Controller
 
         // 4. Verifikasi kecocokan hash password
         if ($user && Hash::check($credentials['password'], $user->password)) {
-            // Periksa apakah akun masih aktif
+            // Periksa status verifikasi persetujuan (approval) oleh Administrator
+            if ($user->status_registrasi === User::STATUS_REGISTRASI_MENUNGGU) {
+                return back()->withErrors([
+                    'login' => 'Pendaftaran akun Anda sedang menunggu verifikasi dan persetujuan dari Administrator.',
+                ])->onlyInput('login');
+            }
+
+            if ($user->status_registrasi === User::STATUS_REGISTRASI_DITOLAK) {
+                $alasan = $user->alasan_penolakan ? " Alasan: {$user->alasan_penolakan}" : '';
+
+                return back()->withErrors([
+                    'login' => "Pendaftaran akun Anda ditolak oleh Administrator.{$alasan}",
+                ])->onlyInput('login');
+            }
+
+            // Periksa apakah akun dinonaktifkan
             if (! $user->status_aktif) {
                 return back()->withErrors([
                     'login' => 'Akun Anda sedang dinonaktifkan oleh Administrator.',

@@ -76,11 +76,142 @@
         @endif
     </fieldset>
 
-    <hr>
+    <hr class="my-6">
 
-    {{-- 2. Daftar Master MAK DIPA & Fitur Kunci Anggaran --}}
-    <fieldset>
-        <legend><strong>Daftar Mata Anggaran Kegiatan (MAK) DIPA Kampus PNJ</strong></legend>
+    {{-- 2. Formulir Pemecahan (Split) Permohonan Pengadaan Berdasarkan Anggaran MAK (FR 6.3) --}}
+    <fieldset class="rounded-2xl bg-white p-6 shadow-sm border border-slate-100">
+        <legend class="text-lg font-bold text-slate-800 px-2">Pemecahan (Split) Usulan Permohonan Berdasarkan Pos Anggaran MAK</legend>
+        <p class="text-xs text-slate-500 mb-4">
+            Jika terdapat usulan permohonan yang perlu dipisahkan pembebanan anggarannya ke mata anggaran (MAK) yang berbeda,
+            Perencanaan dapat memecah berkas usulan menjadi nomor surat pecahan baru.
+        </p>
+
+        <form action="{{ route('verifikasi.perencanaan.split') }}" method="POST" class="space-y-4">
+            @csrf
+            <div>
+                <label for="nomor_surat_induk_fe" class="block text-xs font-semibold text-slate-700 mb-1">Pilih Usulan Induk yang Akan Dipecah</label>
+                <select id="nomor_surat_induk_fe" name="nomor_surat_induk" required
+                        class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">-- Pilih Surat Permohonan Induk --</option>
+                    @foreach($permohonanAntrean as $p)
+                        <option value="{{ $p->nomor_surat }}">
+                            [{{ $p->nomor_surat }}] {{ $p->perihal }} (Rp {{ number_format($p->anggaran_diajukan, 0, ',', '.') }})
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div class="grid gap-4 sm:grid-cols-2">
+                <div>
+                    <label for="nomor_surat_baru_fe" class="block text-xs font-semibold text-slate-700 mb-1">Nomor Surat Pecahan Baru</label>
+                    <input type="text" id="nomor_surat_baru_fe" name="nomor_surat_baru" value="B/SPLIT/{{ date('Y') }}/{{ rand(100, 999) }}" required
+                           class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label for="kode_mak_split_fe" class="block text-xs font-semibold text-slate-700 mb-1">Alokasikan ke Kode MAK</label>
+                    <select id="kode_mak_split_fe" name="kode_mak" required
+                            class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">-- Pilih MAK Alokasi --</option>
+                        @foreach($makList as $mak)
+                            <option value="{{ $mak->kode_mak }}" {{ $mak->is_locked ? 'disabled' : '' }}>
+                                [{{ $mak->kode_mak }}] {{ $mak->uraian_mak }} &bull; Sisa: Rp {{ number_format($mak->sisa_pagu_mak, 0, ',', '.') }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label for="judul_pengadaan_split_fe" class="block text-xs font-semibold text-slate-700 mb-1">Judul / Item Pengadaan Pecahan</label>
+                <input type="text" id="judul_pengadaan_split_fe" name="judul_pengadaan" placeholder="Contoh: Pengadaan Komputer Bagian Lab A" required
+                       class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <div>
+                <label for="estimasi_total_pagu_fe" class="block text-xs font-semibold text-slate-700 mb-1">Estimasi Alokasi Pagu Pecahan (Rp)</label>
+                <input type="number" id="estimasi_total_pagu_fe" name="estimasi_total_pagu" min="1" step="0.01" required placeholder="Contoh: 50000000"
+                       class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <div>
+                <label for="alasan_pemecahan_fe" class="block text-xs font-semibold text-slate-700 mb-1">Alasan Pemecahan Anggaran MAK</label>
+                <textarea id="alasan_pemecahan_fe" name="alasan_pemecahan" rows="2" required placeholder="Contoh: Pemisahan item belanja modal dan operasional ke pos MAK terpisah..."
+                          class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+            </div>
+
+            <div>
+                <button type="submit" class="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-semibold text-white shadow hover:bg-indigo-700 transition-colors">
+                    Proses Pemecahan (Split) Berkas Permohonan
+                </button>
+            </div>
+        </form>
+    </fieldset>
+
+    <hr class="my-6">
+
+    {{-- 3. Formulir Pendaftaran Rekening MAK DIPA Baru (FR 6.1) --}}
+    <fieldset class="rounded-2xl bg-white p-6 shadow-sm border border-slate-100">
+        <legend class="text-lg font-bold text-slate-800 px-2">+ Tambah Master Rekening MAK DIPA Baru (Subbagian Perencanaan)</legend>
+        <p class="text-xs text-slate-500 mb-4">Gunakan formulir ini untuk mendaftarkan pos akun rekening DIPA anggaran baru institusi Politeknik Negeri Jakarta.</p>
+
+        <form action="{{ route('verifikasi.perencanaan.mak.store') }}" method="POST" class="space-y-4">
+            @csrf
+            <div class="grid gap-4 sm:grid-cols-2">
+                <div>
+                    <label for="input_kode_mak_fe" class="block text-xs font-semibold text-slate-700 mb-1">Kode Rekening MAK</label>
+                    <input type="text" id="input_kode_mak_fe" name="kode_mak" required placeholder="Contoh: MAK-TIK-2026-004 atau 023.17.WA.521211"
+                           class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label for="input_sumber_dana_fe" class="block text-xs font-semibold text-slate-700 mb-1">Sumber Pendanaan</label>
+                    <select id="input_sumber_dana_fe" name="sumber_dana" required
+                            class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="BOPTN">BOPTN (Bantuan Operasional PTN)</option>
+                        <option value="PNBP">PNBP (Pendapatan Negara Bukan Pajak)</option>
+                        <option value="Rupiah Murni">Rupiah Murni (APBN RM)</option>
+                        <option value="Hibah / Kerjasama">Hibah / Kerjasama</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label for="input_uraian_mak_fe" class="block text-xs font-semibold text-slate-700 mb-1">Uraian / Nama Kegiatan MAK</label>
+                <input type="text" id="input_uraian_mak_fe" name="uraian_mak" required placeholder="Contoh: Belanja Bahan Penunjang Laboratorium Komputer"
+                       class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <div class="grid gap-4 sm:grid-cols-2">
+                <div>
+                    <label for="input_tahun_anggaran_fe" class="block text-xs font-semibold text-slate-700 mb-1">Tahun Anggaran DIPA</label>
+                    <input type="number" id="input_tahun_anggaran_fe" name="tahun_anggaran" value="{{ date('Y') }}" min="2020" max="2035" required
+                           class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label for="input_pagu_anggaran_fe" class="block text-xs font-semibold text-slate-700 mb-1">Pagu Awal Anggaran (Rp)</label>
+                    <input type="number" id="input_pagu_anggaran_fe" name="pagu_anggaran" min="1" step="0.01" required placeholder="Contoh: 150000000"
+                           class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+
+            <div>
+                <label for="input_catatan_mak_fe" class="block text-xs font-semibold text-slate-700 mb-1">Catatan Rekening (Opsional)</label>
+                <textarea id="input_catatan_mak_fe" name="catatan_mak" rows="2" placeholder="Keterangan alokasi pagu DIPA atau revisi DIPA..."
+                          class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+            </div>
+
+            <div>
+                <button type="submit" class="rounded-lg bg-[#0088E8] px-5 py-2 text-sm font-semibold text-white shadow hover:bg-blue-600 transition-colors">
+                    Simpan &amp; Terbitkan Rekening MAK
+                </button>
+            </div>
+        </form>
+    </fieldset>
+
+    <hr class="my-6">
+
+    {{-- 3. Daftar Master MAK DIPA & Fitur Kunci Anggaran --}}
+    <fieldset class="rounded-2xl bg-white p-6 shadow-sm border border-slate-100">
+        <legend class="text-lg font-bold text-slate-800 px-2">Daftar Mata Anggaran Kegiatan (MAK) DIPA Kampus PNJ</legend>
         <table border="1" cellpadding="6" cellspacing="0">
             <thead>
                 <tr>

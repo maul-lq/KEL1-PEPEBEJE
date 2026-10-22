@@ -6,6 +6,7 @@ use App\Models\AlokasiMAK;
 use App\Models\AnggaranMAK;
 use App\Models\PaketPengadaan;
 use App\Models\PermohonanPengadaan;
+use App\Models\Role;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\Vendor;
@@ -59,6 +60,11 @@ class DatabaseSeeder extends Seeder
         foreach ($units as $u) {
             Unit::updateOrCreate(['kode_unit' => $u['kode_unit']], $u);
         }
+
+        // =========================================================================
+        // 1.5 Pembenihan Master Role dan Permissions Dinamis
+        // =========================================================================
+        $this->call(RolePermissionSeeder::class);
 
         // =========================================================================
         // 2. Pembenihan Pengguna (9 Peran Organisasi, Batasan 1 Akun PP Aktif, 4 Akun PPK Terisolasi)
@@ -248,7 +254,14 @@ class DatabaseSeeder extends Seeder
             ],
         ];
 
+        $rolesMap = Role::pluck('id', 'nama_role');
+
         foreach ($users as $u) {
+            $u['status_registrasi'] = User::STATUS_REGISTRASI_DISETUJUI;
+            $u['tanggal_approval'] = now();
+            if (isset($rolesMap[$u['role']])) {
+                $u['id_role'] = $rolesMap[$u['role']];
+            }
             User::updateOrCreate(['username' => $u['username']], $u);
         }
 
@@ -410,5 +423,8 @@ class DatabaseSeeder extends Seeder
                 'tanggal_penunjukan_vendor' => now()->subDays(2),
             ]
         );
+
+        // Sinkronisasi akhir id_role untuk seluruh pengguna yang telah dibuat
+        $this->call(RolePermissionSeeder::class);
     }
 }

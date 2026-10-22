@@ -24,7 +24,14 @@
 
             <p>
                 <label for="perihal"><strong>Perihal / Judul Pengadaan:</strong></label><br>
-                <input type="text" id="perihal" name="perihal" value="{{ old('perihal') }}" required placeholder="Contoh: Pengadaan Perangkat Server dan Lab Cloud AI">
+                <input type="text" id="perihal" name="perihal" value="{{ old('perihal') }}" required placeholder="Contoh: Pengadaan Perangkat Server dan Lab Cloud AI" size="60">
+            </p>
+
+            <p>
+                <label for="tujuan_pengadaan_ringkas"><strong>Tujuan Pengadaan Secara Ringkas:</strong></label><br>
+                <textarea id="tujuan_pengadaan_ringkas" name="tujuan_pengadaan_ringkas" rows="3" cols="60" placeholder="Tuliskan tujuan dan latar belakang pengadaan secara ringkas...">{{ old('tujuan_pengadaan_ringkas') }}</textarea>
+                <br>
+                <small><em>Sesuai ketentuan Srikandi dan kebutuhan justifikasi pengadaan institusi.</em></small>
             </p>
 
             <p>

@@ -5,7 +5,8 @@
 @section('content')
 <section>
     <h2>Pendaftaran Akun Pegawai / Pengusul Baru</h2>
-    <p>Silakan lengkapi formulir berikut untuk mendaftarkan akun pengusul permohonan pengadaan barang dan jasa.</p>
+    <p>Silakan lengkapi formulir berikut untuk mendaftarkan akun ke dalam SIM-PBJ Politeknik Negeri Jakarta.</p>
+    <p><strong>Catatan Penting:</strong> Setelah pendaftaran dikirimkan, akun Anda akan berstatus <em>Menunggu Persetujuan Administrator</em>. Akun baru dapat digunakan untuk masuk (login) ke dalam sistem setelah diverifikasi, disetujui (ACC), dan ditetapkan perannya oleh Administrator.</p>
 
     <form action="{{ route('register') }}" method="POST">
         @csrf
@@ -69,11 +70,8 @@
                 <input type="text" id="no_telp_kantor" name="no_telp_kantor" value="{{ old('no_telp_kantor') }}" placeholder="Contoh: 0217270001 (Opsional)">
             </p>
 
-            {{-- Role default pendaftaran adalah 'user' (pemohon pengadaan) --}}
-            <input type="hidden" name="role" value="user">
-
             <p>
-                <button type="submit"><strong>Daftarkan Akun Pengguna</strong></button>
+                <button type="submit"><strong>Kirim Pendaftaran Akun</strong></button>
             </p>
         </fieldset>
     </form>

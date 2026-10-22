@@ -151,4 +151,25 @@ Folder `resources/` memiliki dua kelompok berkas yang berdampingan dengan perunt
 - Seluruh dependensi Python dipelihara pada berkas `requirements.txt`.
 
 ---
+
+## 9. Arsitektur Persetujuan Registrasi & Manajemen Role Dinamis (RBAC & Permissions Matrix)
+- **Alur Registrasi Pengguna Baru**:
+  - Pendaftar tidak memilih role pada saat registrasi. Formulir registrasi hanya mengumpulkan biodata, NIP, email institusi, unit kerja, nomor kontak, dan password.
+  - Setiap pendaftaran baru otomatis tersimpan dengan `status_registrasi = 'menunggu_persetujuan'` dan `status_aktif = false`.
+  - Pengguna dengan status menunggu persetujuan atau ditolak dilarang melakukan login ke dalam sistem dan akan menerima pesan status informatif.
+- **Wewenang Administrator Sistem (`role: admin`)**:
+  - Administrator meninjau antrean pendaftar pada modul `/admin/persetujuan-registrasi` (view `resources/views/admin/tes_approval_registrasi.blade.php`).
+  - **Persetujuan (ACC)**: Administrator memilihkan dan menetapkan Role definitif bagi pengguna (`id_role` dan `role`). Status pengguna berubah menjadi `disetujui`, `status_aktif = true`, serta tercatat identitas admin verifikator dan waktu persetujuan.
+  - **Penolakan (Tolak)**: Administrator wajib mencantumkan alasan penolakan (`alasan_penolakan`). Status berubah menjadi `ditolak` dan akun tetap nonaktif.
+  - **Penegakan FR 2.1**: Saat menetapkan peran `pp` (Pejabat Pengadaan), sistem memeriksa ketat agar hanya ada maksimal 1 akun PP aktif. Jika sudah ada akun PP aktif, penetapan role `pp` akan digagalkan oleh validasi sistem.
+- **Manajemen Role & Hak Akses Fitur (CRUD Role & Permissions Matrix)**:
+  - Modul `/admin/roles` (view `resources/views/admin/tes_roles.blade.php`) dan REST API `/api/roles`.
+  - **9 Role Bawaan Sistem Institusi**: Ditandai dengan `is_system = true` (`admin`, `user`, `staff_bidang_2`, `wadir_2`, `perencanaan`, `ppbj`, `pp`, `ppk`, `perlengkapan`, `keuangan`). Diproteksi agar tidak dapat dihapus melalui antarmuka website demi integritas alur PBJ. Untuk menghapusnya, flag `is_system` pada database harus diubah terlebih dahulu menjadi `false`.
+  - **Role Kustom (`is_system = false`)**: Administrator dapat membuat peran baru (misal: `auditor`, `pengawas_lapangan`), menentukan hak akses fitur secara granular berbasis matriks permissions, memperbarui informasi, dan menghapusnya jika sudah tidak memiliki relasi pengguna aktif.
+  - **Helper Model `User`**:
+    - `$user->hasRole($role)`: Memeriksa kesesuaian string role maupun entitas dynamic role.
+    - `$user->hasPermission($permissionSlug)`: Memeriksa izin fitur tertentu. Role `admin` otomatis memiliki akses `true` tanpa batas ke seluruh permissions.
+    - `$user->hasAnyPermission(array $permissions)`: Memeriksa apakah memiliki salah satu dari sekumpulan izin fitur.
+
+---
 *Dokumen ini merupakan aturan wajib bagi seluruh aktivitas pengembangan dan pengujian backend SIM-PBJ Politeknik Negeri Jakarta.*

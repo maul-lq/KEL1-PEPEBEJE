@@ -58,6 +58,9 @@
                         </td>
                         <td>
                             <p>
+                                <a href="{{ route('permohonan.show', $item->nomor_surat) }}">
+                                    <button type="button"><strong>Detail &amp; Lacak</strong></button>
+                                </a>
                                 <a href="{{ route('dokumen.pdf', ['jenis' => 'permohonan', 'id' => $item->nomor_surat]) }}" target="_blank">
                                     <button type="button">Unduh PDF Resmi</button>
                                 </a>

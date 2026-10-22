@@ -41,7 +41,7 @@
 {{-- ========================================================================= --}}
 {{-- 1. TAMPILAN KHUSUS PERAN: USER (PEMOHON / JURUSAN)                        --}}
 {{-- ========================================================================= --}}
-@if($user->role === 'user')
+@if($user->hasRole('user') || $user->hasAnyPermission(['permohonan.create', 'permohonan.view_own', 'permohonan.view_all', 'permohonan.revisi']))
     <section>
         <fieldset>
             <legend><strong>Ruang Kerja Pemohon (Unit / Jurusan)</strong></legend>
@@ -50,8 +50,10 @@
                 melihat alasan jika usulan ditolak verifikator, serta mengunduh dokumen surat permohonan resmi berformat PDF.
             </p>
             <p>
-                <a href="{{ route('permohonan.create') }}"><button type="button"><strong>+ Ajukan Permohonan Pengadaan Baru</strong></button></a>
-                &nbsp;
+                @if($user->hasRole('user') || $user->hasPermission('permohonan.create'))
+                    <a href="{{ route('permohonan.create') }}"><button type="button"><strong>+ Ajukan Permohonan Pengadaan Baru</strong></button></a>
+                    &nbsp;
+                @endif
                 <a href="{{ route('permohonan.index') }}"><button type="button">Lihat Riwayat Lengkap & Status Usulan</button></a>
             </p>
 
@@ -108,7 +110,7 @@
 {{-- ========================================================================= --}}
 {{-- 2. TAMPILAN KHUSUS PERAN: STAF BIDANG 2                                   --}}
 {{-- ========================================================================= --}}
-@if($user->role === 'staff_bidang_2')
+@if($user->hasRole('staff_bidang_2') || $user->hasAnyPermission(['verifikasi.bidang_2_view', 'verifikasi.bidang_2_teruskan']))
     <section>
         <fieldset>
             <legend><strong>Ruang Kerja Staf Bidang II (Pemeriksa Berkas Administrasi)</strong></legend>
@@ -160,7 +162,7 @@
 {{-- ========================================================================= --}}
 {{-- 3. TAMPILAN KHUSUS PERAN: WADIR 2                                         --}}
 {{-- ========================================================================= --}}
-@if($user->role === 'wadir_2')
+@if($user->hasRole('wadir_2') || $user->hasAnyPermission(['verifikasi.wadir_2_view', 'verifikasi.wadir_2_decide']))
     <section>
         <fieldset>
             <legend><strong>Ruang Kerja Wakil Direktur II (Otoritas Mutlak Persetujuan / ACC)</strong></legend>
@@ -212,7 +214,7 @@
 {{-- ========================================================================= --}}
 {{-- 4. TAMPILAN KHUSUS PERAN: PERENCANAAN                                     --}}
 {{-- ========================================================================= --}}
-@if($user->role === 'perencanaan')
+@if($user->hasRole('perencanaan') || $user->hasAnyPermission(['anggaran.mak_view', 'anggaran.mak_manage', 'anggaran.mak_alokasi', 'anggaran.mak_lock', 'permohonan.split_mak']))
     <section>
         <fieldset>
             <legend><strong>Ruang Kerja Subbagian Perencanaan & Anggaran MAK</strong></legend>
@@ -264,7 +266,7 @@
 {{-- ========================================================================= --}}
 {{-- 5. TAMPILAN KHUSUS PERAN: PPBJ                                            --}}
 {{-- ========================================================================= --}}
-@if($user->role === 'ppbj')
+@if($user->hasRole('ppbj') || $user->hasAnyPermission(['paket.create', 'paket.view_all', 'paket.reassign_ppk', 'paket.split_jenis', 'spk.create', 'reminder.manage', 'pembayaran.pengajuan', 'pembayaran.spp_terbitkan']))
     <section>
         <fieldset>
             <legend><strong>Ruang Kerja Koordinator PPBJ (Registrasi Paket & Penugasan)</strong></legend>
@@ -278,8 +280,10 @@
                 &bull; &gt; Rp 200 Juta: Pejabat Pembuat Komitmen (1 dari 4 akun PPK PNJ)
             </p>
             <p>
-                <a href="{{ route('paket.create') }}"><button type="button"><strong>+ Registrasi Paket Pengadaan Baru</strong></button></a>
-                &nbsp;
+                @if($user->hasRole('ppbj') || $user->hasPermission('paket.create'))
+                    <a href="{{ route('paket.create') }}"><button type="button"><strong>+ Registrasi Paket Pengadaan Baru</strong></button></a>
+                    &nbsp;
+                @endif
                 <a href="{{ route('paket.index') }}"><button type="button">Kelola Paket & Alih Tugas PPK (Reassign)</button></a>
             </p>
             <table border="1" cellpadding="6" cellspacing="0">
@@ -323,7 +327,7 @@
 {{-- ========================================================================= --}}
 {{-- 6. TAMPILAN KHUSUS PERAN: PEJABAT PENGADAAN (PP)                          --}}
 {{-- ========================================================================= --}}
-@if($user->role === 'pp')
+@if($user->hasRole('pp') || $user->hasPermission('reviu.pp'))
     <section>
         <fieldset>
             <legend><strong>Ruang Kerja Pejabat Pengadaan (Paket &le; Rp 200 Juta)</strong></legend>
@@ -375,7 +379,7 @@
 {{-- ========================================================================= --}}
 {{-- 7. TAMPILAN KHUSUS PERAN: PEJABAT PEMBUAT KOMITMEN (PPK)                  --}}
 {{-- ========================================================================= --}}
-@if($user->role === 'ppk')
+@if($user->hasRole('ppk') || $user->hasAnyPermission(['reviu.ppk', 'pembayaran.memo_ppk']))
     <section>
         <fieldset>
             <legend><strong>Ruang Kerja Pejabat Pembuat Komitmen (Paket &gt; Rp 200 Juta - Terisolasi)</strong></legend>
@@ -427,7 +431,7 @@
 {{-- ========================================================================= --}}
 {{-- 8. TAMPILAN KHUSUS PERAN: PERLENGKAPAN (BMN / PENERIMAAN BARANG)          --}}
 {{-- ========================================================================= --}}
-@if($user->role === 'perlengkapan')
+@if($user->hasRole('perlengkapan') || $user->hasAnyPermission(['penerimaan.view', 'penerimaan.bast_create', 'penerimaan.bast_sign']))
     <section>
         <fieldset>
             <legend><strong>Ruang Kerja Unit Perlengkapan (Pemeriksaan Fisik & BAST)</strong></legend>
@@ -447,7 +451,7 @@
 {{-- ========================================================================= --}}
 {{-- 9. TAMPILAN KHUSUS PERAN: KEUANGAN (BENDAHARA / PENCAIRAN)                --}}
 {{-- ========================================================================= --}}
-@if($user->role === 'keuangan')
+@if($user->hasRole('keuangan') || $user->hasPermission('pembayaran.pencairan_sp2d'))
     <section>
         <fieldset>
             <legend><strong>Ruang Kerja Bagian Keuangan (Verifikasi SPP & Pencairan Dana SP2D)</strong></legend>
@@ -459,6 +463,34 @@
                 <a href="{{ route('pembayaran.index') }}">
                     <button type="button"><strong>Buka Antrean Verifikasi Tagihan & Pencairan Dana</strong></button>
                 </a>
+            </p>
+        </fieldset>
+    </section>
+@endif
+
+{{-- ========================================================================= --}}
+{{-- 10. TAMPILAN KHUSUS PERAN: ADMINISTRATOR SISTEM                           --}}
+{{-- ========================================================================= --}}
+@if($user->hasRole('admin') || $user->hasAnyPermission(['admin.approval_registrasi', 'admin.role_manage', 'admin.user_manage']))
+    <section>
+        <fieldset>
+            <legend><strong>Ruang Kerja Administrator Sistem</strong></legend>
+            <p>
+                Sebagai Administrator Sistem, Anda mengelola persetujuan akun pendaftar baru, manajemen pengguna 9 peran,
+                dan konfigurasi matriks hak akses peran dinamis.
+            </p>
+            <p>
+                @if($user->hasRole('admin') || $user->hasPermission('admin.approval_registrasi'))
+                    <a href="{{ route('admin.persetujuan-registrasi.index') }}">
+                        <button type="button"><strong>Antrean Persetujuan Registrasi Akun</strong></button>
+                    </a>
+                    &nbsp;
+                @endif
+                @if($user->hasRole('admin') || $user->hasPermission('admin.role_manage'))
+                    <a href="{{ route('admin.roles.index') }}">
+                        <button type="button"><strong>Manajemen Master Role & Permissions</strong></button>
+                    </a>
+                @endif
             </p>
         </fieldset>
     </section>
