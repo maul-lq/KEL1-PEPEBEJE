@@ -13,6 +13,7 @@ use App\Models\PaketPengadaan;
 use App\Models\Pembayaran;
 use App\Models\PenerimaanBarang;
 use App\Models\PermohonanPengadaan;
+use App\Models\Reminder;
 use App\Models\ReviuDokumen;
 use App\Models\RiwayatPenugasanPPK;
 use App\Models\TransaksiPencairan;
@@ -1703,6 +1704,168 @@ class HomeController extends Controller
         }
 
         return back()->with('success', 'Pemberitahuan telah ditandai.');
+    }
+
+    /**
+     * Menampilkan antarmuka daftar feed Notifikasi dan Pengingat (Reminder) seluruh role.
+     * Mengimplementasikan rancangan visual Figma frame 121:45 dengan dukungan tab filter,
+     * pencarian kata kunci nomor surat/judul pengadaan, kategori jenis notifikasi, dan periode waktu.
+     */
+    public function notifikasiIndex(Request $request): View
+    {
+        // 1. Ambil data pengguna aktif yang sedang terotentikasi di sistem SIM-PBJ
+        $user = Auth::user();
+
+        // 2. Kalkulasi agregat total jumlah notifikasi untuk masing-masing tab navigasi
+        $tabCounts = [
+            'semua' => NotifikasiUser::where('id_user', $user->id_user)->count(),
+            'belum_dibaca' => NotifikasiUser::where('id_user', $user->id_user)->where('is_read', false)->count(),
+            'perlu_tindakan' => NotifikasiUser::where('id_user', $user->id_user)
+                ->whereHas('reminder', function ($q) {
+                    $q->where('tipe_reminder', 'verifikasi')
+                        ->orWhere('judul_alert', 'like', '%revisi%')
+                        ->orWhere('judul_alert', 'like', '%tindakan%')
+                        ->orWhere('pesan_alert', 'like', '%tindak lanjut%')
+                        ->orWhere('pesan_alert', 'like', '%revisi%');
+                })->count(),
+            'pengingat' => NotifikasiUser::where('id_user', $user->id_user)
+                ->whereHas('reminder', function ($q) {
+                    $q->whereIn('tipe_reminder', ['pengiriman', 'h_minus_2_termin', 'bulanan_tahunan'])
+                        ->orWhere('judul_alert', 'like', '%pengingat%');
+                })->count(),
+        ];
+
+        // 3. Bangun query dasar notifikasi pengguna beserta eager loading relasi reminder, paket, dan permohonan
+        $query = NotifikasiUser::where('id_user', $user->id_user)
+            ->with(['reminder.paket.permohonan', 'reminder.paket.kontrak', 'reminder.paket.pembayaran']);
+
+        // 4. Saring berdasarkan Tab Navigasi Aktif (Semua, Belum dibaca, Perlu tindakan, Pengingat)
+        $currentTab = $request->query('tab', 'semua');
+        if ($currentTab === 'belum_dibaca') {
+            $query->where('is_read', false);
+        } elseif ($currentTab === 'perlu_tindakan') {
+            $query->whereHas('reminder', function ($q) {
+                $q->where('tipe_reminder', 'verifikasi')
+                    ->orWhere('judul_alert', 'like', '%revisi%')
+                    ->orWhere('judul_alert', 'like', '%tindakan%')
+                    ->orWhere('pesan_alert', 'like', '%tindak lanjut%')
+                    ->orWhere('pesan_alert', 'like', '%revisi%');
+            });
+        } elseif ($currentTab === 'pengingat') {
+            $query->whereHas('reminder', function ($q) {
+                $q->whereIn('tipe_reminder', ['pengiriman', 'h_minus_2_termin', 'bulanan_tahunan'])
+                    ->orWhere('judul_alert', 'like', '%pengingat%');
+            });
+        }
+
+        // 5. Saring berdasarkan Kata Kunci Pencarian (Cari no. surat / judul)
+        if ($request->filled('q')) {
+            $keyword = trim((string) $request->query('q'));
+            $query->where(function ($q) use ($keyword) {
+                $q->whereHas('reminder', function ($rq) use ($keyword) {
+                    $rq->where('judul_alert', 'like', "%{$keyword}%")
+                        ->orWhere('pesan_alert', 'like', "%{$keyword}%")
+                        ->orWhere('nomor_paket', 'like', "%{$keyword}%")
+                        ->orWhereHas('paket', function ($pq) use ($keyword) {
+                            $pq->where('nama_paket', 'like', "%{$keyword}%")
+                                ->orWhere('nomor_surat', 'like', "%{$keyword}%")
+                                ->orWhereHas('permohonan', function ($prq) use ($keyword) {
+                                    $prq->where('judul_pengadaan', 'like', "%{$keyword}%");
+                                });
+                        });
+                });
+            });
+        }
+
+        // 6. Saring berdasarkan Kategori Jenis Notifikasi (Dropdown Filter)
+        if ($request->filled('jenis') && $request->query('jenis') !== 'semua') {
+            $jenis = (string) $request->query('jenis');
+            if ($jenis === 'pengingat') {
+                $query->whereHas('reminder', function ($q) {
+                    $q->whereIn('tipe_reminder', ['pengiriman', 'h_minus_2_termin', 'bulanan_tahunan'])
+                        ->orWhere('judul_alert', 'like', '%pengingat%');
+                });
+            } elseif ($jenis === 'perlu_tindakan') {
+                $query->whereHas('reminder', function ($q) {
+                    $q->where('tipe_reminder', 'verifikasi')
+                        ->orWhere('judul_alert', 'like', '%revisi%')
+                        ->orWhere('judul_alert', 'like', '%tindakan%')
+                        ->orWhere('pesan_alert', 'like', '%tindak lanjut%');
+                });
+            } elseif ($jenis === 'verifikasi') {
+                $query->whereHas('reminder', function ($q) {
+                    $q->where('tipe_reminder', 'verifikasi')
+                        ->orWhere('judul_alert', 'like', '%verifikasi%')
+                        ->orWhere('judul_alert', 'like', '%telaah%');
+                });
+            } elseif ($jenis === 'pembayaran') {
+                $query->whereHas('reminder', function ($q) {
+                    $q->where('tipe_reminder', 'pembayaran')
+                        ->orWhere('judul_alert', 'like', '%pembayaran%')
+                        ->orWhere('judul_alert', 'like', '%termin%')
+                        ->orWhere('judul_alert', 'like', '%sp2d%');
+                });
+            } elseif ($jenis === 'pengiriman') {
+                $query->whereHas('reminder', function ($q) {
+                    $q->where('tipe_reminder', 'pengiriman')
+                        ->orWhere('judul_alert', 'like', '%pengiriman%');
+                });
+            } elseif ($jenis === 'spk') {
+                $query->whereHas('reminder', function ($q) {
+                    $q->where('judul_alert', 'like', '%spk%')
+                        ->orWhere('judul_alert', 'like', '%kontrak%');
+                });
+            }
+        }
+
+        // 7. Saring berdasarkan Batas Periode Waktu (Dropdown Periode)
+        if ($request->filled('periode') && $request->query('periode') !== 'semua') {
+            $periode = (string) $request->query('periode');
+            if ($periode === 'hari_ini') {
+                $query->whereDate('created_at', now()->today());
+            } elseif ($periode === '7_hari') {
+                $query->where('created_at', '>=', now()->subDays(7));
+            } elseif ($periode === '30_hari') {
+                $query->where('created_at', '>=', now()->subDays(30));
+            } elseif ($periode === 'bulan_ini') {
+                $query->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year);
+            }
+        }
+
+        // 8. Urutkan dari notifikasi paling mutakhir dan terapkan pembagian halaman (pagination)
+        $notifikasiList = $query->latest('id')->paginate(10)->withQueryString();
+
+        return view('notifikasi.index', compact('notifikasiList', 'tabCounts', 'currentTab'));
+    }
+
+    /**
+     * Menandai satu notifikasi tertentu telah dibaca oleh pengguna.
+     */
+    public function markAsReadWeb(Request $request, int $id): RedirectResponse
+    {
+        $user = Auth::user();
+        $notif = NotifikasiUser::where('id', $id)->where('id_user', $user->id_user)->firstOrFail();
+        $notif->is_read = true;
+        $notif->waktu_dibaca = now();
+        $notif->save();
+
+        return back()->with('success', 'Notifikasi berhasil ditandai sebagai dibaca.');
+    }
+
+    /**
+     * Menandai seluruh notifikasi yang belum dibaca milik pengguna aktif sebagai telah dibaca.
+     */
+    public function markAllReadWeb(Request $request): RedirectResponse
+    {
+        $user = Auth::user();
+        NotifikasiUser::where('id_user', $user->id_user)
+            ->where('is_read', false)
+            ->update([
+                'is_read' => true,
+                'waktu_dibaca' => now(),
+            ]);
+
+        return back()->with('success', 'Semua notifikasi berhasil ditandai sebagai telah dibaca.');
     }
 
     /**

@@ -426,5 +426,10 @@ class DatabaseSeeder extends Seeder
 
         // Sinkronisasi akhir id_role untuk seluruh pengguna yang telah dibuat
         $this->call(RolePermissionSeeder::class);
+
+        // =========================================================================
+        // 7. Pembenihan Notifikasi & Reminder Sistem (Figma Frame 121:45 & FR 12)
+        // =========================================================================
+        $this->call(NotificationSeeder::class);
     }
 }

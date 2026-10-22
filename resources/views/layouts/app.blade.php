@@ -30,9 +30,6 @@
             <a href="{{ route('dashboard') }}" class="text-[40px] font-normal leading-none text-white tracking-wide" style="-webkit-text-stroke: 1px #689EC2; text-shadow: 0 0 4px rgba(0,0,0,0.25), 0 4px 4px rgba(0,0,0,0.25);">
                 SIM-PBJ
             </a>
-            <span class="hidden md:inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800">
-                Mode: Frontend UI &bull; DEV_VIEWMODE={{ config('app.dev_viewmode', 'frontend') }}
-            </span>
         </div>
 
         <!-- Profil User & Logout (Header Kanan) -->
@@ -101,6 +98,23 @@
                 </svg>
             </a>
             @endif
+
+            <!-- Icon Notifikasi & Reminder (Semua Role - Sesuai Figma 121:45) -->
+            <a href="{{ route('notifikasi.index') }}" title="Notifikasi dan Reminder" 
+               class="relative flex h-10 items-center justify-center text-[#E8F5FD] transition-all {{ request()->routeIs('notifikasi.*') ? 'w-[46px] rounded-[20px] bg-[#0088E8] shadow-[inset_0_0_9px_rgba(0,0,0,0.25)] scale-105' : 'w-10 hover:text-white hover:scale-110' }}">
+                <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                @php
+                    $unreadNotifNavCount = \App\Models\NotifikasiUser::where('id_user', Auth::id())->where('is_read', false)->count();
+                @endphp
+                @if($unreadNotifNavCount > 0)
+                    <span class="absolute top-1 right-1 flex size-2.5">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#087F79] opacity-75"></span>
+                        <span class="relative inline-flex rounded-full size-2.5 bg-[#087F79]"></span>
+                    </span>
+                @endif
+            </a>
 
             <!-- Icon Admin: Persetujuan Registrasi & Roles -->
             @if(Auth::user()->hasRole('admin'))

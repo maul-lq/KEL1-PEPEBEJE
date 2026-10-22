@@ -149,6 +149,13 @@ Route::middleware('auth')->group(function () {
     // -------------------------------------------------------------------------
     Route::get('/laporan/rekapitulasi-anggaran', [HomeController::class, 'laporanRekapitulasiIndex'])->name('laporan.rekapitulasi');
     Route::get('/laporan/rekapitulasi-anggaran/pdf', [HomeController::class, 'unduhRekapitulasiPdf'])->name('laporan.rekapitulasi.pdf');
+
+    // -------------------------------------------------------------------------
+    // Modul 9.5: Notifikasi & Reminder Sistem (FR 12 & NFR 5 - Figma 121:45)
+    // -------------------------------------------------------------------------
+    Route::get('/notifikasi', [HomeController::class, 'notifikasiIndex'])->name('notifikasi.index');
+    Route::post('/notifikasi/mark-all-read', [HomeController::class, 'markAllReadWeb'])->name('notifikasi.mark-all-read');
+    Route::post('/notifikasi/{id}/read', [HomeController::class, 'markAsReadWeb'])->name('notifikasi.read');
     Route::post('/notifikasi/{id}/dismiss', [HomeController::class, 'dismissNotificationWeb'])->name('notifikasi.dismiss');
 
     // -------------------------------------------------------------------------
