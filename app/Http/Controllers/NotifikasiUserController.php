@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\NotifikasiUser;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 /**
  * Controller Feed Notifikasi Personal Pengguna (NotifikasiUserController)
@@ -68,6 +69,47 @@ class NotifikasiUserController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Notifikasi diabaikan',
+        ]);
+    }
+
+    /**
+     * Mengembalikan daftar notifikasi belum dibaca (unread) terbaru khusus untuk pemicu notifikasi native OS Desktop.
+     * Mendukung query parameter `since_id` agar peramban hanya menerima notifikasi yang lebih baru dari ID terakhir.
+     */
+    public function notifikasiTerbaru(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+        if (! $user) {
+            return response()->json(['status' => 'unauthenticated', 'data' => []], 401);
+        }
+
+        $query = NotifikasiUser::where('id_user', $user->id_user)
+            ->where('is_read', false)
+            ->where('is_dismissed', false)
+            ->with(['reminder.paket.permohonan']);
+
+        // Saring hanya notifikasi yang terbit setelah ID tertentu jika dikirimkan oleh browser
+        if ($request->filled('since_id')) {
+            $query->where('id', '>', (int) $request->since_id);
+        }
+
+        $list = $query->latest('id')->take(10)->get()->map(function (NotifikasiUser $n) {
+            return [
+                'id' => $n->id,
+                'judul' => $n->judul,
+                'pesan' => $n->pesan,
+                'badge' => $n->jenis_badge,
+                'referensi' => $n->referensi_teks,
+                'action_url' => $n->action_url,
+                'action_label' => $n->action_label,
+                'created_at' => $n->created_at?->translatedFormat('d M Y · H.i').' WIB' ?? 'Baru saja',
+            ];
+        });
+
+        return response()->json([
+            'status' => 'success',
+            'count' => $list->count(),
+            'data' => $list,
         ]);
     }
 }

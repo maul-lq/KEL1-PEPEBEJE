@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Models\NotifikasiUser;
+use App\Observers\NotifikasiUserObserver;
 use App\View\DevModeViewFinder;
 use Illuminate\Support\ServiceProvider;
 
@@ -31,6 +33,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Tempat mengonfigurasi pengaturan global (misal: panjang string default, observer model, dll.)
+        // Daftarkan observer model NotifikasiUser untuk memicu pengiriman email otomatis
+        NotifikasiUser::observe(NotifikasiUserObserver::class);
     }
 }
