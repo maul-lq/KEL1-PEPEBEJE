@@ -67,6 +67,15 @@ class User extends Authenticatable
     public const ROLE_KEUANGAN = 'keuangan';
 
     /**
+     * Definisi status verifikasi registrasi pengguna baru oleh Administrator.
+     */
+    public const STATUS_REGISTRASI_MENUNGGU = 'menunggu_persetujuan';
+
+    public const STATUS_REGISTRASI_DISETUJUI = 'disetujui';
+
+    public const STATUS_REGISTRASI_DITOLAK = 'ditolak';
+
+    /**
      * Alias kompatibilitas ke belakang untuk peran pemohon/pengusul.
      */
     public const ROLE_USER_PENGAJU = 'user';
@@ -86,7 +95,12 @@ class User extends Authenticatable
         'password',
         'jabatan',
         'role',
+        'id_role',
         'status_aktif',
+        'status_registrasi',
+        'alasan_penolakan',
+        'id_admin_approval',
+        'tanggal_approval',
         'no_hp',
         'no_telp_kantor',
         'kode_unit',
@@ -112,6 +126,7 @@ class User extends Authenticatable
         return [
             'password' => 'hashed',
             'status_aktif' => 'boolean',
+            'tanggal_approval' => 'datetime',
         ];
     }
 
@@ -128,6 +143,11 @@ class User extends Authenticatable
             }
             if (empty($user->nama)) {
                 $user->nama = $user->name ?? $user->username ?? 'Pengguna Sistem';
+            }
+            if (empty($user->status_registrasi)) {
+                $user->status_registrasi = ($user->status_aktif === false)
+                    ? self::STATUS_REGISTRASI_MENUNGGU
+                    : self::STATUS_REGISTRASI_DISETUJUI;
             }
         });
     }
@@ -274,5 +294,69 @@ class User extends Authenticatable
     public function auditLogs(): HasMany
     {
         return $this->hasMany(AuditLog::class, 'id_user', 'id_user');
+    }
+
+    /**
+     * Relasi ke entitas Role dinamis dari tabel roles.
+     */
+    public function roleEntity(): BelongsTo
+    {
+        return $this->belongsTo(Role::class, 'id_role', 'id');
+    }
+
+    /**
+     * Relasi ke Administrator yang menyetujui atau menolak pendaftaran akun ini.
+     */
+    public function adminApproval(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'id_admin_approval', 'id_user');
+    }
+
+    /**
+     * Memeriksa apakah pengguna memiliki salah satu dari peran yang ditentukan.
+     */
+    public function hasRole(string|array $roles): bool
+    {
+        $roleList = is_array($roles) ? $roles : [$roles];
+
+        return in_array($this->role, $roleList, true) ||
+            ($this->roleEntity && in_array($this->roleEntity->nama_role, $roleList, true));
+    }
+
+    /**
+     * Memeriksa apakah pengguna memiliki hak akses (permission) ke fitur tertentu.
+     * Role Administrator ('admin') otomatis memiliki akses tak terbatas ke seluruh fitur.
+     */
+    public function hasPermission(string $permissionSlug): bool
+    {
+        if ($this->role === self::ROLE_ADMIN || ($this->roleEntity && $this->roleEntity->nama_role === self::ROLE_ADMIN)) {
+            return true;
+        }
+
+        if ($this->relationLoaded('roleEntity') && $this->roleEntity) {
+            return $this->roleEntity->hasPermission($permissionSlug);
+        }
+
+        $role = $this->roleEntity ?? Role::where('nama_role', $this->role)->with('permissions')->first();
+
+        return $role ? $role->hasPermission($permissionSlug) : false;
+    }
+
+    /**
+     * Memeriksa apakah pengguna memiliki salah satu dari sekumpulan permissions.
+     */
+    public function hasAnyPermission(array $permissions): bool
+    {
+        if ($this->role === self::ROLE_ADMIN || ($this->roleEntity && $this->roleEntity->nama_role === self::ROLE_ADMIN)) {
+            return true;
+        }
+
+        foreach ($permissions as $perm) {
+            if ($this->hasPermission($perm)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

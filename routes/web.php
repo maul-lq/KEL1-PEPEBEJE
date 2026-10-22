@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Admin\ApprovalRegistrasiController;
+use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\AlokasiMAKController;
 use App\Http\Controllers\AnggaranMAKController;
 use App\Http\Controllers\AuditLogController;
@@ -78,8 +80,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/permohonan', [HomeController::class, 'storePermohonan'])->name('permohonan.store');
     Route::post('/permohonan/revisi', [HomeController::class, 'revisiPermohonan'])->name('permohonan.revisi');
 
-    // TAMBAHKAN BARIS INI:
-    Route::get('/permohonan/{id}', [HomeController::class, 'permohonanShow'])->name('permohonan.show');
+    Route::get('/permohonan/{id}', [HomeController::class, 'permohonanShow'])
+        ->name('permohonan.show')
+        ->where(['id' => '.*']);
     // -------------------------------------------------------------------------
     // -------------------------------------------------------------------------
     // Modul 2 & 3: Verifikasi Paralel (Staf B2, Wadir 2, & Perencanaan)
@@ -97,6 +100,7 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:perencanaan')->group(function () {
         Route::get('/verifikasi/perencanaan', [HomeController::class, 'verifikasiPerencanaan'])->name('verifikasi.perencanaan');
         Route::post('/verifikasi/perencanaan/mak', [HomeController::class, 'alokasiMakPerencanaan'])->name('verifikasi.perencanaan.mak');
+        Route::post('/verifikasi/perencanaan/mak/store', [HomeController::class, 'storeMakPerencanaan'])->name('verifikasi.perencanaan.mak.store');
         Route::post('/verifikasi/perencanaan/split', [HomeController::class, 'splitMakPerencanaan'])->name('verifikasi.perencanaan.split');
     });
 
@@ -145,7 +149,31 @@ Route::middleware('auth')->group(function () {
     // -------------------------------------------------------------------------
     Route::get('/laporan/rekapitulasi-anggaran', [HomeController::class, 'laporanRekapitulasiIndex'])->name('laporan.rekapitulasi');
     Route::get('/laporan/rekapitulasi-anggaran/pdf', [HomeController::class, 'unduhRekapitulasiPdf'])->name('laporan.rekapitulasi.pdf');
+
+    // -------------------------------------------------------------------------
+    // Modul 9.5: Notifikasi & Reminder Sistem (FR 12 & NFR 5 - Figma 121:45)
+    // -------------------------------------------------------------------------
+    Route::get('/notifikasi', [HomeController::class, 'notifikasiIndex'])->name('notifikasi.index');
+    Route::post('/notifikasi/mark-all-read', [HomeController::class, 'markAllReadWeb'])->name('notifikasi.mark-all-read');
+    Route::post('/notifikasi/{id}/read', [HomeController::class, 'markAsReadWeb'])->name('notifikasi.read');
     Route::post('/notifikasi/{id}/dismiss', [HomeController::class, 'dismissNotificationWeb'])->name('notifikasi.dismiss');
+    Route::get('/api/notifikasi-terbaru', [NotifikasiUserController::class, 'notifikasiTerbaru'])->name('notifikasi.terbaru');
+
+    // -------------------------------------------------------------------------
+    // Modul 10: Administrasi Persetujuan Registrasi & Manajemen Role (Admin)
+    // -------------------------------------------------------------------------
+    Route::middleware('role:admin')->prefix('admin')->name('admin.')->group(function () {
+        // Persetujuan Registrasi Akun Pengguna Baru
+        Route::get('/persetujuan-registrasi', [ApprovalRegistrasiController::class, 'index'])->name('persetujuan-registrasi.index');
+        Route::post('/persetujuan-registrasi/{user}/acc', [ApprovalRegistrasiController::class, 'acc'])->name('persetujuan-registrasi.acc');
+        Route::post('/persetujuan-registrasi/{user}/tolak', [ApprovalRegistrasiController::class, 'tolak'])->name('persetujuan-registrasi.tolak');
+
+        // Manajemen Master Role & Matriks Hak Akses (Permissions)
+        Route::get('/roles', [RoleController::class, 'index'])->name('roles.index');
+        Route::post('/roles', [RoleController::class, 'store'])->name('roles.store');
+        Route::put('/roles/{role}', [RoleController::class, 'update'])->name('roles.update');
+        Route::delete('/roles/{role}', [RoleController::class, 'destroy'])->name('roles.destroy');
+    });
 
     // -------------------------------------------------------------------------
     // Helper Unduh Berkas Resmi Format PDF (< 3 Detik - NFR 12)
@@ -323,6 +351,14 @@ Route::prefix('api')->group(function () {
     // Jejak audit otomatis setiap mutasi data untuk pengawasan auditor dan pimpinan
     Route::apiResource('audit-logs', AuditLogController::class)->only(['index', 'show', 'store']);
     Route::apiResource('pengadaan-logs', PengadaanLogController::class)->only(['index', 'show', 'store']);
+
+    // Persetujuan Registrasi Pengguna Baru oleh Admin (FR Registrasi & Approval)
+    Route::get('admin/persetujuan-registrasi', [ApprovalRegistrasiController::class, 'index'])->middleware('role:admin');
+    Route::post('admin/persetujuan-registrasi/{user}/acc', [ApprovalRegistrasiController::class, 'acc'])->middleware('role:admin');
+    Route::post('admin/persetujuan-registrasi/{user}/tolak', [ApprovalRegistrasiController::class, 'tolak'])->middleware('role:admin');
+
+    // Manajemen Role & Hak Akses Fitur / Permissions Matrix (Admin)
+    Route::apiResource('roles', RoleController::class)->middleware('role:admin');
 });
 
 // Endpoint Pemeriksaan Ketersediaan & Kesehatan Sistem (NFR 10)

@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use App\Models\NotifikasiUser;
+use App\Observers\NotifikasiUserObserver;
+use App\View\DevModeViewFinder;
 use Illuminate\Support\ServiceProvider;
 
 /**
@@ -18,7 +21,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        // Tempat mendaftarkan singleton atau dependensi kustom jika diperlukan
+        // Mendaftarkan DevModeViewFinder untuk mendukung peralihan dinamis DEV_VIEWMODE (backend vs frontend)
+        $this->app->bind('view.finder', function ($app) {
+            return new DevModeViewFinder($app['files'], $app['config']['view.paths']);
+        });
     }
 
     /**
@@ -27,6 +33,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Tempat mengonfigurasi pengaturan global (misal: panjang string default, observer model, dll.)
+        // Daftarkan observer model NotifikasiUser untuk memicu pengiriman email otomatis
+        NotifikasiUser::observe(NotifikasiUserObserver::class);
     }
 }

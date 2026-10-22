@@ -91,12 +91,18 @@ class UserController extends Controller
             'nama' => 'required|string|max:150',
             'password' => 'required|string|min:6',
             'jabatan' => 'required|string|max:100',
-            'role' => 'required|string|in:admin,user,staff_bidang_2,wadir_2,perencanaan,ppbj,pp,ppk,perlengkapan,keuangan',
+            'role' => 'required|string',
+            'id_role' => 'nullable|exists:roles,id',
             'status_aktif' => 'boolean',
+            'status_registrasi' => 'nullable|string|in:menunggu_persetujuan,disetujui,ditolak',
             'no_hp' => 'required|string|max:20',
             'no_telp_kantor' => 'nullable|string|max:20',
             'kode_unit' => 'nullable|string|exists:units,kode_unit',
         ]);
+
+        if (empty($validated['status_registrasi'])) {
+            $validated['status_registrasi'] = ! empty($validated['status_aktif']) ? User::STATUS_REGISTRASI_DISETUJUI : User::STATUS_REGISTRASI_MENUNGGU;
+        }
 
         // Penegakan Aturan Bisnis FR 2.1: Batasan 1 user = 1 akun Pejabat Pengadaan (PP) aktif
         if ($validated['role'] === 'pp') {

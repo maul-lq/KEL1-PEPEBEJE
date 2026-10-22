@@ -32,16 +32,62 @@ class UserFactory extends Factory
     {
         return [
             // Nama acak representasi pengguna
-            'name' => fake()->name(),
+            'nama' => fake()->name(),
+            'username' => fake()->unique()->userName(),
+            'nip' => fake()->unique()->numerify('19900101########'),
             // Alamat surel acak yang unik dan aman untuk testing
             'email' => fake()->unique()->safeEmail(),
-            // Waktu verifikasi email diisi saat ini
-            'email_verified_at' => now(),
+            'jabatan' => 'Staff Pengajar / Pengusul',
+            'kode_unit' => 'TIK',
+            'no_hp' => fake()->phoneNumber(),
+            'role' => 'user',
+            'status_aktif' => true,
+            'status_registrasi' => User::STATUS_REGISTRASI_DISETUJUI,
+            'tanggal_approval' => now(),
             // Hash kata sandi bawaan 'password'
             'password' => static::$password ??= Hash::make('password'),
             // Token remember token string acak 10 karakter
             'remember_token' => Str::random(10),
         ];
+    }
+
+    /**
+     * State mutator untuk pendaftar baru yang menunggu persetujuan Admin.
+     */
+    public function menungguApproval(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'status_aktif' => false,
+            'status_registrasi' => User::STATUS_REGISTRASI_MENUNGGU,
+            'tanggal_approval' => null,
+            'id_admin_approval' => null,
+        ]);
+    }
+
+    /**
+     * State mutator untuk pendaftar yang ditolak oleh Admin.
+     */
+    public function ditolak(string $alasan = 'Data persyaratan belum lengkap'): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'status_aktif' => false,
+            'status_registrasi' => User::STATUS_REGISTRASI_DITOLAK,
+            'alasan_penolakan' => $alasan,
+            'tanggal_approval' => now(),
+        ]);
+    }
+
+    /**
+     * State mutator untuk pengguna Administrator.
+     */
+    public function admin(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => User::ROLE_ADMIN,
+            'status_aktif' => true,
+            'status_registrasi' => User::STATUS_REGISTRASI_DISETUJUI,
+            'tanggal_approval' => now(),
+        ]);
     }
 
     /**

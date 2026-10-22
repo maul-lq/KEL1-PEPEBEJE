@@ -27,6 +27,15 @@
                     <p>
                         <strong>Perihal / Judul:</strong> {{ $p->perihal }}
                     </p>
+                    @php
+                        $vpStaff = $p->verifikasiParalel->where('role_verifikator', 'staff_bidang_2')->first();
+                    @endphp
+                    @if($vpStaff && $vpStaff->catatan_alasan)
+                        <p>
+                            <strong>Catatan Telaah Staf Tata Usaha Bidang II:</strong><br>
+                            <em>&ldquo;{{ $vpStaff->catatan_alasan }}&rdquo;</em>
+                        </p>
+                    @endif
                     <p>
                         <strong>Dokumen Permohonan:</strong>
                         <a href="{{ route('dokumen.pdf', ['jenis' => 'permohonan', 'id' => $p->nomor_surat]) }}" target="_blank">
