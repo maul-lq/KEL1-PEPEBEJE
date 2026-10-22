@@ -21,7 +21,8 @@
                     <strong>NIP:</strong> {{ Auth::user()->nip }} &bull;
                     <strong>Jabatan:</strong> {{ Auth::user()->jabatan }} &bull;
                     <strong>Unit Kerja:</strong> {{ Auth::user()->unit->nama_unit ?? Auth::user()->kode_unit }} &bull;
-                    <strong>Peran Sistem:</strong> <u>{{ Auth::user()->roleEntity ? Auth::user()->roleEntity->label . ' (' . strtoupper(Auth::user()->role) . ')' : strtoupper(str_replace('_', ' ', Auth::user()->role)) }}</u>
+                    <strong>Peran Sistem:</strong> <u>{{ Auth::user()->roleEntity ? Auth::user()->roleEntity->label . ' (' . strtoupper(Auth::user()->role) . ')' : strtoupper(str_replace('_', ' ', Auth::user()->role)) }}</u> &bull;
+                    <a href="{{ route('notifikasi.index') }}"><strong>Notifikasi Personal</strong> ({{ \App\Models\NotifikasiUser::where('id_user', Auth::id())->where('is_read', false)->count() }} belum dibaca)</a>
                 </p>
                 <form id="form-logout-app" action="{{ route('logout') }}" method="POST">
                     @csrf
@@ -117,6 +118,7 @@
                 @endif
 
                 {{-- Menu Terbuka untuk Seluruh Peran --}}
+                <li><a href="{{ route('notifikasi.index') }}">Pusat Notifikasi, Pengingat Jadwal &amp; Alarm PBJ</a></li>
                 @if(Auth::user()->hasRole(['admin', 'user', 'staff_bidang_2', 'wadir_2', 'perencanaan', 'ppbj', 'pp', 'ppk', 'perlengkapan', 'keuangan']) || Auth::user()->hasPermission('monitoring.view'))
                     <li><a href="{{ route('monitoring.index') }}">Monitoring Tahapan Siklus Pengadaan & Jejak Audit</a></li>
                 @endif

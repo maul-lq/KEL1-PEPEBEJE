@@ -94,6 +94,9 @@ class DevViewModeSwitchTest extends TestCase
 
         $resolvedAdminRoles = $finder->find('admin.roles');
         $this->assertStringContainsString('tes_roles.blade.php', $resolvedAdminRoles);
+
+        $resolvedNotifikasi = $finder->find('notifikasi.index');
+        $this->assertStringContainsString('tes_index.blade.php', $resolvedNotifikasi);
     }
 
     /**
@@ -116,6 +119,9 @@ class DevViewModeSwitchTest extends TestCase
 
         $resolvedAdminRoles = $finder->find('admin.roles');
         $this->assertStringEndsWith('admin/roles.blade.php', str_replace('\\', '/', $resolvedAdminRoles));
+
+        $resolvedNotifikasi = $finder->find('notifikasi.index');
+        $this->assertStringEndsWith('notifikasi/index.blade.php', str_replace('\\', '/', $resolvedNotifikasi));
     }
 
     /**
@@ -229,5 +235,21 @@ class DevViewModeSwitchTest extends TestCase
             'sisa_pagu_mak' => 300000000,
             'is_locked' => false,
         ]);
+    }
+
+    /**
+     * Memastikan halaman notifikasi dapat diakses dan di-render pada mode backend (tes_index).
+     */
+    public function test_notifikasi_index_renders_successfully_in_backend_mode(): void
+    {
+        config(['app.dev_viewmode' => 'backend']);
+
+        $response = $this->actingAs($this->userPemohon)
+            ->get(route('notifikasi.index'));
+
+        $response->assertOk();
+        $response->assertSee('Pusat Notifikasi, Pengingat Jadwal');
+        $response->assertSee('Kategori Tab Notifikasi:');
+        $response->assertSee('Daftar Pemberitahuan & Pengingat Masuk');
     }
 }
