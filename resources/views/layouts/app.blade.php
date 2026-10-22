@@ -224,6 +224,47 @@
         <!-- 3. KONTEN UTAMA (Injeksi dari View) -->
         <main class="min-w-0 flex-1 p-6 md:p-10">
             
+            {{-- Banner Permintaan Izin Notifikasi Desktop OS (Windows Action Center / Browser) --}}
+            @auth
+            <div 
+                x-data="desktopNotificationManager()" 
+                x-init="init()" 
+                x-show="showBanner" 
+                x-transition 
+                class="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-[12px] bg-gradient-to-r from-[#1B5B7E] to-[#0088E8] p-4 text-white shadow-md"
+                style="display: none;"
+            >
+                <div class="flex items-center gap-3">
+                    <div class="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/20">
+                        <svg class="size-6 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-semibold">Aktifkan Notifikasi Desktop (OS Windows / Mac)</h4>
+                        <p class="text-xs text-blue-100">Dapatkan peringatan batas waktu SPK, jadwal pengiriman rekanan, dan disposisi verifikasi langsung di layar komputer Anda.</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button 
+                        @click="requestPermission()" 
+                        type="button" 
+                        class="rounded-[8px] bg-white px-4 py-2 text-xs font-semibold text-[#1B5B7E] shadow-sm hover:bg-blue-50 transition-colors"
+                    >
+                        Izinkan Notifikasi OS
+                    </button>
+                    <button 
+                        @click="dismissBanner()" 
+                        type="button" 
+                        class="rounded-[8px] p-2 text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+                        title="Tutup banner"
+                    >
+                        <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+            </div>
+            @endauth
+
             <!-- Notifikasi Success / Error -->
             @if(session('success'))
                 <div class="mb-6 p-4 rounded-[10px] bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-medium shadow-sm">
@@ -247,6 +288,128 @@
     <footer class="py-3 px-6 text-center text-xs text-slate-500">
         &copy; {{ date('Y') }} <strong>SIM-PBJ Politeknik Negeri Jakarta</strong>. Jl. Prof. Dr. G.A. Siwabessy, Kampus UI Depok 16425.
     </footer>
+
+    @auth
+    <!-- Script Web Notification & Service Worker (OS Desktop Alert) -->
+    <script>
+        function desktopNotificationManager() {
+            return {
+                permission: (typeof Notification !== 'undefined') ? Notification.permission : 'denied',
+                showBanner: false,
+
+                init() {
+                    const dismissed = localStorage.getItem('simpbj_os_notif_dismissed') === 'true';
+                    if (typeof Notification !== 'undefined' && Notification.permission === 'default' && !dismissed) {
+                        this.showBanner = true;
+                    }
+
+                    // Daftarkan Service Worker untuk notifikasi OS di latar belakang
+                    if ('serviceWorker' in navigator) {
+                        navigator.serviceWorker.register('/sw.js').catch(function(err) {
+                            console.warn('Gagal mendaftarkan Service Worker SIM-PBJ:', err);
+                        });
+                    }
+
+                    // Mulai polling notifikasi baru jika izin telah diberikan
+                    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+                        this.startPolling();
+                    }
+                },
+
+                requestPermission() {
+                    if (typeof Notification === 'undefined') {
+                        alert('Peramban Anda tidak mendukung Web Notification API.');
+                        return;
+                    }
+
+                    const self = this;
+                    Notification.requestPermission().then(function(perm) {
+                        self.permission = perm;
+                        self.showBanner = false;
+
+                        if (perm === 'granted') {
+                            self.showNativeAlert(
+                                'SIM-PBJ Politeknik Negeri Jakarta',
+                                'Notifikasi Desktop aktif! Anda akan menerima alarm pengadaan langsung di OS.',
+                                '/notifikasi'
+                            );
+                            self.startPolling();
+                        }
+                    });
+                },
+
+                dismissBanner() {
+                    localStorage.setItem('simpbj_os_notif_dismissed', 'true');
+                    this.showBanner = false;
+                },
+
+                startPolling() {
+                    let lastSeenId = parseInt(localStorage.getItem('simpbj_last_notified_id') || '0', 10);
+                    const self = this;
+
+                    // Periksa notifikasi unread terbaru setiap 30 detik
+                    const checkNewAlerts = function() {
+                        fetch('/api/notifikasi-terbaru?since_id=' + lastSeenId, { credentials: 'same-origin' })
+                            .then(res => res.json())
+                            .then(data => {
+                                if (data.status === 'success' && data.data && data.data.length > 0) {
+                                    data.data.forEach(item => {
+                                        self.showNativeAlert(
+                                            item.judul || 'SIM-PBJ: Notifikasi Pengadaan',
+                                            item.pesan + (item.referensi ? ' (' + item.referensi + ')' : ''),
+                                            item.action_url || '/notifikasi'
+                                        );
+                                        if (item.id > lastSeenId) {
+                                            lastSeenId = item.id;
+                                        }
+                                    });
+                                    localStorage.setItem('simpbj_last_notified_id', lastSeenId.toString());
+                                }
+                            })
+                            .catch(err => {
+                                // Silent fail pada background polling
+                            });
+                    };
+
+                    // Jalankan pertama kali setelah 4 detik, kemudian setiap 30 detik
+                    setTimeout(checkNewAlerts, 4000);
+                    setInterval(checkNewAlerts, 30000);
+                },
+
+                showNativeAlert(title, body, url) {
+                    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
+                        return;
+                    }
+
+                    const options = {
+                        body: body,
+                        icon: '/favicon.ico',
+                        badge: '/favicon.ico',
+                        data: { url: url || '/notifikasi' },
+                        tag: 'simpbj-notif-' + Date.now(),
+                        renotify: true
+                    };
+
+                    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                        navigator.serviceWorker.ready.then(reg => {
+                            reg.showNotification(title, options);
+                        });
+                    } else {
+                        try {
+                            const notif = new Notification(title, options);
+                            notif.onclick = function() {
+                                window.focus();
+                                window.location.href = url || '/notifikasi';
+                            };
+                        } catch (e) {
+                            console.warn('Fallback Notification gagal:', e);
+                        }
+                    }
+                }
+            };
+        }
+    </script>
+    @endauth
 
 </body>
 </html>

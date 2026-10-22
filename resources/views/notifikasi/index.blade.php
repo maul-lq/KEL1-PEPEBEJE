@@ -16,22 +16,53 @@
             </p>
         </div>
 
-        {{-- Tombol Tindakan Cepat Tandai Semua Dibaca --}}
-        @if($tabCounts['belum_dibaca'] > 0)
-        <form action="{{ route('notifikasi.mark-all-read') }}" method="POST">
-            @csrf
-            <button
-                type="submit"
-                class="inline-flex h-10 items-center gap-2 rounded-[10px] bg-white px-4 text-xs md:text-sm font-medium text-[#087F79] border border-[#1B5B7E] shadow-sm hover:bg-[#CCE1EF] hover:text-[#1B5B7E] transition-all"
-                title="Tandai seluruh notifikasi yang belum dibaca sebagai telah dibaca"
-            >
-                <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-                Tandai Semua Dibaca ({{ $tabCounts['belum_dibaca'] }})
-            </button>
-        </form>
-        @endif
+        {{-- Tombol Tindakan Cepat Header --}}
+        <div class="flex flex-wrap items-center gap-2.5" x-data="desktopNotificationManager()" x-init="init()">
+            {{-- Tombol Izin / Uji Coba Notifikasi OS --}}
+            <template x-if="permission !== 'granted'">
+                <button
+                    type="button"
+                    @click="requestPermission()"
+                    class="inline-flex h-10 items-center gap-2 rounded-[10px] bg-white px-3.5 text-xs md:text-sm font-medium text-[#1B5B7E] border border-[#1B5B7E] shadow-sm hover:bg-[#CCE1EF] transition-all"
+                    title="Aktifkan notifikasi pop-up native di OS Windows / Mac"
+                >
+                    <svg class="size-4 text-[#0088E8]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                    Aktifkan Notifikasi OS
+                </button>
+            </template>
+            <template x-if="permission === 'granted'">
+                <button
+                    type="button"
+                    @click="showNativeAlert('SIM-PBJ Politeknik Negeri Jakarta', 'Uji Coba: Notifikasi OS berhasil aktif dan siap menerima peringatan.', '/notifikasi')"
+                    class="inline-flex h-10 items-center gap-2 rounded-[10px] bg-white px-3.5 text-xs md:text-sm font-medium text-[#087F79] border border-[#DCE5E3] shadow-sm hover:bg-[#EAF4FA] transition-all"
+                    title="Uji coba kemunculan notifikasi di sistem operasi Windows / Mac"
+                >
+                    <svg class="size-4 text-[#087F79]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Tes Notifikasi OS
+                </button>
+            </template>
+
+            {{-- Tombol Tindakan Cepat Tandai Semua Dibaca --}}
+            @if($tabCounts['belum_dibaca'] > 0)
+            <form action="{{ route('notifikasi.mark-all-read') }}" method="POST">
+                @csrf
+                <button
+                    type="submit"
+                    class="inline-flex h-10 items-center gap-2 rounded-[10px] bg-white px-4 text-xs md:text-sm font-medium text-[#087F79] border border-[#1B5B7E] shadow-sm hover:bg-[#CCE1EF] hover:text-[#1B5B7E] transition-all"
+                    title="Tandai seluruh notifikasi yang belum dibaca sebagai telah dibaca"
+                >
+                    <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    Tandai Semua Dibaca ({{ $tabCounts['belum_dibaca'] }})
+                </button>
+            </form>
+            @endif
+        </div>
     </div>
 
     {{-- 2. BARIS FILTER & PENCARIAN (Sesuai Figma Node 175:507, 175:506, 127:2938) --}}
