@@ -77,7 +77,7 @@ class NotificationReminderViewTest extends TestCase
         foreach ($roles as $roleName) {
             $user = User::factory()->create([
                 'role' => $roleName,
-                'status_aktif' => 'aktif',
+                'status_aktif' => true,
             ]);
 
             $response = $this->actingAs($user)->get('/notifikasi');
@@ -98,7 +98,7 @@ class NotificationReminderViewTest extends TestCase
         $user = User::factory()->create([
             'role' => 'user',
             'username' => 'user_pengaju',
-            'status_aktif' => 'aktif',
+            'status_aktif' => true,
         ]);
 
         $this->seed(NotificationSeeder::class);
@@ -121,7 +121,7 @@ class NotificationReminderViewTest extends TestCase
      */
     public function test_tab_filtering_displays_matching_notifications(): void
     {
-        $user = User::factory()->create(['role' => 'user', 'status_aktif' => 'aktif']);
+        $user = User::factory()->create(['role' => 'user', 'status_aktif' => true]);
 
         $permohonan = PermohonanPengadaan::create([
             'nomor_surat' => '055/PL3/TE/2026',
@@ -198,7 +198,7 @@ class NotificationReminderViewTest extends TestCase
      */
     public function test_user_can_mark_single_notification_as_read(): void
     {
-        $user = User::factory()->create(['role' => 'user', 'status_aktif' => 'aktif']);
+        $user = User::factory()->create(['role' => 'user', 'status_aktif' => true]);
 
         $permohonan = PermohonanPengadaan::create([
             'nomor_surat' => '077/PL3/TE/2026',
@@ -257,7 +257,7 @@ class NotificationReminderViewTest extends TestCase
      */
     public function test_user_can_mark_all_notifications_as_read(): void
     {
-        $user = User::factory()->create(['role' => 'user', 'status_aktif' => 'aktif']);
+        $user = User::factory()->create(['role' => 'user', 'status_aktif' => true]);
 
         $permohonan = PermohonanPengadaan::create([
             'nomor_surat' => '088/PL3/TE/2026',

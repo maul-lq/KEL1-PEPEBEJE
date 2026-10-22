@@ -28,16 +28,16 @@ class NotificationSeeder extends Seeder
     public function run(): void
     {
         // 1. Dapatkan referensi akun pengguna dari database (atau buat akun pendukung jika belum ada)
-        $userPengaju = User::where('username', 'user_pengaju')->first() ?? User::where('role', 'user')->first() ?? User::factory()->create(['role' => 'user', 'username' => 'user_pengaju', 'kode_unit' => 'TIK', 'status_aktif' => 'aktif']);
-        $staffB2 = User::where('username', 'staff_b2')->first() ?? User::where('role', 'staff_bidang_2')->first() ?? User::factory()->create(['role' => 'staff_bidang_2', 'username' => 'staff_b2', 'kode_unit' => 'TIK', 'status_aktif' => 'aktif']);
-        $wadir2 = User::where('username', 'wadir2')->first() ?? User::where('role', 'wadir_2')->first() ?? User::factory()->create(['role' => 'wadir_2', 'username' => 'wadir2', 'kode_unit' => 'TIK', 'status_aktif' => 'aktif']);
-        $perencanaan = User::where('username', 'perencanaan')->first() ?? User::where('role', 'perencanaan')->first() ?? User::factory()->create(['role' => 'perencanaan', 'username' => 'perencanaan', 'kode_unit' => 'TIK', 'status_aktif' => 'aktif']);
-        $ppbj = User::where('username', 'ppbj')->first() ?? User::where('role', 'ppbj')->first() ?? User::factory()->create(['role' => 'ppbj', 'username' => 'ppbj', 'kode_unit' => 'TIK', 'status_aktif' => 'aktif']);
-        $pp = User::where('username', 'pp_user')->first() ?? User::where('role', 'pp')->first() ?? User::factory()->create(['role' => 'pp', 'username' => 'pp_user', 'kode_unit' => 'TIK', 'status_aktif' => 'aktif']);
-        $ppk1 = User::where('username', 'ppk_1')->first() ?? User::where('role', 'ppk')->first() ?? User::factory()->create(['role' => 'ppk', 'username' => 'ppk_1', 'kode_unit' => 'TIK', 'status_aktif' => 'aktif']);
-        $perlengkapan = User::where('username', 'perlengkapan')->first() ?? User::where('role', 'perlengkapan')->first() ?? User::factory()->create(['role' => 'perlengkapan', 'username' => 'perlengkapan', 'kode_unit' => 'TIK', 'status_aktif' => 'aktif']);
-        $keuangan = User::where('username', 'keuangan')->first() ?? User::where('role', 'keuangan')->first() ?? User::factory()->create(['role' => 'keuangan', 'username' => 'keuangan', 'kode_unit' => 'TIK', 'status_aktif' => 'aktif']);
-        $admin = User::where('username', 'admin')->first() ?? User::where('role', 'admin')->first() ?? User::factory()->create(['role' => 'admin', 'username' => 'admin', 'kode_unit' => 'TIK', 'status_aktif' => 'aktif']);
+        $userPengaju = User::where('username', 'user_pengaju')->first() ?? User::where('role', 'user')->first() ?? User::factory()->create(['role' => 'user', 'username' => 'user_pengaju', 'kode_unit' => 'TIK', 'status_aktif' => true]);
+        $staffB2 = User::where('username', 'staff_b2')->first() ?? User::where('role', 'staff_bidang_2')->first() ?? User::factory()->create(['role' => 'staff_bidang_2', 'username' => 'staff_b2', 'kode_unit' => 'TIK', 'status_aktif' => true]);
+        $wadir2 = User::where('username', 'wadir2')->first() ?? User::where('role', 'wadir_2')->first() ?? User::factory()->create(['role' => 'wadir_2', 'username' => 'wadir2', 'kode_unit' => 'TIK', 'status_aktif' => true]);
+        $perencanaan = User::where('username', 'perencanaan')->first() ?? User::where('role', 'perencanaan')->first() ?? User::factory()->create(['role' => 'perencanaan', 'username' => 'perencanaan', 'kode_unit' => 'TIK', 'status_aktif' => true]);
+        $ppbj = User::where('username', 'ppbj')->first() ?? User::where('role', 'ppbj')->first() ?? User::factory()->create(['role' => 'ppbj', 'username' => 'ppbj', 'kode_unit' => 'TIK', 'status_aktif' => true]);
+        $pp = User::where('username', 'pp_user')->first() ?? User::where('role', 'pp')->first() ?? User::factory()->create(['role' => 'pp', 'username' => 'pp_user', 'kode_unit' => 'TIK', 'status_aktif' => true]);
+        $ppk1 = User::where('username', 'ppk_1')->first() ?? User::where('role', 'ppk')->first() ?? User::factory()->create(['role' => 'ppk', 'username' => 'ppk_1', 'kode_unit' => 'TIK', 'status_aktif' => true]);
+        $perlengkapan = User::where('username', 'perlengkapan')->first() ?? User::where('role', 'perlengkapan')->first() ?? User::factory()->create(['role' => 'perlengkapan', 'username' => 'perlengkapan', 'kode_unit' => 'TIK', 'status_aktif' => true]);
+        $keuangan = User::where('username', 'keuangan')->first() ?? User::where('role', 'keuangan')->first() ?? User::factory()->create(['role' => 'keuangan', 'username' => 'keuangan', 'kode_unit' => 'TIK', 'status_aktif' => true]);
+        $admin = User::where('username', 'admin')->first() ?? User::where('role', 'admin')->first() ?? User::factory()->create(['role' => 'admin', 'username' => 'admin', 'kode_unit' => 'TIK', 'status_aktif' => true]);
 
         // 2. Buat atau perbarui data usulan permohonan sesuai sampel Figma: 032/PL3/TE/2026
         if ($userPengaju) {
