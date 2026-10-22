@@ -53,7 +53,7 @@ class NotificationDeliveryIntegrationTest extends TestCase
             'username' => 'dosen_pengaju',
             'email' => 'pengaju.simpbj@pnj.ac.id',
             'nama' => 'Dr. Ir. Maulana Pengaju, M.T.',
-            'status_aktif' => 'aktif',
+            'status_aktif' => true,
             'kode_unit' => 'TE',
         ]);
 
