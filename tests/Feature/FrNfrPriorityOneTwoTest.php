@@ -49,6 +49,7 @@ class FrNfrPriorityOneTwoTest extends TestCase
             'jabatan' => 'Staff Penguji',
             'no_hp' => '081299990001',
             'status_aktif' => true,
+            'status_registrasi' => User::STATUS_REGISTRASI_DISETUJUI,
         ]);
 
         $inactiveUser = User::create([
@@ -135,7 +136,7 @@ class FrNfrPriorityOneTwoTest extends TestCase
 
         $unit = Unit::first();
 
-        // Mencoba registrasi PP kedua melalui endpoint registrasi web
+        // 1. Registrasi user baru via web (masuk antrean 'menunggu_persetujuan' tanpa pemilihan role oleh pendaftar)
         $response = $this->post(route('register'), [
             'username' => 'second_pp_attempt',
             'nama' => 'Pejabat Pengadaan Kedua',
@@ -143,17 +144,27 @@ class FrNfrPriorityOneTwoTest extends TestCase
             'email' => 'pp2@pnj.ac.id',
             'password' => 'Secret123!',
             'password_confirmation' => 'Secret123!',
-            'role' => 'pp',
             'kode_unit' => $unit->kode_unit,
             'jabatan' => 'PP Cadangan',
             'no_hp' => '081299998888',
         ]);
 
-        $response->assertSessionHasErrors(['role']);
+        $response->assertRedirect(route('login'));
+        $pendingUser = User::where('username', 'second_pp_attempt')->first();
+        $this->assertNotNull($pendingUser);
+        $this->assertSame(User::STATUS_REGISTRASI_MENUNGGU, $pendingUser->status_registrasi);
+        $this->assertFalse($pendingUser->status_aktif);
+
+        // 2. Admin mencoba menyetujui (ACC) user ini dengan menetapkan role 'pp' ketika sudah ada 1 akun PP aktif
+        $this->actingAs($adminUser);
+        $accResponse = $this->post(route('admin.persetujuan-registrasi.acc', $pendingUser->id_user), [
+            'role' => 'pp',
+        ]);
+        $accResponse->assertSessionHasErrors(['role']);
         $errors = session('errors')->get('role');
         $this->assertStringContainsString('Hanya diizinkan 1 akun Pejabat Pengadaan', $errors[0]);
 
-        // Mencoba membuat PP kedua melalui REST API /api/users
+        // 3. Mencoba membuat PP kedua melalui REST API /api/users
         $this->actingAs($existingPp);
         $apiResponse = $this->postJson('/api/users', [
             'username' => 'second_pp_api',

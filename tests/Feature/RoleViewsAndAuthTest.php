@@ -96,7 +96,8 @@ class RoleViewsAndAuthTest extends TestCase
             'username' => 'dosen_baru_test',
             'email' => 'dosenbaru@pnj.ac.id',
             'role' => 'user',
-            'status_aktif' => true,
+            'status_aktif' => false,
+            'status_registrasi' => User::STATUS_REGISTRASI_MENUNGGU,
         ]);
     }
 

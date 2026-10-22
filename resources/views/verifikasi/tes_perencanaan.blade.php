@@ -140,7 +140,57 @@
 
     <hr>
 
-    {{-- 3. Daftar Master MAK DIPA & Fitur Kunci Anggaran --}}
+    {{-- 3. Formulir Pendaftaran Rekening MAK DIPA Baru (FR 6.1) --}}
+    <fieldset>
+        <legend><strong>+ Tambah Master Rekening MAK DIPA Baru (Subbagian Perencanaan)</strong></legend>
+        <p>Gunakan formulir ini untuk mendaftarkan pos akun rekening DIPA anggaran baru institusi Politeknik Negeri Jakarta.</p>
+
+        <form action="{{ route('verifikasi.perencanaan.mak.store') }}" method="POST">
+            @csrf
+            <p>
+                <label for="input_kode_mak"><strong>Kode Rekening MAK:</strong></label><br>
+                <input type="text" id="input_kode_mak" name="kode_mak" required placeholder="Contoh: MAK-TIK-2026-004 atau 023.17.WA.521211" size="40">
+            </p>
+
+            <p>
+                <label for="input_uraian_mak"><strong>Uraian / Nama Kegiatan MAK:</strong></label><br>
+                <input type="text" id="input_uraian_mak" name="uraian_mak" required placeholder="Contoh: Belanja Bahan Penunjang Laboratorium Komputer" size="60">
+            </p>
+
+            <p>
+                <label for="input_sumber_dana"><strong>Sumber Pendanaan:</strong></label><br>
+                <select id="input_sumber_dana" name="sumber_dana" required>
+                    <option value="BOPTN">BOPTN (Bantuan Operasional PTN)</option>
+                    <option value="PNBP">PNBP (Pendapatan Negara Bukan Pajak)</option>
+                    <option value="Rupiah Murni">Rupiah Murni (APBN RM)</option>
+                    <option value="Hibah / Kerjasama">Hibah / Kerjasama</option>
+                </select>
+            </p>
+
+            <p>
+                <label for="input_tahun_anggaran"><strong>Tahun Anggaran DIPA:</strong></label><br>
+                <input type="number" id="input_tahun_anggaran" name="tahun_anggaran" value="{{ date('Y') }}" min="2020" max="2035" required>
+            </p>
+
+            <p>
+                <label for="input_pagu_anggaran"><strong>Pagu Awal Anggaran (Rp):</strong></label><br>
+                <input type="number" id="input_pagu_anggaran" name="pagu_anggaran" min="1" step="0.01" required placeholder="Contoh: 150000000">
+            </p>
+
+            <p>
+                <label for="input_catatan_mak"><strong>Catatan Rekening (Opsional):</strong></label><br>
+                <textarea id="input_catatan_mak" name="catatan_mak" rows="2" cols="60" placeholder="Keterangan alokasi pagu DIPA atau revisi DIPA..."></textarea>
+            </p>
+
+            <p>
+                <button type="submit"><strong>Simpan &amp; Terbitkan Rekening MAK</strong></button>
+            </p>
+        </form>
+    </fieldset>
+
+    <hr>
+
+    {{-- 4. Daftar Master MAK DIPA & Fitur Kunci Anggaran --}}
     <fieldset>
         <legend><strong>Daftar Mata Anggaran Kegiatan (MAK) DIPA Kampus PNJ</strong></legend>
         <table border="1" cellpadding="6" cellspacing="0">
