@@ -123,4 +123,16 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Development View Mode (Backend vs Frontend)
+    |--------------------------------------------------------------------------
+    |
+    | Menentukan prioritas penemuan view Blade sebelum fase rilis produksi.
+    | 'backend'  => Mengutamakan tampilan uji bebas CSS (berkas berawalan tes_*).
+    | 'frontend' => Mengutamakan tampilan antarmuka terdesain penuh Tailwind (non-tes_*).
+    |
+    */
+    'dev_viewmode' => env('DEV_VIEWMODE', 'backend'),
+
 ];

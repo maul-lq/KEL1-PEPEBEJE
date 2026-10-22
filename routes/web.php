@@ -80,8 +80,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/permohonan', [HomeController::class, 'storePermohonan'])->name('permohonan.store');
     Route::post('/permohonan/revisi', [HomeController::class, 'revisiPermohonan'])->name('permohonan.revisi');
 
-    // TAMBAHKAN BARIS INI:
-    Route::get('/permohonan/{id}', [HomeController::class, 'permohonanShow'])->name('permohonan.show');
+    Route::get('/permohonan/{id}', [HomeController::class, 'permohonanShow'])
+        ->name('permohonan.show')
+        ->where(['id' => '.*']);
     // -------------------------------------------------------------------------
     // -------------------------------------------------------------------------
     // Modul 2 & 3: Verifikasi Paralel (Staf B2, Wadir 2, & Perencanaan)
@@ -99,6 +100,7 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:perencanaan')->group(function () {
         Route::get('/verifikasi/perencanaan', [HomeController::class, 'verifikasiPerencanaan'])->name('verifikasi.perencanaan');
         Route::post('/verifikasi/perencanaan/mak', [HomeController::class, 'alokasiMakPerencanaan'])->name('verifikasi.perencanaan.mak');
+        Route::post('/verifikasi/perencanaan/mak/store', [HomeController::class, 'storeMakPerencanaan'])->name('verifikasi.perencanaan.mak.store');
         Route::post('/verifikasi/perencanaan/split', [HomeController::class, 'splitMakPerencanaan'])->name('verifikasi.perencanaan.split');
     });
 

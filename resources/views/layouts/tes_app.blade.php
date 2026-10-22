@@ -11,6 +11,7 @@
     <header>
         <h1>Sistem Informasi Manajemen Pengadaan Barang dan Jasa (SIM-PBJ)</h1>
         <p><strong>Politeknik Negeri Jakarta</strong> &bull; Jl. Prof. Dr. G.A. Siwabessy, Kampus UI Depok 16425</p>
+        <p><small><strong>Mode Tampilan Aktif:</strong> Backend (Zero CSS - Berkas <code>tes_*</code>) &bull; Flag: <code>DEV_VIEWMODE={{ config('app.dev_viewmode', 'backend') }}</code></small></p>
 
         @auth
             <fieldset>

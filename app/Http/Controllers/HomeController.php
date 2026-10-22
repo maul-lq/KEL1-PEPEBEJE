@@ -127,7 +127,6 @@ class HomeController extends Controller
             'verifikasiParalel.user',
             'paket.kontrak.penerimaan',
         ])->where('nomor_surat', $id)
-            ->orWhere('id_permohonan', $id)
             ->firstOrFail();
 
         return view('permohonan.show', compact('permohonan'));
@@ -153,6 +152,7 @@ class HomeController extends Controller
         $validated = $request->validate([
             'nomor_surat' => ['required', 'string', 'max:100', 'unique:permohonan_pengadaan,nomor_surat'],
             'perihal' => ['required', 'string', 'max:255'],
+            'tujuan_pengadaan_ringkas' => ['nullable', 'string', 'max:500'],
             'anggaran_diajukan' => ['required', 'numeric', 'min:1'],
             'kode_unit' => ['required', 'string', 'exists:units,kode_unit'],
             'tanggal_pengajuan' => ['required', 'date'],
@@ -177,7 +177,7 @@ class HomeController extends Controller
         $permohonan = PermohonanPengadaan::create([
             'nomor_surat' => $validated['nomor_surat'],
             'judul_pengadaan' => $validated['perihal'],
-            'tujuan_pengadaan_ringkas' => $validated['perihal'],
+            'tujuan_pengadaan_ringkas' => $validated['tujuan_pengadaan_ringkas'] ?? $validated['perihal'],
             'estimasi_total_pagu' => $validated['anggaran_diajukan'],
             'perihal' => $validated['perihal'],
             'anggaran_diajukan' => $validated['anggaran_diajukan'],
@@ -241,6 +241,7 @@ class HomeController extends Controller
             'nomor_surat_lama' => ['required', 'exists:permohonan_pengadaan,nomor_surat'],
             'nomor_surat_baru' => ['required', 'string', 'max:100', 'unique:permohonan_pengadaan,nomor_surat'],
             'perihal' => ['required', 'string', 'max:255'],
+            'tujuan_pengadaan_ringkas' => ['nullable', 'string', 'max:500'],
             'anggaran_diajukan' => ['required', 'numeric', 'min:1'],
             'keterangan_revisi' => ['nullable', 'string'],
             'file_kak' => ['nullable', DokumenUploadRule::pdfOnly()],
@@ -255,7 +256,7 @@ class HomeController extends Controller
         $revisi = PermohonanPengadaan::create([
             'nomor_surat' => $validated['nomor_surat_baru'],
             'judul_pengadaan' => $validated['perihal'],
-            'tujuan_pengadaan_ringkas' => $validated['perihal'],
+            'tujuan_pengadaan_ringkas' => $validated['tujuan_pengadaan_ringkas'] ?? $induk->tujuan_pengadaan_ringkas ?? $validated['perihal'],
             'estimasi_total_pagu' => $validated['anggaran_diajukan'],
             'perihal' => $validated['perihal'],
             'anggaran_diajukan' => $validated['anggaran_diajukan'],
@@ -272,7 +273,14 @@ class HomeController extends Controller
             'alasan_revisi' => $validated['keterangan_revisi'] ?? 'Perbaikan dokumen KAK dan spesifikasi',
         ]);
 
-        // Inisialisasi verifikasi baru untuk berkas revisi
+        // Inisialisasi verifikasi baru untuk berkas revisi (Staf Bidang 2, Wadir 2, Perencanaan)
+        VerifikasiParalel::create([
+            'id_user' => $user->id_user,
+            'nomor_surat' => $revisi->nomor_surat,
+            'role_verifikator' => 'staff_bidang_2',
+            'status_keputusan' => 'menunggu',
+        ]);
+
         VerifikasiParalel::create([
             'id_user' => $user->id_user,
             'nomor_surat' => $revisi->nomor_surat,
@@ -466,6 +474,41 @@ class HomeController extends Controller
         $makList = AnggaranMAK::orderBy('kode_mak')->get();
 
         return view('verifikasi.tes_perencanaan', compact('permohonanAntrean', 'makList'));
+    }
+
+    /**
+     * Mendaftarkan rekening MAK DIPA baru melalui antarmuka web oleh Bagian Perencanaan (FR 6.1).
+     */
+    public function storeMakPerencanaan(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'kode_mak' => ['required', 'string', 'max:50', 'unique:anggaran_mak,kode_mak'],
+            'uraian_mak' => ['required', 'string', 'max:255'],
+            'pagu_anggaran' => ['required', 'numeric', 'min:1'],
+            'sumber_dana' => ['required', 'string', 'max:100'],
+            'tahun_anggaran' => ['required', 'integer', 'digits:4'],
+            'catatan_mak' => ['nullable', 'string'],
+        ]);
+
+        $validated['sisa_pagu_mak'] = $validated['pagu_anggaran'];
+        $validated['tanggal_penetapan'] = now();
+        $validated['is_locked'] = false;
+        $validated['id_user'] = Auth::id();
+
+        $mak = AnggaranMAK::create($validated);
+
+        AuditLog::catat(
+            Auth::id() ?? 1,
+            'PENETAPAN_MAK_WEB',
+            'anggaran_mak',
+            $mak->kode_mak,
+            null,
+            (string) $mak->pagu_anggaran,
+            'Penetapan rekening MAK baru via web oleh Perencanaan: '.$mak->uraian_mak
+        );
+
+        return redirect()->route('verifikasi.perencanaan')
+            ->with('success', "Rekening MAK {$mak->kode_mak} ({$mak->uraian_mak}) berhasil ditambahkan ke DIPA kampus.");
     }
 
     /**

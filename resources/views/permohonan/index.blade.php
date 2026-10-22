@@ -201,6 +201,15 @@
                     />
                 </label>
                 <label class="block sm:col-span-2">
+                    <span class="block text-2xl mb-1">Tujuan pengadaan secara ringkas</span>
+                    <textarea
+                        name="tujuan_pengadaan_ringkas"
+                        rows="2"
+                        placeholder="Uraian ringkas tujuan pengadaan..."
+                        class="w-full rounded-[10px] border border-black bg-white p-3 text-base outline-none focus:ring-2 focus:ring-[#689EC2]"
+                    ></textarea>
+                </label>
+                <label class="block sm:col-span-2">
                     <span class="block text-2xl mb-1">Estimasi Anggaran (Rp)</span>
                     <input
                         type="number"
