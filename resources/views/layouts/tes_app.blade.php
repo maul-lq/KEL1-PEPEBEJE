@@ -29,6 +29,24 @@
                     <button id="btn-logout-app" type="submit">Keluar (Logout)</button>
                 </form>
             </fieldset>
+
+            {{-- Panel Status & Izin Notifikasi Desktop OS (Zero CSS) --}}
+            <section id="section-os-notification">
+                <fieldset>
+                    <legend>Status &amp; Izin Notifikasi Desktop Komputer (OS Windows / Mac)</legend>
+                    <p>
+                        Status Izin Desktop: <strong id="os-notif-status-badge">Mengecek izin...</strong> &bull;
+                        <button type="button" id="btn-request-os-notif" data-action="request-os-notification">Minta / Aktifkan Izin Notifikasi Desktop</button>
+                        &bull;
+                        <button type="button" id="btn-test-os-notif" data-action="test-os-notification">Uji Munculkan Notifikasi Pop-up Desktop</button>
+                        &bull;
+                        <a href="{{ route('notifikasi.index') }}"><button type="button">Buka Pusat Notifikasi &amp; Alarm</button></a>
+                    </p>
+                    <p id="os-notif-message-box">
+                        <small><em>Notifikasi desktop memunculkan alert suara dan pop-up resmi di Windows Action Center / macOS Notification Center secara real-time saat usulan disetujui, ditolak, atau ada batas waktu pengadaan.</em></small>
+                    </p>
+                </fieldset>
+            </section>
         @endauth
         <hr>
     </header>

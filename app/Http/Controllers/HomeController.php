@@ -22,6 +22,7 @@ use App\Models\User;
 use App\Models\Vendor;
 use App\Models\VerifikasiParalel;
 use App\Rules\DokumenUploadRule;
+use App\Services\PengadaanNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -49,6 +50,13 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class HomeController extends Controller
 {
+    /**
+     * Inisialisasi controller dengan injeksi layanan pengadaan & notifikasi.
+     */
+    public function __construct(
+        public PengadaanNotificationService $notificationService
+    ) {}
+
     /**
      * Menampilkan dashboard utama operasional adaptif berbasis peran pengguna.
      */
@@ -225,6 +233,9 @@ class HomeController extends Controller
             "Pengajuan usulan permohonan pengadaan nomor {$permohonan->nomor_surat} oleh {$user->nama}"
         );
 
+        // Memicu notifikasi siklus: Staf Bidang 2, Wadir 2, dan Perencanaan menerima alarm usulan baru
+        $this->notificationService->notifyPengajuanBaru($permohonan);
+
         return redirect()->route('permohonan.index')->with(
             'success',
             "Usulan permohonan nomor {$permohonan->nomor_surat} berhasil diajukan dan diteruskan ke antrean telaah Bidang II & Perencanaan."
@@ -296,6 +307,9 @@ class HomeController extends Controller
             'status_keputusan' => 'menunggu',
         ]);
 
+        // Memicu notifikasi siklus revisi berkas usulan
+        $this->notificationService->notifyPengajuanRevisi($revisi);
+
         return redirect()->route('permohonan.index')->with(
             'success',
             "Surat revisi berhasil diterbitkan dengan nomor {$revisi->nomor_surat} (Revisi ke-{$revisi->revisi_ke})."
@@ -353,6 +367,9 @@ class HomeController extends Controller
             'Staff Bidang 2 memeriksa kelengkapan berkas dan meneruskannya ke Wadir 2: '.($validated['catatan_staff'] ?? 'Lengkap')
         );
 
+        // Memicu notifikasi ke Wadir 2: berkas siap disetujui
+        $this->notificationService->notifyDiteruskanStaffB2($permohonan, $validated['catatan_staff'] ?? null);
+
         return redirect()->route('verifikasi.bidang-2')->with(
             'success',
             "Telaah berkas untuk surat {$permohonan->nomor_surat} berhasil disimpan dan disampaikan ke antrean Wadir 2."
@@ -403,7 +420,7 @@ class HomeController extends Controller
         if ($validated['keputusan'] === 'ditolak') {
             $permohonan->status = 'ditolak';
             $permohonan->status_permohonan = PermohonanPengadaan::STATUS_DITOLAK;
-            $permohonan->catatan_revisi = $validated['catatan_alasan'];
+            $permohonan->alasan_revisi = $validated['catatan_alasan'];
             $permohonan->save();
 
             AuditLog::catat(
@@ -415,6 +432,9 @@ class HomeController extends Controller
                 'ditolak',
                 "Wadir 2 menolak usulan permohonan dengan alasan: {$validated['catatan_alasan']}"
             );
+
+            // Memicu notifikasi penolakan ke pengusul
+            $this->notificationService->notifyKeputusanWadir2($permohonan, 'ditolak', $validated['catatan_alasan']);
 
             return redirect()->route('verifikasi.wadir-2')->with(
                 'success',
@@ -443,6 +463,9 @@ class HomeController extends Controller
                 'Usulan disetujui penuh oleh Wadir 2 dan Perencanaan, otomatis diteruskan ke PPBJ.'
             );
 
+            // Memicu notifikasi persetujuan penuh ke Pengusul dan Seluruh PPBJ
+            $this->notificationService->notifyKeputusanWadir2($permohonan, 'disetujui');
+
             return redirect()->route('verifikasi.wadir-2')->with(
                 'success',
                 'Persetujuan Wadir 2 berhasil dicatat. Seluruh pihak telah menyetujui, usulan beralih ke status DISETUJUI dan siap diproses PPBJ.'
@@ -451,6 +474,9 @@ class HomeController extends Controller
 
         $permohonan->status = 'reviu_paralel';
         $permohonan->save();
+
+        // Memicu notifikasi ke Perencanaan: Wadir 2 sudah ACC, menunggu alokasi MAK
+        $this->notificationService->notifyKeputusanWadir2($permohonan, 'disetujui');
 
         return redirect()->route('verifikasi.wadir-2')->with(
             'success',
@@ -556,6 +582,9 @@ class HomeController extends Controller
                 'Perencanaan menahan (Hold/Pending) usulan karena anggaran belum tersedia (FR 6.2): '.($validated['catatan_anggaran'] ?? 'Anggaran belum siap')
             );
 
+            // Memicu notifikasi ke pengusul bahwa anggaran berstatus hold
+            $this->notificationService->notifyAlokasiMak($permohonan, $mak, 'tahan', $validated['catatan_anggaran'] ?? null);
+
             return redirect()->route('verifikasi.perencanaan')->with(
                 'error',
                 "Usulan {$permohonan->nomor_surat} ditandai pending anggaran (Hold) oleh Bagian Perencanaan (FR 6.2)."
@@ -605,11 +634,17 @@ class HomeController extends Controller
                 "MAK {$mak->kode_mak} berhasil dialokasikan, usulan disetujui penuh dan diteruskan ke PPBJ."
             );
 
+            // Memicu notifikasi persetujuan penuh ke Pengusul dan Seluruh PPBJ
+            $this->notificationService->notifyAlokasiMak($permohonan, $mak, 'setuju');
+
             return redirect()->route('verifikasi.perencanaan')->with(
                 'success',
                 "MAK {$mak->kode_mak} berhasil dialokasikan. Usulan kini berstatus DISETUJUI dan siap diproses PPBJ."
             );
         }
+
+        // Memicu notifikasi ke Wadir 2: MAK sudah dialokasikan, menunggu ACC Wadir 2
+        $this->notificationService->notifyAlokasiMak($permohonan, $mak, 'setuju');
 
         return redirect()->route('verifikasi.perencanaan')->with(
             'success',
@@ -877,6 +912,9 @@ class HomeController extends Controller
             "PPBJ mendaftarkan paket {$paket->kode_paket} HPS Rp ".number_format($hps)." jalur routing {$jalur}"
         );
 
+        // Memicu notifikasi penugasan paket ke PPK / PP
+        $this->notificationService->notifyPendaftaranPaket($paket);
+
         return redirect()->route('paket.index')->with(
             'success',
             "Paket pengadaan {$paket->kode_paket} berhasil diterbitkan dengan jalur routing: ".strtoupper(str_replace('_', ' ', $jalur)).'.'
@@ -931,6 +969,9 @@ class HomeController extends Controller
             (string) $ppkBaru->id_user,
             "Alih tugas PPK paket {$paket->kode_paket} ke {$ppkBaru->nama}: {$validated['alasan_pengalihan']}"
         );
+
+        // Memicu notifikasi alih tugas ke PPK baru
+        $this->notificationService->notifyReassignPpk($paket, $ppkBaru, $validated['alasan_pengalihan']);
 
         return redirect()->route('paket.index')->with(
             'success',
@@ -1032,6 +1073,9 @@ class HomeController extends Controller
             "Penerbitan Kontrak SPK nomor {$kontrak->nomor_spk} nilai Rp ".number_format($kontrak->nilai_kontrak).' serta penguncian permanen MAK (FR 11 & NFR 6)'
         );
 
+        // Memicu notifikasi tembusan SPK ke Perlengkapan, Keuangan, dan Pengusul
+        $this->notificationService->notifyPenerbitanKontrak($kontrak);
+
         return redirect()->route('kontrak.index')->with(
             'success',
             "Kontrak SPK nomor {$kontrak->nomor_spk} berhasil diterbitkan (MAK telah dikunci permanen) dan siap serah terima barang."
@@ -1102,6 +1146,9 @@ class HomeController extends Controller
             $paket->status_paket,
             'Penelaahan dokumen oleh '.strtoupper($user->role).' (FR 9): '.($validated['catatan_perbaikan'] ?? 'Disetujui untuk SPK')
         );
+
+        // Memicu notifikasi hasil reviu dokumen (jika perlu perbaikan)
+        $this->notificationService->notifyReviuDokumen($paket, $validated['status_reviu'], $validated['catatan_perbaikan'] ?? null);
 
         $msg = $validated['status_reviu'] === 'disetujui'
             ? "Reviu dokumen paket {$paket->nomor_paket} disetujui. Paket siap diproses penerbitan SPK (FR 9.2)."
@@ -1211,6 +1258,11 @@ class HomeController extends Controller
             $penerimaan->status_fisik,
             "Unit Perlengkapan menerbitkan BAST {$penerimaan->nomor_bast} token {$tokenHmac} status {$penerimaan->status_fisik}"
         );
+
+        // Memicu notifikasi penerimaan barang / BAST terbit ke PPBJ dan Pengusul
+        if ($validated['kondisi_barang'] === 'terima') {
+            $this->notificationService->notifyPenerimaanBarang($penerimaan);
+        }
 
         return redirect()->route('penerimaan.index')->with(
             'success',
@@ -1347,7 +1399,7 @@ class HomeController extends Controller
         // Bentuk memo bertingkat: Level 1 (PPK) & Level 2 (Wadir 2) (FR 16.1)
         $defaultPpk = User::where('role', 'ppk')->first();
         $ppkUserId = $paket->id_user_ppk ?? $defaultPpk?->id_user ?? $user->id_user;
-        MemoBayar::create([
+        $memoLevel1 = MemoBayar::create([
             'id_user' => $ppkUserId,
             'nomor_pembayaran' => $pembayaran->nomor_pembayaran,
             'role_approver' => 'ppk',
@@ -1375,6 +1427,9 @@ class HomeController extends Controller
             'reviu_memo',
             "PPBJ mengajukan berkas pembayaran {$pembayaran->nomor_pembayaran} termin {$pembayaran->tahap_termin} Rp ".number_format($pembayaran->nominal_pengajuan)
         );
+
+        // Memicu notifikasi pengajuan memo bayar ke PPK penanggung jawab
+        $this->notificationService->notifyPengajuanBayar($pembayaran, $memoLevel1);
 
         return redirect()->route('pembayaran.index')->with(
             'success',
@@ -1416,6 +1471,9 @@ class HomeController extends Controller
             $memo->status_memo,
             "Persetujuan memo pembayaran tingkat {$memo->urutan_level} ({$memo->role_approver}) ditetapkan menjadi {$memo->status_memo}"
         );
+
+        // Memicu notifikasi alur disposisi memo bayar (ke Wadir 2 atau PPBJ)
+        $this->notificationService->notifyApproveMemoBayar($memo);
 
         return redirect()->route('pembayaran.index')->with(
             'success',
@@ -1465,6 +1523,9 @@ class HomeController extends Controller
             'perintah_bayar',
             "PPBJ menerbitkan Surat Perintah Pembayaran (SPP) {$pembayaran->nomor_pembayaran} ke Bagian Keuangan"
         );
+
+        // Memicu notifikasi penerbitan SPP ke Bagian Keuangan
+        $this->notificationService->notifyTerbitkanSpp($pembayaran);
 
         return redirect()->route('pembayaran.index')->with(
             'success',
@@ -1524,6 +1585,9 @@ class HomeController extends Controller
             'lunas',
             "Keuangan mencairkan dana SP2D {$transaksi->nomor_transaksi_bank} sebesar Rp ".number_format($transaksi->nominal_transfer).' dan seluruh siklus pengadaan selesai.'
         );
+
+        // Memicu notifikasi penyelesaian pencairan SP2D ke Pengusul dan PPBJ
+        $this->notificationService->notifyPencairanSp2d($transaksi);
 
         return redirect()->route('pembayaran.index')->with(
             'success',
@@ -1869,11 +1933,41 @@ class HomeController extends Controller
     }
 
     /**
+     * Mengirimkan notifikasi dan email simulasi uji coba ke akun pengguna yang sedang aktif.
+     */
+    public function kirimNotifikasiUjiCoba(Request $request): RedirectResponse
+    {
+        $user = Auth::user();
+        if (! $user) {
+            return redirect()->route('login');
+        }
+
+        $validated = $request->validate([
+            'jenis' => ['nullable', 'string', 'in:pengajuan_baru,persetujuan_wadir,penolakan_wadir,tembusan_spk,barang_sampai,memo_bayar,spp_terbit,sp2d_cair'],
+        ]);
+
+        $jenis = $validated['jenis'] ?? 'pengajuan_baru';
+        $notif = $this->notificationService->kirimUjiCoba($user, $jenis);
+
+        return back()->with(
+            'success',
+            "Notifikasi simulasi '{$notif->judul}' berhasil dibangkitkan dan dikirimkan ke surel {$user->email}."
+        );
+    }
+
+    /**
      * Menampilkan agregat monitoring siklus pengadaan dan tabel jejak audit (Audit Trail).
+     * Menerapkan isolasi berkas ketat: Pengusul (role: user) hanya dapat melihat usulan miliknya sendiri.
      */
     public function monitoringIndex(Request $request): View
     {
+        $user = Auth::user();
         $query = PermohonanPengadaan::with(['unit', 'paket.kontrak.penerimaan']);
+
+        // Hak Akses Monitoring: Pengusul (user) hanya dapat memantau permohonannya sendiri
+        if ($user && $user->role === 'user') {
+            $query->where('id_user', $user->id_user);
+        }
 
         $searchKey = $request->input('q') ?? $request->input('nomor_surat');
         if (! empty($searchKey)) {
@@ -1900,10 +1994,33 @@ class HomeController extends Controller
         }
 
         $permohonanList = $query->latest('tanggal_pengajuan')->paginate(20);
-        $auditLogs = AuditLog::with('user')->latest()->take(25)->get();
-        $units = Unit::all();
 
-        return view('monitoring.tes_index', compact('permohonanList', 'auditLogs', 'units'));
+        // Isolasi Jejak Audit: Pengusul hanya melihat log aktivitas permohonan miliknya sendiri
+        $auditQuery = AuditLog::with('user');
+        if ($user && $user->role === 'user') {
+            $userPermohonanNomor = PermohonanPengadaan::where('id_user', $user->id_user)->pluck('nomor_surat');
+            $userPaketNomor = PaketPengadaan::whereIn('nomor_surat', $userPermohonanNomor)->pluck('nomor_paket');
+
+            $auditQuery->where(function ($q) use ($user, $userPermohonanNomor, $userPaketNomor) {
+                $q->where('id_user', $user->id_user)
+                    ->orWhere(function ($sub) use ($userPermohonanNomor) {
+                        $sub->where('nama_entitas', 'permohonan_pengadaan')
+                            ->whereIn('id_entitas', $userPermohonanNomor);
+                    })
+                    ->orWhere(function ($sub) use ($userPaketNomor) {
+                        $sub->where('nama_entitas', 'paket_pengadaan')
+                            ->whereIn('id_entitas', $userPaketNomor);
+                    });
+            });
+        }
+        $auditLogs = $auditQuery->latest('waktu_log')->take(25)->get();
+
+        // Opsi unit di filter: Pengusul hanya relevan dengan unitnya sendiri
+        $units = ($user && $user->role === 'user')
+            ? Unit::where('kode_unit', $user->kode_unit)->get()
+            : Unit::all();
+
+        return view('monitoring.index', compact('permohonanList', 'auditLogs', 'units'));
     }
 
     // =========================================================================

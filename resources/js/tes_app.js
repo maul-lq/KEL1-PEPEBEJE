@@ -12,10 +12,12 @@
  */
 
 import { initAutofillLogin } from './tes/autofill_login.js';
+import { initNotificationManager } from './tes/notification_manager.js';
 import { initRoutingHint } from './tes/routing_hint.js';
 
 document.addEventListener('DOMContentLoaded', function () {
     // Inisialisasi modul pembantu pengujian backend semantik
     initAutofillLogin();
     initRoutingHint();
+    initNotificationManager();
 });

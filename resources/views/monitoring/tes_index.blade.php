@@ -10,6 +10,17 @@
             Pelacakan status berkas usulan pengadaan dari tahap pengajuan awal hingga realisasi pencairan dana SP2D,
             serta catatan jejak audit aktivitas transaksi secara transparan dan akuntabel.
         </p>
+        @auth
+            @if(Auth::user()->role === 'user')
+                <p>
+                    <strong>Cakupan Akses Pengusul:</strong> Menampilkan khusus dokumen usulan dan jejak audit pengadaan milik akun Anda (Unit: <u>{{ Auth::user()->unit->nama_unit ?? Auth::user()->kode_unit }}</u>).
+                </p>
+            @else
+                <p>
+                    <strong>Cakupan Akses Pengawas/Manajemen:</strong> Menampilkan pemantauan pengadaan lintas unit dan pelacakan jejak audit institusi Politeknik Negeri Jakarta.
+                </p>
+            @endif
+        @endauth
     </header>
 
     {{-- Filter Pencarian Dokumen & Paket Berdasarkan Multi-Kriteria --}}

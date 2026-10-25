@@ -154,6 +154,7 @@ Route::middleware('auth')->group(function () {
     // Modul 9.5: Notifikasi & Reminder Sistem (FR 12 & NFR 5 - Figma 121:45)
     // -------------------------------------------------------------------------
     Route::get('/notifikasi', [HomeController::class, 'notifikasiIndex'])->name('notifikasi.index');
+    Route::post('/notifikasi/tes-kirim', [HomeController::class, 'kirimNotifikasiUjiCoba'])->name('notifikasi.tes-kirim');
     Route::post('/notifikasi/mark-all-read', [HomeController::class, 'markAllReadWeb'])->name('notifikasi.mark-all-read');
     Route::post('/notifikasi/{id}/read', [HomeController::class, 'markAsReadWeb'])->name('notifikasi.read');
     Route::post('/notifikasi/{id}/dismiss', [HomeController::class, 'dismissNotificationWeb'])->name('notifikasi.dismiss');

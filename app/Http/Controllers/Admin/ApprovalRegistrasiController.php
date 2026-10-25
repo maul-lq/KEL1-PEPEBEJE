@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\PengadaanNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -117,6 +118,14 @@ class ApprovalRegistrasiController extends Controller
             "Admin menyetujui pendaftaran {$user->nama} ({$user->nip}) dan menetapkan peran {$role->label} ({$role->nama_role})."
         );
 
+        // 5. Memicu notifikasi dan surel resmi ke pengguna yang disetujui
+        app(PengadaanNotificationService::class)->kirimKeUser(
+            $user,
+            'Pendaftaran Akun SIM-PBJ Disetujui',
+            "Selamat! Akun SIM-PBJ Anda telah diverifikasi dan disetujui oleh Administrator dengan peran {$role->label}. Anda kini dapat masuk ke sistem.",
+            'verifikasi'
+        );
+
         $successMsg = "Pendaftaran akun {$user->nama} berhasil disetujui (ACC) dengan peran: {$role->label}.";
 
         if ($request->expectsJson() || $request->is('api/*')) {
@@ -161,6 +170,14 @@ class ApprovalRegistrasiController extends Controller
             'menunggu_persetujuan',
             'ditolak',
             "Admin menolak pendaftaran {$user->nama} ({$user->nip}). Alasan: {$validated['alasan_penolakan']}"
+        );
+
+        // 4. Memicu notifikasi dan surel resmi penolakan ke pengguna
+        app(PengadaanNotificationService::class)->kirimKeUser(
+            $user,
+            'Pendaftaran Akun SIM-PBJ Ditolak',
+            "Mohon maaf, pendaftaran akun SIM-PBJ Anda belum dapat disetujui oleh Administrator. Alasan penolakan: {$validated['alasan_penolakan']}.",
+            'verifikasi'
         );
 
         $successMsg = "Pendaftaran akun {$user->nama} telah ditolak. Alasan: {$validated['alasan_penolakan']}.";

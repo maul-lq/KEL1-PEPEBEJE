@@ -4,7 +4,16 @@
 
 @section('content')
 <div class="mx-auto max-w-[1750px]">
-    <h1 class="text-[32px] font-normal text-[#689EC2]">Detail &amp; Tracking Saya</h1>
+    <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+            <h1 class="text-[32px] font-normal text-[#689EC2]">
+                {{ Auth::user()->role === 'user' ? 'Detail & Tracking Pengadaan Saya' : 'Monitoring Siklus Pengadaan Institusi' }}
+            </h1>
+            <p class="text-sm text-[#657a7c] mt-1 font-normal">
+                {{ Auth::user()->role === 'user' ? 'Pelacakan progres berkas usulan pengadaan khusus unit Anda (' . (Auth::user()->unit->nama_unit ?? Auth::user()->kode_unit) . ')' : 'Pemantauan komprehensif alur pengadaan barang dan jasa seluruh unit Politeknik Negeri Jakarta' }}
+            </p>
+        </div>
+    </div>
 
     {{-- FORM PENCARIAN & FILTER --}}
     <form action="{{ route('monitoring.index') }}" method="GET" class="mx-auto mt-4 flex max-w-[1632px] flex-wrap items-end gap-6 lg:flex-nowrap">

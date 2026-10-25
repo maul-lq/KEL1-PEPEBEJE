@@ -230,9 +230,9 @@
                 x-data="desktopNotificationManager()" 
                 x-init="init()" 
                 x-show="showBanner" 
+                x-cloak
                 x-transition 
                 class="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-[12px] bg-gradient-to-r from-[#1B5B7E] to-[#0088E8] p-4 text-white shadow-md"
-                style="display: none;"
             >
                 <div class="flex items-center gap-3">
                     <div class="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/20">
@@ -298,9 +298,11 @@
                 showBanner: false,
 
                 init() {
-                    const dismissed = localStorage.getItem('simpbj_os_notif_dismissed') === 'true';
-                    if (typeof Notification !== 'undefined' && Notification.permission === 'default' && !dismissed) {
-                        this.showBanner = true;
+                    if (typeof Notification !== 'undefined') {
+                        this.permission = Notification.permission;
+                        if (this.permission === 'default') {
+                            this.showBanner = true;
+                        }
                     }
 
                     // Daftarkan Service Worker untuk notifikasi OS di latar belakang

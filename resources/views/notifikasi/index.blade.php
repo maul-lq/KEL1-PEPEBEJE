@@ -65,6 +65,30 @@
         </div>
     </div>
 
+    {{-- Card Simulasi Pengujian Notifikasi & Surel Uji Coba --}}
+    <div class="rounded-[16px] border border-[#CCE1EF] bg-[#F4F9FD] p-4 text-[#203638] shadow-sm">
+        <form action="{{ route('notifikasi.tes-kirim') }}" method="POST" class="flex flex-wrap items-center justify-between gap-3">
+            @csrf
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="text-xs font-semibold text-[#1B5B7E] uppercase tracking-wider">Simulasi Pengujian:</span>
+                <select name="jenis" class="h-9 rounded-[8px] border border-[#1B5B7E] bg-white px-3 text-xs text-[#203638] outline-none">
+                    <option value="pengajuan_baru">1. Usulan Pengadaan Baru</option>
+                    <option value="persetujuan_wadir">2. Usulan Disetujui Penuh (Wadir 2 &amp; Perencanaan)</option>
+                    <option value="penolakan_wadir">3. Usulan Ditolak / Revisi</option>
+                    <option value="tembusan_spk">4. Penerbitan Kontrak SPK</option>
+                    <option value="barang_sampai">5. BAST &amp; Barang Sampai</option>
+                    <option value="memo_bayar">6. Pengajuan Memo Pembayaran</option>
+                    <option value="spp_terbit">7. Penerbitan SPP</option>
+                    <option value="sp2d_cair">8. Pencairan SP2D Selesai</option>
+                </select>
+            </div>
+            <button type="submit" class="inline-flex h-9 items-center gap-1.5 rounded-[8px] bg-[#1B5B7E] px-3.5 text-xs font-semibold text-white shadow-sm hover:bg-[#0088E8] transition-colors">
+                <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+                Kirim Notifikasi &amp; Surel Uji Coba ke Akun Saya
+            </button>
+        </form>
+    </div>
+
     {{-- 2. BARIS FILTER & PENCARIAN (Sesuai Figma Node 175:507, 175:506, 127:2938) --}}
     <form action="{{ route('notifikasi.index') }}" method="GET" class="grid grid-cols-1 gap-4 lg:grid-cols-12 items-end">
         {{-- Simpan Tab Aktif saat melakukan Filter --}}

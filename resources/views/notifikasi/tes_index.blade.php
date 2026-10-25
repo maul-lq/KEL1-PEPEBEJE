@@ -22,6 +22,37 @@
 
     <hr>
 
+    {{-- Simulasi Pengiriman Notifikasi & Email Uji Coba Manual --}}
+    <section>
+        <form action="{{ route('notifikasi.tes-kirim') }}" method="POST">
+            @csrf
+            <fieldset>
+                <legend><strong>Simulasi Pengiriman Notifikasi &amp; Surel (Email) Uji Coba</strong></legend>
+                <p>
+                    <small>Gunakan simulasi ini untuk menguji secara instan pengiriman notifikasi ke akun Anda (<strong>{{ Auth::user()->email }}</strong>) beserta pemicu alert pop-up desktop.</small>
+                </p>
+                <p>
+                    <label for="pilih_jenis_uji"><strong>Pilih Skenario Peristiwa Pengadaan:</strong></label><br>
+                    <select id="pilih_jenis_uji" name="jenis">
+                        <option value="pengajuan_baru">1. Usulan Pengadaan Baru Masuk (Notif ke Staf B2, Wadir 2, Perencanaan)</option>
+                        <option value="persetujuan_wadir">2. Usulan Disetujui Penuh Wadir 2 &amp; Perencanaan (Notif ke Pengusul &amp; PPBJ)</option>
+                        <option value="penolakan_wadir">3. Usulan Ditolak / Perlu Perbaikan (Notif ke Pengusul)</option>
+                        <option value="tembusan_spk">4. Penerbitan Kontrak SPK (Tembusan ke Perlengkapan, Keuangan, Pengusul)</option>
+                        <option value="barang_sampai">5. Barang Sampai &amp; BAST Terbit (Notif ke PPBJ &amp; Pengusul)</option>
+                        <option value="memo_bayar">6. Pengajuan Memo Pembayaran (Notif ke PPK &amp; Wadir 2)</option>
+                        <option value="spp_terbit">7. Penerbitan SPP (Notif ke Bagian Keuangan)</option>
+                        <option value="sp2d_cair">8. Pencairan Dana SP2D Selesai (Notif ke Pengusul &amp; PPBJ)</option>
+                    </select>
+                </p>
+                <p>
+                    <button type="submit"><strong>Kirim Notifikasi &amp; Surel Uji Coba ke Akun Saya</strong></button>
+                </p>
+            </fieldset>
+        </form>
+    </section>
+
+    <hr>
+
     {{-- 1. Tab Navigasi Semantik --}}
     <nav>
         <strong>Kategori Tab Notifikasi:</strong>

@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('reminder', function (Blueprint $table) {
             $table->id('id_reminder');
-            $table->string('nomor_paket', 100);
+            $table->string('nomor_paket', 100)->nullable();
             $table->string('tipe_reminder', 50); // pengiriman, h_minus_2_termin, bulanan_tahunan
             $table->timestamp('waktu_trigger');
             $table->boolean('is_recurring')->default(false);
@@ -25,7 +25,7 @@ return new class extends Migration
             $table->foreign('nomor_paket')
                 ->references('nomor_paket')
                 ->on('paket_pengadaan')
-                ->cascadeOnDelete()
+                ->nullOnDelete()
                 ->cascadeOnUpdate();
         });
 
