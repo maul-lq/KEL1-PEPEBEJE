@@ -365,3 +365,10 @@ Route::prefix('api')->group(function () {
 // Endpoint Pemeriksaan Ketersediaan & Kesehatan Sistem (NFR 10)
 Route::get('/health', [HomeController::class, 'healthCheck'])->name('health');
 Route::get('/health-check', [HomeController::class, 'healthCheck']);
+
+
+// -------------------------------------------------------------------------
+    // Modul Profil Pengguna (User Profile)
+    // -------------------------------------------------------------------------
+    Route::get('/profil', [HomeController::class, 'profileIndex'])->name('profile.index');
+    Route::put('/profil', [HomeController::class, 'profileUpdate'])->name('profile.update');
