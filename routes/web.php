@@ -7,6 +7,7 @@ use App\Http\Controllers\AnggaranMAKController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DokumentasiPenerimaanBarangController;
+use App\Http\Controllers\GoogleAuthController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\KontrakSPKController;
 use App\Http\Controllers\MemoBayarController;
@@ -54,6 +55,10 @@ Route::middleware('guest')->group(function () {
     Route::post('/tes-login', [AuthController::class, 'login']);
     Route::get('/tes-registrasi', [AuthController::class, 'showRegistrationForm']);
     Route::post('/tes-registrasi', [AuthController::class, 'register']);
+
+    // Otentikasi Masuk Google OAuth (Laravel Socialite)
+    Route::get('/auth/google', [GoogleAuthController::class, 'redirectToGoogle'])->name('auth.google');
+    Route::get('/auth/google/callback', [GoogleAuthController::class, 'handleGoogleCallback'])->name('auth.google.callback');
 });
 
 /*
@@ -199,6 +204,15 @@ Route::middleware('auth')->group(function () {
     Route::post('/tes-verifikasi-b2/keputusan-wadir', [HomeController::class, 'keputusanWadir2'])->name('verifikasi-b2.web.keputusan')->middleware('role:wadir_2');
     Route::get('/tes-unduh-pdf/{jenis}/{id}', [HomeController::class, 'unduhDokumenPdf'])->name('unduh.pdf.web')->where(['id' => '.*']);
     Route::post('/tes-logout', [AuthController::class, 'logout']);
+
+    // -------------------------------------------------------------------------
+    // Modul Profil Pengguna & Penautan Akun Google (Google Account Linking)
+    // -------------------------------------------------------------------------
+    Route::get('/profil', [HomeController::class, 'profileIndex'])->name('profile.index');
+    Route::put('/profil', [HomeController::class, 'profileUpdate'])->name('profile.update');
+    Route::get('/profile/google/link', [GoogleAuthController::class, 'redirectToGoogleForLinking'])->name('profile.google.link');
+    Route::get('/profile/google/callback', [GoogleAuthController::class, 'handleGoogleLinkingCallback'])->name('profile.google.callback');
+    Route::post('/profile/google/unlink', [GoogleAuthController::class, 'unlinkGoogle'])->name('profile.google.unlink');
 });
 
 /*
@@ -365,10 +379,3 @@ Route::prefix('api')->group(function () {
 // Endpoint Pemeriksaan Ketersediaan & Kesehatan Sistem (NFR 10)
 Route::get('/health', [HomeController::class, 'healthCheck'])->name('health');
 Route::get('/health-check', [HomeController::class, 'healthCheck']);
-
-
-// -------------------------------------------------------------------------
-    // Modul Profil Pengguna (User Profile)
-    // -------------------------------------------------------------------------
-    Route::get('/profil', [HomeController::class, 'profileIndex'])->name('profile.index');
-    Route::put('/profil', [HomeController::class, 'profileUpdate'])->name('profile.update');

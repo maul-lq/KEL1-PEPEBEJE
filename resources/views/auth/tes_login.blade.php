@@ -32,6 +32,10 @@
     <p>
         Pegawai atau dosen baru? <a href="{{ route('register') }}">Daftarkan akun permohonan baru di sini</a>.
     </p>
+
+    <p>
+        Atau pengguna terdaftar yang telah menautkan akun? <a href="{{ route('auth.google') }}">Masuk Menggunakan Akun Google Terhubung</a>.
+    </p>
 </section>
 
 <hr>

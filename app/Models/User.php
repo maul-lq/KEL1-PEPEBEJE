@@ -104,6 +104,10 @@ class User extends Authenticatable
         'no_hp',
         'no_telp_kantor',
         'kode_unit',
+        'google_id',
+        'google_email',
+        'google_avatar',
+        'google_linked_at',
     ];
 
     /**
@@ -127,6 +131,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'status_aktif' => 'boolean',
             'tanggal_approval' => 'datetime',
+            'google_linked_at' => 'datetime',
         ];
     }
 
@@ -358,5 +363,17 @@ class User extends Authenticatable
         }
 
         return false;
+    }
+
+    /**
+     * Memeriksa apakah akun pengguna lokal ini sudah terhubung dengan akun Google OAuth.
+     *
+     * Digunakan pada tampilan profil dan pengecekan alur otentikasi login Google.
+     *
+     * @return bool True jika google_id telah tersimpan, false jika belum ditautkan.
+     */
+    public function isGoogleLinked(): bool
+    {
+        return ! empty($this->google_id);
     }
 }

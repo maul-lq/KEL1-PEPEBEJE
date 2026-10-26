@@ -105,6 +105,15 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 - Laravel can be deployed using [Laravel Cloud](https://cloud.laravel.com/), which is the fastest way to deploy and scale production Laravel applications.
 - Activate the `deploying-to-cloud` skill whenever deploying to Laravel Cloud, configuring Cloud environments or resources, using the Cloud CLI, or troubleshooting Cloud deployments.
 
+=== tests rules ===
+
+# Test Enforcement
+
+- Test every code change by adding or updating a test.
+- Run the affected tests and ensure they pass.
+- Test the changed behavior and its important failure modes, but do not add tests beyond them.
+- Read the `testing-best-practices` skill before writing tests.
+
 === laravel/core rules ===
 
 # Do Things the Laravel Way
@@ -142,48 +151,20 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 - If you have modified any PHP files, you must run `vendor/bin/pint --dirty --format agent` before finalizing changes to ensure your code matches the project's expected style.
 - Do not run `vendor/bin/pint --test --format agent`, simply run `vendor/bin/pint --format agent` to fix any formatting issues.
 
-=== phpunit/core rules ===
+=== pest/core rules ===
 
-# PHPUnit
+# Pest
 
-- Proyek ini menggunakan **PHPUnit** (DILARANG menggunakan Pest).
-- Buat test baru berbasis class PHPUnit dengan perintah `php artisan make:test {name}` (atau tambahkan flag `--unit` untuk unit test). **DILARANG** menggunakan flag `--pest`.
-- Seluruh kelas test WAJIB meng-extend `Tests\TestCase` dan menggunakan method dengan prefiks `test_` (misalnya `public function test_nama_skenario(): void`) atau atribut PHP `#[Test]`.
-- Jangan menyertakan direktori test suite dalam `{name}`. Gunakan `SomeFeatureTest`, bukan `Feature/SomeFeatureTest`.
-- Baca panduan testing di `testing-best-practices` untuk cakupan, penamaan, struktur, isolasi dependensi, dan review.
-- Dilarang menghapus test atau file test tanpa persetujuan overseer.
+- This project uses Pest. Create tests with `php artisan make:test --pest {name}`.
+- Do not include the test suite directory in `{name}`. Use `SomeFeatureTest`, not `Feature/SomeFeatureTest`.
+- Read the `testing-best-practices` skill for guidance on coverage, naming, structure, dependency isolation, and review.
+- Do not delete tests or test files without approval. They are part of the application.
 
-## Menjalankan Test (Running Tests)
+## Running Tests
 
-- Jalankan rangkaian test tersempit yang mencakup perubahan. Kirimkan path file atau `--filter=testMethodName` ke `php artisan test --compact` atau `vendor/bin/phpunit`.
-- Dilarang menjalankan test menggunakan runner Pest (`vendor/bin/pest`). Selalu gunakan runner PHPUnit / `php artisan test`.
-- Jalankan ulang test setiap kali membuat perubahan pada kode terkait.
-
-=== python rules ===
-
-# Python Environment (.venv)
-
-- Proyek ini telah menyediakan virtual environment Python pada folder `.venv`.
-- **Wajib Menggunakan Python dari `.venv`**: Seluruh eksekusi skrip Python, analisis dokumen sumber truth (Excel `.xlsx`, Word `.docx`, PDF `.pdf`), pembuatan scratch script, atau perkakas otomatisasi lainnya **WAJIB** menggunakan binary Python dari `.venv`:
-  - Path Windows: `.venv\Scripts\python.exe`
-  - Package manager: `.venv\Scripts\pip.exe`
-- **DILARANG** menjalankan perintah `python` atau `pip install` secara global tanpa virtual environment `.venv`.
-- **Manajemen Kebutuhan Library**:
-  - Jika memerlukan library tambahan, pasang ke dalam venv menggunakan `.venv\Scripts\pip.exe install <nama_package>`.
-  - Selalu perbarui `requirements.txt` setelah penambahan/pembaruan library dengan perintah `.venv\Scripts\pip.exe freeze > requirements.txt`.
-- **Library Standar yang Tersedia di `.venv`**:
-  - `openpyxl` & `pandas`: Analisis berkas Excel & tabel kebutuhan sistem (`1Jorking/FR-NFR Kel 1 v1.2.xlsx`, Gantt Chart).
-  - `python-docx`: Analisis berkas dokumen spesifikasi Word (`.docx`).
-  - `pypdf`: Analisis berkas PDF dokumen kontrak, BAST, dan bukti pendukung.
-
-=== frontend documentation & backend simulation rules ===
-
-# Documentation & Backend Testing Rules
-
-- **Wajib Memperbarui Dokumentasi Front End**: Agen/pengembang WAJIB memperbarui file dokumentasi frontend di `1Jorking/PANDUAN_INTEGRASI_FRONTEND_FR_NFR.md` setiap kali overseer backend meminta pembuatan/implementasi FR maupun NFR selanjutnya, sehingga pengembang frontend selalu memiliki referensi endpoint, struktur payload request/response, batasan validasi, dan kode status terkini.
-- **Aturan Antarmuka Program Riil Berbasis Peran & Pengujian**: Seluruh antarmuka pengujian backend di `resources/views` dibangun sebagai Program Riil Berbasis Peran TANPA CSS (Zero CSS) pada berkas berawalan `tes_*` untuk pengujian manual langsung oleh Overseer. Ketika diinstruksikan mengimplementasikan fitur backend ke frontend, agen beralih ke berkas non-`tes_*` setelah memeriksa dan memastikan validitas `1Jorking/PANDUAN_INTEGRASI_FRONTEND_FR_NFR.md`, serta WAJIB mematuhi panduan lengkap di `AGENTS-BACKEND.md`.
-- **Wajib Komentar Kode dengan Bahasa Natural dan Jelas**: Seluruh file backend WAJIB memiliki komentar penjelasan pada setiap blok kode, method, alur logika, dan baris kode penting menggunakan bahasa natural, lugas, dan jelas agar manusia (overseer) maupun agen AI dapat langsung memahami fungsi, maksud, alur data, serta validasi yang terjadi.
-- **Wajib Menggunakan PHPUnit Test (Bukan Pest)**: Seluruh pengujian backend otomatis WAJIB dibuat dan dijalankan menggunakan PHPUnit test (`TestCase`), bukan Pest. Dilarang membuat file test dengan sintaks Pest (`test()`, `it()`).
-- **Wajib Menggunakan Python dari `.venv`**: Jika agen/pengembang perlu mengeksekusi skrip Python untuk analisis data sumber truth (Excel, Word, PDF) atau otomatisasi pendukung, WAJIB menggunakan executable Python dari virtual environment lokal proyek (`.venv\Scripts\python.exe`) dan dilarang menggunakan Python global.
+- Run the narrowest set of tests that covers the change. Pass a file path or `--filter=testName` to `php artisan test --compact`.
+- Rerun a test after each change to it.
+- Run `vendor/bin/pest` to call the test runner directly. It accepts the same file path and `--filter=testName` arguments.
+- After the feature tests pass, ask the user to run the complete suite with `php artisan test --compact`.
 
 </laravel-boost-guidelines>
