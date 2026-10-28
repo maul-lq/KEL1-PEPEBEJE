@@ -83,7 +83,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/permohonan/{id}', [HomeController::class, 'permohonanShow'])
         ->name('permohonan.show')
         ->where(['id' => '.*']);
-    // -------------------------------------------------------------------------
+
     // -------------------------------------------------------------------------
     // Modul 2 & 3: Verifikasi Paralel (Staf B2, Wadir 2, & Perencanaan)
     // -------------------------------------------------------------------------
@@ -156,6 +156,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/notifikasi', [HomeController::class, 'notifikasiIndex'])->name('notifikasi.index');
     Route::post('/notifikasi/tes-kirim', [HomeController::class, 'kirimNotifikasiUjiCoba'])->name('notifikasi.tes-kirim');
     Route::post('/notifikasi/mark-all-read', [HomeController::class, 'markAllReadWeb'])->name('notifikasi.mark-all-read');
+    
+    // Alias route nama camelCase agar mendukung panggil route('notifikasi.markAllRead')
+    Route::post('/notifikasi/mark-all-read-alias', [HomeController::class, 'markAllReadWeb'])->name('notifikasi.markAllRead');
+    
     Route::post('/notifikasi/{id}/read', [HomeController::class, 'markAsReadWeb'])->name('notifikasi.read');
     Route::post('/notifikasi/{id}/dismiss', [HomeController::class, 'dismissNotificationWeb'])->name('notifikasi.dismiss');
     Route::get('/api/notifikasi-terbaru', [NotifikasiUserController::class, 'notifikasiTerbaru'])->name('notifikasi.terbaru');
@@ -175,6 +179,12 @@ Route::middleware('auth')->group(function () {
         Route::put('/roles/{role}', [RoleController::class, 'update'])->name('roles.update');
         Route::delete('/roles/{role}', [RoleController::class, 'destroy'])->name('roles.destroy');
     });
+
+    // -------------------------------------------------------------------------
+    // Modul Profil Pengguna (User Profile)
+    // -------------------------------------------------------------------------
+    Route::get('/profil', [HomeController::class, 'profileIndex'])->name('profile.index');
+    Route::put('/profil', [HomeController::class, 'profileUpdate'])->name('profile.update');
 
     // -------------------------------------------------------------------------
     // Helper Unduh Berkas Resmi Format PDF (< 3 Detik - NFR 12)
@@ -365,10 +375,3 @@ Route::prefix('api')->group(function () {
 // Endpoint Pemeriksaan Ketersediaan & Kesehatan Sistem (NFR 10)
 Route::get('/health', [HomeController::class, 'healthCheck'])->name('health');
 Route::get('/health-check', [HomeController::class, 'healthCheck']);
-
-
-// -------------------------------------------------------------------------
-    // Modul Profil Pengguna (User Profile)
-    // -------------------------------------------------------------------------
-    Route::get('/profil', [HomeController::class, 'profileIndex'])->name('profile.index');
-    Route::put('/profil', [HomeController::class, 'profileUpdate'])->name('profile.update');

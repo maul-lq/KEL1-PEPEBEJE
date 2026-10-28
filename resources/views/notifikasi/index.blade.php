@@ -1,391 +1,412 @@
 @extends('layouts.app')
 
-@section('title', 'Notifikasi dan Reminder - SIM-PBJ')
+@section('title', 'Notifikasi dan Reminder - SIM-PBJ Politeknik Negeri Jakarta')
 
 @section('content')
-<div class="space-y-6">
+<div x-data="notifikasiManager()" x-init="init()" class="w-full space-y-5 font-sans">
 
-    {{-- 1. JUDUL HALAMAN (Sesuai Figma Node 121:54) --}}
-    <div class="flex flex-wrap items-center justify-between gap-4">
-        <div>
-            <h1 class="text-3xl md:text-4xl font-normal text-[#203638] tracking-tight">
-                Notifikasi dan Reminder
-            </h1>
-            <p class="text-sm text-[#657a7c] mt-1 font-normal">
-                Pusat pengingat jadwal, alarm batas waktu SPK & termin, serta tugas verifikasi seluruh alur pengadaan barang dan jasa.
-            </p>
+    <!-- 1. HEADER HALAMAN & TOMBOL UJI COBA -->
+    <div class="flex flex-wrap items-end justify-between gap-3">
+        <div class="space-y-0.5">
+            <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-[#213153]">Notifikasi dan Reminder</h1>
+            <p class="text-sm font-normal text-slate-500">Pantau perkembangan pengajuan, permintaan revisi, dan tenggat pengadaan Anda.</p>
         </div>
 
-        {{-- Tombol Tindakan Cepat Header --}}
-        <div class="flex flex-wrap items-center gap-2.5" x-data="desktopNotificationManager()" x-init="init()">
-            {{-- Tombol Izin / Uji Coba Notifikasi OS --}}
-            <template x-if="permission !== 'granted'">
-                <button
-                    type="button"
-                    @click="requestPermission()"
-                    class="inline-flex h-10 items-center gap-2 rounded-[10px] bg-white px-3.5 text-xs md:text-sm font-medium text-[#1B5B7E] border border-[#1B5B7E] shadow-sm hover:bg-[#CCE1EF] transition-all"
-                    title="Aktifkan notifikasi pop-up native di OS Windows / Mac"
-                >
-                    <svg class="size-4 text-[#0088E8]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                    </svg>
-                    Aktifkan Notifikasi OS
-                </button>
-            </template>
-            <template x-if="permission === 'granted'">
-                <button
-                    type="button"
-                    @click="showNativeAlert('SIM-PBJ Politeknik Negeri Jakarta', 'Uji Coba: Notifikasi OS berhasil aktif dan siap menerima peringatan.', '/notifikasi')"
-                    class="inline-flex h-10 items-center gap-2 rounded-[10px] bg-white px-3.5 text-xs md:text-sm font-medium text-[#087F79] border border-[#DCE5E3] shadow-sm hover:bg-[#EAF4FA] transition-all"
-                    title="Uji coba kemunculan notifikasi di sistem operasi Windows / Mac"
-                >
-                    <svg class="size-4 text-[#087F79]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    Tes Notifikasi OS
-                </button>
-            </template>
-
-            {{-- Tombol Tindakan Cepat Tandai Semua Dibaca --}}
-            @if($tabCounts['belum_dibaca'] > 0)
-            <form action="{{ route('notifikasi.mark-all-read') }}" method="POST">
-                @csrf
-                <button
-                    type="submit"
-                    class="inline-flex h-10 items-center gap-2 rounded-[10px] bg-white px-4 text-xs md:text-sm font-medium text-[#087F79] border border-[#1B5B7E] shadow-sm hover:bg-[#CCE1EF] hover:text-[#1B5B7E] transition-all"
-                    title="Tandai seluruh notifikasi yang belum dibaca sebagai telah dibaca"
-                >
-                    <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                    Tandai Semua Dibaca ({{ $tabCounts['belum_dibaca'] }})
-                </button>
-            </form>
-            @endif
-        </div>
-    </div>
-
-    {{-- Card Simulasi Pengujian Notifikasi & Surel Uji Coba --}}
-    <div class="rounded-[16px] border border-[#CCE1EF] bg-[#F4F9FD] p-4 text-[#203638] shadow-sm">
-        <form action="{{ route('notifikasi.tes-kirim') }}" method="POST" class="flex flex-wrap items-center justify-between gap-3">
-            @csrf
-            <div class="flex flex-wrap items-center gap-2">
-                <span class="text-xs font-semibold text-[#1B5B7E] uppercase tracking-wider">Simulasi Pengujian:</span>
-                <select name="jenis" class="h-9 rounded-[8px] border border-[#1B5B7E] bg-white px-3 text-xs text-[#203638] outline-none">
-                    <option value="pengajuan_baru">1. Usulan Pengadaan Baru</option>
-                    <option value="persetujuan_wadir">2. Usulan Disetujui Penuh (Wadir 2 &amp; Perencanaan)</option>
-                    <option value="penolakan_wadir">3. Usulan Ditolak / Revisi</option>
-                    <option value="tembusan_spk">4. Penerbitan Kontrak SPK</option>
-                    <option value="barang_sampai">5. BAST &amp; Barang Sampai</option>
-                    <option value="memo_bayar">6. Pengajuan Memo Pembayaran</option>
-                    <option value="spp_terbit">7. Penerbitan SPP</option>
-                    <option value="sp2d_cair">8. Pencairan SP2D Selesai</option>
-                </select>
-            </div>
-            <button type="submit" class="inline-flex h-9 items-center gap-1.5 rounded-[8px] bg-[#1B5B7E] px-3.5 text-xs font-semibold text-white shadow-sm hover:bg-[#0088E8] transition-colors">
-                <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
-                Kirim Notifikasi &amp; Surel Uji Coba ke Akun Saya
+        <div class="flex items-center gap-2">
+            <button type="button" @click="resetData()"
+                    class="h-9 px-3 rounded-xl border border-slate-200 bg-white text-xs font-medium text-slate-600 hover:bg-slate-50 transition-all">
+                Reset Data
             </button>
-        </form>
+            <button type="button" @click="tambahUjiCoba()"
+                    class="h-9 px-4 rounded-xl bg-emerald-600 text-xs font-semibold text-white hover:bg-emerald-700 transition-all inline-flex items-center gap-1.5 shadow-sm">
+                <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                Uji Coba Notifikasi Masuk
+            </button>
+        </div>
     </div>
 
-    {{-- 2. BARIS FILTER & PENCARIAN (Sesuai Figma Node 175:507, 175:506, 127:2938) --}}
-    <form action="{{ route('notifikasi.index') }}" method="GET" class="grid grid-cols-1 gap-4 lg:grid-cols-12 items-end">
-        {{-- Simpan Tab Aktif saat melakukan Filter --}}
-        <input type="hidden" name="tab" value="{{ $currentTab }}">
+    <!-- 2. PENCARIAN & FILTER -->
+    <div class="w-full rounded-2xl bg-white p-3.5 shadow-sm border border-slate-100">
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
 
-        {{-- Input Pencarian No. Surat / Judul (Figma Node 175:507) --}}
-        <div class="lg:col-span-6 space-y-1.5">
-            <label for="search-input" class="block text-sm font-normal text-[#203638]">
-                Cari no. surat / judul
-            </label>
-            <div class="relative">
-                <input
-                    type="text"
-                    id="search-input"
-                    name="q"
-                    value="{{ request('q') }}"
-                    placeholder="Ketik no. surat, paket, atau kata kunci judul..."
-                    class="h-[48px] w-full rounded-[10px] border border-[#1B5B7E] bg-white pl-11 pr-4 text-sm text-[#203638] placeholder-slate-400 outline-none focus:ring-2 focus:ring-[#689EC2] transition-all"
-                />
-                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
-                    <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
+            <div class="md:col-span-5 space-y-1">
+                <label for="search-input" class="text-[11px] font-medium text-slate-600">Pencarian</label>
+                <div class="relative w-full">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                        <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    </span>
+                    <input type="search" id="search-input" x-model="q" @input="page = 1"
+                           placeholder="Cari nomor surat atau judul pengajuan"
+                           class="w-full h-9 rounded-xl border border-slate-200 bg-slate-50/50 pl-9 pr-3 text-xs text-slate-700 placeholder-slate-400 focus:border-[#0969da] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0969da]/20 transition-all">
                 </div>
-                @if(request('q'))
-                    <a href="{{ route('notifikasi.index', ['tab' => $currentTab, 'jenis' => request('jenis'), 'periode' => request('periode')]) }}" class="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600" title="Hapus pencarian">
-                        <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                    </a>
-                @endif
             </div>
-        </div>
 
-        {{-- Dropdown Jenis Notifikasi (Figma Node 175:506) --}}
-        <div class="lg:col-span-3 space-y-1.5">
-            <label for="jenis-select" class="block text-sm font-normal text-[#203638]">
-                Jenis Notifikasi
-            </label>
-            <div class="relative">
-                <select
-                    id="jenis-select"
-                    name="jenis"
-                    onchange="this.form.submit()"
-                    class="h-[48px] w-full appearance-none rounded-[10px] border border-[#1B5B7E] bg-white px-4 text-sm text-[#203638] outline-none focus:ring-2 focus:ring-[#689EC2] cursor-pointer transition-all pr-10"
-                >
-                    <option value="semua" {{ request('jenis', 'semua') === 'semua' ? 'selected' : '' }}>Semua Jenis</option>
-                    <option value="pengingat" {{ request('jenis') === 'pengingat' ? 'selected' : '' }}>Pengingat Jadwal</option>
-                    <option value="perlu_tindakan" {{ request('jenis') === 'perlu_tindakan' ? 'selected' : '' }}>Perlu Tindakan</option>
-                    <option value="verifikasi" {{ request('jenis') === 'verifikasi' ? 'selected' : '' }}>Verifikasi Usulan</option>
-                    <option value="pembayaran" {{ request('jenis') === 'pembayaran' ? 'selected' : '' }}>Pembayaran & SP2D</option>
-                    <option value="pengiriman" {{ request('jenis') === 'pengiriman' ? 'selected' : '' }}>Pengiriman Barang</option>
-                    <option value="spk" {{ request('jenis') === 'spk' ? 'selected' : '' }}>Tembusan SPK</option>
+            <div class="md:col-span-3 space-y-1">
+                <label for="type-filter" class="text-[11px] font-medium text-slate-600">Jenis Notifikasi</label>
+                <select id="type-filter" x-model="jenis" @change="page = 1"
+                        class="w-full h-9 rounded-xl border border-slate-200 bg-slate-50/50 px-3 text-xs text-slate-700 focus:border-[#0969da] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0969da]/20 transition-all">
+                    <option value="">Semua Jenis</option>
+                    <option value="pengajuan">Pengajuan</option>
+                    <option value="revisi">Permintaan Revisi</option>
+                    <option value="pengadaan">Pengadaan</option>
+                    <option value="laporan">Laporan Anggaran</option>
                 </select>
-                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-[#1B5B7E]">
-                    <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-                    </svg>
-                </div>
             </div>
-        </div>
 
-        {{-- Dropdown Periode Waktu (Figma Node 127:2938) --}}
-        <div class="lg:col-span-3 space-y-1.5">
-            <label for="periode-select" class="block text-sm font-normal text-[#203638]">
-                Periode
-            </label>
-            <div class="relative">
-                <select
-                    id="periode-select"
-                    name="periode"
-                    onchange="this.form.submit()"
-                    class="h-[48px] w-full appearance-none rounded-[10px] border border-[#1B5B7E] bg-white px-4 text-sm text-[#203638] outline-none focus:ring-2 focus:ring-[#689EC2] cursor-pointer transition-all pr-10"
-                >
-                    <option value="semua" {{ request('periode', 'semua') === 'semua' ? 'selected' : '' }}>Semua Periode</option>
-                    <option value="hari_ini" {{ request('periode') === 'hari_ini' ? 'selected' : '' }}>Hari Ini</option>
-                    <option value="7_hari" {{ request('periode') === '7_hari' ? 'selected' : '' }}>7 Hari Terakhir</option>
-                    <option value="30_hari" {{ request('periode') === '30_hari' ? 'selected' : '' }}>30 Hari Terakhir</option>
-                    <option value="bulan_ini" {{ request('periode') === 'bulan_ini' ? 'selected' : '' }}>Bulan Ini</option>
+            <div class="md:col-span-3 space-y-1">
+                <label for="period-filter" class="text-[11px] font-medium text-slate-600">Periode</label>
+                <select id="period-filter" x-model="periode" @change="page = 1"
+                        class="w-full h-9 rounded-xl border border-slate-200 bg-slate-50/50 px-3 text-xs text-slate-700 focus:border-[#0969da] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0969da]/20 transition-all">
+                    <option value="">Semua Periode</option>
+                    <option value="today">Hari Ini</option>
+                    <option value="week">Minggu Ini</option>
+                    <option value="month">Bulan Ini</option>
                 </select>
-                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-[#1B5B7E]">
-                    <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-                    </svg>
+            </div>
+
+            <div class="md:col-span-1 flex justify-end">
+                <button type="button" @click="resetFilter()" title="Reset Filter"
+                        class="h-9 w-9 rounded-xl border border-slate-200 bg-white flex items-center justify-center text-slate-600 hover:bg-slate-50 transition-all">
+                    <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. DAFTAR NOTIFIKASI (tanpa overflow-hidden agar dropdown tidak terpotong) -->
+    <div class="w-full rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+
+        <!-- TAB + TOOLBAR -->
+        <div class="px-4 pt-3 pb-0 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4 bg-slate-50/40 rounded-t-2xl">
+            <div class="flex items-center gap-1 overflow-x-auto text-xs font-medium">
+                <button type="button" @click="onlyStar = !onlyStar; page = 1" title="Tampilkan favorit saja"
+                        :class="onlyStar ? 'text-amber-400' : 'text-slate-400 hover:text-amber-400'"
+                        class="p-2 transition-colors">
+                    <svg class="size-4" :fill="onlyStar ? 'currentColor' : 'none'" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+                </button>
+
+                <template x-for="t in tabs" :key="t.key">
+                    <button type="button" @click="activeTab = t.key; page = 1"
+                            :class="activeTab === t.key ? 'text-[#0969da] border-b-2 border-b-[#0969da] bg-white font-semibold' : 'text-slate-500 hover:text-slate-800'"
+                            class="px-3.5 py-2.5 rounded-t-xl flex items-center gap-1.5 transition-all whitespace-nowrap">
+                        <span x-text="t.label"></span>
+                        <span :class="t.badge" class="rounded-full px-2 py-0.5 text-[10px] font-semibold" x-text="count(t.key)"></span>
+                    </button>
+                </template>
+            </div>
+
+            <div class="flex items-center gap-4 py-2 text-xs">
+                <button type="button" @click="tandaiSemua()" class="inline-flex items-center gap-1.5 font-medium text-[#0969da] hover:underline">
+                    <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                    Tandai semua dibaca
+                </button>
+
+                <button type="button" @click="refresh()" class="inline-flex items-center gap-1.5 font-medium text-[#0969da] hover:underline">
+                    <svg class="size-4" :class="loading ? 'animate-spin' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    Refresh
+                </button>
+
+                <!-- Pagination -->
+                <div class="flex items-center gap-1 pl-2 border-l border-slate-200">
+                    <button type="button" @click="page > 1 && page--" :disabled="page <= 1"
+                            class="size-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 text-xs disabled:opacity-40 disabled:cursor-not-allowed">&lt;</button>
+                    <template x-for="n in totalPages" :key="n">
+                        <button type="button" @click="page = n"
+                                :class="page === n ? 'bg-[#0969da] text-white shadow-sm border-transparent font-medium' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'"
+                                class="size-7 flex items-center justify-center rounded-lg border text-xs" x-text="n"></button>
+                    </template>
+                    <button type="button" @click="page < totalPages && page++" :disabled="page >= totalPages"
+                            class="size-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 text-xs disabled:opacity-40 disabled:cursor-not-allowed">&gt;</button>
                 </div>
             </div>
         </div>
-    </form>
 
-    {{-- 3. CARD KONTEN UTAMA NOTIFIKASI (Sesuai Figma Node 121:74) --}}
-    <div class="rounded-t-[20px] bg-white border border-[#DCE5E3] shadow-sm overflow-hidden min-h-[500px] flex flex-col justify-between">
+        <!-- LIST -->
+        <div class="divide-y divide-slate-100">
+            <template x-for="n in paged" :key="n.id">
+                <div class="p-3.5 sm:p-4 flex items-center justify-between gap-4 transition-all hover:bg-[#e6f0ff]/60"
+                     :class="n.read ? 'bg-white' : 'bg-[#f0f6ff]/80'">
 
-        <div>
-            {{-- TAB BAR NAVIGASI (Sesuai Figma Node 175:612) --}}
-            <div class="flex items-center gap-6 border-b border-[#DCE5E3] px-6 pt-4 overflow-x-auto">
-                
-                {{-- Tab 1: Semua --}}
-                <a
-                    href="{{ route('notifikasi.index', ['tab' => 'semua', 'q' => request('q'), 'jenis' => request('jenis'), 'periode' => request('periode')]) }}"
-                    class="relative pb-3 flex items-center gap-2 text-[13px] font-normal transition-all whitespace-nowrap {{ $currentTab === 'semua' ? 'text-[#1B5B7E] font-medium' : 'text-[#203638] hover:text-[#1B5B7E]' }}"
-                >
-                    <span>Semua</span>
-                    <span class="rounded bg-[#BAE5FF] px-2 py-0.5 text-[10px] text-black font-normal inline-flex items-center justify-center">
-                        {{ $tabCounts['semua'] }}
-                    </span>
-                    @if($currentTab === 'semua')
-                        {{-- Garis Indikator Tab Aktif (Figma Line 4: stroke #1B5B7E) --}}
-                        <span class="absolute bottom-0 left-0 right-0 h-[2px] bg-[#1B5B7E]"></span>
-                    @endif
-                </a>
+                    <div class="flex items-center gap-3.5 min-w-0 flex-1">
+                        <button type="button" @click="toggleStar(n)" title="Favorit"
+                                :class="n.starred ? 'text-amber-400' : 'text-slate-300 hover:text-amber-400'"
+                                class="transition-colors shrink-0">
+                            <svg class="size-4" :fill="n.starred ? 'currentColor' : 'none'" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+                        </button>
 
-                {{-- Tab 2: Belum dibaca --}}
-                <a
-                    href="{{ route('notifikasi.index', ['tab' => 'belum_dibaca', 'q' => request('q'), 'jenis' => request('jenis'), 'periode' => request('periode')]) }}"
-                    class="relative pb-3 flex items-center gap-2 text-[13px] font-normal transition-all whitespace-nowrap {{ $currentTab === 'belum_dibaca' ? 'text-[#1B5B7E] font-medium' : 'text-[#203638] hover:text-[#1B5B7E]' }}"
-                >
-                    <span>Belum dibaca</span>
-                    <span class="rounded bg-[#BAE5FF] px-2 py-0.5 text-[10px] text-black font-normal inline-flex items-center justify-center">
-                        {{ $tabCounts['belum_dibaca'] }}
-                    </span>
-                    @if($currentTab === 'belum_dibaca')
-                        <span class="absolute bottom-0 left-0 right-0 h-[2px] bg-[#1B5B7E]"></span>
-                    @endif
-                </a>
-
-                {{-- Tab 3: Perlu tindakan --}}
-                <a
-                    href="{{ route('notifikasi.index', ['tab' => 'perlu_tindakan', 'q' => request('q'), 'jenis' => request('jenis'), 'periode' => request('periode')]) }}"
-                    class="relative pb-3 flex items-center gap-2 text-[13px] font-normal transition-all whitespace-nowrap {{ $currentTab === 'perlu_tindakan' ? 'text-[#1B5B7E] font-medium' : 'text-[#203638] hover:text-[#1B5B7E]' }}"
-                >
-                    <span>Perlu tindakan</span>
-                    <span class="rounded bg-[#BAE5FF] px-2 py-0.5 text-[10px] text-black font-normal inline-flex items-center justify-center">
-                        {{ $tabCounts['perlu_tindakan'] }}
-                    </span>
-                    @if($currentTab === 'perlu_tindakan')
-                        <span class="absolute bottom-0 left-0 right-0 h-[2px] bg-[#1B5B7E]"></span>
-                    @endif
-                </a>
-
-                {{-- Tab 4: Pengingat --}}
-                <a
-                    href="{{ route('notifikasi.index', ['tab' => 'pengingat', 'q' => request('q'), 'jenis' => request('jenis'), 'periode' => request('periode')]) }}"
-                    class="relative pb-3 flex items-center gap-2 text-[13px] font-normal transition-all whitespace-nowrap {{ $currentTab === 'pengingat' ? 'text-[#1B5B7E] font-medium' : 'text-[#203638] hover:text-[#1B5B7E]' }}"
-                >
-                    <span>Pengingat</span>
-                    <span class="rounded bg-[#BAE5FF] px-2 py-0.5 text-[10px] text-black font-normal inline-flex items-center justify-center">
-                        {{ $tabCounts['pengingat'] }}
-                    </span>
-                    @if($currentTab === 'pengingat')
-                        <span class="absolute bottom-0 left-0 right-0 h-[2px] bg-[#1B5B7E]"></span>
-                    @endif
-                </a>
-
-            </div>
-
-            {{-- DAFTAR ITEM NOTIFIKASI (Sesuai Figma Node 175:751, 175:735, 175:768) --}}
-            <div class="divide-y divide-[#DCE5E3]">
-                @forelse($notifikasiList as $notif)
-                    @php
-                        $isUnread = !$notif->is_read;
-                        $badgeText = $notif->jenis_badge;
-                        $refText = $notif->referensi_teks;
-                        $actionLabel = $notif->action_label;
-                        $actionUrl = $notif->action_url;
-                    @endphp
-
-                    <div class="flex flex-col md:flex-row items-start gap-4 p-5 md:p-[22px] transition-colors {{ $isUnread ? 'bg-[#CCE1EF]' : 'bg-white hover:bg-slate-50/60' }}">
-                        
-                        {{-- Kolom 1: Penanda Baca (Dot Bulat Hijau Teal Sesuai Figma #087F79) --}}
-                        <div class="pt-1.5 shrink-0" title="{{ $isUnread ? 'Belum dibaca' : 'Sudah dibaca' }}">
-                            @if($isUnread)
-                                <svg width="10" height="15" viewBox="0 0 10 15" fill="none" class="block">
-                                    <circle cx="4" cy="7" r="4" fill="#087F79" />
-                                </svg>
-                            @else
-                                <svg width="10" height="15" viewBox="0 0 10 15" fill="none" class="block">
-                                    <circle cx="4" cy="7" r="3.5" stroke="#94A3B8" stroke-width="1" fill="none" />
-                                </svg>
-                            @endif
-                        </div>
-
-                        {{-- Kolom 2: Isi Notifikasi (Peristiwa, Jenis Badge, Ref Surat, Uraian Pesan) --}}
-                        <div class="min-w-0 flex-1 space-y-1.5">
-                            
-                            {{-- Baris Peristiwa & Badge --}}
-                            <div class="flex flex-wrap items-center gap-3">
-                                <h2 class="text-[15px] font-normal leading-[1.4] text-[#203638] break-words">
-                                    {{ $notif->judul }}
-                                </h2>
-
-                                {{-- Badge Jenis Notifikasi (Figma Node 175:641: bg-[#fff5df] text-[#99660d]) --}}
-                                <span class="rounded-[4px] bg-[#FFF5DF] px-2 py-0.5 text-[11px] font-normal text-[#99660D] whitespace-nowrap">
-                                    {{ $badgeText }}
-                                </span>
-                            </div>
-
-                            {{-- No. Surat & Judul Paket / Usulan Terkait --}}
-                            <p class="text-[13px] font-normal leading-[1.45] text-[#203638]">
-                                {{ $refText }}
-                            </p>
-
-                            {{-- Detail Uraian Pesan Alarm --}}
-                            <p class="text-[13px] font-normal leading-[1.5] text-[#657A7C] break-words">
-                                {{ $notif->pesan }}
-                            </p>
-                        </div>
-
-                        {{-- Kolom 3: Waktu dan Tindak Lanjut (Status Baca, Waktu WIB, Tombol Aksi) --}}
-                        <div class="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-start gap-2.5 w-full md:w-[220px] shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-200/50">
-                            
-                            {{-- Status Baca --}}
-                            @if($isUnread)
-                                <span class="text-[12px] font-normal text-[#087F79] whitespace-nowrap">
-                                    Belum dibaca
-                                </span>
-                            @else
-                                <span class="text-[12px] font-normal text-[#657A7C] whitespace-nowrap">
-                                    Sudah dibaca
-                                </span>
-                            @endif
-
-                            {{-- Timestamp Waktu --}}
-                            <span class="text-[12px] font-normal text-[#657A7C] whitespace-nowrap">
-                                {{ $notif->created_at ? $notif->created_at->translatedFormat('d M Y · H.i') . ' WIB' : now()->translatedFormat('d M Y · H.i') . ' WIB' }}
-                            </span>
-
-                            {{-- Tombol Aksi (Figma Node 175:648: border border-[#dce5e3] text-[#087f79] h-[40px]) --}}
-                            <div class="flex items-center gap-2 mt-1">
-                                @if($isUnread)
-                                    {{-- Quick Mark Read --}}
-                                    <form action="{{ route('notifikasi.read', $notif->id) }}" method="POST" class="inline">
-                                        @csrf
-                                        <button
-                                            type="submit"
-                                            class="inline-flex h-[40px] items-center justify-center px-3 rounded-[6px] border border-[#DCE5E3] bg-white text-slate-500 hover:text-[#087F79] hover:bg-[#EAF4FA] transition-all text-xs"
-                                            title="Tandai telah dibaca"
-                                        >
-                                            <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                                            </svg>
-                                        </button>
-                                    </form>
-                                @endif
-
-                                <a
-                                    href="{{ $actionUrl }}"
-                                    class="inline-flex h-[40px] items-center justify-center rounded-[6px] border border-[#DCE5E3] bg-white px-[14px] text-[13px] font-normal text-[#087F79] shadow-sm hover:bg-[#EAF4FA] hover:border-[#087F79] hover:text-[#065A56] transition-all whitespace-nowrap"
-                                >
-                                    {{ $actionLabel }}
-                                </a>
-                            </div>
-
-                        </div>
-
-                    </div>
-                @empty
-                    {{-- TAMPILAN KOSONG (EMPTY STATE) --}}
-                    <div class="flex flex-col items-center justify-center py-20 px-4 text-center">
-                        <div class="size-16 rounded-full bg-[#BAE5FF]/40 flex items-center justify-center text-[#1B5B7E] mb-4">
-                            <svg class="size-8" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                        <div :class="style(n).icon" class="size-9 rounded-full flex items-center justify-center text-white shrink-0 shadow-sm">
+                            <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" :d="style(n).path"/>
                             </svg>
                         </div>
-                        <h2 class="text-base font-medium text-[#203638]">
-                            Tidak ada notifikasi atau pengingat
-                        </h2>
-                        <p class="text-sm text-[#657A7C] max-w-md mt-1 font-normal">
-                            @if(request('q') || request('jenis') !== 'semua' || request('periode') !== 'semua' || $currentTab !== 'semua')
-                                Tidak ditemukan notifikasi yang cocok dengan filter pencarian Anda. Silakan reset filter untuk melihat data lengkap.
-                            @else
-                                Seluruh tugas dan jadwal pengingat untuk akun Anda saat ini telah selesai dan up-to-date.
-                            @endif
-                        </p>
-                        @if(request('q') || request('jenis') !== 'semua' || request('periode') !== 'semua' || $currentTab !== 'semua')
-                            <a
-                                href="{{ route('notifikasi.index') }}"
-                                class="mt-4 inline-flex h-9 items-center rounded-[8px] bg-[#1B5B7E] px-4 text-xs font-medium text-white hover:bg-[#144763] transition-all"
-                            >
-                                Reset Filter Pencarian
-                            </a>
-                        @endif
+
+                        <span class="size-2 rounded-full shrink-0" :class="n.read ? 'bg-transparent' : 'bg-[#0969da]'"></span>
+
+                        <div class="space-y-0.5 min-w-0 flex-1">
+                            <h3 class="text-xs sm:text-sm text-[#213153] leading-snug"
+                                :class="n.read ? 'font-medium' : 'font-semibold'" x-text="n.judul"></h3>
+                            <p class="text-[11px] text-slate-500 truncate" x-text="n.nomor + ' • ' + n.perihal"></p>
+                            <p class="text-[11px] text-slate-400 line-clamp-1" x-text="n.pesan"></p>
+                        </div>
                     </div>
-                @endforelse
+
+                    <div class="flex items-center gap-3 shrink-0">
+                        <span class="hidden sm:inline-flex rounded-md px-2.5 py-0.5 text-[10px] font-semibold"
+                              :class="style(n).badge" x-text="style(n).label"></span>
+                        <span class="text-[10px] text-slate-400 font-normal" x-text="formatWaktu(n.waktu)"></span>
+
+                        <a :href="getLinkTarget(n)" @click="n.read = true; simpan()"
+                           class="inline-flex items-center gap-1 rounded-xl border border-blue-200 bg-white px-3 py-1.5 text-xs font-semibold text-[#0969da] hover:bg-blue-50 transition-colors shadow-sm">
+                            <span x-text="n.aksi"></span>
+                            <svg class="size-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                        </a>
+
+                        <!-- Menu titik tiga -->
+                        <div class="relative" x-data="{ open: false }" @click.outside="open = false">
+                            <button type="button" @click="open = !open" class="p-1 text-slate-400 hover:text-slate-600 transition-colors">
+                                <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/></svg>
+                            </button>
+                            <div x-show="open" x-cloak x-transition
+                                 class="absolute right-0 z-20 mt-1 w-44 rounded-xl border border-slate-200 bg-white py-1 shadow-lg text-xs">
+                                <button type="button" @click="n.read = !n.read; simpan(); open = false"
+                                        class="w-full px-3 py-2 text-left text-slate-600 hover:bg-slate-50"
+                                        x-text="n.read ? 'Tandai belum dibaca' : 'Tandai sudah dibaca'"></button>
+                                <button type="button" @click="toggleStar(n); open = false"
+                                        class="w-full px-3 py-2 text-left text-slate-600 hover:bg-slate-50"
+                                        x-text="n.starred ? 'Hapus dari favorit' : 'Tambah ke favorit'"></button>
+                                <button type="button" @click="hapus(n); open = false"
+                                        class="w-full px-3 py-2 text-left text-rose-600 hover:bg-rose-50">Hapus notifikasi</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <div x-show="filtered.length === 0" x-cloak class="p-10 text-center">
+                <svg class="size-9 text-slate-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                <p class="text-xs text-slate-500">Tidak ada notifikasi yang sesuai.</p>
             </div>
         </div>
-
-        {{-- 4. PAGINASI (PAGINATION FOOTER) --}}
-        @if($notifikasiList->hasPages())
-        <div class="border-t border-[#DCE5E3] bg-white px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div class="text-xs text-[#657A7C]">
-                Menampilkan <span class="font-medium text-[#203638]">{{ $notifikasiList->firstItem() ?? 0 }}</span> sampai <span class="font-medium text-[#203638]">{{ $notifikasiList->lastItem() ?? 0 }}</span> dari <span class="font-medium text-[#203638]">{{ $notifikasiList->total() }}</span> notifikasi
-            </div>
-            <div>
-                {{ $notifikasiList->links() }}
-            </div>
-        </div>
-        @endif
-
     </div>
 
+    <!-- Toast -->
+    <div x-show="toast" x-cloak x-transition
+         class="fixed bottom-6 right-6 z-50 rounded-xl bg-[#213153] px-4 py-2.5 text-xs font-medium text-white shadow-lg" x-text="toast"></div>
 </div>
+
+<script>
+    function notifikasiManager() {
+        const KEY = 'simpbj_notifikasi_v2';
+        const sekarang = () => new Date().toISOString();
+
+        // Route aman
+        const URL_PERMOHONAN = @json(route('permohonan.index'));
+        const URL_LAPORAN = @json(Route::has('laporan.rekapitulasi') ? route('laporan.rekapitulasi') : route('permohonan.index'));
+
+        const seed = () => [
+            { id: 1, tipe: 'setuju',   jenis: 'pengajuan', judul: 'Pengajuan disetujui',
+              nomor: '032/PL3/TE/2026', perihal: 'Komponen praktikum digital',
+              pesan: 'Pengajuan Anda telah disetujui dan dilanjutkan ke tahap berikutnya.',
+              aksi: 'Lihat Detail', waktu: '2026-01-29T08:00:00+07:00', read: false, starred: false },
+            { id: 2, tipe: 'pengingat', jenis: 'revisi', judul: 'Batas pengiriman revisi 1 hari lagi!',
+              nomor: '032/PL3/TE/2026', perihal: 'Komponen praktikum digital',
+              pesan: 'Pengingat: revisi yang diminta Bidang 2 belum dikirim. Jadwal tindak lanjut: 30 Januari 2026; lengkapi rincian jumlah komponen.',
+              aksi: 'Lihat Pengajuan', waktu: '2026-01-29T08:00:00+07:00', read: false, starred: false },
+            { id: 3, tipe: 'tolak',     jenis: 'revisi', judul: 'Pengajuan ditolak',
+              nomor: '032/PL3/TE/2026', perihal: 'Komponen praktikum digital',
+              pesan: 'Pengajuan ditolak. Mohon lengkapi revisi sesuai catatan Bidang 2.',
+              aksi: 'Lengkapi Revisi', waktu: '2026-01-29T08:00:00+07:00', read: false, starred: false },
+            { id: 4, tipe: 'lanjut',    jenis: 'pengadaan', judul: 'Bagian Keuangan menyetujui, dilanjutkan ke Bagian PPK',
+              nomor: '032/PL3/TE/2026', perihal: 'Komponen praktikum digital',
+              pesan: 'Dokumen pengajuan sedang diproses oleh bagian selanjutnya.',
+              aksi: 'Lihat Detail', waktu: '2026-01-29T08:00:00+07:00', read: true, starred: false },
+            { id: 5, tipe: 'laporan',   jenis: 'laporan', judul: 'Pembaruan Laporan Rekapitulasi Anggaran',
+              nomor: 'REKAP/2026/01', perihal: 'Rekapitulasi Anggaran DIPA PNJ',
+              pesan: 'Laporan penyerapan anggaran triwulan telah diperbarui. Silakan unduh PDF laporan rekapitulasi.',
+              aksi: 'Cek Laporan', waktu: '2026-01-28T14:30:00+07:00', read: false, starred: true },
+        ];
+
+        const templates = [
+            { tipe: 'setuju', jenis: 'pengajuan', judul: 'Pengajuan disetujui', aksi: 'Lihat Detail',
+              pesan: 'Pengajuan Anda telah disetujui oleh Bidang terkait.' },
+            { tipe: 'pengingat', jenis: 'revisi', judul: 'Batas pengiriman revisi 1 hari lagi!', aksi: 'Lihat Pengajuan',
+              pesan: 'Pengingat: revisi yang diminta belum dikirim. Segera lengkapi rincian dokumen.' },
+            { tipe: 'tolak', jenis: 'revisi', judul: 'Pengajuan ditolak', aksi: 'Lengkapi Revisi',
+              pesan: 'Pengajuan ditolak. Mohon perbaiki dan kirim ulang sesuai catatan reviewer.' },
+            { tipe: 'lanjut', jenis: 'pengadaan', judul: 'Bagian menyetujui, dilanjutkan ke bagian berikutnya', aksi: 'Lihat Detail',
+              pesan: 'Dokumen pengadaan diteruskan ke bagian selanjutnya untuk ditinjau.' },
+            { tipe: 'laporan', jenis: 'laporan', judul: 'Pembaruan Laporan Rekapitulasi Anggaran', aksi: 'Cek Laporan',
+              pesan: 'Sistem telah memperbarui laporan rekapitulasi anggaran pengadaan terbaru.' },
+        ];
+        const perihalList = ['Komponen praktikum digital', 'Server dan GPU Workstation AI Lab', 'Perangkat praktikum jaringan komputer', 'ATK Semester Genap'];
+
+        const styles = {
+            setuju:    { label: 'Informasi',      icon: 'bg-emerald-500 shadow-emerald-500/30', badge: 'bg-emerald-100 text-emerald-700',
+                         path: 'M5 13l4 4L19 7' },
+            pengingat: { label: 'Pengingat',      icon: 'bg-amber-400 shadow-amber-400/30',     badge: 'bg-amber-100 text-amber-700',
+                         path: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9' },
+            tolak:     { label: 'Perlu Tindakan', icon: 'bg-rose-600 shadow-rose-600/30',        badge: 'bg-rose-100 text-rose-700',
+                         path: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' },
+            lanjut:    { label: 'Informasi',      icon: 'bg-[#0969da] shadow-blue-500/30',      badge: 'bg-blue-100 text-[#0969da]',
+                         path: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
+            laporan:   { label: 'Laporan',        icon: 'bg-indigo-600 shadow-indigo-500/30',    badge: 'bg-indigo-100 text-indigo-700',
+                         path: 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
+        };
+
+        return {
+            items: [],
+            q: '', jenis: '', periode: '',
+            activeTab: 'semua', onlyStar: false,
+            page: 1, perPage: 5,
+            loading: false, toast: '', toastTimer: null,
+
+            tabs: [
+                { key: 'semua',     label: 'Semua',          badge: 'bg-blue-100 text-[#0969da]' },
+                { key: 'unread',    label: 'Belum Dibaca',   badge: 'bg-slate-200/70 text-slate-700' },
+                { key: 'tindakan',  label: 'Perlu Tindakan', badge: 'bg-rose-100 text-rose-600' },
+                { key: 'pengingat', label: 'Pengingat',      badge: 'bg-amber-100 text-amber-700' },
+            ],
+
+            init() {
+                try {
+                    const saved = localStorage.getItem(KEY);
+                    this.items = saved ? JSON.parse(saved) : seed();
+                } catch (e) { this.items = seed(); }
+                this.simpan();
+            },
+            simpan() { try { localStorage.setItem(KEY, JSON.stringify(this.items)); } catch (e) {} },
+            notify(msg) {
+                this.toast = msg; clearTimeout(this.toastTimer);
+                this.toastTimer = setTimeout(() => this.toast = '', 2200);
+            },
+            style(n) { return styles[n.tipe] || styles.lanjut; },
+
+            getLinkTarget(n) {
+                return (n.jenis === 'laporan' || n.tipe === 'laporan') ? URL_LAPORAN : URL_PERMOHONAN;
+            },
+
+            matchTab(n, key) {
+                if (key === 'unread')    return !n.read;
+                if (key === 'tindakan')  return n.tipe === 'tolak';
+                if (key === 'pengingat') return n.tipe === 'pengingat';
+                return true;
+            },
+            count(key) { return this.items.filter(n => this.matchTab(n, key)).length; },
+
+            inPeriode(n) {
+                if (!this.periode) return true;
+                const d = new Date(n.waktu), now = new Date();
+                if (this.periode === 'today') return d.toDateString() === now.toDateString();
+                if (this.periode === 'week')  return (now - d) <= 7 * 864e5 && d <= now;
+                if (this.periode === 'month') return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+                return true;
+            },
+
+            get filtered() {
+                const kw = this.q.trim().toLowerCase();
+                return this.items
+                    .filter(n => this.matchTab(n, this.activeTab))
+                    .filter(n => !this.onlyStar || n.starred)
+                    .filter(n => !this.jenis || n.jenis === this.jenis)
+                    .filter(n => this.inPeriode(n))
+                    .filter(n => !kw || (n.nomor + ' ' + n.perihal + ' ' + n.judul).toLowerCase().includes(kw))
+                    .sort((a, b) => new Date(b.waktu) - new Date(a.waktu));
+            },
+            get totalPages() { return Math.max(1, Math.ceil(this.filtered.length / this.perPage)); },
+            get paged() {
+                if (this.page > this.totalPages) this.page = this.totalPages;
+                const s = (this.page - 1) * this.perPage;
+                return this.filtered.slice(s, s + this.perPage);
+            },
+
+            toggleStar(n) { n.starred = !n.starred; this.simpan(); },
+            hapus(n) {
+                this.items = this.items.filter(x => x.id !== n.id);
+                this.simpan(); this.notify('Notifikasi dihapus');
+            },
+            tandaiSemua() {
+                this.items.forEach(n => n.read = true);
+                this.simpan(); this.notify('Semua notifikasi ditandai dibaca');
+            },
+            refresh() {
+                this.loading = true;
+                setTimeout(() => { this.init(); this.loading = false; this.notify('Data diperbarui'); }, 600);
+            },
+            resetFilter() {
+                this.q = ''; this.jenis = ''; this.periode = '';
+                this.activeTab = 'semua'; this.onlyStar = false; this.page = 1;
+            },
+            resetData() {
+                this.items = seed(); this.resetFilter();
+                this.simpan(); this.notify('Data dikembalikan ke awal');
+            },
+
+            // =========================================================================
+            // FUNGSI TAMBAH UJI COBA YANG SUDAH TERHUBUNG KE BACKEND & LONCENG HEADER
+            // =========================================================================
+            async tambahUjiCoba() {
+                this.loading = true;
+                const t = templates[Math.floor(Math.random() * templates.length)];
+                const isLaporan = t.tipe === 'laporan';
+                const nomor = isLaporan
+                    ? 'REKAP/2026/' + String(Math.floor(Math.random() * 90) + 10)
+                    : String(Math.floor(Math.random() * 900) + 100) + '/PL3/TE/2026';
+                const perihal = isLaporan
+                    ? 'Rekapitulasi Anggaran DIPA PNJ'
+                    : perihalList[Math.floor(Math.random() * perihalList.length)];
+
+                // 1. Tambah ke list lokal
+                this.items.unshift({
+                    id: Date.now(), ...t, nomor, perihal,
+                    waktu: sekarang(), read: false, starred: false,
+                });
+                this.page = 1;
+                this.simpan();
+
+                // 2. Kirim POST request ke Backend Laravel
+                try {
+                    await fetch("{{ route('notifikasi.tes-kirim') }}", {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            judul: t.judul,
+                            pesan: t.pesan,
+                            tipe: t.tipe
+                        })
+                    });
+
+                    // 3. KIRIM SIGNAL EVENT REAL-TIME KE ICON LONCENG HEADER
+                    window.dispatchEvent(new CustomEvent('notification-updated'));
+
+                    // 4. Pemicu Notifikasi OS Desktop jika aktif
+                    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+                        new Notification(t.judul, {
+                            body: t.pesan + ' (' + nomor + ')',
+                            icon: '/favicon.ico'
+                        });
+                    }
+
+                    this.notify('Notifikasi uji coba berhasil masuk!');
+                } catch (e) {
+                    // Tetap picu update lonceng jika offline/mode simulasi
+                    window.dispatchEvent(new CustomEvent('notification-updated'));
+                    this.notify('Notifikasi uji coba ditambahkan (mode lokal)!');
+                } finally {
+                    this.loading = false;
+                }
+            },
+
+            formatWaktu(iso) {
+                const d = new Date(iso);
+                const tgl = d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+                const jam = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false }).replace(':', '.');
+                return tgl + ' • ' + jam + ' WIB';
+            },
+        };
+    }
+</script>
 @endsection

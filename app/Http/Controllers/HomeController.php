@@ -2068,4 +2068,16 @@ class HomeController extends Controller
 
         return back()->with('success', 'Data profil Anda berhasil diperbarui.');
     }
+
+    public function markAllRead(Request $request)
+{
+    // Contoh update status notifikasi user yang login
+    \App\Models\NotifikasiUser::where('id_user', auth()->id())
+        ->where('is_read', 0)
+        ->update(['is_read' => 1]);
+
+    return redirect()->back()->with('success', 'Semua notifikasi berhasil ditandai dibaca.');
+}
+
+
 }
