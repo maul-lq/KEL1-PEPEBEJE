@@ -99,6 +99,25 @@
                             Silahkan masuk ke akun Anda untuk melanjutkan ke platform.
                         </p>
 
+                        @if(session('error'))
+                            <div class="mt-4 flex items-start gap-3 rounded-[8px] border border-red-300 bg-red-50 p-4 text-sm text-red-800">
+                                <svg class="size-5 shrink-0 text-red-600 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                <span>{{ session('error') }}</span>
+                            </div>
+                        @endif
+                        @if(session('status'))
+                            <div class="mt-4 flex items-start gap-3 rounded-[8px] border border-blue-300 bg-blue-50 p-4 text-sm text-blue-800">
+                                <svg class="size-5 shrink-0 text-blue-600 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                <span>{{ session('status') }}</span>
+                            </div>
+                        @endif
+                        @if(session('success'))
+                            <div class="mt-4 flex items-start gap-3 rounded-[8px] border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-800">
+                                <svg class="size-5 shrink-0 text-emerald-600 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                <span>{{ session('success') }}</span>
+                            </div>
+                        @endif
+
                         <!-- Input Login (Mendukung Username / NIP / Email) -->
                         <label
                             for="login"
@@ -206,7 +225,7 @@
 
                         <!-- Google Login Button -->
                         <a
-                            href="{{ url('auth/google') }}"
+                            href="{{ route('auth.google') }}"
                             class="mt-[21px] flex h-[60px] w-full items-center justify-center gap-4 rounded-[5px] border border-[#D2D2D2] bg-white text-lg font-medium text-black transition-colors hover:bg-gray-50"
                         >
                             <img
