@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" x-data="{ sidebarOpen: false }">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -57,46 +57,42 @@
         @endphp
         <div class="flex items-center gap-4">
 
-            <!-- ICON NOTIFIKASI LONCENG DROPDOWN (REAL-TIME UPDATED) -->
-<div class="relative" 
-     x-data="{ 
-         openNotif: false, 
-         unreadCount: {{ $unreadHeaderCount }},
-         async fetchTerbaru() {
-             try {
-                 const res = await fetch('/api/notifikasi-terbaru');
-                 const data = await res.json();
-                 if(data.status === 'success') {
-                     this.unreadCount = data.unread_count || (this.unreadCount + 1);
-                 } else {
-                     this.unreadCount++;
-                 }
-             } catch(e) {
-                 this.unreadCount++;
-             }
-         }
-     }"
-     @notification-updated.window="fetchTerbaru()">
+            <!-- ICON NOTIFIKASI LONCENG DROPDOWN -->
+            <div class="relative" 
+                 x-data="{ 
+                     openNotif: false, 
+                     unreadCount: {{ $unreadHeaderCount }},
+                     async fetchTerbaru() {
+                         try {
+                             const res = await fetch('/api/notifikasi-terbaru');
+                             const data = await res.json();
+                             if(data.status === 'success') {
+                                 this.unreadCount = data.unread_count || (this.unreadCount + 1);
+                             } else {
+                                 this.unreadCount++;
+                             }
+                         } catch(e) {
+                             this.unreadCount++;
+                         }
+                     }
+                 }"
+                 @notification-updated.window="fetchTerbaru()">
 
-    <button @click="openNotif = !openNotif" 
-            type="button" 
-            title="Notifikasi" 
-            class="relative flex size-10 items-center justify-center rounded-full text-slate-600 bg-slate-50 border border-slate-200/60 hover:bg-slate-100 hover:text-[#0969da] focus:outline-none transition-all shadow-sm shrink-0">
-        <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-        </svg>
-        
-        <!-- Titik Merah Unread Badge Dinamis -->
-        <template x-if="unreadCount > 0">
-            <span class="absolute top-0 right-0 flex size-3">
-                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-75"></span>
-                <span class="relative inline-flex rounded-full size-3 bg-rose-500 border-2 border-white"></span>
-            </span>
-        </template>
-    </button>
-
-    <!-- POPOVER DROPDOWN NOTIFIKASI -->
-    <!-- (Isi popover dropdown tetap seperti kode lama Anda) -->
+                <button @click="openNotif = !openNotif" 
+                        type="button" 
+                        title="Notifikasi" 
+                        class="relative flex size-10 items-center justify-center rounded-full text-slate-600 bg-slate-50 border border-slate-200/60 hover:bg-slate-100 hover:text-[#0969da] focus:outline-none transition-all shadow-sm shrink-0">
+                    <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                    
+                    <template x-if="unreadCount > 0">
+                        <span class="absolute top-0 right-0 flex size-3">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full size-3 bg-rose-500 border-2 border-white"></span>
+                        </span>
+                    </template>
+                </button>
 
                 <!-- POPOVER DROPDOWN NOTIFIKASI -->
                 <div x-show="openNotif" 
@@ -124,7 +120,6 @@
                         </a>
                     </div>
 
-                    <!-- DAFTAR ITEM NOTIFIKASI -->
                     <div class="max-h-80 overflow-y-auto divide-y divide-slate-100">
                         @forelse($headerNotifs as $notif)
                             <a href="{{ route('notifikasi.index') }}" class="flex items-start gap-3 p-3.5 hover:bg-slate-50 transition-colors {{ !$notif->is_read ? 'bg-blue-50/40' : '' }}">
@@ -150,7 +145,6 @@
                         @endforelse
                     </div>
 
-                    <!-- FOOTER DROPDOWN -->
                     <div class="p-2.5 bg-slate-50/50 text-center">
                         <a href="{{ route('notifikasi.index') }}" class="block w-full py-1.5 text-xs font-bold text-[#0969da] rounded-lg hover:bg-slate-100 transition-colors">
                             Lihat Semua Notifikasi &rarr;
@@ -172,7 +166,6 @@
                     </div>
                 </div>
 
-                <!-- Avatar Button -->
                 <div class="relative">
                     <button @click="openProfile = !openProfile" 
                             type="button"
@@ -184,7 +177,6 @@
                         @endif
                     </button>
 
-                    <!-- Menu Dropdown Profil -->
                     <div x-show="openProfile" 
                          @click.away="openProfile = false" 
                          x-cloak
@@ -207,14 +199,6 @@
                                 <svg class="size-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                                 Profil Saya
                             </a>
-                            <a href="{{ route('dashboard') }}" class="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 rounded-lg transition-colors">
-                                <svg class="size-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
-                                Dashboard Utama
-                            </a>
-                            <a href="{{ route('monitoring.index') }}" class="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 rounded-lg transition-colors">
-                                <svg class="size-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-                                Monitoring 8 Siklus
-                            </a>
                         </div>
 
                         <div class="pt-1">
@@ -235,155 +219,108 @@
     </header>
 
     <!-- 2. MAIN LAYOUT WRAPPER -->
-    <div class="flex flex-1">
+    <div class="flex flex-1 relative">
 
-        <!-- SIDEBAR UTAMA (#213153) -->
+        <!-- SIDEBAR UTAMA PERSIS FIGMA (#213153) DENGAN EFEK BISA MELEBAR/EXPANDABLE -->
         @auth
-        <aside class="flex w-16 shrink-0 flex-col items-center gap-4 bg-[#213153] py-6 shadow-xl transition-all z-20">
+        @php
+            // Status menu aktif + class warna (dipakai ulang oleh semua item sidebar)
+            $aHome  = request()->routeIs('dashboard');
+            $aMon   = request()->routeIs('permohonan.*');
+            $aRiw   = request()->routeIs('laporan.*');
+            $aNotif = request()->routeIs('notifikasi.*');
+            $aProf  = request()->routeIs('profile.*');
+            $menuOn  = 'bg-[#0969da] text-white shadow-lg shadow-[#0969da]/40 font-semibold';
+            $menuOff = 'text-slate-300 hover:bg-white/10 hover:text-white';
+        @endphp
+        <aside :class="sidebarOpen ? 'w-64' : 'w-16'" 
+               class="flex shrink-0 flex-col bg-[#213153] py-5 shadow-xl transition-all duration-300 z-20 overflow-hidden min-h-screen">
             
-            <!-- Dashboard Beranda -->
-            <a href="{{ route('dashboard') }}" title="Dashboard Beranda" 
-               class="relative flex h-10 w-10 items-center justify-center rounded-xl text-slate-300 transition-all {{ request()->routeIs('dashboard') ? 'bg-[#0969da] text-white shadow-lg shadow-[#0969da]/40 scale-105' : 'hover:bg-white/10 hover:text-white' }}">
-                <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                </svg>
-            </a>
+            <!-- Tombol Toggle Hamburger Menu (≡) -->
+            <div class="px-3.5 mb-6 flex items-center justify-between">
+                <button @click="sidebarOpen = !sidebarOpen" 
+                        type="button" 
+                        title="Buka/Tutup Sidebar" 
+                        class="flex size-9 items-center justify-center rounded-xl text-slate-200 hover:bg-white/10 transition-colors">
+                    <svg class="size-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                </button>
+            </div>
 
-            <!-- Permohonan Pengadaan -->
-            @if(Auth::user()->hasRole('user') || Auth::user()->hasAnyPermission(['permohonan.create', 'permohonan.view_own']))
-            <a href="{{ route('permohonan.index') }}" title="Permohonan Saya" 
-               class="relative flex h-10 w-10 items-center justify-center rounded-xl text-slate-300 transition-all {{ request()->routeIs('permohonan.*') ? 'bg-[#0969da] text-white shadow-lg shadow-[#0969da]/40 scale-105' : 'hover:bg-white/10 hover:text-white' }}">
-                <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-            </a>
-            @endif
+            <!-- GARIS PEMBATAS ATAS -->
+            <div class="mx-3 mb-6 h-px bg-white/15"></div>
 
-            <!-- Notifikasi & Reminder (Sidebar) -->
-            <a href="{{ route('notifikasi.index') }}" title="Notifikasi dan Reminder" 
-               class="relative flex h-10 w-10 items-center justify-center rounded-xl text-slate-300 transition-all {{ request()->routeIs('notifikasi.*') ? 'bg-[#0969da] text-white shadow-lg shadow-[#0969da]/40 scale-105' : 'hover:bg-white/10 hover:text-white' }}">
-                <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-                @if($unreadHeaderCount > 0)
-                    <span class="absolute top-1 right-1 flex size-2.5">
-                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
-                        <span class="relative inline-flex rounded-full size-2.5 bg-cyan-400"></span>
-                    </span>
-                @endif
-            </a>
+            <!-- MENU ITEM FIGMA LIST -->
+            <nav class="flex flex-col gap-3 px-2">
+                
+                <!-- 1. Dashboard -->
+                <a href="{{ route('dashboard') }}" title="Dashboard" 
+                   class="flex h-11 items-center gap-4 rounded-xl px-3 transition-all {{ $aHome ? $menuOn : $menuOff }}">
+                    <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 10.2 12 3.8l8 6.4V19a1.5 1.5 0 0 1-1.5 1.5H15v-4.5a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v4.5H5.5A1.5 1.5 0 0 1 4 19z" fill="{{ $aHome ? 'currentColor' : 'none' }}"/>
+                    </svg>
+                    <span x-show="sidebarOpen" x-cloak class="whitespace-nowrap text-sm">Dashboard</span>
+                </a>
 
-            <!-- Menu Admin -->
-            @if(Auth::user()->hasRole('admin'))
-            <a href="{{ route('admin.persetujuan-registrasi.index') }}" title="Persetujuan Registrasi Pengguna" 
-               class="relative flex h-10 w-10 items-center justify-center rounded-xl text-slate-300 transition-all {{ request()->routeIs('admin.persetujuan-registrasi.*') ? 'bg-[#0969da] text-white shadow-lg shadow-[#0969da]/40 scale-105' : 'hover:bg-white/10 hover:text-white' }}">
-                <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                </svg>
-            </a>
-            <a href="{{ route('admin.roles.index') }}" title="Manajemen Role & Hak Akses" 
-               class="relative flex h-10 w-10 items-center justify-center rounded-xl text-slate-300 transition-all {{ request()->routeIs('admin.roles.*') ? 'bg-[#0969da] text-white shadow-lg shadow-[#0969da]/40 scale-105' : 'hover:bg-white/10 hover:text-white' }}">
-                <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-                </svg>
-            </a>
-            @endif
+                <!-- 2. Monitoring (Siklus Pengadaan) -->
+                <a href="{{ route('permohonan.index') }}" title="Monitoring" 
+                   class="flex h-11 items-center gap-4 rounded-xl px-3 transition-all {{ $aMon ? $menuOn : $menuOff }}">
+                    <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 8h8M17 8h4M3 16h2M11 16h10"/>
+                        <circle cx="14" cy="8" r="2.5" fill="{{ $aMon ? 'currentColor' : 'none' }}"/>
+                        <circle cx="8" cy="16" r="2.5" fill="{{ $aMon ? 'currentColor' : 'none' }}"/>
+                    </svg>
+                    <span x-show="sidebarOpen" x-cloak class="whitespace-nowrap text-sm">Monitoring</span>
+                </a>
 
-            <!-- Verifikasi Staf Bidang 2 -->
-            @if(Auth::user()->hasRole('staff_bidang_2'))
-            <a href="{{ route('verifikasi.bidang-2') }}" title="Telaah Berkas Bidang 2" 
-               class="relative flex h-10 w-10 items-center justify-center rounded-xl text-slate-300 transition-all {{ request()->routeIs('verifikasi.bidang-2') ? 'bg-[#0969da] text-white shadow-lg shadow-[#0969da]/40 scale-105' : 'hover:bg-white/10 hover:text-white' }}">
-                <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                </svg>
-            </a>
-            @endif
+                <!-- 3. Riwayat Pengajuan / Laporan -->
+                <a href="{{ route('laporan.rekapitulasi') }}" title="Riwayat Pengajuan" 
+                   class="flex h-11 items-center gap-4 rounded-xl px-3 transition-all {{ $aRiw ? $menuOn : $menuOff }}">
+                    <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3.5" y="3.5" width="17" height="17" rx="3" fill="{{ $aRiw ? 'currentColor' : 'none' }}"/>
+                        <rect x="7" y="7.5" width="3.5" height="3.5" rx="0.8" stroke="{{ $aRiw ? '#0969da' : 'currentColor' }}" fill="{{ $aRiw ? '#0969da' : 'none' }}"/>
+                        <path d="M13.5 8.5h3M13.5 11h3M7 15.5h10" stroke="{{ $aRiw ? '#0969da' : 'currentColor' }}"/>
+                    </svg>
+                    <span x-show="sidebarOpen" x-cloak class="whitespace-nowrap text-sm">Riwayat Pengajuan</span>
+                </a>
 
-            <!-- Verifikasi Wadir 2 -->
-            @if(Auth::user()->hasRole('wadir_2'))
-            <a href="{{ route('verifikasi.wadir-2') }}" title="Persetujuan Eksekutif Wadir 2" 
-               class="relative flex h-10 w-10 items-center justify-center rounded-xl text-slate-300 transition-all {{ request()->routeIs('verifikasi.wadir-2') ? 'bg-[#0969da] text-white shadow-lg shadow-[#0969da]/40 scale-105' : 'hover:bg-white/10 hover:text-white' }}">
-                <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-            </a>
-            @endif
+                <!-- 4. Notifikasi -->
+                <a href="{{ route('notifikasi.index') }}" title="Notifikasi" 
+                   class="flex h-11 items-center gap-4 rounded-xl px-3 transition-all relative {{ $aNotif ? $menuOn : $menuOff }}">
+                    <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M6 10a6 6 0 1 1 12 0c0 3.2 1 4.7 2 5.8a.6.6 0 0 1-.45 1H4.45a.6.6 0 0 1-.45-1C5 14.7 6 13.2 6 10z" fill="{{ $aNotif ? 'currentColor' : 'none' }}"/>
+                        <path d="M10 20a2 2 0 0 0 4 0"/>
+                    </svg>
+                    <span x-show="sidebarOpen" x-cloak class="whitespace-nowrap text-sm">Notifikasi</span>
+                    
+                    @if($unreadHeaderCount > 0)
+                        <span x-show="!sidebarOpen" class="absolute top-2 right-2 flex size-2.5">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full size-2.5 bg-cyan-400"></span>
+                        </span>
+                        <span x-show="sidebarOpen" x-cloak class="ml-auto rounded-full bg-cyan-400/20 px-2 py-0.5 text-[10px] font-bold text-cyan-300">
+                            {{ $unreadHeaderCount }}
+                        </span>
+                    @endif
+                </a>
 
-            <!-- Verifikasi Perencanaan -->
-            @if(Auth::user()->hasRole('perencanaan'))
-            <a href="{{ route('verifikasi.perencanaan') }}" title="Verifikasi MAK & Pagu Perencanaan" 
-               class="relative flex h-10 w-10 items-center justify-center rounded-xl text-slate-300 transition-all {{ request()->routeIs('verifikasi.perencanaan') ? 'bg-[#0969da] text-white shadow-lg shadow-[#0969da]/40 scale-105' : 'hover:bg-white/10 hover:text-white' }}">
-                <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-            </a>
-            @endif
+            </nav>
 
-            <!-- Paket PPBJ -->
-            @if(Auth::user()->hasRole('ppbj'))
-            <a href="{{ route('paket.index') }}" title="Paket Pengadaan PPBJ" 
-               class="relative flex h-10 w-10 items-center justify-center rounded-xl text-slate-300 transition-all {{ request()->routeIs('paket.*') ? 'bg-[#0969da] text-white shadow-lg shadow-[#0969da]/40 scale-105' : 'hover:bg-white/10 hover:text-white' }}">
-                <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                </svg>
-            </a>
-            @endif
+            <!-- GARIS PEMBATAS BAWAH -->
+            <div class="mx-3 my-6 h-px bg-white/15"></div>
 
-            <!-- Kontrak SPK -->
-            @if(Auth::user()->hasRole(['ppbj', 'pp', 'ppk']))
-            <a href="{{ route('kontrak.index') }}" title="Kontrak SPK & Reviu" 
-               class="relative flex h-10 w-10 items-center justify-center rounded-xl text-slate-300 transition-all {{ request()->routeIs('kontrak.*') ? 'bg-[#0969da] text-white shadow-lg shadow-[#0969da]/40 scale-105' : 'hover:bg-white/10 hover:text-white' }}">
-                <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-            </a>
-            @endif
-
-            <!-- Penerimaan Barang -->
-            @if(Auth::user()->hasRole('perlengkapan'))
-            <a href="{{ route('penerimaan.index') }}" title="Penerimaan Barang & BAST" 
-               class="relative flex h-10 w-10 items-center justify-center rounded-xl text-slate-300 transition-all {{ request()->routeIs('penerimaan.*') ? 'bg-[#0969da] text-white shadow-lg shadow-[#0969da]/40 scale-105' : 'hover:bg-white/10 hover:text-white' }}">
-                <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                </svg>
-            </a>
-            @endif
-
-            <!-- Pembayaran & SP2D -->
-            @if(Auth::user()->hasRole(['keuangan', 'ppbj', 'ppk', 'wadir_2']))
-            <a href="{{ route('pembayaran.index') }}" title="Tagihan & Pembayaran SP2D" 
-               class="relative flex h-10 w-10 items-center justify-center rounded-xl text-slate-300 transition-all {{ request()->routeIs('pembayaran.*') ? 'bg-[#0969da] text-white shadow-lg shadow-[#0969da]/40 scale-105' : 'hover:bg-white/10 hover:text-white' }}">
-                <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-            </a>
-            @endif
-
-            <!-- Monitoring 8 Siklus -->
-           {{-- 
-            <a href="{{ route('monitoring.index') }}" title="Monitoring 8 Siklus Pengadaan" 
-               class="relative flex h-10 w-10 items-center justify-center rounded-xl text-slate-300 transition-all {{ request()->routeIs('monitoring.*') ? 'bg-[#0969da] text-white shadow-lg shadow-[#0969da]/40 scale-105' : 'hover:bg-white/10 hover:text-white' }}">
-                <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-            </a>
-            --}}
-
-            <!-- Laporan Rekapitulasi -->
-            <a href="{{ route('laporan.rekapitulasi') }}" title="Laporan Rekapitulasi Anggaran" 
-               class="relative flex h-10 w-10 items-center justify-center rounded-xl text-slate-300 transition-all {{ request()->routeIs('laporan.*') ? 'bg-[#0969da] text-white shadow-lg shadow-[#0969da]/40 scale-105' : 'hover:bg-white/10 hover:text-white' }}">
-                <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-            </a>
-
-            <!-- Profil Saya -->
-            <a href="{{ route('profile.index') }}" title="Profil Saya" 
-               class="relative flex h-10 w-10 items-center justify-center rounded-xl text-slate-300 transition-all {{ request()->routeIs('profile.*') ? 'bg-[#0969da] text-white shadow-lg shadow-[#0969da]/40 scale-105' : 'hover:bg-white/10 hover:text-white' }}">
-                <svg class="size-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
-                </svg>
-            </a>
+            <!-- 5. Profil -->
+            <div class="px-2">
+                <a href="{{ route('profile.index') }}" title="Profil" 
+                   class="flex h-11 items-center gap-4 rounded-xl px-3 transition-all {{ $aProf ? $menuOn : $menuOff }}">
+                    <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="8" r="3.5" fill="{{ $aProf ? 'currentColor' : 'none' }}"/>
+                        <path d="M5 20v-.5c0-2.6 3.1-4.5 7-4.5s7 1.9 7 4.5v.5z" fill="{{ $aProf ? 'currentColor' : 'none' }}"/>
+                    </svg>
+                    <span x-show="sidebarOpen" x-cloak class="whitespace-nowrap text-sm">Profil</span>
+                </a>
+            </div>
 
         </aside>
         @endauth
