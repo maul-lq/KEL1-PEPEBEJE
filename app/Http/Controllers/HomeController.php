@@ -868,10 +868,7 @@ class HomeController extends Controller
             ? null
             : ($validated['nomor_memo_ppbj'] ?? ('MEMO-PPBJ/'.date('Y').'/'.rand(100, 999)));
 
-        // Penentuan pejabat PP dan PPK sesuai jalur BPMN (bepemen.drawio):
-        // - <= 50jt (langsung_sd_50jt): Pengadaan Langsung, langsung dieksekusi PPBJ tanpa PP/PPK
-        // - > 50jt & < 200jt (pp_50jt_sd_200jt): Ke PP lalu ke PPK lalu ke PPBJ
-        // - >= 200jt (ppk_diatas_200jt): Langsung ke PPK lalu ke PPBJ
+        // Penentuan pejabat PP dan PPK sesuai jalur BPMN
         $idUserPp = null;
         $idUserPpk = null;
 
@@ -1038,7 +1035,7 @@ class HomeController extends Controller
         // Hubungkan rekanan ke paket pengadaan
         $paket->npwp_vendor = $validated['id_vendor'];
 
-        // Simpan dokumen kontrak/SPK jika diunggah (FR 11.1 & NFR 11)
+        // Simpan dokumen kontrak/SPK jika diunggah
         $fileSpkPath = 'spk/spk_'.$validated['nomor_kontrak_spk'].'.pdf';
         if ($request->hasFile('file_spk')) {
             $fileSpkPath = $request->file('file_spk')->store('spk', 'public');
@@ -1128,7 +1125,6 @@ class HomeController extends Controller
 
         if ($validated['status_reviu'] === 'disetujui') {
             $paket->status_paket = 'reviu_dokumen_disetujui';
-            // Sesuai BPMN (bepemen.drawio): Saat PPK meninjau & menyetujui dokumen, PPK mengunci Kode MAK
             if ($user->role === 'ppk') {
                 $paket->kunciMakTerkait();
             }
@@ -1203,10 +1199,10 @@ class HomeController extends Controller
             $pihak3Path = $request->file('file_penerimaan_pihak3')->store('pihak3', 'public');
         }
 
-        // 2. Buat token HMAC SHA-256 untuk verifikasi keabsahan hukum dokumen BAST (FR 14.3 & NFR 6)
+        // 2. Buat token HMAC SHA-256 untuk verifikasi keabsahan hukum dokumen BAST
         $tokenHmac = PenerimaanBarang::generateSignatureToken($validated['nomor_bast'], $user->id_user);
 
-        // 3. Simpan data BAST beserta penentuan Belanja Barang (Persediaan) atau Belanja Modal (BMN)
+        // 3. Simpan data BAST
         $penerimaan = PenerimaanBarang::create([
             'nomor_bast' => $validated['nomor_bast'],
             'nomor_paket' => $spk->nomor_paket,
@@ -1222,7 +1218,7 @@ class HomeController extends Controller
             'waktu_selesai_inspeksi' => now(),
         ]);
 
-        // 4. Simpan foto dokumentasi fisik fleksibel (jumlah foto fleksibel, minimal 1 foto item terlihat - FR 14.2)
+        // 4. Simpan foto dokumentasi fisik
         if ($request->hasFile('foto_barang')) {
             $files = is_array($request->file('foto_barang')) ? $request->file('foto_barang') : [$request->file('foto_barang')];
             foreach ($files as $idx => $f) {
@@ -1234,7 +1230,6 @@ class HomeController extends Controller
                 ]);
             }
         } else {
-            // Default foto placeholder jika pengujian form cepat
             DokumentasiPenerimaanBarang::create([
                 'id_penerimaan' => $penerimaan->id_penerimaan,
                 'foto_dokumentasi' => 'dokumentasi_barang/item_default.jpg',
@@ -1729,7 +1724,7 @@ class HomeController extends Controller
     }
 
     /**
-     * Endpoint Pemeriksaan Kesehatan & Ketersediaan Sistem (Uptime $\ge$ 99% - NFR 10).
+     * Endpoint Pemeriksaan Kesehatan & Ketersediaan Sistem (Uptime >= 99% - NFR 10).
      */
     public function healthCheck(): JsonResponse
     {
@@ -1772,15 +1767,11 @@ class HomeController extends Controller
 
     /**
      * Menampilkan antarmuka daftar feed Notifikasi dan Pengingat (Reminder) seluruh role.
-     * Mengimplementasikan rancangan visual Figma frame 121:45 dengan dukungan tab filter,
-     * pencarian kata kunci nomor surat/judul pengadaan, kategori jenis notifikasi, dan periode waktu.
      */
     public function notifikasiIndex(Request $request): View
     {
-        // 1. Ambil data pengguna aktif yang sedang terotentikasi di sistem SIM-PBJ
         $user = Auth::user();
 
-        // 2. Kalkulasi agregat total jumlah notifikasi untuk masing-masing tab navigasi
         $tabCounts = [
             'semua' => NotifikasiUser::where('id_user', $user->id_user)->count(),
             'belum_dibaca' => NotifikasiUser::where('id_user', $user->id_user)->where('is_read', false)->count(),
@@ -1799,11 +1790,9 @@ class HomeController extends Controller
                 })->count(),
         ];
 
-        // 3. Bangun query dasar notifikasi pengguna beserta eager loading relasi reminder, paket, dan permohonan
         $query = NotifikasiUser::where('id_user', $user->id_user)
             ->with(['reminder.paket.permohonan', 'reminder.paket.kontrak', 'reminder.paket.pembayaran']);
 
-        // 4. Saring berdasarkan Tab Navigasi Aktif (Semua, Belum dibaca, Perlu tindakan, Pengingat)
         $currentTab = $request->query('tab', 'semua');
         if ($currentTab === 'belum_dibaca') {
             $query->where('is_read', false);
@@ -1822,7 +1811,6 @@ class HomeController extends Controller
             });
         }
 
-        // 5. Saring berdasarkan Kata Kunci Pencarian (Cari no. surat / judul)
         if ($request->filled('q')) {
             $keyword = trim((string) $request->query('q'));
             $query->where(function ($q) use ($keyword) {
@@ -1841,7 +1829,6 @@ class HomeController extends Controller
             });
         }
 
-        // 6. Saring berdasarkan Kategori Jenis Notifikasi (Dropdown Filter)
         if ($request->filled('jenis') && $request->query('jenis') !== 'semua') {
             $jenis = (string) $request->query('jenis');
             if ($jenis === 'pengingat') {
@@ -1882,7 +1869,6 @@ class HomeController extends Controller
             }
         }
 
-        // 7. Saring berdasarkan Batas Periode Waktu (Dropdown Periode)
         if ($request->filled('periode') && $request->query('periode') !== 'semua') {
             $periode = (string) $request->query('periode');
             if ($periode === 'hari_ini') {
@@ -1896,7 +1882,6 @@ class HomeController extends Controller
             }
         }
 
-        // 8. Urutkan dari notifikasi paling mutakhir dan terapkan pembagian halaman (pagination)
         $notifikasiList = $query->latest('id')->paginate(10)->withQueryString();
 
         return view('notifikasi.index', compact('notifikasiList', 'tabCounts', 'currentTab'));
@@ -1957,14 +1942,12 @@ class HomeController extends Controller
 
     /**
      * Menampilkan agregat monitoring siklus pengadaan dan tabel jejak audit (Audit Trail).
-     * Menerapkan isolasi berkas ketat: Pengusul (role: user) hanya dapat melihat usulan miliknya sendiri.
      */
     public function monitoringIndex(Request $request): View
     {
         $user = Auth::user();
         $query = PermohonanPengadaan::with(['unit', 'paket.kontrak.penerimaan']);
 
-        // Hak Akses Monitoring: Pengusul (user) hanya dapat memantau permohonannya sendiri
         if ($user && $user->role === 'user') {
             $query->where('id_user', $user->id_user);
         }
@@ -1995,7 +1978,6 @@ class HomeController extends Controller
 
         $permohonanList = $query->latest('tanggal_pengajuan')->paginate(20);
 
-        // Isolasi Jejak Audit: Pengusul hanya melihat log aktivitas permohonan miliknya sendiri
         $auditQuery = AuditLog::with('user');
         if ($user && $user->role === 'user') {
             $userPermohonanNomor = PermohonanPengadaan::where('id_user', $user->id_user)->pluck('nomor_surat');
@@ -2015,7 +1997,6 @@ class HomeController extends Controller
         }
         $auditLogs = $auditQuery->latest('waktu_log')->take(25)->get();
 
-        // Opsi unit di filter: Pengusul hanya relevan dengan unitnya sendiri
         $units = ($user && $user->role === 'user')
             ? Unit::where('kode_unit', $user->kode_unit)->get()
             : Unit::all();
@@ -2040,5 +2021,51 @@ class HomeController extends Controller
             'rekapitulasi' => $this->unduhRekapitulasiPdf($request),
             default => abort(404, 'Dokumen PDF tidak ditemukan.'),
         };
+    }
+
+    /**
+     * Menampilkan halaman profil pengguna aktif.
+     */
+    public function profileIndex(): View
+    {
+        $user = Auth::user();
+        if ($user) {
+            $user->load('unit');
+        }
+
+        return view('profile.index', compact('user'));
+    }
+
+    /**
+     * Memproses pembaruan data profil pengguna & pasfoto.
+     */
+    public function profileUpdate(Request $request): RedirectResponse
+    {
+        $user = Auth::user();
+
+        $validated = $request->validate([
+            'nama' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email,'.$user->id_user.',id_user'],
+            'nip' => ['nullable', 'string', 'max:50'],
+            'jabatan' => ['nullable', 'string', 'max:100'],
+            'no_hp' => ['nullable', 'string', 'max:20'],
+            'foto_profil' => ['nullable', 'image', 'mimes:jpg,png,jpeg', 'max:2048'],
+        ]);
+
+        if ($request->has('hapus_foto')) {
+            if ($user->foto_profil) {
+                Storage::disk('public')->delete($user->foto_profil);
+            }
+            $validated['foto_profil'] = null;
+        } elseif ($request->hasFile('foto_profil')) {
+            if ($user->foto_profil) {
+                Storage::disk('public')->delete($user->foto_profil);
+            }
+            $validated['foto_profil'] = $request->file('foto_profil')->store('profil', 'public');
+        }
+
+        $user->update($validated);
+
+        return back()->with('success', 'Data profil Anda berhasil diperbarui.');
     }
 }

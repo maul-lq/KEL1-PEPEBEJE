@@ -218,6 +218,14 @@
                 </svg>
             </a>
 
+           <!-- Icon Profil Saya -->
+    <a href="{{ route('profile.index') }}" title="Profil Saya" 
+       class="flex h-10 items-center justify-center text-[#E8F5FD] transition-all {{ request()->routeIs('profile.*') ? 'w-[46px] rounded-[20px] bg-[#0088E8] shadow-[inset_0_0_9px_rgba(0,0,0,0.25)] scale-105' : 'w-10 hover:text-white hover:scale-110' }}">
+       <svg class="size-5" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
+        </svg>
+    </a>
+
         </aside>
         @endauth
 
