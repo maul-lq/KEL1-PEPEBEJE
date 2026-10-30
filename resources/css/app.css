@@ -1,6 +1,46 @@
 @import "tailwindcss";
 
-/*
- * Berkas CSS dikosongkan sesuai panduan AGENTS-BACKEND.md (Aturan TANPA CSS TOTAL untuk pengujian backend).
- * Antarmuka pengujian/simulasi backend berfokus murni pada struktur semantik HTML dan JavaScript (plain HTML & JS).
- */
+@theme {
+    /* Brand & Layout Palette SIM-PBJ */
+    --color-primary: #213153;
+    --color-primary-hover: #192642;
+    --color-brand-blue: #0969da;
+    --color-brand-blue-hover: #0858b8;
+    --color-brand-teal: #087F79;
+    --color-ice-canvas: #F4F8FA;
+
+    /* Pill & Tint Tokens */
+    --color-sky-pill: #BAE5FF;
+    --color-sky-surface: #CCE1EF;
+    --color-sky-subtle: #F0F6FF;
+
+    /* Status Tokens */
+    --color-status-success-bg: #ECFDF5;
+    --color-status-success-text: #059669;
+    --color-status-warning-bg: #FFF5DF;
+    --color-status-warning-text: #99660D;
+    --color-status-danger-bg: #FFEBE9;
+    --color-status-danger-text: #CF222E;
+
+    /* Typography */
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --font-iceland: 'Iceland', cursive, sans-serif;
+}
+
+/* Custom Base Rules & Utilities */
+@layer base {
+    body {
+        font-family: var(--font-sans);
+        background-color: var(--color-ice-canvas);
+        color: #1e293b;
+    }
+}
+
+/* Alpine.js Utility Cloak */
+[x-cloak] {
+    display: none !important;
+}
+
+@utility font-iceland {
+    font-family: 'Iceland', cursive, sans-serif;
+}

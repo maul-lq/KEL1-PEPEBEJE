@@ -89,6 +89,10 @@ Route::middleware('auth')->group(function () {
         ->name('permohonan.show')
         ->where(['id' => '.*']);
 
+    Route::delete('/permohonan/{id}', [HomeController::class, 'destroyPermohonan'])
+        ->name('permohonan.destroy')
+        ->where(['id' => '.*']);
+
     // -------------------------------------------------------------------------
     // Modul 2 & 3: Verifikasi Paralel (Staf B2, Wadir 2, & Perencanaan)
     // -------------------------------------------------------------------------
@@ -113,12 +117,17 @@ Route::middleware('auth')->group(function () {
     // Modul 4: Paket Pengadaan (Koordinator PPBJ)
     // -------------------------------------------------------------------------
     Route::get('/paket-pengadaan', [HomeController::class, 'paketIndex'])->name('paket.index');
+    Route::get('/paket-pengadaan/split-jenis', [HomeController::class, 'splitJenisCreate'])->name('paket.split-jenis.create')->middleware('role:ppbj');
+    Route::get('/paket-pengadaan/reassign-ppk', [HomeController::class, 'reassignPpkCreate'])->name('paket.reassign-ppk.create')->middleware('role:ppbj,perencanaan,wadir_2,admin');
     Route::middleware('role:ppbj')->group(function () {
         Route::get('/paket-pengadaan/create', [HomeController::class, 'paketCreate'])->name('paket.create');
         Route::post('/paket-pengadaan', [HomeController::class, 'storePaket'])->name('paket.store');
         Route::post('/paket-pengadaan/reassign-ppk', [HomeController::class, 'reassignPpkWeb'])->name('paket.reassign-ppk');
         Route::post('/paket-pengadaan/split-jenis', [HomeController::class, 'splitJenisPpbj'])->name('paket.split-jenis');
     });
+    Route::get('/paket-pengadaan/{id}', [HomeController::class, 'paketShow'])
+        ->name('paket.show')
+        ->where(['id' => '.*']);
 
     // -------------------------------------------------------------------------
     // Modul 5: Kontrak SPK (Pejabat Pengadaan & 4 Akun PPK Terisolasi)
@@ -161,10 +170,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/notifikasi', [HomeController::class, 'notifikasiIndex'])->name('notifikasi.index');
     Route::post('/notifikasi/tes-kirim', [HomeController::class, 'kirimNotifikasiUjiCoba'])->name('notifikasi.tes-kirim');
     Route::post('/notifikasi/mark-all-read', [HomeController::class, 'markAllReadWeb'])->name('notifikasi.mark-all-read');
-    
+
     // Alias route nama camelCase agar mendukung panggil route('notifikasi.markAllRead')
     Route::post('/notifikasi/mark-all-read-alias', [HomeController::class, 'markAllReadWeb'])->name('notifikasi.markAllRead');
-    
+
     Route::post('/notifikasi/{id}/read', [HomeController::class, 'markAsReadWeb'])->name('notifikasi.read');
     Route::post('/notifikasi/{id}/dismiss', [HomeController::class, 'dismissNotificationWeb'])->name('notifikasi.dismiss');
     Route::get('/api/notifikasi-terbaru', [NotifikasiUserController::class, 'notifikasiTerbaru'])->name('notifikasi.terbaru');

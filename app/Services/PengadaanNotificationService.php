@@ -167,10 +167,11 @@ class PengadaanNotificationService
      */
     public function notifyKeputusanWadir2(PermohonanPengadaan $permohonan, string $keputusan, ?string $catatan = null): void
     {
-        if ($keputusan === 'ditolak') {
+        if (in_array($keputusan, ['ditolak', 'revisi'])) {
             if ($permohonan->id_user) {
-                $judul = "Usulan Pengadaan Ditolak Wadir 2: {$permohonan->nomor_surat}";
-                $pesan = "Usulan permohonan '{$permohonan->perihal}' belum disetujui oleh Wakil Direktur II. Alasan: ".($catatan ?: 'Perlu perbaikan usulan').'. Silakan periksa dan ajukan revisi.';
+                $statusText = $keputusan === 'revisi' ? 'Diminta Revisi' : 'Ditolak';
+                $judul = "Usulan Pengadaan {$statusText} Wadir 2: {$permohonan->nomor_surat}";
+                $pesan = "Usulan permohonan '{$permohonan->perihal}' {$statusText} oleh Wakil Direktur II. Alasan: ".($catatan ?: 'Perlu perbaikan usulan').'. Silakan periksa dan ajukan revisi.';
 
                 $this->kirimKeUser($permohonan->id_user, $judul, $pesan, 'verifikasi', $permohonan->nomor_surat);
             }

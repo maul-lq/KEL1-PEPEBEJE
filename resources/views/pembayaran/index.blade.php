@@ -1,187 +1,254 @@
 @extends('layouts.app')
 
-@section('title', 'Alur Pembayaran & Pencairan Dana - SIM-PBJ PNJ')
+@section('title', 'Alur Pembayaran Tagihan & Pencairan SP2D - SIM-PBJ PNJ')
 
 @section('content')
-<div class="mx-auto max-w-[1650px] space-y-8">
+<div class="space-y-6">
 
-    {{-- HEADER --}}
-    <div class="flex flex-wrap items-center justify-between gap-4">
-        <div>
-            <h1 class="text-3xl font-semibold text-[#1E3156]">Alur Pembayaran Tagihan &amp; Pencairan SP2D</h1>
-            <p class="text-sm text-slate-500 mt-1">
-                Pengelolaan tahapan pembayaran tagihan pengadaan barang dan jasa: pengajuan berkas oleh PPBJ, peninjauan memo bertingkat oleh PPK dan Wadir II, penerbitan SPP, serta pencairan dana SP2D oleh Keuangan.
-            </p>
-        </div>
-        <span class="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800 uppercase">
-            Peran Aktif: {{ str_replace('_', ' ', Auth::user()->role) }}
-        </span>
-    </div>
+    {{-- 1. Stepper 8 Siklus --}}
+    <x-stepper-8-siklus :currentStep="8" status="spp_terbit" />
 
-    {{-- 1. PANEL PENGAJUAN BERKAS PEMBAYARAN OLEH PPBJ --}}
-    @if(Auth::user()->role === 'ppbj')
-    <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-100">
-        <h2 class="text-xl font-bold text-slate-800 mb-2 flex items-center gap-2">
-            <svg class="size-5 text-[#0088E8]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-            1. Pengajuan Berkas Tagihan Pembayaran &amp; Memo Internal (Koordinator PBJ)
-        </h2>
-        <p class="text-xs text-slate-500 mb-4">PPBJ mengajukan berkas pembayaran untuk paket pengadaan yang telah menyelesaikan penerimaan fisik BAST.</p>
-
-        <form action="{{ route('pembayaran.pengajuan') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
-            @csrf
-            <div class="grid gap-4 sm:grid-cols-2">
-                <div>
-                    <label for="nomor_paket_fe" class="block text-xs font-semibold text-slate-700 mb-1">Pilih Paket Pengadaan (BAST Selesai)</label>
-                    <select id="nomor_paket_fe" name="nomor_paket" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <option value="">-- Pilih Paket Hasil Penerimaan Barang --</option>
-                        @foreach($bastSiapBayar as $b)
-                            <option value="{{ $b->nomor_paket }}">
-                                [{{ $b->nomor_bast }}] Paket: {{ $b->nomor_paket }} &bull; Tgl: {{ $b->tanggal_penerimaan ? $b->tanggal_penerimaan->format('d/m/Y') : '-' }}
-                            </option>
-                        @endforeach
-                    </select>
+    {{-- 2. Header --}}
+    <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                        Siklus 8: Tagihan, SPP &amp; SP2D Cair
+                    </span>
+                    <span class="text-xs text-slate-400 font-mono">FR 15 &bull; FR 18</span>
                 </div>
-                <div>
-                    <label for="nomor_pembayaran_fe" class="block text-xs font-semibold text-slate-700 mb-1">Nomor Pengajuan SPP</label>
-                    <input type="text" id="nomor_pembayaran_fe" name="nomor_pembayaran" value="SPP/PNJ/{{ date('Y') }}/{{ rand(100, 999) }}" required
-                           class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-            </div>
-
-            <div class="grid gap-4 sm:grid-cols-3">
-                <div>
-                    <label for="tahap_termin_fe" class="block text-xs font-semibold text-slate-700 mb-1">Tahap Pembayaran / Termin</label>
-                    <input type="number" id="tahap_termin_fe" name="tahap_termin" value="1" min="1" max="12" required
-                           class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div>
-                    <label for="nominal_pengajuan_fe" class="block text-xs font-semibold text-slate-700 mb-1">Nominal Tagihan (Rp)</label>
-                    <input type="number" id="nominal_pengajuan_fe" name="nominal_pengajuan" step="0.01" min="1" required placeholder="Contoh: 150000000"
-                           class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div>
-                    <label for="jatuh_tempo_fe" class="block text-xs font-semibold text-slate-700 mb-1">Batas Jatuh Tempo Termin</label>
-                    <input type="date" id="jatuh_tempo_fe" name="jatuh_tempo" value="{{ date('Y-m-d', strtotime('+30 days')) }}" required
-                           class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
+                <h1 class="text-2xl font-bold text-[#213153] mt-1">Alur Pembayaran Tagihan &amp; Pencairan SP2D</h1>
+                <p class="text-xs text-slate-500 mt-0.5">
+                    Pengelolaan alur verifikasi memo bayar bertingkat, penerbitan SPP oleh PPBJ, dan pencairan dana kas oleh Bagian Keuangan PNJ
+                </p>
             </div>
 
             <div>
-                <label for="nomor_memo_fe" class="block text-xs font-semibold text-slate-700 mb-1">Nomor Memo Pembayaran Internal</label>
-                <input type="text" id="nomor_memo_fe" name="nomor_memo" value="MEMO/BHP/{{ date('Y') }}/{{ rand(10, 99) }}"
-                       class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 text-[#213153] border border-slate-200 text-xs font-bold uppercase">
+                    Peran: {{ str_replace('_', ' ', Auth::user()->role) }}
+                </span>
             </div>
+        </div>
+    </div>
 
-            <div class="grid gap-4 sm:grid-cols-3">
-                <div>
-                    <label class="block text-xs font-semibold text-slate-700 mb-1">Invoice / Kuitansi Rekanan (PDF/Gambar)</label>
-                    <input type="file" name="file_tagihan_vendor" accept=".pdf,image/*" class="text-xs text-slate-600">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-700 mb-1">Resume Kontrak / Penunjang (PDF/Gambar)</label>
-                    <input type="file" name="file_dokumen_penunjang" accept=".pdf,image/*" class="text-xs text-slate-600">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-700 mb-1">Berkas Fisik Memo Pembayaran (PDF)</label>
-                    <input type="file" name="file_memo" accept=".pdf" class="text-xs text-slate-600">
-                </div>
+    {{-- 3. Top 4-Card KPI Stat Row --}}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <x-stat-card
+            title="Total Tagihan Diajukan"
+            :value="$pembayaranList->total()"
+            icon="document"
+            color="navy"
+            subtitle="Pengajuan berkas pembayaran"
+        />
+
+        <x-stat-card
+            title="Memo Menunggu Review"
+            :value="$memoMenungguReview->count()"
+            icon="bell"
+            color="amber"
+            badge="Tindak Lanjut"
+            badgeColor="bg-amber-50 text-amber-700 border-amber-200"
+            subtitle="Menunggu persetujuan PPK / Wadir 2"
+        />
+
+        <x-stat-card
+            title="SPP Siap Cair"
+            :value="$siapCairKeuangan->count()"
+            icon="check"
+            color="blue"
+            badge="Siap Cair"
+            badgeColor="bg-blue-50 text-[#0969da] border-blue-200"
+            subtitle="Perintah bayar kas negara"
+        />
+
+        <x-stat-card
+            title="Total Dana Dicairkan"
+            :value="'Rp ' . number_format($transaksiList->sum('nominal_transfer'), 0, ',', '.')"
+            icon="wallet"
+            color="emerald"
+            subtitle="Realisasi pemindahbukuan bank"
+        />
+    </div>
+
+    {{-- 4. PANEL PENGAJUAN BERKAS PEMBAYARAN OLEH PPBJ (FR 15) --}}
+    @if(Auth::user()->role === 'ppbj' || Auth::user()->role === 'admin')
+    <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80">
+        <div class="border-b border-slate-100 pb-4 mb-5">
+            <h2 class="text-base font-bold text-[#213153] flex items-center gap-2">
+                <span>1. Pengajuan Berkas Tagihan Pembayaran &amp; Memo Internal</span>
+                <span class="text-xs font-normal text-slate-400 font-mono">(Koordinator PPBJ)</span>
+            </h2>
+            <p class="text-xs text-slate-500 mt-0.5">PPBJ mengajukan berkas pembayaran untuk paket pengadaan yang telah menyelesaikan pemeriksaan fisik BAST.</p>
+        </div>
+
+        @if($bastSiapBayar->isEmpty())
+            <div class="text-center py-8 text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                Tidak ada paket pengadaan dengan BAST selesai yang siap diajukan pembayaran saat ini.
             </div>
+        @else
+            <form action="{{ route('pembayaran.pengajuan') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+                @csrf
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="nomor_paket_fe" class="block text-xs font-bold text-slate-700 mb-1">Pilih Paket Pengadaan (BAST Selesai) <span class="text-rose-500">*</span></label>
+                        <select id="nomor_paket_fe" name="nomor_paket" required class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
+                            <option value="">-- Pilih Paket Hasil Penerimaan Barang --</option>
+                            @foreach($bastSiapBayar as $b)
+                                <option value="{{ $b->nomor_paket }}">
+                                    [{{ $b->nomor_bast }}] Paket: {{ $b->nomor_paket }} &bull; Tgl: {{ $b->tanggal_penerimaan ? \Carbon\Carbon::parse($b->tanggal_penerimaan)->format('d/m/Y') : '-' }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
 
-            <button type="submit" class="rounded-lg bg-[#0088E8] px-5 py-2.5 text-xs font-semibold text-white shadow hover:bg-blue-600 transition-colors">
-                Kirim Berkas Pengajuan Pembayaran ke PPK &amp; Wadir II &rarr;
-            </button>
-        </form>
+                    <div>
+                        <label for="nomor_pembayaran_fe" class="block text-xs font-bold text-slate-700 mb-1">Nomor Pengajuan SPP <span class="text-rose-500">*</span></label>
+                        <input type="text" id="nomor_pembayaran_fe" name="nomor_pembayaran" value="SPP/PNJ/{{ date('Y') }}/{{ rand(100, 999) }}" required class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 font-mono focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                        <label for="tahap_termin_fe" class="block text-xs font-bold text-slate-700 mb-1">Tahap Pembayaran / Termin <span class="text-rose-500">*</span></label>
+                        <input type="number" id="tahap_termin_fe" name="tahap_termin" value="1" min="1" max="12" required class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 font-mono focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
+                    </div>
+
+                    <div>
+                        <label for="nominal_pengajuan_fe" class="block text-xs font-bold text-slate-700 mb-1">Nominal Tagihan (Rp) <span class="text-rose-500">*</span></label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-xs font-bold text-slate-400 pointer-events-none">Rp</span>
+                            <input type="number" id="nominal_pengajuan_fe" name="nominal_pengajuan" step="0.01" min="1" required placeholder="Contoh: 150000000" class="w-full h-11 rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-xs font-mono font-bold text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="jatuh_tempo_fe" class="block text-xs font-bold text-slate-700 mb-1">Batas Jatuh Tempo Termin <span class="text-rose-500">*</span></label>
+                        <input type="date" id="jatuh_tempo_fe" name="jatuh_tempo" value="{{ date('Y-m-d', strtotime('+30 days')) }}" required class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
+                    </div>
+                </div>
+
+                <div>
+                    <label for="nomor_memo_fe" class="block text-xs font-bold text-slate-700 mb-1">Nomor Memo Pembayaran Internal</label>
+                    <input type="text" id="nomor_memo_fe" name="nomor_memo" value="MEMO/BHP/{{ date('Y') }}/{{ rand(10, 99) }}" class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 font-mono focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Invoice Rekanan (PDF/Gambar)</label>
+                        <input type="file" name="file_tagihan_vendor" accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da]">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Dokumen Penunjang (PDF/Gambar)</label>
+                        <input type="file" name="file_dokumen_penunjang" accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da]">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Berkas Fisik Memo (PDF)</label>
+                        <input type="file" name="file_memo" accept=".pdf" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da]">
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-end pt-3 border-t border-slate-100">
+                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-[#0969da] text-xs font-bold text-white hover:bg-blue-700 shadow-sm transition inline-flex items-center gap-1.5">
+                        Kirim Berkas Pengajuan ke PPK &amp; Wadir II &rarr;
+                    </button>
+                </div>
+            </form>
+        @endif
     </div>
     @endif
 
-    {{-- 2. PANEL PERSETUJUAN MEMO PEMBAYARAN BERTINGKAT (PPK & WADIR II) --}}
-    @if(in_array(Auth::user()->role, ['ppk', 'wadir_2']))
-    <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-100">
-        <h2 class="text-xl font-bold text-slate-800 mb-2 flex items-center gap-2">
-            <svg class="size-5 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            2. Peninjauan &amp; Persetujuan Memo Pembayaran ({{ strtoupper(str_replace('_', ' ', Auth::user()->role)) }})
-        </h2>
-        <p class="text-xs text-slate-500 mb-4">Persetujuan memo pembayaran secara bertingkat: Level 1 oleh Pejabat Pembuat Komitmen (PPK), dilanjutkan Level 2 oleh Wakil Direktur II.</p>
+    {{-- 5. PANEL PERSETUJUAN MEMO PEMBAYARAN BERTINGKAT (PPK & WADIR II - FR 16) --}}
+    @if(in_array(Auth::user()->role, ['ppk', 'wadir_2', 'admin']))
+    <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80">
+        <div class="border-b border-slate-100 pb-4 mb-5">
+            <h2 class="text-base font-bold text-[#213153] flex items-center gap-2">
+                <span>2. Penelaahan &amp; Persetujuan Memo Pembayaran Bertingkat</span>
+                <span class="text-xs font-normal text-slate-400 font-mono">(PPK &amp; Wadir II)</span>
+            </h2>
+            <p class="text-xs text-slate-500 mt-0.5">Peninjauan bertingkat: Level 1 oleh PPK terisolasi; Level 2 oleh Wakil Direktur II.</p>
+        </div>
 
         @if($memoMenungguReview->isEmpty())
-            <p class="text-xs text-slate-400 italic">Saat ini tidak ada disposisi memo pembayaran yang menunggu persetujuan Anda.</p>
+            <div class="text-center py-8 text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                Tidak ada memo pembayaran yang membutuhkan persetujuan pada akun Anda saat ini.
+            </div>
         @else
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse text-xs">
-                    <thead>
-                        <tr class="border-b border-slate-200 uppercase text-slate-500 font-semibold">
-                            <th class="py-2.5 px-3">Nomor SPP</th>
-                            <th class="py-2.5 px-3">Paket Pengadaan</th>
-                            <th class="py-2.5 px-3">Tingkat Verifikasi</th>
-                            <th class="py-2.5 px-3">Nominal Tagihan</th>
-                            <th class="py-2.5 px-3">Aksi Keputusan</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100 text-slate-700">
-                        @foreach($memoMenungguReview as $m)
-                            <tr class="hover:bg-slate-50/50">
-                                <td class="py-3 px-3 font-mono font-bold">{{ $m->nomor_pembayaran }}</td>
-                                <td class="py-3 px-3">{{ $m->pembayaran->nomor_paket ?? '-' }}</td>
-                                <td class="py-3 px-3">
-                                    <span class="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-blue-700 font-semibold">
-                                        Level {{ $m->urutan_level }} ({{ strtoupper($m->role_approver) }})
-                                    </span>
-                                </td>
-                                <td class="py-3 px-3 font-bold text-emerald-700">Rp {{ number_format($m->pembayaran->nominal_pengajuan ?? 0, 0, ',', '.') }}</td>
-                                <td class="py-3 px-3">
-                                    <form action="{{ route('pembayaran.memo.approve') }}" method="POST" class="flex items-center gap-2">
-                                        @csrf
-                                        <input type="hidden" name="id_memo_bayar" value="{{ $m->id }}">
-                                        <input type="text" name="catatan_memo" placeholder="Catatan persetujuan..." class="rounded border border-slate-300 px-2 py-1 text-xs bg-white">
-                                        <button type="submit" name="status_memo" value="disetujui" class="rounded bg-emerald-600 px-3 py-1 font-semibold text-white hover:bg-emerald-700">Setujui</button>
-                                        <button type="submit" name="status_memo" value="ditolak" class="rounded bg-rose-600 px-3 py-1 font-semibold text-white hover:bg-rose-700">Tolak</button>
-                                    </form>
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+            <div class="space-y-4">
+                @foreach($memoMenungguReview as $memo)
+                    <div class="p-4 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="font-mono font-bold text-xs text-[#0969da]">{{ $memo->nomor_memo }}</span>
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">Level {{ $memo->level_approver }} ({{ strtoupper($memo->role_approver) }})</span>
+                            </div>
+                            <h4 class="text-xs font-bold text-slate-800 mt-1">Paket: {{ $memo->pembayaran->nomor_paket ?? '-' }}</h4>
+                            <p class="text-[11px] text-slate-500 mt-0.5">Nominal: Rp {{ number_format($memo->pembayaran->nominal_pengajuan ?? 0, 0, ',', '.') }} &bull; SPP: {{ $memo->nomor_pembayaran }}</p>
+                        </div>
+
+                        <form action="{{ route('pembayaran.memo.approve') }}" method="POST" class="flex flex-wrap items-center gap-2 shrink-0">
+                            @csrf
+                            <input type="hidden" name="id_memo" value="{{ $memo->id_memo }}">
+                            <input type="text" name="catatan" placeholder="Catatan persetujuan..." class="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-700 w-48">
+
+                            <button type="submit" name="status_memo" value="disetujui" class="h-9 px-3.5 rounded-lg bg-emerald-600 text-xs font-bold text-white hover:bg-emerald-700 transition">
+                                Setujui (ACC)
+                            </button>
+
+                            <button type="submit" name="status_memo" value="ditolak" class="h-9 px-3.5 rounded-lg bg-rose-600 text-xs font-bold text-white hover:bg-rose-700 transition">
+                                Tolak
+                            </button>
+                        </form>
+                    </div>
+                @endforeach
             </div>
         @endif
     </div>
     @endif
 
-    {{-- 3. PANEL PENERBITAN SPP OLEH PPBJ --}}
-    @if(Auth::user()->role === 'ppbj')
-    <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-100">
-        <h2 class="text-xl font-bold text-slate-800 mb-2 flex items-center gap-2">
-            <svg class="size-5 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-            3. Penerbitan Surat Perintah Pembayaran / SPP (Koordinator PBJ)
-        </h2>
-        <p class="text-xs text-slate-500 mb-4">Setelah Memo Pembayaran disetujui penuh oleh PPK dan Wadir II, PPBJ mengunggah SPP resmi dan meneruskannya ke Bagian Keuangan.</p>
+    {{-- 6. PANEL PENERBITAN SPP OLEH PPBJ (FR 17) --}}
+    @if(Auth::user()->role === 'ppbj' || Auth::user()->role === 'admin')
+    <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80">
+        <div class="border-b border-slate-100 pb-4 mb-5">
+            <h2 class="text-base font-bold text-[#213153] flex items-center gap-2">
+                <span>3. Penerbitan Surat Perintah Pembayaran (SPP)</span>
+                <span class="text-xs font-normal text-slate-400 font-mono">(Koordinator PPBJ)</span>
+            </h2>
+            <p class="text-xs text-slate-500 mt-0.5">Setelah Memo Pembayaran disetujui penuh oleh PPK dan Wadir II, PPBJ mengesahkan SPP dan meneruskannya ke Bagian Keuangan.</p>
+        </div>
 
         @if($siapTerbitkanSpp->isEmpty())
-            <p class="text-xs text-slate-400 italic">Tidak ada berkas yang telah disetujui memo-nya secara lengkap untuk penerbitan SPP.</p>
+            <div class="text-center py-8 text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                Tidak ada berkas yang telah disetujui memo-nya secara lengkap untuk penerbitan SPP.
+            </div>
         @else
             <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse text-xs">
+                <table class="w-full text-left text-xs border-collapse">
                     <thead>
-                        <tr class="border-b border-slate-200 uppercase text-slate-500 font-semibold">
-                            <th class="py-2.5 px-3">Nomor SPP</th>
-                            <th class="py-2.5 px-3">Paket</th>
-                            <th class="py-2.5 px-3">Penyedia</th>
-                            <th class="py-2.5 px-3">Nominal Tagihan</th>
-                            <th class="py-2.5 px-3">Form Unggah SPP &amp; Teruskan ke Keuangan</th>
+                        <tr class="bg-slate-50 border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                            <th class="px-4 py-3">Nomor SPP</th>
+                            <th class="px-4 py-3">Paket Pengadaan</th>
+                            <th class="px-4 py-3">Penyedia Vendor</th>
+                            <th class="px-4 py-3">Nominal Tagihan</th>
+                            <th class="px-4 py-3">Pengesahan &amp; Teruskan ke Keuangan</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100 text-slate-700">
+                    <tbody class="divide-y divide-slate-100">
                         @foreach($siapTerbitkanSpp as $s)
                             <tr class="hover:bg-slate-50/50">
-                                <td class="py-3 px-3 font-mono font-bold">{{ $s->nomor_pembayaran }}</td>
-                                <td class="py-3 px-3">{{ $s->nomor_paket }}</td>
-                                <td class="py-3 px-3">{{ $s->paket->kontrak->vendor->nama_vendor ?? '-' }}</td>
-                                <td class="py-3 px-3 font-bold text-emerald-700">Rp {{ number_format($s->nominal_pengajuan, 0, ',', '.') }}</td>
-                                <td class="py-3 px-3">
-                                    <form action="{{ route('pembayaran.terbitkan-spp') }}" method="POST" enctype="multipart/form-data" class="flex items-center gap-2">
+                                <td class="px-4 py-3 font-mono font-bold text-[#0969da]">{{ $s->nomor_pembayaran }}</td>
+                                <td class="px-4 py-3">{{ $s->nomor_paket }}</td>
+                                <td class="px-4 py-3">{{ $s->paket->kontrak->vendor->nama_vendor ?? '-' }}</td>
+                                <td class="px-4 py-3 font-mono font-bold text-emerald-600">Rp {{ number_format($s->nominal_pengajuan, 0, ',', '.') }}</td>
+                                <td class="px-4 py-3">
+                                    <form action="{{ route('pembayaran.terbitkan-spp') }}" method="POST" enctype="multipart/form-data" class="flex flex-wrap items-center gap-2">
                                         @csrf
                                         <input type="hidden" name="nomor_pembayaran" value="{{ $s->nomor_pembayaran }}">
-                                        <input type="file" name="file_spp" accept=".pdf" required class="text-[10px]">
-                                        <button type="submit" class="rounded bg-indigo-600 px-3 py-1 text-xs font-semibold text-white hover:bg-indigo-700 whitespace-nowrap">
+                                        <input type="text" name="catatan_reviu_akhir" placeholder="Catatan reviu akhir..." class="h-8 rounded-lg border border-slate-200 bg-white px-2 text-[11px] w-40">
+                                        <input type="file" name="file_spp" accept=".pdf" class="text-[10px] w-36">
+                                        <button type="submit" class="h-8 px-3 rounded-lg bg-indigo-600 text-[11px] font-bold text-white hover:bg-indigo-700 transition shrink-0">
                                             Terbitkan SPP &rarr;
                                         </button>
                                     </form>
@@ -195,113 +262,128 @@
     </div>
     @endif
 
-    {{-- 4. PANEL PENCAIRAN SP2D OLEH KEUANGAN --}}
-    @if(Auth::user()->role === 'keuangan')
-    <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-100">
-        <h2 class="text-xl font-bold text-slate-800 mb-2 flex items-center gap-2">
-            <svg class="size-5 text-emerald-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-            4. Eksekusi Pencairan Dana &amp; Pembayaran SP2D (Bagian Keuangan)
-        </h2>
-        <p class="text-xs text-slate-500 mb-4">Bagian Keuangan mengeksekusi pencairan SP2D atas SPP yang telah diterbitkan oleh PPBJ, dan mengunggah bukti transfer resmi bank.</p>
+    {{-- 7. PANEL PENCAIRAN SP2D OLEH KEUANGAN (FR 18) --}}
+    @if(Auth::user()->role === 'keuangan' || Auth::user()->role === 'admin')
+    <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80">
+        <div class="border-b border-slate-100 pb-4 mb-5">
+            <h2 class="text-base font-bold text-[#213153] flex items-center gap-2">
+                <span>4. Eksekusi Pencairan Dana &amp; Pembayaran SP2D</span>
+                <span class="text-xs font-normal text-slate-400 font-mono">(Bagian Keuangan)</span>
+            </h2>
+            <p class="text-xs text-slate-500 mt-0.5">Bagian Keuangan mengeksekusi pencairan kas SP2D dan mengunggah slip bukti transfer resmi bank penyalur.</p>
+        </div>
 
-        <form action="{{ route('pembayaran.store') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
-            @csrf
-            <div class="grid gap-4 sm:grid-cols-2">
-                <div>
-                    <label for="nomor_pembayaran_cair" class="block text-xs font-semibold text-slate-700 mb-1">Pilih Berkas SPP Siap Cair</label>
-                    <select id="nomor_pembayaran_cair" name="nomor_pembayaran" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                        <option value="">-- Pilih SPP yang Siap Dicairkan --</option>
-                        @foreach($siapCairKeuangan as $sc)
-                            <option value="{{ $sc->nomor_pembayaran }}">
-                                [{{ $sc->nomor_pembayaran }}] Paket: {{ $sc->nomor_paket }} &bull; Rp {{ number_format($sc->nominal_pengajuan, 0, ',', '.') }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-                <div>
-                    <label for="nomor_sp2d_fe" class="block text-xs font-semibold text-slate-700 mb-1">Nomor SP2D Kas Negara / Kampus</label>
-                    <input type="text" id="nomor_sp2d_fe" name="nomor_sp2d" value="SP2D/PNJ/{{ date('Y') }}/{{ rand(100, 999) }}" required
-                           class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                </div>
+        @if($siapCairKeuangan->isEmpty())
+            <div class="text-center py-8 text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                Tidak ada SPP yang berstatus siap cair saat ini.
             </div>
+        @else
+            <form action="{{ route('pembayaran.store') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+                @csrf
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="nomor_pembayaran_cair" class="block text-xs font-bold text-slate-700 mb-1">Pilih Berkas SPP Siap Cair <span class="text-rose-500">*</span></label>
+                        <select id="nomor_pembayaran_cair" name="nomor_pembayaran" required class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
+                            <option value="">-- Pilih SPP Siap Cair --</option>
+                            @foreach($siapCairKeuangan as $sc)
+                                <option value="{{ $sc->nomor_pembayaran }}">
+                                    [{{ $sc->nomor_pembayaran }}] Paket: {{ $sc->nomor_paket }} &bull; Rp {{ number_format($sc->nominal_pengajuan, 0, ',', '.') }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
 
-            <div class="grid gap-4 sm:grid-cols-3">
-                <div>
-                    <label for="tanggal_transfer_fe" class="block text-xs font-semibold text-slate-700 mb-1">Tanggal Transfer Pemindahbukuan</label>
-                    <input type="date" id="tanggal_transfer_fe" name="tanggal_transfer" value="{{ date('Y-m-d') }}" required
-                           class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    <div>
+                        <label for="nomor_transaksi" class="block text-xs font-bold text-slate-700 mb-1">Nomor Transaksi Bank / SP2D <span class="text-rose-500">*</span></label>
+                        <input type="text" id="nomor_transaksi" name="nomor_transaksi" value="SP2D/PNJ/{{ date('Y') }}/{{ rand(100, 999) }}" required class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 font-mono focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
+                    </div>
                 </div>
-                <div>
-                    <label for="jumlah_bayar_fe" class="block text-xs font-semibold text-slate-700 mb-1">Jumlah Realisasi Dana (Rp)</label>
-                    <input type="number" id="jumlah_bayar_fe" name="jumlah_bayar" step="0.01" min="1" required placeholder="Contoh: 150000000"
-                           class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                        <label for="tanggal_cair" class="block text-xs font-bold text-slate-700 mb-1">Tanggal Cair Pemindahbukuan <span class="text-rose-500">*</span></label>
+                        <input type="date" id="tanggal_cair" name="tanggal_cair" value="{{ date('Y-m-d') }}" required class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
+                    </div>
+
+                    <div>
+                        <label for="nominal_cair" class="block text-xs font-bold text-slate-700 mb-1">Jumlah Realisasi Kas (Rp) <span class="text-rose-500">*</span></label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-xs font-bold text-slate-400 pointer-events-none">Rp</span>
+                            <input type="number" id="nominal_cair" name="nominal_cair" step="0.01" min="1" required placeholder="Contoh: 150000000" class="w-full h-11 rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-xs font-mono font-bold text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="bank_tujuan" class="block text-xs font-bold text-slate-700 mb-1">Bank Penyalur Institusi <span class="text-rose-500">*</span></label>
+                        <input type="text" id="bank_tujuan" name="bank_tujuan" value="Bank Mandiri KCP PNJ" required class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
+                    </div>
                 </div>
+
                 <div>
-                    <label for="bank_asal_fe" class="block text-xs font-semibold text-slate-700 mb-1">Bank Penyalur Institusi</label>
-                    <input type="text" id="bank_asal_fe" name="bank_asal" value="Bank Mandiri KCP PNJ" required
-                           class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    <label for="file_bukti_transfer" class="block text-xs font-bold text-slate-700 mb-1">Unggah Slip Bukti Transfer Bank / SP2D (PDF/JPG, Maks 10MB)</label>
+                    <input type="file" id="file_bukti_transfer" name="file_bukti_transfer" accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da]">
                 </div>
-            </div>
 
-            <div>
-                <label for="file_bukti_bayar_fe" class="block text-xs font-semibold text-slate-700 mb-1">Unggah Slip Bukti Transfer Bank / SP2D (PDF/JPG, Maks 10MB)</label>
-                <input type="file" id="file_bukti_bayar_fe" name="file_bukti_bayar" accept=".pdf,image/*" required class="text-xs text-slate-600">
-            </div>
+                <div>
+                    <label for="keterangan_cair" class="block text-xs font-bold text-slate-700 mb-1">Catatan Realisasi Pembayaran (Opsional)</label>
+                    <textarea id="keterangan_cair" name="keterangan_cair" rows="2" placeholder="Keterangan pembayaran termin / pelunasan kas..." class="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20"></textarea>
+                </div>
 
-            <div>
-                <label for="keterangan_pencairan_fe" class="block text-xs font-semibold text-slate-700 mb-1">Catatan Realisasi Pembayaran (Opsional)</label>
-                <textarea id="keterangan_pencairan_fe" name="keterangan" rows="2" placeholder="Keterangan pembayaran termin / pelunasan..."
-                          class="w-full rounded-lg border border-slate-300 p-2.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"></textarea>
-            </div>
-
-            <button type="submit" class="rounded-lg bg-emerald-600 px-5 py-2.5 text-xs font-semibold text-white shadow hover:bg-emerald-700 transition-colors">
-                Eksekusi Pencairan SP2D &amp; Selesaikan Siklus Pengadaan &rarr;
-            </button>
-        </form>
+                <div class="flex items-center justify-end pt-3 border-t border-slate-100">
+                    <button type="submit" class="px-6 py-2.5 rounded-xl bg-emerald-600 text-xs font-bold text-white hover:bg-emerald-700 shadow-sm transition inline-flex items-center gap-1.5">
+                        Eksekusi Pencairan SP2D &amp; Selesaikan Siklus Pengadaan &rarr;
+                    </button>
+                </div>
+            </form>
+        @endif
     </div>
     @endif
 
-    {{-- 5. RIWAYAT TRANSAKSI SP2D & BUKTI TRANSFER --}}
-    <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-100">
-        <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
-            <svg class="size-5 text-slate-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-            Riwayat Realisasi Pencairan SP2D (Transfer Selesai)
-        </h2>
+    {{-- 8. RIWAYAT TRANSAKSI SP2D & BUKTI TRANSFER --}}
+    <div class="rounded-2xl bg-white shadow-sm border border-slate-200/80 overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div>
+                <h3 class="text-sm font-bold text-[#213153]">Riwayat Realisasi Pencairan SP2D (Transfer Selesai)</h3>
+                <p class="text-xs text-slate-400 mt-0.5">Catatan bukti transfer kas dan pembayaran resmi yang telah cair</p>
+            </div>
+            <span class="text-xs font-bold text-slate-400 font-mono">{{ $transaksiList->total() }} Transaksi</span>
+        </div>
 
         @if($transaksiList->isEmpty())
-            <p class="text-xs text-slate-400 italic">Belum ada realisasi transaksi pencairan dana kas yang tercatat.</p>
+            <div class="text-center py-8 text-xs text-slate-400">Belum ada realisasi transaksi pencairan dana kas yang tercatat.</div>
         @else
             <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse text-xs">
+                <table class="w-full text-left text-xs border-collapse">
                     <thead>
-                        <tr class="border-b border-slate-200 uppercase text-slate-500 font-semibold">
-                            <th class="py-2.5 px-3">Nomor SP2D</th>
-                            <th class="py-2.5 px-3">Nomor SPP</th>
-                            <th class="py-2.5 px-3">Paket Pengadaan</th>
-                            <th class="py-2.5 px-3">Tanggal Cair</th>
-                            <th class="py-2.5 px-3">Jumlah Realisasi</th>
-                            <th class="py-2.5 px-3">Status</th>
-                            <th class="py-2.5 px-3">Unduh Bukti Transfer</th>
+                        <tr class="bg-slate-50 border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                            <th class="px-5 py-3">Nomor Transaksi Bank</th>
+                            <th class="px-5 py-3">Nomor SPP</th>
+                            <th class="px-5 py-3">Paket Pengadaan</th>
+                            <th class="px-5 py-3">Tanggal Cair</th>
+                            <th class="px-5 py-3">Jumlah Realisasi</th>
+                            <th class="px-5 py-3">Status</th>
+                            <th class="px-5 py-3 text-center">Unduh Bukti</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100 text-slate-700">
+                    <tbody class="divide-y divide-slate-100">
                         @foreach($transaksiList as $t)
-                            <tr class="hover:bg-slate-50/50">
-                                <td class="py-3 px-3 font-mono font-bold">{{ $t->nomor_sp2d }}</td>
-                                <td class="py-3 px-3 font-mono">{{ $t->nomor_pembayaran }}</td>
-                                <td class="py-3 px-3">{{ $t->pembayaran->nomor_paket ?? '-' }}</td>
-                                <td class="py-3 px-3">{{ $t->tanggal_transfer ? date('d/m/Y', strtotime($t->tanggal_transfer)) : '-' }}</td>
-                                <td class="py-3 px-3 font-bold text-emerald-700">Rp {{ number_format($t->jumlah_bayar, 0, ',', '.') }}</td>
-                                <td class="py-3 px-3">
-                                    <span class="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-800 font-semibold">
-                                        {{ strtoupper($t->status_transaksi ?? 'CAIR') }}
-                                    </span>
+                            <tr class="hover:bg-slate-50/50 transition">
+                                <td class="px-5 py-3.5 font-mono font-bold text-[#0969da]">{{ $t->nomor_transaksi_bank }}</td>
+                                <td class="px-5 py-3.5 font-mono">{{ $t->nomor_pembayaran }}</td>
+                                <td class="px-5 py-3.5">{{ $t->pembayaran->nomor_paket ?? '-' }}</td>
+                                <td class="px-5 py-3.5">{{ $t->tanggal_transfer ? \Carbon\Carbon::parse($t->tanggal_transfer)->format('d/m/Y') : '-' }}</td>
+                                <td class="px-5 py-3.5 font-mono font-bold text-emerald-600">Rp {{ number_format($t->nominal_transfer, 0, ',', '.') }}</td>
+                                <td class="px-5 py-3.5">
+                                    <x-status-badge status="sp2d_lunas" size="sm" />
                                 </td>
-                                <td class="py-3 px-3">
-                                    <a href="{{ route('dokumen.pdf', ['jenis' => 'transfer', 'id' => $t->id_transaksi]) }}" target="_blank"
-                                       class="inline-flex items-center gap-1 text-blue-600 hover:underline">
-                                        <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                                        Unduh PDF Bukti
+                                <td class="px-5 py-3.5 text-center">
+                                    <a
+                                        href="{{ route('dokumen.pdf', ['jenis' => 'transfer', 'id' => $t->nomor_transaksi_bank]) }}"
+                                        target="_blank"
+                                        class="inline-flex items-center gap-1 px-3 py-1 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+                                    >
+                                        <svg class="size-3.5 text-rose-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/></svg>
+                                        PDF Bukti
                                     </a>
                                 </td>
                             </tr>
@@ -310,7 +392,7 @@
                 </table>
             </div>
 
-            <div class="mt-4">
+            <div class="px-6 py-4 border-t border-slate-100">
                 {{ $transaksiList->links() }}
             </div>
         @endif

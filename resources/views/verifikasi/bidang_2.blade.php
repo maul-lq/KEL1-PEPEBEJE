@@ -5,93 +5,157 @@
 @section('content')
 <div class="mx-auto max-w-[1650px] space-y-6">
 
-    {{-- HEADER --}}
-    <div class="flex flex-wrap items-center justify-between gap-4">
+    <!-- 1. HEADER HALAMAN & ROLE PILL (Figma 565:19857) -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-            <h1 class="text-3xl font-semibold text-[#1E3156]">Antrean Telaah Kelengkapan Berkas Administrasi</h1>
-            <p class="text-sm text-slate-500 mt-1">
+            <div class="flex items-center gap-2.5">
+                <span class="rounded-lg bg-blue-100 text-[#0969da] px-2.5 py-1 text-xs font-bold font-mono">FR 5.1</span>
+                <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight text-[#213153]">
+                    Telaah Berkas Administrasi &amp; Naskah Dinas Srikandi
+                </h1>
+            </div>
+            <p class="text-xs md:text-sm text-slate-500 mt-1">
                 Staf Tata Usaha Bidang II bertugas menelaah dan memeriksa kelengkapan fisik/digital naskah dinas Srikandi, KAK, dan Spesifikasi Teknis sebelum diteruskan kepada Wakil Direktur II.
             </p>
         </div>
-        <span class="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800">
-            Peran: Staf Bidang II (Telaah &amp; Teruskan)
-        </span>
+
+        <div class="flex items-center gap-2">
+            <span class="inline-flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200/80 px-3 py-1 text-xs font-bold text-[#0969da]">
+                <span class="size-2 rounded-full bg-[#0969da] animate-pulse"></span>
+                Staf Bidang II (Pemeriksa Berkas)
+            </span>
+        </div>
     </div>
 
+    <!-- 2. STEPPER SIKLUS PENGADAAN (TAHAP 2: VERIFIKASI PARALEL) -->
+    <x-stepper-8-siklus :currentStep="2" status="reviu_paralel" />
+
+    <!-- 3. KPI STAT CARDS -->
+    <div class="grid gap-4 sm:grid-cols-3">
+        <x-stat-card title="Total Permohonan Masuk" 
+                     :value="$permohonanMasuk->count()" 
+                     subtitle="Antrean berkas baru" 
+                     color="blue" />
+
+        <x-stat-card title="Belum Ditelaah" 
+                     :value="$permohonanMasuk->where('status_permohonan', 'diajukan')->count()" 
+                     subtitle="Perlu verifikasi checklist" 
+                     color="amber" />
+
+        <x-stat-card title="Diteruskan ke Wadir 2" 
+                     :value="\App\Models\VerifikasiParalel::where('role_verifikator', 'staff_bidang_2')->where('status_keputusan', 'disetujui')->count()" 
+                     subtitle="Telaah tuntas" 
+                     color="teal" />
+    </div>
+
+    <!-- 4. ANTREAN BERKAS PERMOHONAN MASUK -->
     @if($permohonanMasuk->isEmpty())
-        <div class="rounded-2xl bg-white p-12 text-center shadow-sm border border-slate-100">
-            <svg class="mx-auto size-12 text-slate-300" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            <h3 class="mt-2 text-base font-medium text-slate-800">Tidak Ada Antrean Berkas</h3>
-            <p class="mt-1 text-sm text-slate-400">Seluruh berkas usulan permohonan baru telah ditelaah dan diteruskan ke Wadir II.</p>
+        <div class="rounded-2xl bg-white p-12 text-center shadow-xs border border-slate-200/80">
+            <div class="size-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-3">
+                <svg class="size-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <h3 class="text-base font-bold text-[#213153]">Tidak Ada Antrean Berkas</h3>
+            <p class="mt-1 text-xs text-slate-400 max-w-sm mx-auto">
+                Seluruh berkas usulan permohonan baru telah ditelaah dan diteruskan ke Wakil Direktur II.
+            </p>
         </div>
     @else
         <div class="space-y-6">
             @foreach($permohonanMasuk as $p)
-                <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-100">
-                    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-4">
+                <div class="rounded-2xl bg-white p-6 md:p-7 shadow-xs border border-slate-200/80 space-y-5">
+                    
+                    <!-- Card Header -->
+                    <div class="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100">
                         <div>
-                            <span class="font-mono text-sm font-bold text-slate-900">{{ $p->nomor_surat }}</span>
-                            <span class="ml-2 text-xs text-slate-500">Unit Pengusul: <strong>{{ $p->unit->nama_unit ?? $p->kode_unit }}</strong> ({{ $p->kode_unit }})</span>
+                            <div class="flex items-center gap-2">
+                                <span class="font-mono text-sm font-bold text-[#0969da]">{{ $p->nomor_surat }}</span>
+                                <x-status-badge :status="$p->status_permohonan ?? $p->status" size="sm" />
+                            </div>
+                            <div class="text-xs text-slate-500 mt-0.5">
+                                Unit Pengusul: <strong class="text-slate-800">{{ $p->unit->nama_unit ?? $p->kode_unit }}</strong> ({{ $p->kode_unit }})
+                            </div>
                         </div>
+
                         <div class="text-right">
-                            <span class="text-xs text-slate-400">Tanggal Pengajuan: {{ $p->tanggal_pengajuan ? date('d/m/Y', strtotime($p->tanggal_pengajuan)) : '-' }}</span>
-                            <div class="text-sm font-bold text-[#0088E8]">Rp {{ number_format($p->anggaran_diajukan, 0, ',', '.') }}</div>
+                            <span class="text-[11px] text-slate-400 block">Tanggal Usulan: {{ $p->tanggal_pengajuan ? date('d/m/Y', strtotime($p->tanggal_pengajuan)) : '-' }}</span>
+                            <div class="text-base font-extrabold text-[#0969da] font-mono">
+                                Rp {{ number_format($p->anggaran_diajukan ?? $p->estimasi_total_pagu, 0, ',', '.') }}
+                            </div>
                         </div>
                     </div>
 
-                    <div class="mt-4">
-                        <h2 class="text-lg font-semibold text-slate-800">{{ $p->perihal }}</h2>
-                        <p class="text-xs text-slate-600 mt-1">{{ $p->tujuan_pengadaan_ringkas ?? 'Pengadaan barang/jasa institusi PNJ' }}</p>
+                    <!-- Card Body -->
+                    <div class="space-y-2">
+                        <h2 class="text-lg font-bold text-[#213153] leading-snug">{{ $p->perihal ?? $p->judul_pengadaan }}</h2>
+                        <p class="text-xs text-slate-600 leading-relaxed bg-slate-50/70 p-3 rounded-xl border border-slate-100">
+                            {{ $p->tujuan_pengadaan_ringkas ?? 'Pengadaan barang/jasa untuk kebutuhan operasional dan peningkatan mutu institusi PNJ.' }}
+                        </p>
                     </div>
 
-                    <div class="mt-4 flex items-center gap-3">
-                        <a href="{{ route('dokumen.pdf', ['jenis' => 'permohonan', 'id' => $p->nomor_surat]) }}" target="_blank"
-                           class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors">
-                            <svg class="size-4 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-                            Lihat Berkas Surat Srikandi (PDF)
+                    <!-- Lampiran Preview Links -->
+                    <div class="flex flex-wrap items-center gap-3 pt-1">
+                        <a href="{{ route('dokumen.pdf', ['jenis' => 'permohonan', 'id' => $p->nomor_surat]) }}" 
+                           target="_blank"
+                           class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50/80 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors">
+                            <svg class="size-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                            <span>Lihat Berkas Srikandi (PDF)</span>
                         </a>
-                        <a href="{{ route('permohonan.show', $p->nomor_surat) }}" class="text-xs text-blue-600 hover:underline">
-                            Detail &amp; Lacak Permohonan &rarr;
+
+                        <a href="{{ route('permohonan.show', $p->nomor_surat) }}" 
+                           class="inline-flex items-center gap-1.5 rounded-xl bg-slate-100 px-3.5 py-2 text-xs font-bold text-[#213153] hover:bg-slate-200 transition-colors">
+                            <span>Detail Penuh &amp; Silsilah &rarr;</span>
                         </a>
                     </div>
 
-                    {{-- Form Telaah Staf Bidang 2 --}}
-                    <form action="{{ route('verifikasi.bidang-2.teruskan') }}" method="POST" class="mt-6 rounded-xl bg-slate-50 p-5 border border-slate-200/70 space-y-4">
+                    <!-- FORM TELAAH STAF BIDANG 2 (POST /verifikasi/bidang-2/teruskan) -->
+                    <form action="{{ route('verifikasi.bidang-2.teruskan') }}" 
+                          method="POST" 
+                          class="rounded-xl bg-slate-50/70 p-5 md:p-6 border border-slate-200/80 space-y-4">
                         @csrf
                         <input type="hidden" name="nomor_surat" value="{{ $p->nomor_surat }}">
 
-                        <div class="text-xs font-bold uppercase tracking-wider text-slate-700">Checklist Pemeriksaan Administrasi</div>
+                        <div class="flex items-center gap-2">
+                            <svg class="size-4 text-[#0969da]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700">Checklist Pemeriksaan Administrasi (Wajib)</h3>
+                        </div>
 
-                        <div class="space-y-2">
-                            <label class="flex items-start gap-2.5 text-xs text-slate-700">
-                                <input type="checkbox" name="is_kak_valid" value="1" required class="mt-0.5 rounded text-blue-600">
-                                <span>Dokumen Kerangka Acuan Kerja (KAK) telah diperiksa, lengkap, dan bermeterai/tervalidasi.</span>
+                        <div class="space-y-2.5 bg-white p-4 rounded-xl border border-slate-200/60">
+                            <label class="flex items-start gap-3 text-xs text-slate-700 cursor-pointer">
+                                <input type="checkbox" name="is_kak_valid" value="1" required class="mt-0.5 rounded text-[#0969da] focus:ring-[#0969da]">
+                                <span>Dokumen Kerangka Acuan Kerja (KAK) telah diperiksa, lengkap spesifikasi, dan bermeterai/tervalidasi.</span>
                             </label>
-                            <label class="flex items-start gap-2.5 text-xs text-slate-700">
-                                <input type="checkbox" name="is_spesifikasi_valid" value="1" required class="mt-0.5 rounded text-blue-600">
-                                <span>Dokumen Spesifikasi Teknis dan rincian estimasi harga wajar pasar terlampir jelas.</span>
+
+                            <label class="flex items-start gap-3 text-xs text-slate-700 cursor-pointer">
+                                <input type="checkbox" name="is_spesifikasi_valid" value="1" required class="mt-0.5 rounded text-[#0969da] focus:ring-[#0969da]">
+                                <span>Dokumen Spesifikasi Teknis dan rincian estimasi harga wajar pasar terlampir jelas dan akuntabel.</span>
                             </label>
-                            <label class="flex items-start gap-2.5 text-xs text-slate-700">
-                                <input type="checkbox" name="is_srikandi_valid" value="1" required class="mt-0.5 rounded text-blue-600">
-                                <span>Nomor naskah dinas resmi terdaftar pada tata naskah persuratan Srikandi PNJ.</span>
+
+                            <label class="flex items-start gap-3 text-xs text-slate-700 cursor-pointer">
+                                <input type="checkbox" name="is_srikandi_valid" value="1" required class="mt-0.5 rounded text-[#0969da] focus:ring-[#0969da]">
+                                <span>Nomor naskah dinas resmi terdaftar sah pada tata naskah persuratan Srikandi Politeknik Negeri Jakarta.</span>
                             </label>
                         </div>
 
-                        <div>
-                            <label for="catatan_staff_{{ $p->nomor_surat }}" class="block text-xs font-semibold text-slate-700 mb-1">
+                        <div class="space-y-1.5">
+                            <label for="catatan_staff_{{ $p->nomor_surat }}" class="block text-xs font-bold text-slate-700">
                                 Catatan Hasil Telaah Staf Bidang II untuk Wadir II (Rekomendasi Disposisi)
                             </label>
-                            <textarea id="catatan_staff_{{ $p->nomor_surat }}" name="catatan_staff" rows="2"
+                            <textarea id="catatan_staff_{{ $p->nomor_surat }}" 
+                                      name="catatan_staff" 
+                                      rows="2"
                                       placeholder="Contoh: Berkas telah diverifikasi lengkap, spesifikasi server sesuai standar lab TIK. Direkomendasikan untuk disetujui."
-                                      class="w-full rounded-lg border border-slate-300 p-2.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                                      class="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-800 placeholder-slate-400 focus:border-[#0969da] focus:outline-none focus:ring-2 focus:ring-[#0969da]/20"></textarea>
                         </div>
 
-                        <div class="flex justify-end">
-                            <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-[#0088E8] px-5 py-2 text-xs font-semibold text-white shadow hover:bg-blue-600 transition-colors">
-                                Teruskan Telaah Berkas ke Wadir 2 &rarr;
+                        <div class="flex justify-end pt-2">
+                            <button type="submit" 
+                                    class="inline-flex items-center gap-2 rounded-xl bg-[#0969da] px-6 py-2.5 text-xs font-bold text-white shadow-md shadow-[#0969da]/20 hover:bg-blue-700 transition-all cursor-pointer">
+                                <span>Teruskan Telaah Berkas ke Wadir 2</span>
+                                <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
                             </button>
                         </div>
                     </form>
+
                 </div>
             @endforeach
         </div>

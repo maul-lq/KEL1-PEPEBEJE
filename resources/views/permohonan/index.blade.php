@@ -12,22 +12,22 @@
                 Tracking Pengajuan
             </h1>
             <p class="mt-1 text-sm text-slate-500">
-                Pantau status pengajuan pengadaan Anda secara real-time. Pilih salah satu pengajuan untuk melihat detailnya.
+                Pantau status pengajuan pengadaan Anda secara real-time. Pilih salah satu pengajuan untuk melihat detail pelacakan 8 siklus.
             </p>
         </div>
 
-        @if(Auth::user()->hasRole('user') || Auth::user()->hasAnyPermission(['permohonan.create']))
+        @if(Auth::user()->hasRole('user') || Auth::user()->hasRole('admin') || Auth::user()->hasAnyPermission(['permohonan.create']))
             <button type="button" 
-                    @click="modalCreateOpen = true" 
-                    class="inline-flex items-center justify-center gap-2 shrink-0 rounded-xl bg-[#0969da] px-5 py-3 text-sm font-bold text-white shadow-md shadow-[#0969da]/20 hover:bg-blue-700 transition-all">
+                    @click="openCreateModal()" 
+                    class="inline-flex items-center justify-center gap-2 shrink-0 rounded-xl bg-[#0969da] px-5 py-3 text-sm font-bold text-white shadow-md shadow-[#0969da]/20 hover:bg-blue-700 transition-all cursor-pointer">
                 <svg class="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
                 Permohonan Baru
             </button>
         @endif
     </div>
 
-    <!-- 2. SECTION FILTER & PENCARIAN (Sesuai Layout Figma) -->
-    <form method="GET" action="{{ route('permohonan.index') }}" class="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
+    <!-- 2. SECTION FILTER & PENCARIAN -->
+    <form method="GET" action="{{ route('permohonan.index') }}" class="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs">
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
             
             <!-- Input Cari -->
@@ -47,9 +47,10 @@
                 <select id="status-filter" name="status" onchange="this.form.submit()" class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs font-medium text-slate-800 focus:border-[#0969da] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0969da]/20 transition-all">
                     <option value="">Semua Status</option>
                     <option value="diajukan" {{ request('status') == 'diajukan' ? 'selected' : '' }}>Diajukan</option>
-                    <option value="diproses" {{ request('status') == 'diproses' ? 'selected' : '' }}>Diproses</option>
+                    <option value="reviu_paralel" {{ request('status') == 'reviu_paralel' ? 'selected' : '' }}>Reviu Paralel (B2/MAK)</option>
                     <option value="disetujui" {{ request('status') == 'disetujui' ? 'selected' : '' }}>Disetujui</option>
-                    <option value="ditolak" {{ request('status') == 'ditolak' ? 'selected' : '' }}>Ditolak / Ditahan</option>
+                    <option value="perlu_revisi" {{ request('status') == 'perlu_revisi' ? 'selected' : '' }}>Perlu Revisi</option>
+                    <option value="ditolak" {{ request('status') == 'ditolak' ? 'selected' : '' }}>Ditolak</option>
                     <option value="selesai" {{ request('status') == 'selesai' ? 'selected' : '' }}>Selesai</option>
                 </select>
             </div>
@@ -69,7 +70,7 @@
 
             <!-- Tombol Cari & Reset -->
             <div class="lg:col-span-2 flex items-center gap-2">
-                <button type="submit" class="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#0969da] py-2 px-3 text-xs font-bold text-white shadow-sm hover:bg-blue-700 transition-all">
+                <button type="submit" class="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#0969da] py-2 px-3 text-xs font-bold text-white shadow-xs hover:bg-blue-700 transition-all cursor-pointer">
                     <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                     Cari
                 </button>
@@ -85,7 +86,7 @@
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
         <!-- KIRI (5 COLS): DAFTAR PENGAJUAN -->
-        <div class="lg:col-span-5 rounded-2xl border border-slate-200/80 bg-white shadow-sm overflow-hidden">
+        <div class="lg:col-span-5 rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden">
             <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                 <div class="flex items-center gap-2.5">
                     <h2 class="font-bold text-base text-[#213153]">Daftar Pengajuan</h2>
@@ -98,106 +99,126 @@
             <div class="divide-y divide-slate-100 max-h-[680px] overflow-y-auto">
                 @forelse($permohonanList as $item)
                     <div @click="selectPermohonan({{ json_encode($item) }})" 
-                         :class="selectedItem?.id === {{ $item->id }} || selectedItem?.nomor_surat === '{{ $item->nomor_surat }}' ? 'bg-blue-50/60 border-l-4 border-l-[#0969da]' : 'hover:bg-slate-50/80'"
-                         class="p-4 cursor-pointer transition-all flex items-start justify-between gap-3">
+                         :class="selectedItem && selectedItem.nomor_surat === '{{ $item->nomor_surat }}' ? 'bg-blue-50/70 border-l-4 border-l-[#0969da]' : 'hover:bg-slate-50/80'"
+                         class="p-4 cursor-pointer transition-colors space-y-2">
                         
-                        <div class="space-y-1 min-w-0 flex-1">
-                            <div class="flex items-center gap-2">
-                                <span class="text-[11px] font-bold text-[#0969da] font-mono">{{ $item->nomor_surat }}</span>
-                                <span class="text-slate-300">•</span>
-                                <span class="text-[11px] font-medium text-slate-400">
-                                    {{ $item->tanggal_pengajuan ? \Carbon\Carbon::parse($item->tanggal_pengajuan)->format('d M Y') : '-' }}
-                                </span>
-                            </div>
-                            <h3 class="text-xs font-bold text-[#213153] leading-snug line-clamp-2">
-                                {{ $item->perihal ?? $item->judul_pengadaan }}
-                            </h3>
-                            <div class="text-[11px] text-slate-500 truncate">
-                                {{ $item->unit->nama_unit ?? $item->kode_unit }}
-                            </div>
+                        <div class="flex items-start justify-between gap-2">
+                            <span class="text-xs font-bold font-mono text-[#0969da]">{{ $item->nomor_surat }}</span>
+                            <x-status-badge :status="$item->status_permohonan ?? $item->status" size="sm" />
                         </div>
 
-                        <div class="flex flex-col items-end gap-1 shrink-0">
-                            @php
-                                $st = strtolower($item->status_permohonan ?? $item->status ?? 'diajukan');
-                            @endphp
-                            @if(in_array($st, ['disetujui', 'selesai']))
-                                <span class="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
-                                    {{ ucfirst($st) }}
-                                </span>
-                            @elseif(in_array($st, ['ditolak', 'ditahan', 'revisi']))
-                                <span class="inline-flex items-center rounded-full bg-rose-50 px-2.5 py-0.5 text-[10px] font-bold text-rose-700 border border-rose-200">
-                                    {{ ucfirst($st) }}
-                                </span>
-                            @else
-                                <span class="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-0.5 text-[10px] font-bold text-amber-700 border border-amber-200">
-                                    {{ ucfirst(str_replace('_', ' ', $st)) }}
-                                </span>
-                            @endif
-                            
-                            <svg class="size-4 text-slate-300 mt-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                        </div>
+                        <h3 class="text-sm font-bold text-[#213153] line-clamp-2 leading-snug">
+                            {{ $item->perihal ?? $item->judul_pengadaan }}
+                        </h3>
 
+                        <div class="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+                            <span>{{ $item->unit->nama_unit ?? $item->kode_unit }}</span>
+                            <span class="font-bold text-[#213153] font-mono">
+                                Rp {{ number_format($item->anggaran_diajukan ?? $item->estimasi_total_pagu, 0, ',', '.') }}
+                            </span>
+                        </div>
                     </div>
                 @empty
                     <div class="p-8 text-center text-slate-400">
-                        <svg class="size-10 text-slate-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                        <p class="text-xs font-medium">Belum ada permohonan pengadaan ditemukan.</p>
+                        <svg class="size-12 mx-auto text-slate-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        <p class="text-xs font-medium">Belum ada berkas usulan permohonan pengadaan.</p>
                     </div>
                 @endforelse
             </div>
 
-            @if(method_exists($permohonanList, 'links'))
-                <div class="p-3 border-t border-slate-100 bg-slate-50/30">
+            @if($permohonanList->hasPages())
+                <div class="p-3 border-t border-slate-100 bg-slate-50/50">
                     {{ $permohonanList->links() }}
                 </div>
             @endif
         </div>
 
-        <!-- KANAN (7 COLS): TRACKING & DETAIL PANEL (FRAME 1, 2, 4 FIGMA) -->
-        <div class="lg:col-span-7 rounded-2xl border border-slate-200/80 bg-white shadow-sm p-6 min-h-[500px]">
+        <!-- KANAN (7 COLS): TRACKING PANEL & AKSI CEPAT -->
+        <div class="lg:col-span-7 rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs min-h-[500px]">
             
-            <!-- FRAME 1: STATE KOSONG (Belum Ada Item Diklik) -->
+            <!-- Keadaan Kosong (Belum Memilih) -->
             <template x-if="!selectedItem">
-                <div class="flex flex-col items-center justify-center min-h-[440px] text-center p-6">
-                    <div class="size-20 rounded-full bg-blue-50 flex items-center justify-center text-[#0969da] mb-4">
-                        <svg class="size-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"/></svg>
+                <div class="flex flex-col items-center justify-center h-full min-h-[440px] text-center p-8">
+                    <div class="size-16 rounded-2xl bg-blue-50 text-[#0969da] flex items-center justify-center mb-4 shadow-sm shadow-blue-500/10">
+                        <svg class="size-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
                     </div>
-                    <h3 class="text-base font-bold text-[#213153]">Pilih Pengajuan untuk Melihat Detail</h3>
-                    <p class="text-xs text-slate-400 max-w-sm mt-1">
-                        Klik salah satu item daftar pengajuan di sebelah kiri untuk melihat alur progres 8 siklus pengadaan secara real-time.
+                    <h3 class="text-base font-bold text-[#213153]">Pilih Pengajuan untuk Melihat Tracking</h3>
+                    <p class="text-xs text-slate-400 max-w-sm mt-1.5 leading-relaxed">
+                        Klik salah satu pengajuan di panel sebelah kiri untuk memantau siklus pengadaan, riwayat disposisi, dan dokumen lampiran secara real-time.
                     </p>
                 </div>
             </template>
 
-            <!-- FRAME 2 & 4: STATE TRACKING (Item Diklik) -->
+            <!-- Keadaan Berkas Dipilih -->
             <template x-if="selectedItem">
                 <div class="space-y-6">
-                    
-                    <!-- Header Info Pengajuan Diklik -->
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-                        <div>
+
+                    <!-- Header Kartu Terpilih & Aksi -->
+                    <div class="space-y-3 pb-4 border-b border-slate-100">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
                             <span class="text-xs font-bold font-mono text-[#0969da]" x-text="selectedItem.nomor_surat"></span>
-                            <h3 class="text-lg font-extrabold text-[#213153] leading-snug" x-text="selectedItem.perihal || selectedItem.judul_pengadaan"></h3>
-                            <p class="text-xs text-slate-500 mt-0.5" x-text="'Unit: ' + (selectedItem.unit ? selectedItem.unit.nama_unit : (selectedItem.kode_unit || 'Utama'))"></p>
+                            <span class="text-xs font-bold uppercase px-2.5 py-0.5 rounded-full"
+                                  :class="{
+                                      'bg-blue-50 text-[#0969da]': ['diajukan'].includes((selectedItem.status_permohonan || selectedItem.status || '').toLowerCase()),
+                                      'bg-amber-50 text-amber-700': ['reviu_paralel', 'pending_anggaran', 'hold'].includes((selectedItem.status_permohonan || selectedItem.status || '').toLowerCase()),
+                                      'bg-emerald-50 text-emerald-700': ['disetujui', 'selesai'].includes((selectedItem.status_permohonan || selectedItem.status || '').toLowerCase()),
+                                      'bg-rose-50 text-rose-700': ['ditolak', 'revisi', 'perlu_revisi'].includes((selectedItem.status_permohonan || selectedItem.status || '').toLowerCase())
+                                  }"
+                                  x-text="(selectedItem.status_permohonan || selectedItem.status || 'Diajukan').replace('_', ' ')"></span>
                         </div>
-                        
-                        <a :href="'/permohonan/' + (selectedItem.nomor_surat || selectedItem.id)" 
-                           class="inline-flex items-center gap-1.5 rounded-xl bg-slate-100 px-3.5 py-2 text-xs font-bold text-[#213153] hover:bg-slate-200 transition-colors shrink-0">
-                            <span>Detail Penuh</span>
-                            <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                        </a>
+
+                        <h3 class="text-lg font-extrabold text-[#213153] leading-snug" x-text="selectedItem.perihal || selectedItem.judul_pengadaan"></h3>
+                        <p class="text-xs text-slate-500" x-text="'Unit Pengusul: ' + (selectedItem.unit ? selectedItem.unit.nama_unit : (selectedItem.kode_unit || 'Utama'))"></p>
+
+                        <!-- Action Bar Banner -->
+                        <div class="flex flex-wrap items-center gap-2 pt-2">
+                            <a :href="'/permohonan/' + (selectedItem.nomor_surat || selectedItem.id)" 
+                               class="inline-flex items-center gap-1.5 rounded-xl bg-slate-100 px-3.5 py-2 text-xs font-bold text-[#213153] hover:bg-slate-200 transition-colors">
+                                <span>Detail Penuh</span>
+                                <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                            </a>
+
+                            <a :href="'/dokumen/pdf/permohonan/' + (selectedItem.nomor_surat || selectedItem.id)" 
+                               target="_blank"
+                               class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
+                                <svg class="size-3.5 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                                <span>Unduh PDF</span>
+                            </a>
+
+                            <!-- Tombol Ajukan Revisi jika Ditolak/Revisi -->
+                            <template x-if="['ditolak', 'revisi', 'perlu_revisi'].includes((selectedItem.status_permohonan || selectedItem.status || '').toLowerCase())">
+                                <button type="button" 
+                                        @click="openRevisiModal(selectedItem)"
+                                        class="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-2 text-xs font-bold shadow-xs transition-colors cursor-pointer">
+                                    <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                    <span>Ajukan Revisi</span>
+                                </button>
+                            </template>
+
+                            <!-- Tombol Hapus/Batalkan jika Draft/Diajukan/Ditolak -->
+                            <template x-if="['draft', 'diajukan', 'ditolak'].includes((selectedItem.status_permohonan || selectedItem.status || '').toLowerCase())">
+                                <button type="button" 
+                                        @click="openHapusModal(selectedItem)"
+                                        class="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 px-3.5 py-2 text-xs font-bold transition-colors cursor-pointer">
+                                    <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                    <span>Batalkan</span>
+                                </button>
+                            </template>
+                        </div>
                     </div>
 
-                    <!-- STEPPER 8 SIKLUS PENGADAAN (Figma Timeline Tracker) -->
+                    <!-- STEPPER 8 SIKLUS PENGADAAN -->
                     <div class="space-y-3">
-                        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">Tracking 8 Siklus Pengadaan</h4>
+                        <div class="flex items-center justify-between">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">Tracking 8 Siklus Pengadaan</h4>
+                            <span class="text-xs font-bold text-[#0969da]" x-text="'Tahap ' + getStepNumber(selectedItem.status_permohonan || selectedItem.status) + ' dari 8'"></span>
+                        </div>
                         
                         <div class="grid grid-cols-4 sm:grid-cols-8 gap-2 py-2">
                             <template x-for="step in 8" :key="step">
                                 <div class="flex flex-col items-center gap-1.5">
                                     <div :class="getStepColor(step)" 
-                                         class="size-8 rounded-full flex items-center justify-center text-xs font-bold transition-all shadow-sm">
+                                         class="size-8 rounded-full flex items-center justify-center text-xs font-bold transition-all shadow-xs">
                                         <span x-text="step"></span>
                                     </div>
                                     <span class="text-[9px] font-semibold text-center text-slate-500 leading-tight" x-text="getStepTitle(step)"></span>
@@ -206,23 +227,33 @@
                         </div>
                     </div>
 
-                    <!-- METADATA & ESTMASI ANGGARAN RINGKAS -->
+                    <!-- METADATA & ESTIMASI ANGGARAN RINGKAS -->
                     <div class="grid grid-cols-2 gap-3 text-xs">
-                        <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                        <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
                             <span class="text-slate-400 block font-medium">Estimasi Pagu:</span>
-                            <span class="font-bold text-[#0969da] text-sm" x-text="selectedItem.estimasi_total_pagu || selectedItem.anggaran_diajukan ? 'Rp ' + Number(selectedItem.estimasi_total_pagu || selectedItem.anggaran_diajukan).toLocaleString('id-ID') : 'Rp -'"></span>
+                            <span class="font-bold text-[#0969da] text-sm font-mono" x-text="selectedItem.estimasi_total_pagu || selectedItem.anggaran_diajukan ? 'Rp ' + Number(selectedItem.estimasi_total_pagu || selectedItem.anggaran_diajukan).toLocaleString('id-ID') : 'Rp -'"></span>
                         </div>
-                        <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                            <span class="text-slate-400 block font-medium">Status Pengajuan:</span>
-                            <span class="font-bold text-slate-700 uppercase" x-text="selectedItem.status_permohonan || selectedItem.status || 'Diajukan'"></span>
+                        <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+                            <span class="text-slate-400 block font-medium">Tanggal Pengajuan:</span>
+                            <span class="font-bold text-slate-700" x-text="selectedItem.tanggal_pengajuan ? String(selectedItem.tanggal_pengajuan).substring(0, 10) : '-'"></span>
                         </div>
                     </div>
 
-                    <!-- RIWAYAT AKTIVITAS & CATATAN -->
+                    <!-- RIWAYAT & CATATAN TELAAH -->
                     <div class="space-y-3 pt-2">
-                        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">Riwayat Berkas & Catatan</h4>
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">Riwayat Berkas &amp; Catatan</h4>
                         
-                        <div class="space-y-2.5 max-h-52 overflow-y-auto pr-1">
+                        <div class="space-y-2.5 max-h-56 overflow-y-auto pr-1">
+                            <template x-if="selectedItem.alasan_revisi">
+                                <div class="p-3.5 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-3">
+                                    <div class="size-2.5 rounded-full bg-amber-500 mt-1.5 shrink-0"></div>
+                                    <div class="text-xs space-y-0.5">
+                                        <div class="font-bold text-amber-900">Catatan Revisi / Penolakan</div>
+                                        <div class="text-amber-800" x-text="selectedItem.alasan_revisi"></div>
+                                    </div>
+                                </div>
+                            </template>
+
                             <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-100 flex items-start gap-3">
                                 <div class="size-2.5 rounded-full bg-emerald-500 mt-1.5 shrink-0"></div>
                                 <div class="text-xs space-y-0.5">
@@ -251,122 +282,199 @@
 
     </div>
 
-    <!-- 4. MODAL POPUP: PERMOHONAN BARU (FORM INTEGRATED) -->
-    <div x-show="modalCreateOpen" 
-         x-cloak
-         x-transition:enter="transition ease-out duration-200"
-         x-transition:enter-start="opacity-0 scale-95"
-         x-transition:enter-end="opacity-100 scale-100"
-         x-transition:leave="transition ease-in duration-150"
-         x-transition:leave-start="opacity-100 scale-100"
-         x-transition:leave-end="opacity-0 scale-95"
-         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-        
-        <div @click.away="modalCreateOpen = false" class="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto space-y-5">
-            
-            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h3 class="text-lg font-extrabold text-[#213153]">Buat Permohonan Pengadaan Baru</h3>
-                <button @click="modalCreateOpen = false" type="button" class="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
-                    <svg class="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                </button>
+    <!-- 4. MODAL INTERAKTIF 1: BUAT USULAN PERMOHONAN BARU (x-modal) -->
+    <x-modal id="modal-create-permohonan" title="Buat Usulan Permohonan Pengadaan" subtitle="Pendaftaran berkas naskah dinas Srikandi baru" maxWidth="3xl">
+        <form action="{{ route('permohonan.store') }}" 
+              method="POST" 
+              enctype="multipart/form-data" 
+              x-data="{ nominalModal: '' }"
+              class="space-y-4">
+            @csrf
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="space-y-1">
+                    <label class="text-xs font-bold text-slate-700">Nomor Surat Srikandi <span class="text-rose-500">*</span></label>
+                    <input type="text" name="nomor_surat" required placeholder="Contoh: B/123/PL3/TIK/2026" 
+                           class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs font-mono font-medium focus:border-[#0969da] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0969da]/20">
+                </div>
+
+                <div class="space-y-1">
+                    <label class="text-xs font-bold text-slate-700">Unit Pengusul <span class="text-rose-500">*</span></label>
+                    <select name="kode_unit" required 
+                            class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs font-medium focus:border-[#0969da] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0969da]/20">
+                        @foreach($units as $u)
+                            <option value="{{ $u->kode_unit }}" {{ Auth::user()->kode_unit === $u->kode_unit ? 'selected' : '' }}>
+                                [{{ $u->kode_unit }}] {{ $u->nama_unit }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="space-y-1 md:col-span-2">
+                    <label class="text-xs font-bold text-slate-700">Perihal / Judul Kegiatan <span class="text-rose-500">*</span></label>
+                    <input type="text" name="perihal" required placeholder="Contoh: Pengadaan Fasilitas Laboratorium Cloud AI" 
+                           class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs font-medium focus:border-[#0969da] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0969da]/20">
+                </div>
+
+                <div class="space-y-1">
+                    <div class="flex items-center justify-between">
+                        <label class="text-xs font-bold text-slate-700">Estimasi Pagu Anggaran (Rp) <span class="text-rose-500">*</span></label>
+                        <span class="text-xs font-bold text-[#0969da] font-mono" x-text="nominalModal ? 'Rp ' + Number(nominalModal).toLocaleString('id-ID') : 'Rp 0'"></span>
+                    </div>
+                    <input type="number" name="anggaran_diajukan" x-model="nominalModal" step="0.01" min="1" required placeholder="Contoh: 150000000" 
+                           class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs font-mono font-medium focus:border-[#0969da] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0969da]/20">
+                </div>
+
+                <div class="space-y-1">
+                    <label class="text-xs font-bold text-slate-700">Tanggal Usulan <span class="text-rose-500">*</span></label>
+                    <input type="date" name="tanggal_pengajuan" value="{{ date('Y-m-d') }}" required 
+                           class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs font-medium focus:border-[#0969da] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0969da]/20">
+                </div>
+
+                <div class="space-y-1 md:col-span-2">
+                    <label class="text-xs font-bold text-slate-700">Uraian Ringkas Tujuan</label>
+                    <textarea name="tujuan_pengadaan_ringkas" rows="2" placeholder="Uraian singkat justifikasi pengadaan..." 
+                              class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs font-medium focus:border-[#0969da] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0969da]/20"></textarea>
+                </div>
+
+                <div class="space-y-1 md:col-span-2">
+                    <label class="text-xs font-bold text-slate-700">Unggah Berkas Lampiran (KAK / Spesifikasi - PDF Maks. 10 MB)</label>
+                    <input type="file" name="file_surat_permohonan" accept=".pdf" 
+                           class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-600 focus:outline-none">
+                </div>
             </div>
 
-            <form action="{{ route('permohonan.store') }}" method="POST" enctype="multipart/form-data" class="space-y-4 text-xs">
-                @csrf
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div class="space-y-1">
-                        <label class="font-bold text-slate-700">No. Surat Srikandi <span class="text-rose-500">*</span></label>
-                        <input type="text" name="nomor_surat" required placeholder="Contoh: B/123/PL3/TIK/2026" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#0969da] focus:outline-none focus:ring-2 focus:ring-[#0969da]/20">
-                    </div>
-                    
-                    <div class="space-y-1">
-                        <label class="font-bold text-slate-700">Asal / Unit Pengusul <span class="text-rose-500">*</span></label>
-                        <select name="kode_unit" required class="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#0969da] focus:outline-none focus:ring-2 focus:ring-[#0969da]/20">
-                            @foreach($units as $u)
-                                <option value="{{ $u->kode_unit }}" {{ Auth::user()->kode_unit == $u->kode_unit ? 'selected' : '' }}>
-                                    [{{ $u->kode_unit }}] {{ $u->nama_unit }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
+            <div class="flex justify-end gap-2 pt-4 border-t border-slate-100">
+                <button type="button" 
+                        @click="$dispatch('close-modal', 'modal-create-permohonan')" 
+                        class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors">
+                    Batal
+                </button>
+                <button type="submit" 
+                        class="rounded-xl bg-[#0969da] px-5 py-2 text-xs font-bold text-white hover:bg-blue-700 shadow-md shadow-[#0969da]/20 transition-all cursor-pointer">
+                    Kirim Usulan Pengadaan
+                </button>
+            </div>
+        </form>
+    </x-modal>
+
+    <!-- 5. MODAL INTERAKTIF 2: REVISI USULAN PERMOHONAN (Figma 509:1651 & PANDUAN_INTEGRASI §2.2) -->
+    <x-modal id="modal-revisi-permohonan" title="Revisi Usulan Pengadaan" subtitle="Perbaiki usulan berdasarkan catatan telaah verifikator (Figma 509:1651)" maxWidth="2xl">
+        <form action="{{ route('permohonan.revisi') }}" 
+              method="POST" 
+              enctype="multipart/form-data" 
+              class="space-y-4">
+            @csrf
+            
+            <input type="hidden" name="nomor_surat_lama" :value="revisiTarget?.nomor_surat">
+
+            <!-- Catatan Alasan Penolakan -->
+            <div class="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <div class="flex items-center justify-between text-xs font-bold text-amber-900 mb-1">
+                    <span>Catatan Telaah / Alasan Penolakan:</span>
+                    <span class="font-mono text-[11px]" x-text="'Revisi ke-' + ((revisiTarget?.revisi_ke || 0) + 1)"></span>
                 </div>
+                <p class="text-xs text-amber-800 leading-relaxed" 
+                   x-text="revisiTarget?.alasan_revisi || revisiTarget?.catatan || 'Diperlukan penyesuaian berkas KAK atau estimasi pagu anggaran usulan.'"></p>
+            </div>
 
-                <div class="space-y-1">
-                    <label class="font-bold text-slate-700">Judul / Perihal Permohonan <span class="text-rose-500">*</span></label>
-                    <input type="text" name="perihal" required placeholder="Contoh: Pengadaan Perangkat Lab AI dan Server" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#0969da] focus:outline-none focus:ring-2 focus:ring-[#0969da]/20">
+            <!-- Nomor Surat Baru -->
+            <div class="space-y-1">
+                <label class="block text-xs font-bold text-slate-700">Nomor Surat Revisi Baru Srikandi <span class="text-rose-500">*</span></label>
+                <input type="text" 
+                       name="nomor_surat_baru" 
+                       :value="(revisiTarget?.nomor_surat ? revisiTarget.nomor_surat + '-REV' : '')"
+                       required 
+                       placeholder="Contoh: B/123-REV/PL3/TIK/2026"
+                       class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2 text-xs font-mono font-medium focus:border-[#0969da] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0969da]/20">
+            </div>
+
+            <!-- Perihal Baru -->
+            <div class="space-y-1">
+                <label class="block text-xs font-bold text-slate-700">Perihal / Judul Kegiatan <span class="text-rose-500">*</span></label>
+                <input type="text" 
+                       name="perihal" 
+                       :value="revisiTarget?.perihal || revisiTarget?.judul_pengadaan || ''"
+                       required 
+                       class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2 text-xs font-medium focus:border-[#0969da] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0969da]/20">
+            </div>
+
+            <!-- Penyesuaian Anggaran -->
+            <div class="space-y-1">
+                <label class="block text-xs font-bold text-slate-700">Penyesuaian Anggaran Diajukan (Rp) <span class="text-rose-500">*</span></label>
+                <input type="number" 
+                       name="anggaran_diajukan" 
+                       :value="revisiTarget?.anggaran_diajukan || revisiTarget?.estimasi_total_pagu || ''"
+                       step="0.01" 
+                       min="1" 
+                       required 
+                       class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2 text-xs font-mono font-medium focus:border-[#0969da] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0969da]/20">
+            </div>
+
+            <!-- Keterangan Revisi -->
+            <div class="space-y-1">
+                <label class="block text-xs font-bold text-slate-700">Uraian Perbaikan Berkas <span class="text-rose-500">*</span></label>
+                <textarea name="keterangan_revisi" 
+                          rows="3" 
+                          required 
+                          placeholder="Jelaskan penyesuaian yang telah dilakukan pada KAK atau spesifikasi harga..."
+                          class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2 text-xs font-medium focus:border-[#0969da] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0969da]/20"></textarea>
+            </div>
+
+            <!-- Unggah KAK Baru -->
+            <div class="space-y-1">
+                <label class="block text-xs font-bold text-slate-700">Unggah KAK Baru / Dokumen Pendukung (PDF Maks. 10 MB)</label>
+                <input type="file" 
+                       name="file_kak" 
+                       accept=".pdf"
+                       class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-600 focus:outline-none">
+            </div>
+
+            <div class="flex justify-end gap-2 pt-4 border-t border-slate-100">
+                <button type="button" 
+                        @click="$dispatch('close-modal', 'modal-revisi-permohonan')" 
+                        class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors">
+                    Batal
+                </button>
+                <button type="submit" 
+                        class="rounded-xl bg-amber-600 hover:bg-amber-700 text-white px-5 py-2 text-xs font-bold shadow-md shadow-amber-600/20 transition-all cursor-pointer">
+                    Kirim Dokumen Revisi
+                </button>
+            </div>
+        </form>
+    </x-modal>
+
+    <!-- 6. MODAL INTERAKTIF 3: KONFIRMASI HAPUS / BATALKAN PENGAJUAN (Figma 498:4950) -->
+    <x-modal id="modal-delete-permohonan" title="Konfirmasi Pembatalan Pengajuan" maxWidth="md">
+        <form :action="'/permohonan/' + (hapusTarget?.nomor_surat || '')" 
+              method="POST" 
+              class="space-y-4">
+            @csrf
+            @method('DELETE')
+
+            <div class="text-center py-2">
+                <div class="size-14 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-3 shadow-xs">
+                    <svg class="size-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                 </div>
+                <h4 class="text-base font-bold text-slate-800">Batalkan Pengajuan Permohonan?</h4>
+                <p class="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                    Anda akan membatalkan dan menghapus berkas usulan <strong class="text-slate-800 font-mono" x-text="hapusTarget?.nomor_surat"></strong>. Tindakan ini tidak dapat dibatalkan.
+                </p>
+            </div>
 
-                <div class="space-y-1">
-                    <label class="font-bold text-slate-700">Tujuan Pengadaan Ringkas</label>
-                    <textarea name="tujuan_pengadaan_ringkas" rows="2" placeholder="Uraikan tujuan pengadaan..." class="w-full rounded-xl border border-slate-200 p-3 text-xs focus:border-[#0969da] focus:outline-none focus:ring-2 focus:ring-[#0969da]/20"></textarea>
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div class="space-y-1">
-                        <label class="font-bold text-slate-700">Estimasi Anggaran (Rp) <span class="text-rose-500">*</span></label>
-                        <input type="number" name="anggaran_diajukan" required min="1" placeholder="Contoh: 150000000" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#0969da] focus:outline-none focus:ring-2 focus:ring-[#0969da]/20">
-                        <input type="hidden" name="tanggal_pengajuan" value="{{ date('Y-m-d') }}">
-                    </div>
-
-                    <div class="space-y-1">
-                        <label class="font-bold text-slate-700">Dokumen KAK / Spesifikasi (PDF)</label>
-                        <input type="file" name="file_surat_permohonan" accept="application/pdf" class="w-full rounded-xl border border-slate-200 px-2 py-1.5 text-xs text-slate-600">
-                    </div>
-                </div>
-
-                <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
-                    <button @click="modalCreateOpen = false" type="button" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50">
-                        Batal
-                    </button>
-                    <button type="submit" class="rounded-xl bg-[#0969da] px-5 py-2 text-xs font-bold text-white hover:bg-blue-700 shadow-md shadow-[#0969da]/20">
-                        Kirim Usulan
-                    </button>
-                </div>
-            </form>
-
-        </div>
-    </div>
+            <div class="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
+                <button type="button" 
+                        @click="$dispatch('close-modal', 'modal-delete-permohonan')" 
+                        class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors">
+                    Batal
+                </button>
+                <button type="submit" 
+                        class="rounded-xl bg-rose-600 hover:bg-rose-700 text-white px-5 py-2 text-xs font-bold shadow-md shadow-rose-600/20 transition-all cursor-pointer">
+                    Ya, Batalkan Pengajuan
+                </button>
+            </div>
+        </form>
+    </x-modal>
 
 </div>
-
-<!-- SCRIPT ALPINE.JS MANAGEMENT -->
-<script>
-    function trackingManager() {
-        return {
-            selectedItem: null,
-            modalCreateOpen: false,
-
-            selectPermohonan(item) {
-                this.selectedItem = item;
-            },
-
-            getStepTitle(step) {
-                const titles = [
-                    'Permohonan',
-                    'Penelaahan',
-                    'Verifikasi MAK',
-                    'Pembuatan Paket',
-                    'Penetapan HPS',
-                    'Pembuatan SPK',
-                    'Penerimaan',
-                    'Pembayaran'
-                ];
-                return titles[step - 1] || 'Siklus';
-            },
-
-            getStepColor(step) {
-                if (!this.selectedItem) return 'bg-slate-100 text-slate-400';
-                
-                const st = (this.selectedItem.status_permohonan || this.selectedItem.status || '').toLowerCase();
-                if (st === 'disetujui' || st === 'selesai') {
-                    return 'bg-emerald-500 text-white shadow-emerald-500/20';
-                } else if (step <= 2) {
-                    return 'bg-[#0969da] text-white shadow-blue-500/20';
-                } else {
-                    return 'bg-slate-100 text-slate-400';
-                }
-            }
-        };
-    }
-</script>
 @endsection

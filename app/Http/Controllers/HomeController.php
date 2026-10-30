@@ -16,6 +16,7 @@ use App\Models\PermohonanPengadaan;
 use App\Models\Reminder;
 use App\Models\ReviuDokumen;
 use App\Models\RiwayatPenugasanPPK;
+use App\Models\Role;
 use App\Models\TransaksiPencairan;
 use App\Models\Unit;
 use App\Models\User;
@@ -71,7 +72,7 @@ class HomeController extends Controller
         $stats = [
             'total_units' => Unit::count(),
             'total_permohonan' => PermohonanPengadaan::count(),
-            'total_anggaran' => AnggaranMAK::sum('pagu_anggaran'),
+            'total_anggaran' => (float) (AnggaranMAK::sum('pagu_anggaran') ?? 0),
             'total_paket' => PaketPengadaan::count(),
             'total_vendor' => Vendor::count(),
         ];
@@ -100,7 +101,183 @@ class HomeController extends Controller
 
         $units = Unit::all();
 
-        return view('dashboard.tes_index', compact('user', 'stats', 'recentPermohonan', 'recentPaket', 'notifications', 'units'));
+        // Data spesifik per peran (dieksekusi terisolasi sesuai peran aktif pengguna)
+        $roleData = $user ? $this->getRoleDashboardData($user) : [];
+
+        // Perkaya $stats dengan statistik spesifik peran untuk kemudahan akses Blade
+        if (! empty($roleData['stats'])) {
+            $stats = array_merge($stats, $roleData['stats']);
+        }
+
+        return view('dashboard.index', compact('user', 'stats', 'recentPermohonan', 'recentPaket', 'notifications', 'units', 'roleData'));
+    }
+
+    /**
+     * Mengambil data statistik dan antrean spesifik untuk peran pengguna yang sedang aktif.
+     *
+     * @return array<string, mixed>
+     */
+    protected function getRoleDashboardData(User $user): array
+    {
+        return match ($user->role) {
+            'admin' => [
+                'stats' => [
+                    'pending_registrations' => User::where('status_registrasi', 'menunggu_persetujuan')->count(),
+                    'active_users' => User::where('status_aktif', true)->count(),
+                    'total_roles' => Role::count(),
+                    'total_units' => Unit::count(),
+                ],
+                'pending_users' => User::with('unit')->where('status_registrasi', 'menunggu_persetujuan')->latest('created_at')->take(5)->get(),
+                'roles_summary' => Role::withCount('users')->take(6)->get(),
+            ],
+            'user' => [
+                'stats' => [
+                    'total_usulan' => PermohonanPengadaan::where('id_user', $user->id_user)->count(),
+                    'usulan_proses' => PermohonanPengadaan::where('id_user', $user->id_user)->whereIn('status_permohonan', ['diajukan', 'reviu_paralel', 'pending_anggaran'])->count(),
+                    'usulan_disetujui' => PermohonanPengadaan::where('id_user', $user->id_user)->where('status_permohonan', 'disetujui')->count(),
+                    'usulan_revisi' => PermohonanPengadaan::where('id_user', $user->id_user)->where('status_permohonan', 'ditolak')->count(),
+                    'usulan_selesai' => PermohonanPengadaan::where('id_user', $user->id_user)->where('status_permohonan', 'selesai')->count(),
+                ],
+                'revisi_alerts' => PermohonanPengadaan::where('id_user', $user->id_user)
+                    ->where('status_permohonan', 'ditolak')
+                    ->latest('updated_at')
+                    ->take(3)
+                    ->get(),
+            ],
+            'staff_bidang_2' => [
+                'stats' => [
+                    'menunggu_telaah' => PermohonanPengadaan::where('status_permohonan', 'diajukan')->count(),
+                    'reviu_paralel' => PermohonanPengadaan::where('status_permohonan', 'reviu_paralel')->count(),
+                    'selesai_telaah' => VerifikasiParalel::where('role_verifikator', 'staff_bidang_2')->where('status_keputusan', 'disetujui')->count(),
+                    'total_berkas' => PermohonanPengadaan::count(),
+                ],
+                'antrean_telaah' => PermohonanPengadaan::with(['unit', 'user'])
+                    ->where('status_permohonan', 'diajukan')
+                    ->latest('tanggal_pengajuan')
+                    ->take(5)
+                    ->get(),
+            ],
+            'wadir_2' => [
+                'stats' => [
+                    'menunggu_persetujuan' => PermohonanPengadaan::whereIn('status_permohonan', ['diajukan', 'reviu_paralel'])->count(),
+                    'memo_bayar_pending' => MemoBayar::where('role_approver', 'wadir_2')->where('status_memo', 'diajukan')->count(),
+                    'total_disetujui' => PermohonanPengadaan::where('status_permohonan', 'disetujui')->count(),
+                    'total_ditolak' => PermohonanPengadaan::where('status_permohonan', 'ditolak')->count(),
+                ],
+                'antrean_disposisi' => PermohonanPengadaan::with(['unit', 'user'])
+                    ->whereIn('status_permohonan', ['diajukan', 'reviu_paralel'])
+                    ->latest('tanggal_pengajuan')
+                    ->take(5)
+                    ->get(),
+                'antrean_memo_bayar' => MemoBayar::with(['pembayaran.paket.vendor', 'user'])
+                    ->where('role_approver', 'wadir_2')
+                    ->where('status_memo', 'diajukan')
+                    ->latest('created_at')
+                    ->take(5)
+                    ->get(),
+            ],
+            'perencanaan' => [
+                'stats' => [
+                    'total_pagu_dipa' => (float) AnggaranMAK::sum('pagu_anggaran'),
+                    'pagu_teralokasi' => (float) AnggaranMAK::sum(DB::raw('pagu_anggaran - sisa_pagu_mak')),
+                    'sisa_pagu_dipa' => (float) AnggaranMAK::sum('sisa_pagu_mak'),
+                    'menunggu_mak' => PermohonanPengadaan::whereIn('status_permohonan', ['diajukan', 'reviu_paralel', 'pending_anggaran'])->whereNull('kode_mak')->count(),
+                    'mak_locked' => AnggaranMAK::where('is_locked', true)->count(),
+                ],
+                'antrean_mak' => PermohonanPengadaan::with(['unit', 'user'])
+                    ->whereIn('status_permohonan', ['diajukan', 'reviu_paralel', 'pending_anggaran'])
+                    ->whereNull('kode_mak')
+                    ->latest('tanggal_pengajuan')
+                    ->take(5)
+                    ->get(),
+                'daftar_mak' => AnggaranMAK::latest('updated_at')->take(5)->get(),
+            ],
+            'ppbj' => [
+                'stats' => [
+                    'total_paket' => PaketPengadaan::where('status_paket', 'terdaftar')->count(),
+                    'routing_langsung' => PaketPengadaan::where('jalur_routing', 'langsung_sd_50jt')->count(),
+                    'routing_pp' => PaketPengadaan::where('jalur_routing', 'pp_50jt_sd_200jt')->count(),
+                    'routing_ppk' => PaketPengadaan::where('jalur_routing', 'ppk_diatas_200jt')->count(),
+                    'belum_spk' => PaketPengadaan::whereDoesntHave('kontrakSpk')->count(),
+                    'usulan_siap_paket' => PermohonanPengadaan::where('status_permohonan', 'disetujui')->whereDoesntHave('paketPengadaan')->count(),
+                ],
+                'siap_paket' => PermohonanPengadaan::with('unit')
+                    ->where('status_permohonan', 'disetujui')
+                    ->whereDoesntHave('paketPengadaan')
+                    ->latest('tanggal_pengajuan')
+                    ->take(5)
+                    ->get(),
+            ],
+            'pp' => [
+                'stats' => [
+                    'total_paket_pp' => PaketPengadaan::where('jalur_routing', 'pp_50jt_sd_200jt')->orWhere('id_user_pp', $user->id_user)->count(),
+                    'paket_negosiasi' => PaketPengadaan::where(fn ($q) => $q->where('jalur_routing', 'pp_50jt_sd_200jt')->orWhere('id_user_pp', $user->id_user))->where('status_paket', 'terdaftar')->count(),
+                    'paket_spk' => PaketPengadaan::where(fn ($q) => $q->where('jalur_routing', 'pp_50jt_sd_200jt')->orWhere('id_user_pp', $user->id_user))->where('status_paket', 'spk_terbit')->count(),
+                    'paket_selesai' => PaketPengadaan::where(fn ($q) => $q->where('jalur_routing', 'pp_50jt_sd_200jt')->orWhere('id_user_pp', $user->id_user))->where('status_paket', 'selesai')->count(),
+                ],
+                'antrean_negosiasi' => PaketPengadaan::with(['permohonan.unit', 'vendor'])
+                    ->where(fn ($q) => $q->where('jalur_routing', 'pp_50jt_sd_200jt')->orWhere('id_user_pp', $user->id_user))
+                    ->latest('tanggal_registrasi_paket')
+                    ->take(5)
+                    ->get(),
+            ],
+            'ppk' => [
+                'stats' => [
+                    'total_paket_ppk' => PaketPengadaan::where('id_user_ppk', $user->id_user)->count(),
+                    'tender_aktif' => PaketPengadaan::where('id_user_ppk', $user->id_user)->where('jalur_routing', 'ppk_diatas_200jt')->whereIn('status_paket', ['terdaftar', 'proses'])->count(),
+                    'spk_aktif' => PaketPengadaan::where('id_user_ppk', $user->id_user)->whereHas('kontrakSpk')->count(),
+                    'memo_bayar_pending' => MemoBayar::where('role_approver', 'ppk')->where('status_memo', 'diajukan')->whereHas('pembayaran.paket', fn ($q) => $q->where('id_user_ppk', $user->id_user))->count(),
+                ],
+                'paket_komitmen' => PaketPengadaan::with(['permohonan.unit', 'vendor', 'kontrakSpk'])
+                    ->where('id_user_ppk', $user->id_user)
+                    ->latest('tanggal_registrasi_paket')
+                    ->take(5)
+                    ->get(),
+                'antrean_memo' => MemoBayar::with(['pembayaran.paket.vendor'])
+                    ->where('role_approver', 'ppk')
+                    ->where('status_memo', 'diajukan')
+                    ->whereHas('pembayaran.paket', fn ($q) => $q->where('id_user_ppk', $user->id_user))
+                    ->latest('created_at')
+                    ->take(5)
+                    ->get(),
+            ],
+            'perlengkapan' => [
+                'stats' => [
+                    'spk_masuk' => KontrakSPK::where('status_spk', 'aktif')->orWhereNotNull('nomor_spk')->count(),
+                    'belum_diperiksa' => KontrakSPK::whereDoesntHave('paket.penerimaanBarang')->count(),
+                    'total_bast' => PenerimaanBarang::count(),
+                    'belanja_barang' => PenerimaanBarang::where('kategori_belanja', 'belanja_barang')->count(),
+                    'belanja_modal' => PenerimaanBarang::where('kategori_belanja', 'belanja_modal')->count(),
+                ],
+                'jadwal_pengiriman' => KontrakSPK::with(['paket.vendor', 'paket.permohonan.unit'])
+                    ->whereDoesntHave('paket.penerimaanBarang')
+                    ->latest('tanggal_spk')
+                    ->take(5)
+                    ->get(),
+                'bast_terbaru' => PenerimaanBarang::with(['paket.vendor', 'user'])
+                    ->latest('tanggal_penerimaan')
+                    ->take(5)
+                    ->get(),
+            ],
+            'keuangan' => [
+                'stats' => [
+                    'spp_siap_verifikasi' => Pembayaran::where('status_pembayaran', 'pengajuan')->count(),
+                    'sp2d_siap_cair' => Pembayaran::where('status_pembayaran', 'perintah_bayar')->count(),
+                    'total_dana_cair' => (float) (TransaksiPencairan::sum('nominal_transfer') ?? 0),
+                    'transaksi_lunas' => TransaksiPencairan::count(),
+                ],
+                'antrean_tagihan' => Pembayaran::with(['paket.vendor', 'pengaju.unit'])
+                    ->whereIn('status_pembayaran', ['pengajuan', 'perintah_bayar'])
+                    ->latest('tanggal_pengajuan')
+                    ->take(5)
+                    ->get(),
+                'transaksi_cair' => TransaksiPencairan::with(['pembayaran.paket.vendor'])
+                    ->latest('tanggal_transfer')
+                    ->take(5)
+                    ->get(),
+            ],
+            default => [],
+        };
     }
 
     // =========================================================================
@@ -316,6 +493,38 @@ class HomeController extends Controller
         );
     }
 
+    /**
+     * Membatalkan dan menghapus usulan permohonan pengadaan status draft/diajukan/ditolak.
+     */
+    public function destroyPermohonan(string $id): RedirectResponse
+    {
+        $user = Auth::user();
+        $permohonan = PermohonanPengadaan::where('nomor_surat', $id)->firstOrFail();
+
+        if (! $user->hasRole('admin') && (int) $permohonan->id_user !== (int) $user->id_user) {
+            abort(403, 'Akses Ditolak: Anda hanya dapat membatalkan permohonan milik sendiri.');
+        }
+
+        if (! in_array($permohonan->status_permohonan, ['draft', 'diajukan', 'ditolak'])) {
+            return redirect()->route('permohonan.index')->with('error', 'Permohonan yang telah diverifikasi atau diproses paket tidak dapat dibatalkan.');
+        }
+
+        $nomor = $permohonan->nomor_surat;
+        $permohonan->delete();
+
+        AuditLog::catat(
+            $user->id_user,
+            'HAPUS_PERMOHONAN',
+            'permohonan_pengadaan',
+            $nomor,
+            null,
+            'dihapus',
+            "Pembatalan dan penghapusan usulan permohonan nomor {$nomor} oleh {$user->nama}"
+        );
+
+        return redirect()->route('permohonan.index')->with('success', "Usulan permohonan nomor {$nomor} berhasil dibatalkan dan dihapus.");
+    }
+
     // =========================================================================
     // MODUL 2: VERIFIKASI BIDANG 2 & KEPUTUSAN MUTLAK WADIR 2 (FR 5)
     // =========================================================================
@@ -398,13 +607,18 @@ class HomeController extends Controller
 
         $validated = $request->validate([
             'nomor_surat' => ['required', 'exists:permohonan_pengadaan,nomor_surat'],
-            'keputusan' => ['required', 'in:disetujui,ditolak'],
-            'catatan_alasan' => ['required_if:keputusan,ditolak', 'nullable', 'string'],
+            'keputusan' => ['required', 'in:disetujui,ditolak,revisi'],
+            'catatan_alasan' => ['required_if:keputusan,ditolak,revisi', 'nullable', 'string'],
         ], [
-            'catatan_alasan.required_if' => 'Catatan alasan penolakan/revisi wajib diisi saat Wadir 2 menolak usulan (FR 5.3).',
+            'catatan_alasan.required_if' => 'Catatan alasan penolakan/revisi wajib diisi saat Wadir 2 menolak atau meminta revisi usulan (FR 5.3).',
         ]);
 
         $permohonan = PermohonanPengadaan::findOrFail($validated['nomor_surat']);
+
+        if (! in_array($permohonan->status_permohonan, [PermohonanPengadaan::STATUS_DIAJUKAN, PermohonanPengadaan::STATUS_REVIU_PARALEL], true)) {
+            return redirect()->route('verifikasi.wadir-2')
+                ->with('error', 'Permohonan yang telah disetujui atau diproses lanjut tidak dapat diubah keputusannya.');
+        }
 
         // Simpan keputusan pada tabel verifikasi_paralel
         $verifWadir = VerifikasiParalel::firstOrCreate(
@@ -416,6 +630,31 @@ class HomeController extends Controller
         $verifWadir->catatan_alasan = $validated['catatan_alasan'];
         $verifWadir->tanggal_keputusan = now();
         $verifWadir->save();
+
+        if ($validated['keputusan'] === 'revisi') {
+            $permohonan->status = 'perlu_revisi';
+            $permohonan->status_permohonan = 'perlu_revisi';
+            $permohonan->alasan_revisi = $validated['catatan_alasan'];
+            $permohonan->save();
+
+            AuditLog::catat(
+                $user->id_user,
+                'WADIR2_MINTA_REVISI',
+                'permohonan_pengadaan',
+                $permohonan->nomor_surat,
+                'reviu_paralel',
+                'perlu_revisi',
+                "Wadir 2 meminta revisi usulan permohonan dengan catatan: {$validated['catatan_alasan']}"
+            );
+
+            // Memicu notifikasi revisi ke pengusul
+            $this->notificationService->notifyKeputusanWadir2($permohonan, 'revisi', $validated['catatan_alasan']);
+
+            return redirect()->route('verifikasi.wadir-2')->with(
+                'success',
+                "Permintaan revisi usulan {$permohonan->nomor_surat} telah disimpan dan dikembalikan ke pengusul."
+            );
+        }
 
         if ($validated['keputusan'] === 'ditolak') {
             $permohonan->status = 'ditolak';
@@ -591,65 +830,86 @@ class HomeController extends Controller
             );
         }
 
-        // Catat alokasi MAK
-        AlokasiMAK::updateOrCreate(
-            ['nomor_surat' => $permohonan->nomor_surat, 'kode_mak' => $mak->kode_mak],
-            ['nominal_alokasi' => $validated['nominal_alokasi']]
-        );
-
-        // Kurangi sisa pagu MAK
-        if ($mak->sisa_pagu_mak >= $validated['nominal_alokasi']) {
-            $mak->sisa_pagu_mak -= $validated['nominal_alokasi'];
-            $mak->save();
+        // Integritas Anggaran MAK: Cegah alokasi jika MAK terkunci atau melebihi sisa pagu bebas
+        if ($mak->is_locked) {
+            return back()->with('error', "Mata Anggaran Kegiatan (MAK) {$mak->kode_mak} telah dikunci permanen.")->withInput();
         }
 
-        // Catat persetujuan verifikasi paralel Perencanaan
-        $verifPerencanaan = VerifikasiParalel::firstOrCreate(
-            ['nomor_surat' => $permohonan->nomor_surat, 'role_verifikator' => 'perencanaan'],
-            ['id_user' => $user->id_user, 'status_keputusan' => 'menunggu']
-        );
-        $verifPerencanaan->status_keputusan = 'disetujui';
-        $verifPerencanaan->catatan_alasan = $validated['catatan_anggaran'] ?? 'Pagu anggaran DIPA dialokasikan penuh.';
-        $verifPerencanaan->tanggal_keputusan = now();
-        $verifPerencanaan->save();
+        $nominalAlokasi = (float) $validated['nominal_alokasi'];
+        $sisaPagu = (float) $mak->sisa_pagu_mak;
 
-        // Evaluasi apakah Wadir 2 juga sudah menyetujui
-        $wadirAcc = VerifikasiParalel::where('nomor_surat', $permohonan->nomor_surat)
-            ->where('role_verifikator', 'wadir_2')
-            ->where('status_keputusan', 'disetujui')
-            ->exists();
+        if (round($nominalAlokasi, 2) > round($sisaPagu, 2)) {
+            return back()->with('error', 'Nominal alokasi melebihi sisa pagu MAK yang tersedia.')->withInput();
+        }
 
-        if ($wadirAcc) {
-            $permohonan->status = 'disetujui';
-            $permohonan->status_permohonan = PermohonanPengadaan::STATUS_DISETUJUI;
-            $permohonan->save();
-
-            AuditLog::catat(
-                $user->id_user,
-                'ALOKASI_MAK_DISETUJUI_PENUH',
-                'permohonan_pengadaan',
-                $permohonan->nomor_surat,
-                'reviu_paralel',
-                'disetujui',
-                "MAK {$mak->kode_mak} berhasil dialokasikan, usulan disetujui penuh dan diteruskan ke PPBJ."
+        return DB::transaction(function () use ($validated, $permohonan, $mak, $user, $nominalAlokasi) {
+            // Catat alokasi MAK
+            AlokasiMAK::updateOrCreate(
+                ['nomor_surat' => $permohonan->nomor_surat, 'kode_mak' => $mak->kode_mak],
+                [
+                    'nominal_alokasi' => $nominalAlokasi,
+                    'tanggal_alokasi' => now(),
+                ]
             );
 
-            // Memicu notifikasi persetujuan penuh ke Pengusul dan Seluruh PPBJ
+            // Kurangi sisa pagu MAK
+            $mak->sisa_pagu_mak = max(0, (float) $mak->sisa_pagu_mak - $nominalAlokasi);
+            $mak->save();
+
+            // Perbarui kode_mak dan status anggaran usulan
+            $permohonan->kode_mak = $mak->kode_mak;
+            $permohonan->status_anggaran = 'allocated';
+
+            // Catat persetujuan verifikasi paralel Perencanaan
+            $verifPerencanaan = VerifikasiParalel::firstOrCreate(
+                ['nomor_surat' => $permohonan->nomor_surat, 'role_verifikator' => 'perencanaan'],
+                ['id_user' => $user->id_user, 'status_keputusan' => 'menunggu']
+            );
+            $verifPerencanaan->status_keputusan = 'disetujui';
+            $verifPerencanaan->catatan_alasan = $validated['catatan_anggaran'] ?? 'Pagu anggaran DIPA dialokasikan penuh.';
+            $verifPerencanaan->tanggal_keputusan = now();
+            $verifPerencanaan->save();
+
+            // Evaluasi apakah Wadir 2 juga sudah menyetujui
+            $wadirAcc = VerifikasiParalel::where('nomor_surat', $permohonan->nomor_surat)
+                ->where('role_verifikator', 'wadir_2')
+                ->where('status_keputusan', 'disetujui')
+                ->exists();
+
+            if ($wadirAcc) {
+                $permohonan->status = 'disetujui';
+                $permohonan->status_permohonan = PermohonanPengadaan::STATUS_DISETUJUI;
+                $permohonan->save();
+
+                AuditLog::catat(
+                    $user->id_user,
+                    'ALOKASI_MAK_DISETUJUI_PENUH',
+                    'permohonan_pengadaan',
+                    $permohonan->nomor_surat,
+                    'reviu_paralel',
+                    'disetujui',
+                    "MAK {$mak->kode_mak} berhasil dialokasikan, usulan disetujui penuh dan diteruskan ke PPBJ."
+                );
+
+                // Memicu notifikasi persetujuan penuh ke Pengusul dan Seluruh PPBJ
+                $this->notificationService->notifyAlokasiMak($permohonan, $mak, 'setuju');
+
+                return redirect()->route('verifikasi.perencanaan')->with(
+                    'success',
+                    "MAK {$mak->kode_mak} berhasil dialokasikan. Usulan kini berstatus DISETUJUI dan siap diproses PPBJ."
+                );
+            }
+
+            $permohonan->save();
+
+            // Memicu notifikasi ke Wadir 2: MAK sudah dialokasikan, menunggu ACC Wadir 2
             $this->notificationService->notifyAlokasiMak($permohonan, $mak, 'setuju');
 
             return redirect()->route('verifikasi.perencanaan')->with(
                 'success',
-                "MAK {$mak->kode_mak} berhasil dialokasikan. Usulan kini berstatus DISETUJUI dan siap diproses PPBJ."
+                "MAK {$mak->kode_mak} berhasil dialokasikan. Menunggu penyelesaian persetujuan eksekutif Wadir II."
             );
-        }
-
-        // Memicu notifikasi ke Wadir 2: MAK sudah dialokasikan, menunggu ACC Wadir 2
-        $this->notificationService->notifyAlokasiMak($permohonan, $mak, 'setuju');
-
-        return redirect()->route('verifikasi.perencanaan')->with(
-            'success',
-            "MAK {$mak->kode_mak} berhasil dialokasikan. Menunggu penyelesaian persetujuan eksekutif Wadir II."
-        );
+        });
     }
 
     /**
@@ -659,6 +919,76 @@ class HomeController extends Controller
     {
         $user = Auth::user();
         $nomorInduk = $request->input('nomor_surat_induk');
+
+        if ($request->has('items') && is_array($request->input('items'))) {
+            $validated = $request->validate([
+                'nomor_surat_induk' => ['required', 'exists:permohonan_pengadaan,nomor_surat'],
+                'alasan_pemecahan' => ['required', 'string'],
+                'items' => ['required', 'array', 'min:2'],
+                'items.*.nomor_surat_pecahan' => ['required', 'string', 'max:100', 'distinct', 'unique:permohonan_pengadaan,nomor_surat'],
+                'items.*.judul_pengadaan' => ['required', 'string', 'max:255'],
+                'items.*.kode_mak' => ['required', 'exists:anggaran_mak,kode_mak'],
+                'items.*.estimasi_pagu_pecahan' => ['required', 'numeric', 'min:1'],
+            ]);
+
+            $induk = PermohonanPengadaan::findOrFail($validated['nomor_surat_induk']);
+            $totalSplit = array_sum(array_column($validated['items'], 'estimasi_pagu_pecahan'));
+
+            if ($totalSplit > (float) ($induk->estimasi_total_pagu ?? $induk->anggaran_diajukan)) {
+                return back()->with('error', 'Total alokasi pagu pecahan melebihi pagu usulan induk.')->withInput();
+            }
+
+            DB::transaction(function () use ($validated, $induk, $user, $totalSplit) {
+                $induk->estimasi_total_pagu = max(0, (float) ($induk->estimasi_total_pagu ?? 0) - $totalSplit);
+                $induk->save();
+
+                foreach ($validated['items'] as $item) {
+                    $anak = PermohonanPengadaan::create([
+                        'nomor_surat' => $item['nomor_surat_pecahan'],
+                        'judul_pengadaan' => $item['judul_pengadaan'],
+                        'tujuan_pengadaan_ringkas' => $induk->tujuan_pengadaan_ringkas,
+                        'file_permohonan' => $induk->file_permohonan,
+                        'status_permohonan' => PermohonanPengadaan::STATUS_REVIU_PARALEL,
+                        'status_anggaran' => 'pending',
+                        'revisi_ke' => 0,
+                        'estimasi_total_pagu' => $item['estimasi_pagu_pecahan'],
+                        'kode_unit' => $induk->kode_unit,
+                        'id_user' => $induk->id_user,
+                        'nomor_surat_induk_split' => $induk->nomor_surat,
+                        'tanggal_pemecahan' => now(),
+                        'alasan_pemecahan' => $validated['alasan_pemecahan'],
+                        'kode_mak' => $item['kode_mak'],
+                    ]);
+
+                    VerifikasiParalel::create([
+                        'id_user' => $anak->id_user,
+                        'nomor_surat' => $anak->nomor_surat,
+                        'role_verifikator' => 'perencanaan',
+                        'status_keputusan' => 'menunggu',
+                    ]);
+
+                    VerifikasiParalel::create([
+                        'id_user' => $anak->id_user,
+                        'nomor_surat' => $anak->nomor_surat,
+                        'role_verifikator' => 'wadir_2',
+                        'status_keputusan' => 'menunggu',
+                    ]);
+
+                    AuditLog::catat(
+                        $user->id_user,
+                        'SPLIT_PERMOHONAN_MAK',
+                        'permohonan_pengadaan',
+                        $anak->nomor_surat,
+                        $induk->nomor_surat,
+                        PermohonanPengadaan::STATUS_REVIU_PARALEL,
+                        "Pemecahan usulan MAK {$item['kode_mak']} (FR 6.3): {$validated['alasan_pemecahan']}"
+                    );
+                }
+            });
+
+            return redirect()->route('verifikasi.perencanaan')
+                ->with('success', 'Usulan permohonan berhasil dipecah menjadi '.count($validated['items']).' berkas pecahan baru.');
+        }
         if (! $request->filled('nomor_surat_baru') && $nomorInduk) {
             $countChild = PermohonanPengadaan::where('nomor_surat_induk_split', $nomorInduk)->count();
             $request->merge(['nomor_surat_baru' => $nomorInduk.'.'.($countChild + 1)]);
@@ -682,53 +1012,63 @@ class HomeController extends Controller
         ]);
 
         $induk = PermohonanPengadaan::findOrFail($validated['nomor_surat_induk']);
-
-        // Kurangi pagu permohonan induk
         $nominalSplit = (float) $validated['estimasi_total_pagu'];
-        $induk->estimasi_total_pagu = max(0, (float) ($induk->estimasi_total_pagu ?? 0) - $nominalSplit);
-        $induk->save();
+        $paguInduk = (float) ($induk->estimasi_total_pagu ?? $induk->anggaran_diajukan ?? 0);
 
-        $anak = PermohonanPengadaan::create([
-            'nomor_surat' => $validated['nomor_surat_baru'],
-            'judul_pengadaan' => $validated['judul_pengadaan'],
-            'tujuan_pengadaan_ringkas' => $induk->tujuan_pengadaan_ringkas,
-            'file_permohonan' => $induk->file_permohonan,
-            'status_permohonan' => PermohonanPengadaan::STATUS_REVIU_PARALEL,
-            'status_anggaran' => 'pending',
-            'revisi_ke' => 0,
-            'estimasi_total_pagu' => $validated['estimasi_total_pagu'],
-            'kode_unit' => $induk->kode_unit,
-            'id_user' => $induk->id_user,
-            'nomor_surat_induk_split' => $induk->nomor_surat,
-            'tanggal_pemecahan' => now(),
-            'alasan_pemecahan' => $validated['alasan_pemecahan'],
-            'kode_mak' => $validated['kode_mak'],
-        ]);
+        // Batas Atas Integritas Anggaran: Alokasi pecahan dilarang melebihi pagu usulan induk
+        if (round($nominalSplit, 2) > round($paguInduk, 2)) {
+            return back()->with('error', 'Alokasi pagu pecahan melebihi pagu usulan induk.')->withInput();
+        }
 
-        // Inisialisasi verifikasi paralel untuk surat pecahan baru
-        VerifikasiParalel::create([
-            'id_user' => $anak->id_user,
-            'nomor_surat' => $anak->nomor_surat,
-            'role_verifikator' => 'perencanaan',
-            'status_keputusan' => 'menunggu',
-        ]);
+        $anak = DB::transaction(function () use ($validated, $induk, $nominalSplit, $paguInduk, $user) {
+            // Kurangi pagu permohonan induk
+            $induk->estimasi_total_pagu = max(0, $paguInduk - $nominalSplit);
+            $induk->save();
 
-        VerifikasiParalel::create([
-            'id_user' => $anak->id_user,
-            'nomor_surat' => $anak->nomor_surat,
-            'role_verifikator' => 'wadir_2',
-            'status_keputusan' => 'menunggu',
-        ]);
+            $anak = PermohonanPengadaan::create([
+                'nomor_surat' => $validated['nomor_surat_baru'],
+                'judul_pengadaan' => $validated['judul_pengadaan'],
+                'tujuan_pengadaan_ringkas' => $induk->tujuan_pengadaan_ringkas,
+                'file_permohonan' => $induk->file_permohonan,
+                'status_permohonan' => PermohonanPengadaan::STATUS_REVIU_PARALEL,
+                'status_anggaran' => 'pending',
+                'revisi_ke' => 0,
+                'estimasi_total_pagu' => $validated['estimasi_total_pagu'],
+                'kode_unit' => $induk->kode_unit,
+                'id_user' => $induk->id_user,
+                'nomor_surat_induk_split' => $induk->nomor_surat,
+                'tanggal_pemecahan' => now(),
+                'alasan_pemecahan' => $validated['alasan_pemecahan'],
+                'kode_mak' => $validated['kode_mak'],
+            ]);
 
-        AuditLog::catat(
-            $user->id_user,
-            'SPLIT_PERMOHONAN_MAK',
-            'permohonan_pengadaan',
-            $anak->nomor_surat,
-            $induk->nomor_surat,
-            PermohonanPengadaan::STATUS_REVIU_PARALEL,
-            'Pemecahan usulan permohonan oleh Perencanaan berdasarkan MAK '.$validated['kode_mak'].' (FR 6.3 & NFR 9): '.$validated['alasan_pemecahan']
-        );
+            // Inisialisasi verifikasi paralel untuk surat pecahan baru
+            VerifikasiParalel::create([
+                'id_user' => $anak->id_user,
+                'nomor_surat' => $anak->nomor_surat,
+                'role_verifikator' => 'perencanaan',
+                'status_keputusan' => 'menunggu',
+            ]);
+
+            VerifikasiParalel::create([
+                'id_user' => $anak->id_user,
+                'nomor_surat' => $anak->nomor_surat,
+                'role_verifikator' => 'wadir_2',
+                'status_keputusan' => 'menunggu',
+            ]);
+
+            AuditLog::catat(
+                $user->id_user,
+                'SPLIT_PERMOHONAN_MAK',
+                'permohonan_pengadaan',
+                $anak->nomor_surat,
+                $induk->nomor_surat,
+                PermohonanPengadaan::STATUS_REVIU_PARALEL,
+                'Pemecahan usulan permohonan oleh Perencanaan berdasarkan MAK '.$validated['kode_mak'].' (FR 6.3 & NFR 9): '.$validated['alasan_pemecahan']
+            );
+
+            return $anak;
+        });
 
         return redirect()->route('verifikasi.perencanaan')->with(
             'success',
@@ -752,12 +1092,41 @@ class HomeController extends Controller
             $query->forUser($user);
         }
 
+        if ($request->filled('q') || $request->filled('search')) {
+            $kw = $request->input('q', $request->input('search'));
+            $query->where(function ($q) use ($kw) {
+                $q->where('nomor_paket', 'like', "%{$kw}%")
+                    ->orWhere('nama_paket', 'like', "%{$kw}%")
+                    ->orWhere('nomor_surat', 'like', "%{$kw}%");
+            });
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status_paket', $request->input('status'));
+        }
+
+        if ($request->filled('jalur_routing')) {
+            $query->where('jalur_routing', $request->input('jalur_routing'));
+        }
+
+        if ($request->filled('jenis_pengadaan')) {
+            $query->where('jenis_pengadaan', $request->input('jenis_pengadaan'));
+        }
+
         $paketList = $query->latest('tanggal_registrasi_paket')->paginate(15);
         $ppkUsers = User::where('role', 'ppk')->where('status_aktif', true)->get();
         $riwayatPenugasan = RiwayatPenugasanPPK::with(['ppkLama', 'ppkBaru', 'userPenetap'])->latest()->take(20)->get();
         $permohonanDisetujui = PermohonanPengadaan::where('status_permohonan', PermohonanPengadaan::STATUS_DISETUJUI)->get();
 
-        return view('paket.tes_index', compact('paketList', 'ppkUsers', 'riwayatPenugasan', 'permohonanDisetujui'));
+        $stats = [
+            'total_paket' => PaketPengadaan::count(),
+            'routing_langsung' => PaketPengadaan::where('jalur_routing', PaketPengadaan::ROUTING_LANGSUNG)->count(),
+            'routing_pp' => PaketPengadaan::where('jalur_routing', PaketPengadaan::ROUTING_PP)->count(),
+            'routing_ppk' => PaketPengadaan::where('jalur_routing', PaketPengadaan::ROUTING_PPK)->count(),
+            'belum_spk' => PaketPengadaan::whereDoesntHave('kontrakSpk')->count(),
+        ];
+
+        return view('paket.index', compact('paketList', 'stats', 'ppkUsers', 'riwayatPenugasan', 'permohonanDisetujui'));
     }
 
     /**
@@ -833,7 +1202,7 @@ class HomeController extends Controller
         $ppkUsers = User::where('role', 'ppk')->where('status_aktif', true)->get();
         $ppUsers = User::where('role', 'pp')->where('status_aktif', true)->get();
 
-        return view('paket.tes_create', compact('permohonanDisetujui', 'ppkUsers', 'ppUsers'));
+        return view('paket.create', compact('permohonanDisetujui', 'ppkUsers', 'ppUsers'));
     }
 
     /**
@@ -976,6 +1345,61 @@ class HomeController extends Controller
         );
     }
 
+    /**
+     * Menampilkan detail siklus paket pengadaan secara komprehensif (Feature 23).
+     */
+    public function paketShow(Request $request, string $id): View
+    {
+        $paket = PaketPengadaan::with([
+            'permohonan.unit',
+            'ppbjUser',
+            'ppkUser',
+            'ppUser',
+            'vendor',
+            'riwayatPpk.ppkLama',
+            'riwayatPpk.ppkBaru',
+            'riwayatPpk.diubahOleh',
+            'kontrakSpk',
+            'penerimaanBarang',
+            'pembayaran',
+        ])->where('nomor_paket', $id)->firstOrFail();
+
+        $user = Auth::user();
+        if ($user && $user->cannot('view', $paket)) {
+            abort(403, 'Akses Ditolak: Berkas paket pengadaan ini ditugaskan kepada PPK lain (Isolasi Berkas PPK).');
+        }
+
+        $ppkUsers = User::where('role', 'ppk')->where('status_aktif', true)->get();
+
+        return view('paket.show', compact('paket', 'ppkUsers'));
+    }
+
+    /**
+     * Menampilkan form pemecahan jenis pengadaan (standalone page).
+     */
+    public function splitJenisCreate(): View
+    {
+        $permohonanDisetujui = PermohonanPengadaan::where('status_permohonan', PermohonanPengadaan::STATUS_DISETUJUI)->get();
+
+        return view('paket.split_jenis', compact('permohonanDisetujui'));
+    }
+
+    /**
+     * Menampilkan form alih tugas PPK (standalone page).
+     */
+    public function reassignPpkCreate(Request $request): View
+    {
+        $user = Auth::user();
+        $query = PaketPengadaan::with(['ppkUser']);
+        if ($user) {
+            $query->forUser($user);
+        }
+        $paketList = $query->get();
+        $ppkUsers = User::where('role', 'ppk')->where('status_aktif', true)->get();
+
+        return view('paket.reassign', compact('paketList', 'ppkUsers'));
+    }
+
     // =========================================================================
     // MODUL 5: KONTRAK SPK (PEJABAT PENGADAAN & 4 AKUN PPK TERISOLASI)
     // =========================================================================
@@ -983,7 +1407,7 @@ class HomeController extends Controller
     /**
      * Menampilkan daftar paket penugasan dan penerbitan Kontrak SPK.
      */
-    public function kontrakIndex(): View
+    public function kontrakIndex(Request $request): View
     {
         $user = Auth::user();
         $paketQuery = PaketPengadaan::with(['permohonan', 'ppkUser', 'ppUser']);
@@ -998,6 +1422,22 @@ class HomeController extends Controller
         if ($user) {
             $kontrakQuery->forUser($user);
         }
+
+        if ($request->filled('q') || $request->filled('search')) {
+            $kw = $request->input('q', $request->input('search'));
+            $kontrakQuery->where(function ($q) use ($kw) {
+                $q->where('nomor_spk', 'like', "%{$kw}%")
+                    ->orWhere('nomor_paket', 'like', "%{$kw}%")
+                    ->orWhereHas('vendor', function ($vq) use ($kw) {
+                        $vq->where('nama_vendor', 'like', "%{$kw}%");
+                    });
+            });
+        }
+
+        if ($request->filled('status_spk')) {
+            $kontrakQuery->where('status_spk', $request->input('status_spk'));
+        }
+
         $kontrakList = $kontrakQuery->latest()->paginate(15);
         $vendors = Vendor::all();
 
@@ -1008,7 +1448,14 @@ class HomeController extends Controller
         }
         $paketReviu = $reviuQuery->whereIn('status_paket', ['terdaftar', 'reviu_dokumen', 'perlu_perbaikan', 'reviu_dokumen_disetujui'])->get();
 
-        return view('kontrak.tes_index', compact('paketList', 'kontrakList', 'vendors', 'paketReviu'));
+        $stats = [
+            'total_spk' => KontrakSPK::count(),
+            'total_nilai' => (float) KontrakSPK::sum('nilai_kontrak'),
+            'antrean_reviu' => $paketReviu->count(),
+            'siap_spk' => $paketList->whereIn('status_paket', ['reviu_dokumen_disetujui', 'terdaftar'])->count(),
+        ];
+
+        return view('kontrak.index', compact('paketList', 'kontrakList', 'vendors', 'paketReviu', 'stats'));
     }
 
     /**
@@ -1027,6 +1474,9 @@ class HomeController extends Controller
             'tanggal_selesai' => ['required', 'date', 'after_or_equal:tanggal_mulai'],
             'catatan_spk' => ['nullable', 'string'],
             'file_spk' => ['nullable', DokumenUploadRule::pdfOnly()],
+            'tipe_dokumen' => ['nullable', 'string'],
+            'sifat_kontrak' => ['nullable', 'string'],
+            'jadwal_pengiriman' => ['nullable', 'date'],
         ]);
 
         $paket = PaketPengadaan::where('nomor_paket', $validated['kode_paket'])
@@ -1046,13 +1496,13 @@ class HomeController extends Controller
             'nomor_kontrak_spk' => $validated['nomor_kontrak_spk'],
             'nomor_paket' => $paket->nomor_paket,
             'id_user' => $user->id_user,
-            'tipe_dokumen' => 'SPK',
-            'sifat_kontrak' => 'lump_sum',
+            'tipe_dokumen' => $validated['tipe_dokumen'] ?? 'SPK',
+            'sifat_kontrak' => $validated['sifat_kontrak'] ?? 'lump_sum',
             'status_spk' => 'aktif',
             'tanggal_spk' => now(),
             'tanggal_mulai' => $validated['tanggal_mulai'],
             'tanggal_selesai' => $validated['tanggal_selesai'],
-            'jadwal_pengiriman' => $validated['tanggal_selesai'],
+            'jadwal_pengiriman' => $validated['jadwal_pengiriman'] ?? $validated['tanggal_selesai'],
             'nilai_kontrak' => $validated['nilai_kontrak'],
             'file_spk' => $fileSpkPath,
         ]);
@@ -1163,9 +1613,9 @@ class HomeController extends Controller
     public function penerimaanIndex(): View
     {
         $kontrakList = KontrakSPK::with(['paket.vendor'])->whereIn('status_spk', ['aktif', 'terbit'])->get();
-        $bastList = PenerimaanBarang::with(['kontrak', 'paket'])->latest()->paginate(15);
+        $bastList = PenerimaanBarang::with(['kontrak', 'paket', 'fotoDokumentasi'])->latest()->paginate(15);
 
-        return view('penerimaan.tes_index', compact('kontrakList', 'bastList'));
+        return view('penerimaan.index', compact('kontrakList', 'bastList'));
     }
 
     /**
@@ -1320,7 +1770,7 @@ class HomeController extends Controller
         // 6. Daftar transaksi SP2D yang telah dicairkan oleh Keuangan
         $transaksiList = TransaksiPencairan::with(['pembayaran.paket', 'user'])->latest('tanggal_transfer')->paginate(15);
 
-        return view('pembayaran.tes_index', compact(
+        return view('pembayaran.index', compact(
             'bastSiapBayar',
             'pembayaranList',
             'memoMenungguReview',
@@ -1568,7 +2018,7 @@ class HomeController extends Controller
             'tanggal_transfer' => $validated['tanggal_cair'],
             'nominal_transfer' => $validated['nominal_cair'],
             'file_bukti_transfer' => $filePath,
-            'catatan_keuangan' => $validated['keterangan_cair'].' [Bank: '.$validated['bank_tujuan'].']',
+            'catatan_keuangan' => ($validated['keterangan_cair'] ?? '').' [Bank: '.$validated['bank_tujuan'].']',
         ]);
 
         AuditLog::catat(
@@ -1689,7 +2139,7 @@ class HomeController extends Controller
             ]);
         }
 
-        return view('laporan.tes_rekapitulasi', compact(
+        return view('laporan.rekapitulasi', compact(
             'tahun',
             'bulan',
             'kodeUnit',
@@ -2070,14 +2520,12 @@ class HomeController extends Controller
     }
 
     public function markAllRead(Request $request)
-{
-    // Contoh update status notifikasi user yang login
-    \App\Models\NotifikasiUser::where('id_user', auth()->id())
-        ->where('is_read', 0)
-        ->update(['is_read' => 1]);
+    {
+        // Contoh update status notifikasi user yang login
+        NotifikasiUser::where('id_user', auth()->id())
+            ->where('is_read', 0)
+            ->update(['is_read' => 1]);
 
-    return redirect()->back()->with('success', 'Semua notifikasi berhasil ditandai dibaca.');
-}
-
-
+        return redirect()->back()->with('success', 'Semua notifikasi berhasil ditandai dibaca.');
+    }
 }

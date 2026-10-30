@@ -3,180 +3,389 @@
 @section('title', 'Detail & Tracking Saya - SIM-PBJ')
 
 @section('content')
-<div class="mx-auto max-w-[1750px]">
+<div class="mx-auto max-w-[1750px] space-y-6">
+    {{-- HEADER --}}
     <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
-            <h1 class="text-[32px] font-normal text-[#689EC2]">
+            <span class="text-xs font-bold uppercase tracking-wider text-[#0969da]">Monitoring Agregat 8 Siklus</span>
+            <h1 class="text-2xl lg:text-3xl font-extrabold text-[#213153] mt-1">
                 {{ Auth::user()->role === 'user' ? 'Detail & Tracking Pengadaan Saya' : 'Monitoring Siklus Pengadaan Institusi' }}
             </h1>
-            <p class="text-sm text-[#657a7c] mt-1 font-normal">
+            <p class="text-sm text-slate-500 mt-1">
                 {{ Auth::user()->role === 'user' ? 'Pelacakan progres berkas usulan pengadaan khusus unit Anda (' . (Auth::user()->unit->nama_unit ?? Auth::user()->kode_unit) . ')' : 'Pemantauan komprehensif alur pengadaan barang dan jasa seluruh unit Politeknik Negeri Jakarta' }}
             </p>
         </div>
+        <div class="flex items-center gap-2">
+            <a href="{{ route('monitoring.index') }}" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors shadow-sm">
+                <svg class="size-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                Refresh Data
+            </a>
+        </div>
     </div>
 
-    {{-- FORM PENCARIAN & FILTER --}}
-    <form action="{{ route('monitoring.index') }}" method="GET" class="mx-auto mt-4 flex max-w-[1632px] flex-wrap items-end gap-6 lg:flex-nowrap">
-        <label class="block min-w-0 flex-1 basis-full lg:basis-0 lg:flex-[940]">
-            <span class="mb-1 block text-2xl text-[#689EC2]">Cari no. surat / judul</span>
-            <input
-                type="text"
-                name="q"
-                value="{{ request('q') ?? request('nomor_surat') }}"
-                placeholder="Cari nomor surat atau perihal..."
-                class="h-12 w-full rounded-[10px] border border-[#1B5B7E] bg-white px-4 text-lg text-black outline-none focus:ring-2 focus:ring-[#689EC2]"
-            />
-        </label>
-
-        <label class="block min-w-0 flex-1 basis-[240px] lg:flex-[465]">
-            <span class="mb-1 block text-2xl text-[#689EC2]">Status</span>
-            <div class="relative">
-                <select
-                    name="status"
-                    onchange="this.form.submit()"
-                    class="h-12 w-full appearance-none rounded-[10px] border border-[#1B5B7E] bg-white px-5 text-2xl text-black outline-none focus:ring-2 focus:ring-[#689EC2]"
-                >
-                    <option value="">Semua</option>
-                    <option value="diajukan" {{ request('status') == 'diajukan' ? 'selected' : '' }}>Diajukan</option>
-                    <option value="reviu_paralel" {{ request('status') == 'reviu_paralel' ? 'selected' : '' }}>Reviu Paralel</option>
-                    <option value="disetujui" {{ request('status') == 'disetujui' ? 'selected' : '' }}>Disetujui</option>
-                    <option value="ditolak" {{ request('status') == 'ditolak' ? 'selected' : '' }}>Ditahan / Ditolak</option>
-                    <option value="selesai" {{ request('status') == 'selesai' ? 'selected' : '' }}>Selesai</option>
-                </select>
-                <svg class="pointer-events-none absolute right-5 top-1/2 size-5 -translate-y-1/2 text-black" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
-                </svg>
-            </div>
-        </label>
-
-        <button type="submit" class="h-12 w-[91px] shrink-0 rounded-[10px] border border-[#1B5B7E] bg-[#BAE5FF] text-2xl text-black hover:brightness-95 transition-colors">
-            Cari
-        </button>
-    </form>
-
     @php
-        // Mengambil permohonan pertama/terkini sebagai fokus tracking
-        $selectedPermohonan = $permohonanList->first();
+        $selectedNomor = request('selected') ?? request('nomor_surat');
+        $selectedPermohonan = $selectedNomor
+            ? ($permohonanList->firstWhere('nomor_surat', $selectedNomor) ?? $permohonanList->first())
+            : $permohonanList->first();
 
         $stageMap = [
             'diajukan' => 1,
             'reviu_paralel' => 2,
             'disetujui' => 3,
-            'paket_terdaftar' => 4,
+            'paket_terdaftar' => 3,
+            'reviu_dokumen' => 4,
             'spk_terbit' => 5,
-            'bast_terbit' => 6,
-            'pencairan' => 7,
+            'pengiriman' => 6,
+            'bast_terbit' => 7,
+            'pencairan' => 8,
             'selesai' => 8,
         ];
 
-        $currentStep = $selectedPermohonan ? ($stageMap[$selectedPermohonan->status_permohonan ?? $selectedPermohonan->status] ?? 2) : 2;
-        $totalSteps = 8;
+        $currentStep = $selectedPermohonan ? ($stageMap[$selectedPermohonan->status_permohonan ?? $selectedPermohonan->status] ?? 2) : 1;
+
+        $totalPermohonan = $permohonanList->total();
+        $countSelesai = $permohonanList->whereIn('status_permohonan', ['selesai', 'disetujui'])->count();
+        $countProses = $permohonanList->whereNotIn('status_permohonan', ['selesai', 'ditolak', 'batal'])->count();
+        $countLogs = $auditLogs->count();
     @endphp
 
-    {{-- KONTROL INDIKATOR 8 SIKLUS TAHAPAN --}}
-    <section class="mx-auto mt-10 max-w-[1632px] rounded-[20px] bg-gradient-to-t from-white to-white/0 px-6 pb-8 pt-10 sm:px-[62px] shadow-sm">
-       <div class="flex items-center justify-between">
-    <h2 class="text-[32px] font-normal text-gray-800">
-        Tahap {{ $currentStep }} dari {{ $totalSteps }}
-    </h2>
-</div>
+    {{-- 4 STAT CARDS FIGMA PALETTE --}}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <x-stat-card
+            title="Total Usulan Terpantau"
+            :value="$totalPermohonan"
+            color="navy"
+            subtitle="Data usulan pengadaan aktif"
+        >
+            <x-slot:icon>
+                <svg class="size-6 text-[#213153]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            </x-slot:icon>
+        </x-stat-card>
 
-        <!-- 8 Bulatan Siklus Presisi Figma -->
-        <div class="mt-6 overflow-x-auto pb-2">
-            <ol class="relative flex min-w-[640px] items-center justify-between">
-                <div class="absolute left-[43px] right-[43px] top-1/2 h-[3px] -translate-y-1/2 bg-[#0088E8]"></div>
-                @for ($n = 1; $n <= $totalSteps; $n++)
-                    @php $done = $n <= $currentStep; @endphp
-                    <li class="relative z-10 flex h-[70px] w-[70px] items-center justify-center rounded-full border-[5px] border-[#0087E5] text-4xl font-bold transition-all {{ $done ? 'bg-[#0087E5] text-white' : 'bg-white text-[#0087E5]' }}">
-                        {{ $n }}
-                    </li>
-                @endfor
-            </ol>
-        </div>
-    </section>
+        <x-stat-card
+            title="Dalam Proses Berjalan"
+            :value="$countProses"
+            color="blue"
+            subtitle="Tahap 1 s.d. 7 siklus"
+        >
+            <x-slot:icon>
+                <svg class="size-6 text-[#0969da]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </x-slot:icon>
+        </x-stat-card>
 
-    {{-- PANEL KIRI (DOKUMEN) & PANEL KANAN (RIWAYAT AUDIT KRONOLOGIS) --}}
-    <div class="mx-auto mt-8 grid max-w-[1632px] gap-6 lg:grid-cols-[554fr_1039fr]">
+        <x-stat-card
+            title="Selesai / Lunas"
+            :value="$countSelesai"
+            color="emerald"
+            subtitle="Siklus pengadaan tuntas"
+        >
+            <x-slot:icon>
+                <svg class="size-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </x-slot:icon>
+        </x-stat-card>
 
-        {{-- KARTU SURAT & DOKUMEN SAYA --}}
-        <section class="rounded-t-[20px] bg-gradient-to-t from-white to-white/0 p-6 sm:px-[40px] shadow-sm">
-            <h2 class="text-xl font-normal text-gray-800">Surat dan Dokumen saya</h2>
-            <ul class="mt-6 flex flex-col gap-[10px] pb-4">
-                @if($selectedPermohonan && ($selectedPermohonan->file_surat_permohonan || $selectedPermohonan->file_permohonan))
-                <li class="flex items-center gap-3 rounded-md border border-[#DCE5E3] p-3 bg-white">
-                    <svg class="size-6 shrink-0 text-[#087F79]" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                    </svg>
-                    <div class="min-w-0 flex-1 font-[Inter,sans-serif]">
-                        <div class="truncate text-[13px] font-semibold leading-[1.45] text-[#203638]">Surat_Permohonan_{{ $selectedPermohonan->nomor_surat }}.pdf</div>
-                        <div class="truncate text-xs leading-[1.45] text-[#657A7C]">Srikandi &bull; {{ $selectedPermohonan->nomor_surat }}</div>
-                    </div>
-                    <a href="{{ asset('storage/' . ($selectedPermohonan->file_surat_permohonan ?? $selectedPermohonan->file_permohonan)) }}" target="_blank" class="shrink-0 text-xs text-[#087F79] font-bold hover:underline">
-                        Lihat ↗
-                    </a>
-                </li>
-                @endif
+        <x-stat-card
+            title="Jejak Audit Trail"
+            :value="$countLogs"
+            color="amber"
+            subtitle="Log mutasi terkini"
+        >
+            <x-slot:icon>
+                <svg class="size-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </x-slot:icon>
+        </x-stat-card>
+    </div>
 
-                @if($selectedPermohonan && $selectedPermohonan->file_kak)
-                <li class="flex items-center gap-3 rounded-md border border-[#DCE5E3] p-3 bg-white">
-                    <svg class="size-6 shrink-0 text-[#087F79]" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                    </svg>
-                    <div class="min-w-0 flex-1 font-[Inter,sans-serif]">
-                        <div class="truncate text-[13px] font-semibold leading-[1.45] text-[#203638]">Dokumen_KAK.pdf</div>
-                        <div class="truncate text-xs leading-[1.45] text-[#657A7C]">Kerangka Acuan Kerja</div>
-                    </div>
-                    <a href="{{ asset('storage/' . $selectedPermohonan->file_kak) }}" target="_blank" class="shrink-0 text-xs text-[#087F79] font-bold hover:underline">
-                        Lihat ↗
-                    </a>
-                </li>
-                @endif
-
-                @if(!$selectedPermohonan)
-                <li class="p-4 text-center text-sm text-gray-500">
-                    Belum ada dokumen permohonan.
-                </li>
-                @endif
-            </ul>
-        </section>
-
-        {{-- KARTU RIWAYAT KRONOLOGIS (AUDIT TRAIL) --}}
-        <section class="rounded-t-[20px] bg-gradient-to-t from-white to-white/0 p-6 sm:px-[40px] shadow-sm">
-            <h2 class="text-xl font-normal text-gray-800">Riwayat Kronologis dan Revisi</h2>
-            <div class="mt-6 overflow-x-auto">
-                <table class="w-full min-w-[560px] table-fixed text-left">
-                    <thead>
-                        <tr class="h-10 border-b border-[#DCE5E3] bg-gradient-to-b from-[#BAE5FF] to-white text-xs text-[#657A7C]">
-                            <th class="w-[130px] px-[10px] font-normal">Waktu</th>
-                            <th class="px-[10px] font-normal">Peristiwa / pelaku</th>
-                            <th class="w-[90px] px-[10px] font-normal">Versi surat</th>
-                        </tr>
-                    </thead>
-                    <tbody class="text-[13px] leading-[1.5] text-[#203638]">
-                        @forelse($auditLogs as $log)
-                        <tr class="border-b border-[#DCE5E3] bg-white align-top">
-                            <td class="px-[10px] py-[14px]">
-                                {{ $log->created_at ? $log->created_at->format('d M · H.i') : '-' }}
-                            </td>
-                            <td class="px-[10px] py-[14px]">
-                                <span class="font-bold">{{ $log->user->nama ?? 'Sistem' }}</span>: {{ $log->deskripsi_aktivitas ?? $log->jenis_aksi }}
-                            </td>
-                            <td class="px-[10px] py-[14px]">
-                                Revisi 0
-                            </td>
-                        </tr>
-                        @empty
-                        <tr class="border-b border-[#DCE5E3] bg-white align-top">
-                            <td colspan="3" class="px-[10px] py-[14px] text-center text-gray-500">
-                                Belum ada catatan riwayat aktivitas.
-                            </td>
-                        </tr>
-                        @endforelse
-                    </tbody>
-                </table>
+    {{-- MULTI-DIMENSIONAL FILTER BAR (ZERO INLINE SCRIPTS) --}}
+    <form action="{{ route('monitoring.index') }}" method="GET" class="p-4 bg-white border border-slate-200/80 rounded-2xl shadow-sm">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            {{-- PENCARIAN TEKS --}}
+            <div class="lg:col-span-2">
+                <label for="filter-q" class="block text-xs font-bold text-slate-700 mb-1">Cari No. Surat / Judul</label>
+                <div class="relative">
+                    <input
+                        type="text"
+                        id="filter-q"
+                        name="q"
+                        value="{{ request('q') ?? request('nomor_surat') }}"
+                        placeholder="Contoh: 001/UN25/PP/..."
+                        class="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0969da]"
+                    />
+                    <svg class="size-4 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                </div>
             </div>
-        </section>
 
+            {{-- FILTER STATUS --}}
+            <div>
+                <label for="filter-status" class="block text-xs font-bold text-slate-700 mb-1">Status Alur</label>
+                <select
+                    id="filter-status"
+                    name="status"
+                    class="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0969da]"
+                >
+                    <option value="">Semua Status</option>
+                    <option value="diajukan" {{ request('status') === 'diajukan' ? 'selected' : '' }}>Diajukan</option>
+                    <option value="reviu_paralel" {{ request('status') === 'reviu_paralel' ? 'selected' : '' }}>Reviu Paralel</option>
+                    <option value="disetujui" {{ request('status') === 'disetujui' ? 'selected' : '' }}>Disetujui</option>
+                    <option value="ditolak" {{ request('status') === 'ditolak' ? 'selected' : '' }}>Ditolak</option>
+                    <option value="selesai" {{ request('status') === 'selesai' ? 'selected' : '' }}>Selesai</option>
+                </select>
+            </div>
+
+            {{-- FILTER UNIT --}}
+            <div>
+                <label for="filter-unit" class="block text-xs font-bold text-slate-700 mb-1">Unit Pengusul</label>
+                <select
+                    id="filter-unit"
+                    name="unit"
+                    class="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0969da]"
+                >
+                    <option value="">Semua Unit</option>
+                    @foreach($units as $u)
+                        <option value="{{ $u->kode_unit }}" {{ request('unit') == $u->kode_unit ? 'selected' : '' }}>
+                            {{ $u->nama_unit ?? $u->kode_unit }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+
+            {{-- TOMBOL AKSI FILTER --}}
+            <div class="flex items-end gap-2">
+                <button type="submit" class="flex-1 px-4 py-2 bg-[#0969da] hover:bg-[#0756b2] text-white text-sm font-semibold rounded-xl transition-colors shadow-sm">
+                    Terapkan
+                </button>
+                @if(request()->hasAny(['q', 'nomor_surat', 'status', 'unit', 'tahun', 'bulan', 'selected']))
+                    <a href="{{ route('monitoring.index') }}" class="px-3 py-2 text-sm text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">
+                        Reset
+                    </a>
+                @endif
+            </div>
+        </div>
+    </form>
+
+    {{-- KONTROL INDIKATOR 8 SIKLUS TAHAPAN RESMI --}}
+    @if($selectedPermohonan)
+        <div class="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm">
+            <div class="flex flex-wrap items-center justify-between gap-4 pb-4 mb-4 border-b border-slate-100">
+                <div>
+                    <span class="text-xs font-bold text-[#0969da] uppercase tracking-wider">Usulan Dipantau</span>
+                    <h2 class="text-xl font-bold text-[#213153] mt-0.5">
+                        {{ $selectedPermohonan->judul_pengadaan }}
+                    </h2>
+                    <p class="text-xs text-slate-500 font-mono mt-0.5">
+                        No. Surat: {{ $selectedPermohonan->nomor_surat }} &bull; Unit: {{ $selectedPermohonan->unit->nama_unit ?? $selectedPermohonan->kode_unit }}
+                    </p>
+                </div>
+                <div>
+                    <x-status-badge :status="$selectedPermohonan->status_permohonan ?? $selectedPermohonan->status" size="lg" />
+                </div>
+            </div>
+
+            <x-stepper-8-siklus :currentStep="$currentStep" :status="$selectedPermohonan->status_permohonan ?? 'diajukan'" />
+        </div>
+    @endif
+
+    {{-- TABEL PEMILIHAN USULAN PENGADAAN AKTIF --}}
+    <div class="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-200/80 flex items-center justify-between">
+            <div>
+                <h3 class="text-base font-bold text-[#213153]">Daftar Usulan Pengadaan</h3>
+                <p class="text-xs text-slate-500">Pilih salah satu usulan untuk meninjau status siklus dan rincian berkasnya.</p>
+            </div>
+            <span class="text-xs font-semibold px-2.5 py-1 bg-slate-100 text-slate-600 rounded-full">
+                {{ $permohonanList->count() }} dari {{ $permohonanList->total() }} usulan
+            </span>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead class="bg-slate-50/80 text-xs text-slate-600 border-b border-slate-200/80">
+                    <tr>
+                        <th class="px-5 py-3 font-semibold">Nomor Surat</th>
+                        <th class="px-5 py-3 font-semibold">Judul Pengadaan</th>
+                        <th class="px-5 py-3 font-semibold">Unit Pengusul</th>
+                        <th class="px-5 py-3 font-semibold">Tanggal</th>
+                        <th class="px-5 py-3 font-semibold">Tahap / Status</th>
+                        <th class="px-5 py-3 font-semibold text-right">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    @forelse($permohonanList as $item)
+                        @php
+                            $isSelected = $selectedPermohonan && $selectedPermohonan->nomor_surat === $item->nomor_surat;
+                        @endphp
+                        <tr class="{{ $isSelected ? 'bg-sky-50/60 font-medium' : 'hover:bg-slate-50/60' }} transition-colors">
+                            <td class="px-5 py-3 font-mono text-xs text-[#213153]">
+                                {{ $item->nomor_surat }}
+                            </td>
+                            <td class="px-5 py-3 text-slate-800 max-w-xs truncate">
+                                {{ $item->judul_pengadaan }}
+                            </td>
+                            <td class="px-5 py-3 text-slate-600 text-xs">
+                                {{ $item->unit->nama_unit ?? $item->kode_unit }}
+                            </td>
+                            <td class="px-5 py-3 text-slate-500 text-xs">
+                                {{ $item->tanggal_pengajuan ? \Carbon\Carbon::parse($item->tanggal_pengajuan)->translatedFormat('d M Y') : '-' }}
+                            </td>
+                            <td class="px-5 py-3">
+                                <x-status-badge :status="$item->status_permohonan ?? $item->status" size="sm" />
+                            </td>
+                            <td class="px-5 py-3 text-right">
+                                @if($isSelected)
+                                    <span class="inline-flex items-center gap-1 text-xs font-bold text-[#0969da] px-2.5 py-1 bg-white border border-[#0969da]/30 rounded-lg">
+                                        <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                        Sedang Dipantau
+                                    </span>
+                                @else
+                                    <a href="{{ route('monitoring.index', array_merge(request()->query(), ['selected' => $item->nomor_surat])) }}" class="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 hover:text-[#0969da] px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
+                                        Pilih Usulan &rarr;
+                                    </a>
+                                @endif
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="6" class="px-5 py-8 text-center text-slate-500">
+                                Tidak ada data usulan pengadaan yang cocok dengan kriteria pencarian.
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+
+        @if($permohonanList->hasPages())
+            <div class="px-6 py-4 border-t border-slate-100 bg-slate-50/50">
+                {{ $permohonanList->links() }}
+            </div>
+        @endif
+    </div>
+
+    {{-- PANEL DETAIL DOKUMEN & RIWAYAT AUDIT TRAIL --}}
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {{-- PANEL KIRI: DOKUMEN TERKAIT USULAN --}}
+        <div class="lg:col-span-5 space-y-4">
+            <div class="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm">
+                <h3 class="text-base font-bold text-[#213153] mb-1">Dokumen Resmi Usulan</h3>
+                <p class="text-xs text-slate-500 mb-4">Berkas digital pendukung yang melekat pada usulan pengadaan ini.</p>
+
+                @if($selectedPermohonan)
+                    <div class="space-y-3">
+                        {{-- SURAT PERMOHONAN SRIKANDI --}}
+                        <div class="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200/80 rounded-xl">
+                            <div class="size-9 rounded-lg bg-red-100 text-red-600 flex items-center justify-center shrink-0">
+                                <svg class="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-xs font-bold text-slate-800 truncate">Surat_Permohonan_{{ $selectedPermohonan->nomor_surat }}.pdf</div>
+                                <div class="text-[11px] text-slate-500">Integrasi Srikandi &bull; Surat Pengantar</div>
+                            </div>
+                            @if($selectedPermohonan->file_surat_permohonan || $selectedPermohonan->file_permohonan)
+                                <a href="{{ asset('storage/' . ($selectedPermohonan->file_surat_permohonan ?? $selectedPermohonan->file_permohonan)) }}" target="_blank" class="px-2.5 py-1 text-xs font-semibold text-[#0969da] bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+                                    Unduh
+                                </a>
+                            @else
+                                <span class="text-[11px] text-slate-400 italic">Belum Ada</span>
+                            @endif
+                        </div>
+
+                        {{-- DOKUMEN KAK --}}
+                        <div class="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200/80 rounded-xl">
+                            <div class="size-9 rounded-lg bg-blue-100 text-[#0969da] flex items-center justify-center shrink-0">
+                                <svg class="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-xs font-bold text-slate-800 truncate">Kerangka_Acuan_Kerja_KAK.pdf</div>
+                                <div class="text-[11px] text-slate-500">Spesifikasi KAK & Rincian Kebutuhan</div>
+                            </div>
+                            @if($selectedPermohonan->file_kak)
+                                <a href="{{ asset('storage/' . $selectedPermohonan->file_kak) }}" target="_blank" class="px-2.5 py-1 text-xs font-semibold text-[#0969da] bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+                                    Unduh
+                                </a>
+                            @else
+                                <span class="text-[11px] text-slate-400 italic">Belum Ada</span>
+                            @endif
+                        </div>
+
+                        {{-- DOKUMEN DOWNSTREAM JIKA ADA --}}
+                        @if($selectedPermohonan->paket)
+                            <div class="mt-4 pt-3 border-t border-slate-100">
+                                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Berkas Hilir Pengadaan</span>
+                                <div class="mt-2 space-y-2">
+                                    <div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl text-xs">
+                                        <span class="text-slate-700 font-medium">Paket: {{ $selectedPermohonan->paket->nomor_paket }}</span>
+                                        <a href="{{ route('paket.show', $selectedPermohonan->paket->nomor_paket) }}" class="text-[#0969da] font-semibold hover:underline">Detail Paket &rarr;</a>
+                                    </div>
+                                    @if($selectedPermohonan->paket->kontrak)
+                                        <div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl text-xs">
+                                            <span class="text-slate-700 font-medium">Kontrak: {{ $selectedPermohonan->paket->kontrak->nomor_spk }}</span>
+                                            <a href="{{ route('kontrak.index') }}" class="text-[#0969da] font-semibold hover:underline">Lihat Kontrak &rarr;</a>
+                                        </div>
+                                    @endif
+                                </div>
+                            </div>
+                        @endif
+                    </div>
+                @else
+                    <p class="text-sm text-slate-500 italic text-center py-6">
+                        Pilih usulan pengadaan di atas untuk melihat dokumen terkait.
+                    </p>
+                @endif
+            </div>
+        </div>
+
+        {{-- PANEL KANAN: RIWAYAT KRONOLOGIS & AUDIT TRAIL --}}
+        <div class="lg:col-span-7">
+            <div class="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-200/80 flex items-center justify-between">
+                    <div>
+                        <h3 class="text-base font-bold text-[#213153]">Riwayat Kronologis & Audit Trail</h3>
+                        <p class="text-xs text-slate-500">Rekam jejak seluruh mutasi dan aksi para pihak berwenang.</p>
+                    </div>
+                    <span class="text-xs font-semibold px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-full">
+                        {{ $auditLogs->count() }} Aktivitas
+                    </span>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-50/80 text-xs text-slate-600 border-b border-slate-200/80">
+                            <tr>
+                                <th class="px-5 py-3 font-semibold w-36">Waktu</th>
+                                <th class="px-5 py-3 font-semibold">Pelaku / Aktor</th>
+                                <th class="px-5 py-3 font-semibold">Aksi / Mutasi</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 text-xs">
+                            @forelse($auditLogs as $log)
+                                <tr class="hover:bg-slate-50/60 transition-colors">
+                                    <td class="px-5 py-3 text-slate-500 font-mono">
+                                        {{ $log->waktu_log ? \Carbon\Carbon::parse($log->waktu_log)->translatedFormat('d M Y, H:i') : ($log->created_at ? $log->created_at->translatedFormat('d M Y, H:i') : '-') }}
+                                    </td>
+                                    <td class="px-5 py-3">
+                                        <div class="font-bold text-[#213153]">{{ $log->user->nama ?? 'Sistem' }}</div>
+                                        <div class="text-[11px] text-slate-500">{{ $log->user->role ?? 'Sistem' }}</div>
+                                    </td>
+                                    <td class="px-5 py-3 text-slate-700">
+                                        <span class="inline-block px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-slate-100 text-slate-700 mr-1.5">
+                                            {{ $log->jenis_aksi ?? 'LOG' }}
+                                        </span>
+                                        {{ $log->deskripsi_aktivitas ?? $log->rincian_perubahan }}
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="3" class="px-5 py-8 text-center text-slate-500">
+                                        Belum ada catatan riwayat audit trail.
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 @endsection

@@ -10,6 +10,23 @@
  * (misal: tracking.js, dokumentasi.js, dsb.) lalu impor modul terkait ke dalam berkas ini.
  */
 
+import { desktopNotificationManager } from './modules/desktop_notification.js';
+import { trackingManager } from './modules/tracking.js';
+import { splitMakManager } from './modules/split_mak.js';
+
+// Bind globally for Alpine.js and inline evaluations
+window.desktopNotificationManager = desktopNotificationManager;
+window.trackingManager = trackingManager;
+window.splitMakManager = splitMakManager;
+
+document.addEventListener('alpine:init', () => {
+    if (window.Alpine) {
+        window.Alpine.data('desktopNotificationManager', desktopNotificationManager);
+        window.Alpine.data('trackingManager', trackingManager);
+        window.Alpine.data('splitMakManager', splitMakManager);
+    }
+});
+
 document.addEventListener('DOMContentLoaded', function () {
     // Ruang inisialisasi modul front end modern (misal: Alpine.js, komponen interaktif, dsb.)
 });

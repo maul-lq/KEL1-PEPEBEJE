@@ -11,24 +11,13 @@
     <!-- Vite Assets -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
-    <!-- CDN Tailwind CSS & Alpine.js -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Alpine.js Core (Defer) -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
     <!-- Google Fonts: Iceland & Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Iceland&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-        .font-iceland {
-            font-family: 'Iceland', cursive, sans-serif;
-        }
-        [x-cloak] { display: none !important; }
-    </style>
 </head>
 <body class="min-h-screen bg-[#F4F8FA] text-gray-800 flex flex-col antialiased">
 
@@ -360,14 +349,12 @@
             @endif
 
             <!-- Monitoring 8 Siklus -->
-           {{-- 
             <a href="{{ route('monitoring.index') }}" title="Monitoring 8 Siklus Pengadaan" 
                class="relative flex h-10 w-10 items-center justify-center rounded-xl text-slate-300 transition-all {{ request()->routeIs('monitoring.*') ? 'bg-[#0969da] text-white shadow-lg shadow-[#0969da]/40 scale-105' : 'hover:bg-white/10 hover:text-white' }}">
                 <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
             </a>
-            --}}
 
             <!-- Laporan Rekapitulasi -->
             <a href="{{ route('laporan.rekapitulasi') }}" title="Laporan Rekapitulasi Anggaran" 
@@ -452,123 +439,7 @@
         &copy; {{ date('Y') }} <strong>SIM-PBJ Politeknik Negeri Jakarta</strong>. Jl. Prof. Dr. G.A. Siwabessy, Kampus UI Depok 16425.
     </footer>
 
-    @auth
-    <!-- Script Notifikasi Desktop OS -->
-    <script>
-        function desktopNotificationManager() {
-            return {
-                permission: (typeof Notification !== 'undefined') ? Notification.permission : 'denied',
-                showBanner: false,
 
-                init() {
-                    if (typeof Notification !== 'undefined') {
-                        this.permission = Notification.permission;
-                        if (this.permission === 'default' && !localStorage.getItem('simpbj_os_notif_dismissed')) {
-                            this.showBanner = true;
-                        }
-                    }
-
-                    if ('serviceWorker' in navigator) {
-                        navigator.serviceWorker.register('/sw.js').catch(function(err) {
-                            console.warn('Gagal mendaftarkan Service Worker SIM-PBJ:', err);
-                        });
-                    }
-
-                    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-                        this.startPolling();
-                    }
-                },
-
-                requestPermission() {
-                    if (typeof Notification === 'undefined') {
-                        alert('Peramban Anda tidak mendukung Web Notification API.');
-                        return;
-                    }
-
-                    const self = this;
-                    Notification.requestPermission().then(function(perm) {
-                        self.permission = perm;
-                        self.showBanner = false;
-
-                        if (perm === 'granted') {
-                            self.showNativeAlert(
-                                'SIM-PBJ Politeknik Negeri Jakarta',
-                                'Notifikasi Desktop aktif! Anda akan menerima alarm pengadaan langsung di OS.',
-                                '/notifikasi'
-                            );
-                            self.startPolling();
-                        }
-                    });
-                },
-
-                dismissBanner() {
-                    localStorage.setItem('simpbj_os_notif_dismissed', 'true');
-                    this.showBanner = false;
-                },
-
-                startPolling() {
-                    let lastSeenId = parseInt(localStorage.getItem('simpbj_last_notified_id') || '0', 10);
-                    const self = this;
-
-                    const checkNewAlerts = function() {
-                        fetch('/api/notifikasi-terbaru?since_id=' + lastSeenId, { credentials: 'same-origin' })
-                            .then(res => res.json())
-                            .then(data => {
-                                if (data.status === 'success' && data.data && data.data.length > 0) {
-                                    data.data.forEach(item => {
-                                        self.showNativeAlert(
-                                            item.judul || 'SIM-PBJ: Notifikasi Pengadaan',
-                                            item.pesan + (item.referensi ? ' (' + item.referensi + ')' : ''),
-                                            item.action_url || '/notifikasi'
-                                        );
-                                        if (item.id > lastSeenId) {
-                                            lastSeenId = item.id;
-                                        }
-                                    });
-                                    localStorage.setItem('simpbj_last_notified_id', lastSeenId.toString());
-                                }
-                            })
-                            .catch(err => {});
-                    };
-
-                    setTimeout(checkNewAlerts, 4000);
-                    setInterval(checkNewAlerts, 30000);
-                },
-
-                showNativeAlert(title, body, url) {
-                    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
-                        return;
-                    }
-
-                    const options = {
-                        body: body,
-                        icon: '/favicon.ico',
-                        badge: '/favicon.ico',
-                        data: { url: url || '/notifikasi' },
-                        tag: 'simpbj-notif-' + Date.now(),
-                        renotify: true
-                    };
-
-                    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-                        navigator.serviceWorker.ready.then(reg => {
-                            reg.showNotification(title, options);
-                        });
-                    } else {
-                        try {
-                            const notif = new Notification(title, options);
-                            notif.onclick = function() {
-                                window.focus();
-                                window.location.href = url || '/notifikasi';
-                            };
-                        } catch (e) {
-                            console.warn('Fallback Notification gagal:', e);
-                        }
-                    }
-                }
-            };
-        }
-    </script>
-    @endauth
 
 </body>
 </html>
