@@ -17,6 +17,7 @@ use App\Http\Controllers\PembayaranController;
 use App\Http\Controllers\PenerimaanBarangController;
 use App\Http\Controllers\PengadaanLogController;
 use App\Http\Controllers\PermohonanPengadaanController;
+use App\Http\Controllers\ProfileController; // Import ProfileController Baru
 use App\Http\Controllers\ReminderController;
 use App\Http\Controllers\ReviuDokumenController;
 use App\Http\Controllers\ReviuPengadaanController;
@@ -154,9 +155,13 @@ Route::middleware('auth')->group(function () {
         Route::delete('/roles/{role}', [RoleController::class, 'destroy'])->name('roles.destroy');
     });
 
-    // Modul Profil Pengguna & Google Link
-    Route::get('/profil', [HomeController::class, 'profileIndex'])->name('profile.index');
-    Route::put('/profil', [HomeController::class, 'profileUpdate'])->name('profile.update');
+    // Modul Profil Pengguna & Google Link (Diperbarui mengarah ke ProfileController)
+    Route::get('/profil', [ProfileController::class, 'index'])->name('profile.index');
+    Route::put('/profil', [ProfileController::class, 'update'])->name('profile.update');
+    Route::put('/profil/password', [ProfileController::class, 'updatePassword'])->name('profile.password.update');
+    Route::delete('/profil/hapus-akun', [ProfileController::class, 'destroyAccount'])->name('profile.destroy');
+
+    // Google OAuth Link
     Route::get('/profile/google/link', [GoogleAuthController::class, 'redirectToGoogleForLinking'])->name('profile.google.link');
     Route::get('/profile/google/callback', [GoogleAuthController::class, 'handleGoogleLinkingCallback'])->name('profile.google.callback');
     Route::post('/profile/google/unlink', [GoogleAuthController::class, 'unlinkGoogle'])->name('profile.google.unlink');
