@@ -50,7 +50,7 @@
                     </p>
                 </div>
                 <p class="w-full text-center text-xs font-medium leading-[30px] text-white/50 lg:mt-[200px]">
-                    &copy; 2024 SIM-PBJ. All rights reserved.
+                    &copy; {{ date('Y') }} SIM-PBJ. All rights reserved.
                 </p>
             </aside>
 
@@ -59,23 +59,35 @@
                 <div class="flex flex-col justify-between gap-2 sm:flex-row sm:items-start">
                     <h1 class="text-4xl font-semibold text-black">Buat Akun Baru</h1>
                     <p class="text-lg font-medium text-[#AAA] sm:pt-1 sm:text-right">
-                        Sudah punya akun? <a href="{{ url('/login') }}" class="text-[#3B82F6] hover:underline">Masuk</a>
+                        Sudah punya akun? <a href="{{ route('login') }}" class="text-[#3B82F6] hover:underline">Masuk</a>
                     </p>
                 </div>
                 <p class="mt-2 text-lg font-medium text-[#AAA]">
                     Lengkapi data diri dan informasi kedinasan Anda
                 </p>
 
+                <!-- Menampilkan Pesan Error Umum/Flash Status -->
+                @if ($errors->any())
+                    <div class="mt-4 p-4 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-sm">
+                        <strong class="font-bold">Terjadi kesalahan input:</strong>
+                        <ul class="mt-1.5 list-disc list-inside text-xs space-y-1">
+                            @foreach ($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+
                 <form
                     action="{{ route('register') }}"
                     method="POST"
-                    class="mt-[40px] grid grid-cols-1 gap-x-6 gap-y-[18px] sm:grid-cols-2"
+                    class="mt-[30px] grid grid-cols-1 gap-x-6 gap-y-[18px] sm:grid-cols-2"
                 >
                     @csrf
 
                     <!-- NIP Pegawai -->
-                    <label class="flex flex-col gap-[13px]">
-                        <span class="text-lg font-medium text-black">
+                    <label class="flex flex-col gap-[8px]">
+                        <span class="text-base font-medium text-black">
                             NIP Pegawai <span class="text-red-600">*</span>
                         </span>
                         <input
@@ -84,13 +96,16 @@
                             value="{{ old('nip') }}"
                             placeholder="Masukkan NIP"
                             required
-                            class="h-[60px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] px-[22px] text-lg text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6]"
+                            class="h-[55px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] px-[22px] text-base text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6]"
                         />
+                        @error('nip')
+                            <span class="text-xs text-rose-600 font-medium">{{ $message }}</span>
+                        @enderror
                     </label>
 
                     <!-- Username -->
-                    <label class="flex flex-col gap-[13px]">
-                        <span class="text-lg font-medium text-black">
+                    <label class="flex flex-col gap-[8px]">
+                        <span class="text-base font-medium text-black">
                             Username <span class="text-red-600">*</span>
                         </span>
                         <input
@@ -99,101 +114,123 @@
                             value="{{ old('username') }}"
                             placeholder="Buat username unik"
                             required
-                            class="h-[60px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] px-[22px] text-lg text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6]"
+                            class="h-[55px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] px-[22px] text-base text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6]"
                         />
+                        @error('username')
+                            <span class="text-xs text-rose-600 font-medium">{{ $message }}</span>
+                        @enderror
                     </label>
 
                     <!-- Nama Lengkap & Gelar -->
-                    <label class="flex flex-col gap-[13px] sm:col-span-2">
-                        <span class="text-lg font-medium text-black">
+                    <label class="flex flex-col gap-[8px] sm:col-span-2">
+                        <span class="text-base font-medium text-black">
                             Nama Lengkap & Gelar <span class="text-red-600">*</span>
                         </span>
                         <input
                             type="text"
-                            name="name"
-                            value="{{ old('name') }}"
+                            name="nama"
+                            value="{{ old('nama') }}"
                             placeholder="Contoh: Dr. Budi Santoso, M.T."
                             required
-                            class="h-[60px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] px-[22px] text-lg text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6]"
+                            class="h-[55px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] px-[22px] text-base text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6]"
                         />
+                        @error('nama')
+                            <span class="text-xs text-rose-600 font-medium">{{ $message }}</span>
+                        @enderror
                     </label>
 
                     <!-- Email Kampus / Resmi -->
-                    <label class="flex flex-col gap-[13px] sm:col-span-2">
-                        <span class="text-lg font-medium text-black">
-                            Email Kampus / Resmi
+                    <label class="flex flex-col gap-[8px] sm:col-span-2">
+                        <span class="text-base font-medium text-black">
+                            Email Kampus / Resmi <span class="text-red-600">*</span>
                         </span>
                         <input
                             type="email"
                             name="email"
                             value="{{ old('email') }}"
                             placeholder="nama@instansi.ac.id"
-                            class="h-[60px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] px-[22px] text-lg text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6]"
+                            required
+                            class="h-[55px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] px-[22px] text-base text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6]"
                         />
+                        @error('email')
+                            <span class="text-xs text-rose-600 font-medium">{{ $message }}</span>
+                        @enderror
                     </label>
 
                     <!-- Unit Kerja / Jurusan -->
-                    <label class="flex flex-col gap-[13px]">
-                        <span class="text-lg font-medium text-black">
+                    <label class="flex flex-col gap-[8px]">
+                        <span class="text-base font-medium text-black">
                             Unit Kerja / Jurusan <span class="text-red-600">*</span>
                         </span>
                         <input
                             type="text"
                             name="unit_kerja"
                             value="{{ old('unit_kerja') }}"
-                            placeholder="Pilih unit kerja"
+                            placeholder="Masukkan unit kerja / jurusan"
                             required
-                            class="h-[60px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] px-[22px] text-lg text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6]"
+                            class="h-[55px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] px-[22px] text-base text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6]"
                         />
+                        @error('unit_kerja')
+                            <span class="text-xs text-rose-600 font-medium">{{ $message }}</span>
+                        @enderror
                     </label>
 
                     <!-- Jabatan Kedinasan -->
-                    <label class="flex flex-col gap-[13px]">
-                        <span class="text-lg font-medium text-black">
+                    <label class="flex flex-col gap-[8px]">
+                        <span class="text-base font-medium text-black">
                             Jabatan Kedinasan <span class="text-red-600">*</span>
                         </span>
                         <input
                             type="text"
                             name="jabatan"
                             value="{{ old('jabatan') }}"
-                            placeholder="Pilih jabatan"
+                            placeholder="Masukkan jabatan"
                             required
-                            class="h-[60px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] px-[22px] text-lg text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6]"
+                            class="h-[55px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] px-[22px] text-base text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6]"
                         />
+                        @error('jabatan')
+                            <span class="text-xs text-rose-600 font-medium">{{ $message }}</span>
+                        @enderror
                     </label>
 
-                    <!-- Nomor HP / WhatsApp -->
-                    <label class="flex flex-col gap-[13px]">
-                        <span class="text-lg font-medium text-black">
+                    <!-- Nomor HP / WhatsApp (Penyesuaian nama="no_hp") -->
+                    <label class="flex flex-col gap-[8px]">
+                        <span class="text-base font-medium text-black">
                             Nomor HP / WhatsApp <span class="text-red-600">*</span>
                         </span>
                         <input
                             type="tel"
-                            name="phone"
-                            value="{{ old('phone') }}"
+                            name="no_hp"
+                            value="{{ old('no_hp') }}"
                             placeholder="08xxxxxxxxxxx"
                             required
-                            class="h-[60px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] px-[22px] text-lg text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6]"
+                            class="h-[55px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] px-[22px] text-base text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6]"
                         />
+                        @error('no_hp')
+                            <span class="text-xs text-rose-600 font-medium">{{ $message }}</span>
+                        @enderror
                     </label>
 
-                    <!-- Telepon Kantor -->
-                    <label class="flex flex-col gap-[13px]">
-                        <span class="text-lg font-medium text-black">
-                            Telepon Kantor <span class="text-[15px] text-gray-500">(Opsional)</span>
+                    <!-- Telepon Kantor (Penyesuaian nama="no_telp_kantor") -->
+                    <label class="flex flex-col gap-[8px]">
+                        <span class="text-base font-medium text-black">
+                            Telepon Kantor <span class="text-[14px] text-gray-500">(Opsional)</span>
                         </span>
                         <input
                             type="tel"
-                            name="office_phone"
-                            value="{{ old('office_phone') }}"
+                            name="no_telp_kantor"
+                            value="{{ old('no_telp_kantor') }}"
                             placeholder="021-xxxxxxxxx"
-                            class="h-[60px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] px-[22px] text-lg text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6]"
+                            class="h-[55px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] px-[22px] text-base text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6]"
                         />
+                        @error('no_telp_kantor')
+                            <span class="text-xs text-rose-600 font-medium">{{ $message }}</span>
+                        @enderror
                     </label>
 
                     <!-- Password -->
-                    <label class="flex flex-col gap-[13px]">
-                        <span class="text-lg font-medium text-black">
+                    <label class="flex flex-col gap-[8px]">
+                        <span class="text-base font-medium text-black">
                             Password <span class="text-red-600">*</span>
                         </span>
                         <div class="relative flex items-center">
@@ -202,7 +239,7 @@
                                 :type="showPassword ? 'text' : 'password'"
                                 placeholder="Minimal 8 karakter"
                                 required
-                                class="h-[60px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] pl-[22px] pr-14 text-lg text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6] [&::-ms-reveal]:hidden"
+                                class="h-[55px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] pl-[22px] pr-14 text-base text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6] [&::-ms-reveal]:hidden"
                             />
                             <button
                                 type="button"
@@ -226,11 +263,14 @@
                                 </template>
                             </button>
                         </div>
+                        @error('password')
+                            <span class="text-xs text-rose-600 font-medium">{{ $message }}</span>
+                        @enderror
                     </label>
 
                     <!-- Konfirmasi Password -->
-                    <label class="flex flex-col gap-[13px]">
-                        <span class="text-lg font-medium text-black">
+                    <label class="flex flex-col gap-[8px]">
+                        <span class="text-base font-medium text-black">
                             Konfirmasi Password <span class="text-red-600">*</span>
                         </span>
                         <div class="relative flex items-center">
@@ -239,7 +279,7 @@
                                 :type="showPasswordConfirm ? 'text' : 'password'"
                                 placeholder="Ulangi password"
                                 required
-                                class="h-[60px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] pl-[22px] pr-14 text-lg text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6] [&::-ms-reveal]:hidden"
+                                class="h-[55px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] pl-[22px] pr-14 text-base text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6] [&::-ms-reveal]:hidden"
                             />
                             <button
                                 type="button"
@@ -268,7 +308,7 @@
                     <!-- Submit Button -->
                     <button
                         type="submit"
-                        class="mt-[22px] h-[60px] rounded-[5px] bg-[#3B82F6] text-lg font-semibold text-white hover:bg-[#2f6fd8] transition-colors sm:col-span-2"
+                        class="mt-[15px] h-[55px] rounded-[5px] bg-[#3B82F6] text-lg font-semibold text-white hover:bg-[#2f6fd8] transition-colors sm:col-span-2 shadow-sm"
                     >
                         Daftar Akun &rarr;
                     </button>

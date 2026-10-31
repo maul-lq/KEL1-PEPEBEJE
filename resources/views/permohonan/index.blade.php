@@ -1,369 +1,619 @@
 @extends('layouts.app')
 
-@section('title', 'Tracking & Permohonan Pengadaan - SIM-PBJ Politeknik Negeri Jakarta')
+@section('title', 'Tracking Pengajuan - SIM-PBJ')
 
 @section('content')
-<div x-data="trackingManager()" class="space-y-6">
+<div x-data="trackingUserManager()" class="space-y-6">
 
     <!-- 1. HEADER HALAMAN & TOMBOL PERMOHONAN BARU -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-            <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight text-[#213153]">
-                Tracking Pengajuan
+            <!-- Tombol Kembali (Hanya muncul saat Mode Fullscreen Detail) -->
+            <template x-if="viewMode === 'fullscreen'">
+                <button @click="viewMode = 'split'" type="button" class="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-[#0969da] mb-2 transition-colors">
+                    <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                    Kembali
+                </button>
+            </template>
+
+            <h1 class="text-2xl md:text-3xl font-extrabold text-[#213153] tracking-tight">
+                <span x-text="viewMode === 'fullscreen' ? 'Detail & Tracking Pengajuan' : 'Tracking Pengajuan'"></span>
             </h1>
-            <p class="mt-1 text-sm text-slate-500">
+            <p class="text-sm text-slate-500 mt-1">
                 Pantau status pengajuan pengadaan Anda secara real-time. Pilih salah satu pengajuan untuk melihat detailnya.
             </p>
         </div>
 
-        @if(Auth::user()->hasRole('user') || Auth::user()->hasAnyPermission(['permohonan.create']))
-            <button type="button" 
-                    @click="modalCreateOpen = true" 
-                    class="inline-flex items-center justify-center gap-2 shrink-0 rounded-xl bg-[#0969da] px-5 py-3 text-sm font-bold text-white shadow-md shadow-[#0969da]/20 hover:bg-blue-700 transition-all">
-                <svg class="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+        <!-- Tombol Permohonan Baru (Hanya di mode Split View) -->
+        <div x-show="viewMode === 'split'" class="shrink-0">
+            <a href="{{ route('permohonan.create') }}" 
+               class="inline-flex items-center justify-center h-11 px-6 rounded-lg bg-[#0969da] hover:bg-blue-700 text-white font-medium text-sm transition-colors shadow-sm gap-2">
+                <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
                 Permohonan Baru
+            </a>
+        </div>
+
+        <!-- Tombol Hapus Pengajuan (Hanya di mode Fullscreen Detail untuk User) -->
+        <div x-show="viewMode === 'fullscreen'" class="shrink-0">
+            <button @click="hapusPengajuan()" type="button" class="inline-flex items-center justify-center h-10 px-5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-medium text-sm transition-colors shadow-sm">
+                Hapus Pengajuan
             </button>
-        @endif
+        </div>
     </div>
 
-    <!-- 2. SECTION FILTER & PENCARIAN (Sesuai Layout Figma) -->
-    <form method="GET" action="{{ route('permohonan.index') }}" class="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
+    <!-- 2. FILTER BARIS ATAS (Muncul di View Split) -->
+    <div x-show="viewMode === 'split'" class="bg-white rounded-xl border border-slate-200/80 p-4 shadow-sm">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             
-            <!-- Input Cari -->
-            <div class="lg:col-span-4 space-y-1">
-                <label for="search-input" class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Pencarian</label>
-                <input type="search" 
-                       id="search-input"
-                       name="q" 
-                       value="{{ request('q') }}"
-                       placeholder="Cari permohonan / no. surat..." 
-                       class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2 text-xs font-medium text-slate-800 placeholder-slate-400 focus:border-[#0969da] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0969da]/20 transition-all">
+            <!-- Pencarian & Tombol Cari Presisi Figma -->
+            <div class="lg:col-span-2 flex items-center gap-2">
+                <div class="relative w-full">
+                    <input type="text" 
+                           x-model="searchQuery" 
+                           placeholder="Cari nomor surat atau judul pengajuan..." 
+                           class="w-full h-10 pl-9 pr-3 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-[#0969da]/20 focus:border-[#0969da] outline-none">
+                    <svg class="size-4 text-slate-400 absolute left-3 top-3 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 0 0114 0z" />
+                    </svg>
+                </div>
+                <button @click="applyFilters()" type="button" class="h-10 px-4 bg-[#0969da] hover:bg-blue-700 text-white font-medium text-sm rounded-lg transition-colors flex items-center gap-2 shrink-0 shadow-sm">
+                    <svg class="size-4 shrink-0 fill-none stroke-current" stroke-width="2.5" viewBox="0 0 24 24">
+                        <circle cx="11" cy="11" r="7" />
+                        <path stroke-linecap="round" d="M16 16l4.5 4.5" />
+                    </svg>
+                    <span>Cari</span>
+                </button>
             </div>
 
             <!-- Filter Status -->
-            <div class="lg:col-span-3 space-y-1">
-                <label for="status-filter" class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Status</label>
-                <select id="status-filter" name="status" onchange="this.form.submit()" class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs font-medium text-slate-800 focus:border-[#0969da] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0969da]/20 transition-all">
-                    <option value="">Semua Status</option>
-                    <option value="diajukan" {{ request('status') == 'diajukan' ? 'selected' : '' }}>Diajukan</option>
-                    <option value="diproses" {{ request('status') == 'diproses' ? 'selected' : '' }}>Diproses</option>
-                    <option value="disetujui" {{ request('status') == 'disetujui' ? 'selected' : '' }}>Disetujui</option>
-                    <option value="ditolak" {{ request('status') == 'ditolak' ? 'selected' : '' }}>Ditolak / Ditahan</option>
-                    <option value="selesai" {{ request('status') == 'selesai' ? 'selected' : '' }}>Selesai</option>
+            <div>
+                <select x-model="filterStatus" class="w-full h-10 px-3 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-[#0969da]/20 focus:border-[#0969da] outline-none">
+                    <option value="Semua">Semua Status</option>
+                    <option value="Dalam Proses">Dalam Proses</option>
+                    <option value="Selesai">Selesai</option>
+                    <option value="Perlu Revisi">Perlu Revisi</option>
+                    <option value="Ditolak">Ditolak</option>
+                    <option value="Menunggu Persetujuan">Menunggu Persetujuan</option>
                 </select>
             </div>
 
-            <!-- Filter Unit -->
-            <div class="lg:col-span-3 space-y-1">
-                <label for="unit-filter" class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Unit / Jurusan</label>
-                <select id="unit-filter" name="unit" onchange="this.form.submit()" class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs font-medium text-slate-800 focus:border-[#0969da] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0969da]/20 transition-all">
-                    <option value="">Semua Unit</option>
-                    @foreach($units as $u)
-                        <option value="{{ $u->kode_unit }}" {{ request('unit') == $u->kode_unit ? 'selected' : '' }}>
-                            {{ $u->nama_unit }}
-                        </option>
-                    @endforeach
+            <!-- Filter Jenis Pengadaan -->
+            <div>
+                <select x-model="filterJenis" class="w-full h-10 px-3 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-[#0969da]/20 focus:border-[#0969da] outline-none">
+                    <option value="Semua">Semua Jenis</option>
+                    <option value="Barang">Barang</option>
+                    <option value="Jasa">Jasa</option>
+                    <option value="Konstruksi">Konstruksi</option>
                 </select>
             </div>
 
-            <!-- Tombol Cari & Reset -->
-            <div class="lg:col-span-2 flex items-center gap-2">
-                <button type="submit" class="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#0969da] py-2 px-3 text-xs font-bold text-white shadow-sm hover:bg-blue-700 transition-all">
-                    <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                    Cari
+            <!-- Input Tanggal & Tombol Reset -->
+            <div class="flex gap-2">
+                <input type="date" x-model="filterTanggal" class="w-full h-10 px-3 rounded-lg border border-slate-300 text-xs text-slate-600 focus:ring-2 focus:ring-[#0969da]/20 focus:border-[#0969da] outline-none">
+                <button @click="resetFilters()" type="button" class="h-10 px-4 bg-[#0969da] hover:bg-blue-700 text-white font-semibold text-sm rounded-lg transition-colors flex items-center justify-center shrink-0 shadow-sm" title="Reset Filter">
+                    <svg class="size-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    <span class="ml-1.5">Reset</span>
                 </button>
-                <a href="{{ route('permohonan.index') }}" class="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white py-2 px-3 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-all">
-                    Reset
-                </a>
             </div>
 
         </div>
-    </form>
-
-    <!-- 3. MAIN CONTENT: SPLIT VIEW (Daftar Pengajuan Kiri & Tracking Panel Kanan) -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-
-        <!-- KIRI (5 COLS): DAFTAR PENGAJUAN -->
-        <div class="lg:col-span-5 rounded-2xl border border-slate-200/80 bg-white shadow-sm overflow-hidden">
-            <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                <div class="flex items-center gap-2.5">
-                    <h2 class="font-bold text-base text-[#213153]">Daftar Pengajuan</h2>
-                    <span class="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-bold text-[#0969da]">
-                        {{ $permohonanList->total() ?? $permohonanList->count() }} pengajuan
-                    </span>
-                </div>
-            </div>
-
-            <div class="divide-y divide-slate-100 max-h-[680px] overflow-y-auto">
-                @forelse($permohonanList as $item)
-                    <div @click="selectPermohonan({{ json_encode($item) }})" 
-                         :class="selectedItem?.id === {{ $item->id }} || selectedItem?.nomor_surat === '{{ $item->nomor_surat }}' ? 'bg-blue-50/60 border-l-4 border-l-[#0969da]' : 'hover:bg-slate-50/80'"
-                         class="p-4 cursor-pointer transition-all flex items-start justify-between gap-3">
-                        
-                        <div class="space-y-1 min-w-0 flex-1">
-                            <div class="flex items-center gap-2">
-                                <span class="text-[11px] font-bold text-[#0969da] font-mono">{{ $item->nomor_surat }}</span>
-                                <span class="text-slate-300">•</span>
-                                <span class="text-[11px] font-medium text-slate-400">
-                                    {{ $item->tanggal_pengajuan ? \Carbon\Carbon::parse($item->tanggal_pengajuan)->format('d M Y') : '-' }}
-                                </span>
-                            </div>
-                            <h3 class="text-xs font-bold text-[#213153] leading-snug line-clamp-2">
-                                {{ $item->perihal ?? $item->judul_pengadaan }}
-                            </h3>
-                            <div class="text-[11px] text-slate-500 truncate">
-                                {{ $item->unit->nama_unit ?? $item->kode_unit }}
-                            </div>
-                        </div>
-
-                        <div class="flex flex-col items-end gap-1 shrink-0">
-                            @php
-                                $st = strtolower($item->status_permohonan ?? $item->status ?? 'diajukan');
-                            @endphp
-                            @if(in_array($st, ['disetujui', 'selesai']))
-                                <span class="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
-                                    {{ ucfirst($st) }}
-                                </span>
-                            @elseif(in_array($st, ['ditolak', 'ditahan', 'revisi']))
-                                <span class="inline-flex items-center rounded-full bg-rose-50 px-2.5 py-0.5 text-[10px] font-bold text-rose-700 border border-rose-200">
-                                    {{ ucfirst($st) }}
-                                </span>
-                            @else
-                                <span class="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-0.5 text-[10px] font-bold text-amber-700 border border-amber-200">
-                                    {{ ucfirst(str_replace('_', ' ', $st)) }}
-                                </span>
-                            @endif
-                            
-                            <svg class="size-4 text-slate-300 mt-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                        </div>
-
-                    </div>
-                @empty
-                    <div class="p-8 text-center text-slate-400">
-                        <svg class="size-10 text-slate-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                        <p class="text-xs font-medium">Belum ada permohonan pengadaan ditemukan.</p>
-                    </div>
-                @endforelse
-            </div>
-
-            @if(method_exists($permohonanList, 'links'))
-                <div class="p-3 border-t border-slate-100 bg-slate-50/30">
-                    {{ $permohonanList->links() }}
-                </div>
-            @endif
-        </div>
-
-        <!-- KANAN (7 COLS): TRACKING & DETAIL PANEL (FRAME 1, 2, 4 FIGMA) -->
-        <div class="lg:col-span-7 rounded-2xl border border-slate-200/80 bg-white shadow-sm p-6 min-h-[500px]">
-            
-            <!-- FRAME 1: STATE KOSONG (Belum Ada Item Diklik) -->
-            <template x-if="!selectedItem">
-                <div class="flex flex-col items-center justify-center min-h-[440px] text-center p-6">
-                    <div class="size-20 rounded-full bg-blue-50 flex items-center justify-center text-[#0969da] mb-4">
-                        <svg class="size-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"/></svg>
-                    </div>
-                    <h3 class="text-base font-bold text-[#213153]">Pilih Pengajuan untuk Melihat Detail</h3>
-                    <p class="text-xs text-slate-400 max-w-sm mt-1">
-                        Klik salah satu item daftar pengajuan di sebelah kiri untuk melihat alur progres 8 siklus pengadaan secara real-time.
-                    </p>
-                </div>
-            </template>
-
-            <!-- FRAME 2 & 4: STATE TRACKING (Item Diklik) -->
-            <template x-if="selectedItem">
-                <div class="space-y-6">
-                    
-                    <!-- Header Info Pengajuan Diklik -->
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-                        <div>
-                            <span class="text-xs font-bold font-mono text-[#0969da]" x-text="selectedItem.nomor_surat"></span>
-                            <h3 class="text-lg font-extrabold text-[#213153] leading-snug" x-text="selectedItem.perihal || selectedItem.judul_pengadaan"></h3>
-                            <p class="text-xs text-slate-500 mt-0.5" x-text="'Unit: ' + (selectedItem.unit ? selectedItem.unit.nama_unit : (selectedItem.kode_unit || 'Utama'))"></p>
-                        </div>
-                        
-                        <a :href="'/permohonan/' + (selectedItem.nomor_surat || selectedItem.id)" 
-                           class="inline-flex items-center gap-1.5 rounded-xl bg-slate-100 px-3.5 py-2 text-xs font-bold text-[#213153] hover:bg-slate-200 transition-colors shrink-0">
-                            <span>Detail Penuh</span>
-                            <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                        </a>
-                    </div>
-
-                    <!-- STEPPER 8 SIKLUS PENGADAAN (Figma Timeline Tracker) -->
-                    <div class="space-y-3">
-                        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">Tracking 8 Siklus Pengadaan</h4>
-                        
-                        <div class="grid grid-cols-4 sm:grid-cols-8 gap-2 py-2">
-                            <template x-for="step in 8" :key="step">
-                                <div class="flex flex-col items-center gap-1.5">
-                                    <div :class="getStepColor(step)" 
-                                         class="size-8 rounded-full flex items-center justify-center text-xs font-bold transition-all shadow-sm">
-                                        <span x-text="step"></span>
-                                    </div>
-                                    <span class="text-[9px] font-semibold text-center text-slate-500 leading-tight" x-text="getStepTitle(step)"></span>
-                                </div>
-                            </template>
-                        </div>
-                    </div>
-
-                    <!-- METADATA & ESTMASI ANGGARAN RINGKAS -->
-                    <div class="grid grid-cols-2 gap-3 text-xs">
-                        <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                            <span class="text-slate-400 block font-medium">Estimasi Pagu:</span>
-                            <span class="font-bold text-[#0969da] text-sm" x-text="selectedItem.estimasi_total_pagu || selectedItem.anggaran_diajukan ? 'Rp ' + Number(selectedItem.estimasi_total_pagu || selectedItem.anggaran_diajukan).toLocaleString('id-ID') : 'Rp -'"></span>
-                        </div>
-                        <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                            <span class="text-slate-400 block font-medium">Status Pengajuan:</span>
-                            <span class="font-bold text-slate-700 uppercase" x-text="selectedItem.status_permohonan || selectedItem.status || 'Diajukan'"></span>
-                        </div>
-                    </div>
-
-                    <!-- RIWAYAT AKTIVITAS & CATATAN -->
-                    <div class="space-y-3 pt-2">
-                        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">Riwayat Berkas & Catatan</h4>
-                        
-                        <div class="space-y-2.5 max-h-52 overflow-y-auto pr-1">
-                            <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-100 flex items-start gap-3">
-                                <div class="size-2.5 rounded-full bg-emerald-500 mt-1.5 shrink-0"></div>
-                                <div class="text-xs space-y-0.5">
-                                    <div class="font-bold text-[#213153]">Usulan Pengadaan Didaftarkan</div>
-                                    <div class="text-slate-500">Berkas usulan resmi Srikandi dicatat oleh unit pengusul.</div>
-                                    <div class="text-[10px] text-slate-400" x-text="selectedItem.tanggal_pengajuan"></div>
-                                </div>
-                            </div>
-                            
-                            <template x-if="selectedItem.tujuan_pengadaan_ringkas">
-                                <div class="p-3.5 rounded-xl bg-blue-50/50 border border-blue-100 flex items-start gap-3">
-                                    <div class="size-2.5 rounded-full bg-[#0969da] mt-1.5 shrink-0"></div>
-                                    <div class="text-xs space-y-0.5">
-                                        <div class="font-bold text-[#213153]">Uraian Ringkas Tujuan</div>
-                                        <div class="text-slate-600" x-text="selectedItem.tujuan_pengadaan_ringkas"></div>
-                                    </div>
-                                </div>
-                            </template>
-                        </div>
-                    </div>
-
-                </div>
-            </template>
-
-        </div>
-
     </div>
 
-    <!-- 4. MODAL POPUP: PERMOHONAN BARU (FORM INTEGRATED) -->
-    <div x-show="modalCreateOpen" 
-         x-cloak
-         x-transition:enter="transition ease-out duration-200"
-         x-transition:enter-start="opacity-0 scale-95"
-         x-transition:enter-end="opacity-100 scale-100"
-         x-transition:leave="transition ease-in duration-150"
-         x-transition:leave-start="opacity-100 scale-100"
-         x-transition:leave-end="opacity-0 scale-95"
-         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-        
-        <div @click.away="modalCreateOpen = false" class="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto space-y-5">
+    <!-- 3. KONTEN UTAMA: SPLIT VIEW ATAU FULLSCREEN -->
+    
+    <!-- A. VIEW MODE: FULLSCREEN DETAIL (FRAME 4 & 5) -->
+    <template x-if="viewMode === 'fullscreen' && selectedItem">
+        <div class="space-y-6">
             
-            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h3 class="text-lg font-extrabold text-[#213153]">Buat Permohonan Pengadaan Baru</h3>
-                <button @click="modalCreateOpen = false" type="button" class="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
-                    <svg class="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                </button>
+            <!-- 5 Card Informasi Ringkasan -->
+            <div class="bg-white rounded-xl border border-slate-200/80 p-5 shadow-sm grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
+                <div class="flex items-center gap-3">
+                    <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#0969da]">
+                        <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    </div>
+                    <div>
+                        <span class="text-xs font-medium text-slate-400 block">Nomor Pengajuan</span>
+                        <span class="text-sm font-bold text-[#213153]" x-text="selectedItem.nomor"></span>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3 pt-3 sm:pt-0 sm:pl-4">
+                    <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#0969da]">
+                        <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                    </div>
+                    <div>
+                        <span class="text-xs font-medium text-slate-400 block">Nama Pengadaan</span>
+                        <span class="text-sm font-bold text-[#213153] line-clamp-1" x-text="selectedItem.judul"></span>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3 pt-3 sm:pt-0 sm:pl-4">
+                    <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#0969da]">
+                        <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                    </div>
+                    <div>
+                        <span class="text-xs font-medium text-slate-400 block">Status Saat Ini</span>
+                        <span class="text-sm font-bold text-[#0969da]" x-text="selectedItem.status"></span>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3 pt-3 sm:pt-0 sm:pl-4">
+                    <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#0969da]">
+                        <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    </div>
+                    <div>
+                        <span class="text-xs font-medium text-slate-400 block">Terakhir Diperbarui</span>
+                        <span class="text-sm font-bold text-[#213153]" x-text="selectedItem.tanggal"></span>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3 pt-3 sm:pt-0 sm:pl-4">
+                    <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#0969da]">
+                        <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                    </div>
+                    <div>
+                        <span class="text-xs font-medium text-slate-400 block">Penanggung Jawab</span>
+                        <span class="text-sm font-bold text-[#213153]" x-text="selectedItem.penanggungJawab || 'Perencanaan'"></span>
+                    </div>
+                </div>
             </div>
 
-            <form action="{{ route('permohonan.store') }}" method="POST" enctype="multipart/form-data" class="space-y-4 text-xs">
-                @csrf
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div class="space-y-1">
-                        <label class="font-bold text-slate-700">No. Surat Srikandi <span class="text-rose-500">*</span></label>
-                        <input type="text" name="nomor_surat" required placeholder="Contoh: B/123/PL3/TIK/2026" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#0969da] focus:outline-none focus:ring-2 focus:ring-[#0969da]/20">
+            <!-- Stepper 8 Tahap Lebar dengan Label Teks -->
+            <div class="bg-white rounded-xl border border-slate-200/80 p-6 shadow-sm space-y-6">
+                <h3 class="font-bold text-lg text-[#213153]" x-text="'Tahap ' + selectedItem.currentTahap + ' dari 8'"></h3>
+                
+                <div class="relative flex items-center justify-between">
+                    <div class="absolute top-1/2 left-0 w-full h-1 bg-slate-200 -translate-y-1/2 z-0"></div>
+                    <div class="absolute top-1/2 left-0 h-1 bg-[#0969da] -translate-y-1/2 z-0 transition-all duration-300" :style="'width: ' + ((selectedItem.currentTahap - 1) / 7 * 100) + '%'"></div>
+
+                    <template x-for="(tahap, idx) in tahapanList" :key="idx">
+                        <div class="relative z-10 flex flex-col items-center group cursor-pointer" @click="selectedItem.currentTahap = idx + 1">
+                            <div class="size-11 rounded-full flex items-center justify-center font-bold text-base transition-all border-2"
+                                 :class="idx + 1 <= selectedItem.currentTahap ? 'bg-[#0969da] text-white border-[#0969da] shadow-md shadow-[#0969da]/30' : 'bg-white text-slate-400 border-slate-300'">
+                                <span x-text="idx + 1"></span>
+                            </div>
+                            <span class="text-xs font-semibold text-center mt-2 max-w-[100px] line-clamp-2"
+                                  :class="idx + 1 <= selectedItem.currentTahap ? 'text-[#0969da]' : 'text-slate-400'"
+                                  x-text="tahap"></span>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- TWO COLUMNS BOTTOM (DOKUMEN + TIMELINE USER) -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                
+                <!-- KOLOM KIRI: PERLU REVISI & SURAT DOKUMEN -->
+                <div class="lg:col-span-6 space-y-6">
+                    <!-- CARD PERLU REVISI (TAMPIL JIKA TERDAPAT REVISI) -->
+                    <template x-if="selectedItem.status === 'Perlu Revisi'">
+                        <div class="bg-white rounded-xl border border-amber-200 shadow-sm p-5 space-y-4">
+                            <div class="flex items-center justify-between border-b border-amber-100 pb-3">
+                                <div class="flex items-center gap-2">
+                                    <svg class="size-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                    <h3 class="font-bold text-[#213153] text-base">Perlu Revisi</h3>
+                                </div>
+                                <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">1 Dokumen</span>
+                            </div>
+
+                            <div class="bg-amber-50/50 p-4 rounded-xl border border-amber-200 flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="size-10 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center font-bold text-xs shrink-0">PDF</div>
+                                    <div>
+                                        <h4 class="font-bold text-[#213153] text-xs">Surat Pengajuan Pengadaan</h4>
+                                        <p class="text-[11px] text-slate-500">Surat_017_PNJ_2026.pdf • 1.1 MB</p>
+                                    </div>
+                                </div>
+                                <a href="#" class="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-lg transition-colors">
+                                    Revisi &gt;
+                                </a>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- CARD SURAT DAN DOKUMEN -->
+                    <div class="bg-white rounded-xl border border-slate-200/80 p-5 shadow-sm space-y-4">
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                            <h3 class="font-bold text-base text-[#213153]">Surat dan Dokumen</h3>
+                            <span class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-[#0969da]">1 Dokumen</span>
+                        </div>
+
+                        <div class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                            <div class="size-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                                <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V7.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 1H7a2 2 0 00-2 2v16a2 2 0 002 2z"/></svg>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <div class="font-bold text-xs text-[#213153] truncate">Surat Pengajuan Pengadaan</div>
+                                <div class="text-[11px] text-slate-500 font-medium">Surat_017_PNJ_2026.pdf • 1,1 MB</div>
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <button @click="showModalDoc = true" type="button" class="px-3 py-1.5 text-xs font-bold text-[#0969da] border border-[#0969da] bg-white rounded-lg hover:bg-blue-50 transition-colors">
+                                    Lihat
+                                </button>
+                                <button type="button" class="p-1.5 text-slate-500 hover:text-[#0969da] rounded-lg hover:bg-slate-100 transition-colors">
+                                    <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                    
-                    <div class="space-y-1">
-                        <label class="font-bold text-slate-700">Asal / Unit Pengusul <span class="text-rose-500">*</span></label>
-                        <select name="kode_unit" required class="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#0969da] focus:outline-none focus:ring-2 focus:ring-[#0969da]/20">
-                            @foreach($units as $u)
-                                <option value="{{ $u->kode_unit }}" {{ Auth::user()->kode_unit == $u->kode_unit ? 'selected' : '' }}>
-                                    [{{ $u->kode_unit }}] {{ $u->nama_unit }}
-                                </option>
-                            @endforeach
-                        </select>
+                </div>
+
+                <!-- KOLOM KANAN: RIWAYAT KRONOLOGIS TIMELINE -->
+                <div class="lg:col-span-6 bg-white rounded-xl border border-slate-200/80 p-5 shadow-sm space-y-4">
+                    <div class="flex items-center gap-2 border-b border-slate-100 pb-3">
+                        <svg class="size-5 text-[#0969da]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <h3 class="font-bold text-[#213153] text-base">Riwayat Kronologis dan Revisi</h3>
+                    </div>
+
+                    <div class="relative pl-6 border-l-2 border-slate-200 space-y-5 pt-1">
+                        <template x-for="log in selectedItem.timeline" :key="log.id">
+                            <div class="relative">
+                                <!-- Node Icon Circle -->
+                                <div :class="{
+                                    'bg-amber-500 text-white': log.type === 'warning',
+                                    'bg-rose-500 text-white': log.type === 'danger',
+                                    'bg-[#0969da] text-white': log.type === 'info',
+                                    'bg-emerald-500 text-white': log.type === 'success',
+                                    'bg-slate-400 text-white': log.type === 'gray'
+                                }" class="absolute -left-[35px] top-0 size-7 rounded-full flex items-center justify-center shadow-sm">
+                                    <template x-if="log.type === 'warning'"><svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></template>
+                                    <template x-if="log.type === 'danger'"><svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></template>
+                                    <template x-if="log.type === 'info' || log.type === 'success' || log.type === 'gray'"><svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg></template>
+                                </div>
+
+                                <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 flex items-start justify-between gap-3">
+                                    <div>
+                                        <span class="text-[10px] font-semibold text-slate-400 block" x-text="log.time"></span>
+                                        <h4 class="font-bold text-[#213153] text-xs mt-0.5" x-text="log.title"></h4>
+                                        <p class="text-[11px] text-slate-500 mt-0.5" x-text="log.subtitle"></p>
+                                        <template x-if="log.catatan">
+                                            <p class="text-[11px] text-amber-700 bg-amber-50 p-2 rounded border border-amber-200 mt-2 font-mono" x-text="'Catatan: ' + log.catatan"></p>
+                                        </template>
+                                    </div>
+                                    <span :class="{
+                                        'bg-amber-100 text-amber-700': log.badge_type === 'warning',
+                                        'bg-rose-100 text-rose-700': log.badge_type === 'danger',
+                                        'bg-blue-100 text-blue-700': log.badge_type === 'info',
+                                        'bg-emerald-100 text-emerald-700': log.badge_type === 'success',
+                                        'bg-slate-100 text-slate-700': log.badge_type === 'gray'
+                                    }" class="px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0" x-text="log.badge"></span>
+                                </div>
+                            </div>
+                        </template>
                     </div>
                 </div>
 
-                <div class="space-y-1">
-                    <label class="font-bold text-slate-700">Judul / Perihal Permohonan <span class="text-rose-500">*</span></label>
-                    <input type="text" name="perihal" required placeholder="Contoh: Pengadaan Perangkat Lab AI dan Server" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#0969da] focus:outline-none focus:ring-2 focus:ring-[#0969da]/20">
-                </div>
+            </div>
 
-                <div class="space-y-1">
-                    <label class="font-bold text-slate-700">Tujuan Pengadaan Ringkas</label>
-                    <textarea name="tujuan_pengadaan_ringkas" rows="2" placeholder="Uraikan tujuan pengadaan..." class="w-full rounded-xl border border-slate-200 p-3 text-xs focus:border-[#0969da] focus:outline-none focus:ring-2 focus:ring-[#0969da]/20"></textarea>
-                </div>
+        </div>
+    </template>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div class="space-y-1">
-                        <label class="font-bold text-slate-700">Estimasi Anggaran (Rp) <span class="text-rose-500">*</span></label>
-                        <input type="number" name="anggaran_diajukan" required min="1" placeholder="Contoh: 150000000" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:border-[#0969da] focus:outline-none focus:ring-2 focus:ring-[#0969da]/20">
-                        <input type="hidden" name="tanggal_pengajuan" value="{{ date('Y-m-d') }}">
-                    </div>
-
-                    <div class="space-y-1">
-                        <label class="font-bold text-slate-700">Dokumen KAK / Spesifikasi (PDF)</label>
-                        <input type="file" name="file_surat_permohonan" accept="application/pdf" class="w-full rounded-xl border border-slate-200 px-2 py-1.5 text-xs text-slate-600">
+    <!-- B. VIEW MODE: SPLIT VIEW (FRAME 1, 2, & 3) -->
+    <template x-if="viewMode === 'split'">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            
+            <!-- PANEL KIRI: DAFTAR PENGAJUAN -->
+            <div class="lg:col-span-5 bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
+                <div class="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                    <div class="flex items-center gap-2.5">
+                        <h2 class="font-bold text-base text-[#213153]">Daftar Pengajuan</h2>
+                        <span class="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-bold text-[#0969da]" x-text="filteredList.length + ' pengajuan'"></span>
                     </div>
                 </div>
 
-                <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
-                    <button @click="modalCreateOpen = false" type="button" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50">
-                        Batal
-                    </button>
-                    <button type="submit" class="rounded-xl bg-[#0969da] px-5 py-2 text-xs font-bold text-white hover:bg-blue-700 shadow-md shadow-[#0969da]/20">
-                        Kirim Usulan
-                    </button>
-                </div>
-            </form>
+                <div class="divide-y divide-slate-100 max-h-[720px] overflow-y-auto">
+                    <template x-for="item in filteredList" :key="item.id">
+                        <div @click="selectItem(item)" 
+                             class="p-4 flex items-center gap-3 cursor-pointer transition-all hover:bg-slate-50"
+                             :class="selectedItem && selectedItem.id === item.id ? 'bg-blue-50/60 border-l-4 border-l-[#0969da]' : ''">
+                            
+                            <div class="size-10 rounded-full flex items-center justify-center shrink-0 shadow-sm"
+                                 :class="getStatusBadgeClass(item.status).circle">
+                                <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" x-html="getStatusBadgeClass(item.status).icon"></svg>
+                            </div>
 
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-center justify-between gap-2">
+                                    <h3 class="font-bold text-sm text-[#213153] truncate" x-text="item.judul"></h3>
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0" 
+                                          :class="getStatusBadgeClass(item.status).pill" 
+                                          x-text="item.status"></span>
+                                </div>
+                                <div class="text-xs font-semibold text-slate-400 mt-0.5" x-text="item.nomor"></div>
+                                <div class="text-xs text-slate-500 mt-1 truncate" x-text="item.deskripsi"></div>
+                                <div class="text-[10px] text-slate-400 mt-1" x-text="item.tanggal"></div>
+                            </div>
+
+                            <svg class="size-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- PANEL KANAN: DETAIL DISAMPING -->
+            <div class="lg:col-span-7 bg-white rounded-xl border border-slate-200/80 shadow-sm p-6 min-h-[600px] flex flex-col">
+                
+                <!-- 1. EMPTY STATE SAMA PERSIS FIGMA (FRAME 1) -->
+                <template x-if="!selectedItem">
+                    <div class="my-auto flex flex-col items-center justify-center text-center py-10 px-4">
+                        
+                        <!-- SVG Ilustrasi Dokumen + Kaca Pembesar Kuning-Hitam Presisi Figma -->
+                        <div class="w-40 h-40 mb-6 flex items-center justify-center shrink-0">
+                            <svg class="w-full h-full" viewBox="0 0 178 178" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <!-- Dokumen Belakang -->
+                                <rect x="35" y="30" width="85" height="110" rx="8" fill="white" stroke="#1E293B" stroke-width="4.5"/>
+                                <rect x="48" y="48" width="30" height="22" rx="4" fill="#FACC15" stroke="#1E293B" stroke-width="3.5"/>
+                                <line x1="86" y1="52" x2="106" y2="52" stroke="#1E293B" stroke-width="4" stroke-linecap="round"/>
+                                <line x1="86" y1="64" x2="106" y2="64" stroke="#1E293B" stroke-width="4" stroke-linecap="round"/>
+                                <line x1="48" y1="84" x2="106" y2="84" stroke="#1E293B" stroke-width="4" stroke-linecap="round"/>
+                                <line x1="48" y1="98" x2="106" y2="98" stroke="#1E293B" stroke-width="4" stroke-linecap="round"/>
+                                <line x1="48" y1="112" x2="88" y2="112" stroke="#1E293B" stroke-width="4" stroke-linecap="round"/>
+
+                                <!-- Kaca Pembesar Depan -->
+                                <circle cx="115" cy="105" r="22" fill="#38BDF8" fill-opacity="0.2" stroke="#1E293B" stroke-width="5"/>
+                                <path d="M131 121L148 138" stroke="#FACC15" stroke-width="10" stroke-linecap="round"/>
+                                <path d="M131 121L148 138" stroke="#1E293B" stroke-width="5" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+
+                        <h3 class="font-extrabold text-2xl text-[#213153] tracking-tight">Pilih Pengajuan untuk Melihat Detail</h3>
+                        <p class="text-sm text-slate-500 max-w-md mt-2 leading-relaxed">
+                            Silahkan pilih salah satu pengajuan dari daftar sebelah kiri untuk melihat informasi lengkap, dokumen, dan riwayat prosesnya.
+                        </p>
+                    </div>
+                </template>
+
+                <!-- 2. TERPILIH ITEM (FRAME 2 & 3 USER) -->
+                <template x-if="selectedItem">
+                    <div class="space-y-6">
+                        
+                        <!-- Header Tracking & Link Fullscreen -->
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                            <div>
+                                <h3 class="font-bold text-lg text-[#213153]" x-text="selectedItem.judul"></h3>
+                                <div class="text-xs text-slate-400 mt-0.5" x-text="selectedItem.nomor"></div>
+                            </div>
+                            <button @click="viewMode = 'fullscreen'" type="button" class="inline-flex items-center gap-1.5 text-xs font-bold text-[#0969da] hover:underline">
+                                Lihat Detail
+                                <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                            </button>
+                        </div>
+
+                        <!-- Stepper 8 Tahap Ringkas Circle (Frame 2 & 3) -->
+                        <div class="p-4 rounded-xl bg-slate-50 border border-slate-200/80">
+                            <div class="flex items-center justify-between relative">
+                                <div class="absolute top-1/2 left-0 w-full h-1 bg-slate-200 -translate-y-1/2 z-0"></div>
+                                <div class="absolute top-1/2 left-0 h-1 bg-[#0969da] -translate-y-1/2 z-0 transition-all duration-300" :style="'width: ' + ((selectedItem.currentTahap - 1) / 7 * 100) + '%'"></div>
+
+                                <template x-for="n in 8" :key="n">
+                                    <div class="relative z-10 size-9 rounded-full flex items-center justify-center font-bold text-xs border-2 transition-all"
+                                         :class="n <= selectedItem.currentTahap ? 'bg-[#0969da] text-white border-[#0969da]' : 'bg-white text-slate-400 border-slate-300'"
+                                         x-text="n"></div>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- Timeline Kronologis & Revisi (Mode Split User) -->
+                        <div class="space-y-4 pt-2 border-t border-slate-100">
+                            <div class="flex items-center gap-2">
+                                <svg class="size-5 text-[#0969da]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                <h4 class="font-bold text-sm text-[#213153]">Riwayat Kronologis dan Revisi</h4>
+                            </div>
+
+                            <div class="relative pl-6 border-l-2 border-slate-200 space-y-4">
+                                <template x-for="log in selectedItem.timeline" :key="log.id">
+                                    <div class="relative">
+                                        <div :class="{
+                                            'bg-amber-500 text-white': log.type === 'warning',
+                                            'bg-rose-500 text-white': log.type === 'danger',
+                                            'bg-[#0969da] text-white': log.type === 'info',
+                                            'bg-emerald-500 text-white': log.type === 'success',
+                                            'bg-slate-400 text-white': log.type === 'gray'
+                                        }" class="absolute -left-[35px] top-0 size-7 rounded-full flex items-center justify-center shadow-sm">
+                                            <template x-if="log.type === 'warning'"><svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></template>
+                                            <template x-if="log.type === 'danger'"><svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></template>
+                                            <template x-if="log.type === 'info' || log.type === 'success' || log.type === 'gray'"><svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg></template>
+                                        </div>
+
+                                        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200/80 flex items-start justify-between gap-3">
+                                            <div>
+                                                <span class="text-[10px] font-semibold text-slate-400 block" x-text="log.time"></span>
+                                                <h5 class="font-bold text-[#213153] text-xs mt-0.5" x-text="log.title"></h5>
+                                                <p class="text-[11px] text-slate-500 mt-0.5" x-text="log.subtitle"></p>
+                                                <template x-if="log.catatan">
+                                                    <p class="text-[11px] text-amber-700 bg-amber-50 p-2 rounded border border-amber-200 mt-2 font-mono" x-text="'Catatan: ' + log.catatan"></p>
+                                                </template>
+                                            </div>
+                                            <span :class="{
+                                                'bg-amber-100 text-amber-700': log.badge_type === 'warning',
+                                                'bg-rose-100 text-rose-700': log.badge_type === 'danger',
+                                                'bg-blue-100 text-blue-700': log.badge_type === 'info',
+                                                'bg-emerald-100 text-emerald-700': log.badge_type === 'success',
+                                                'bg-slate-100 text-slate-700': log.badge_type === 'gray'
+                                            }" class="px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0" x-text="log.badge"></span>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+
+                    </div>
+                </template>
+
+            </div>
+
+        </div>
+    </template>
+
+    <!-- MODAL POPUP PREVIEW DOKUMEN -->
+    <div x-show="showModalDoc" 
+         x-cloak
+         @click.away="showModalDoc = false" 
+         class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4">
+            <h3 class="font-bold text-lg text-[#213153]">Surat Pengajuan Pengadaan</h3>
+            <p class="text-xs text-slate-500">File: Surat_017_PNJ_2026.pdf (1.1 MB)</p>
+            <div class="p-8 bg-slate-100 rounded-xl flex items-center justify-center border border-dashed border-slate-300 text-slate-400 text-xs">
+                [ Preview PDF Document ]
+            </div>
+            <div class="flex justify-end">
+                <button @click="showModalDoc = false" type="button" class="px-4 py-2 bg-[#0969da] text-white font-bold text-xs rounded-lg">
+                    Tutup
+                </button>
+            </div>
         </div>
     </div>
 
 </div>
 
-<!-- SCRIPT ALPINE.JS MANAGEMENT -->
+<!-- SCRIPT ALPINE.JS MANAGEMENT STATE (KHUSUS USER) -->
 <script>
-    function trackingManager() {
+    function trackingUserManager() {
         return {
-            selectedItem: null,
-            modalCreateOpen: false,
+            viewMode: 'split', // 'split' atau 'fullscreen'
+            selectedItem: null, // DEFAULT NULL AGAR DISPLAY EMPTY STATE (FRAME 1) PADA AWALNYA
+            searchQuery: '',
+            filterStatus: 'Semua',
+            filterJenis: 'Semua',
+            filterTanggal: '',
+            showModalDoc: false,
 
-            selectPermohonan(item) {
+            tahapanList: [
+                'Pengajuan',
+                'Persetujuan 1',
+                'Penyusunan Dokumen & Level Anggaran',
+                'Persetujuan 2 (Kondisional)',
+                'Pembelian & Surat Kontrak',
+                'Penerimaan Barang/Jasa',
+                'Pembayaran',
+                'Selesai'
+            ],
+
+            items: [
+                { 
+                    id: 1, 
+                    nomor: 'PBJ-2026-0017', 
+                    judul: 'Pengadaan Laptop untuk Laboratorium TI', 
+                    jenis: 'Barang', 
+                    deskripsi: 'Pengadaan Laptop untuk kebutuhan praktikum mahasiswa.', 
+                    status: 'Dalam Proses', 
+                    tanggal: '18 Jan 2026, 14:00', 
+                    currentTahap: 3, 
+                    penanggungJawab: 'Perencanaan',
+                    timeline: [
+                        { id: 1, time: '18 Jan 2026 - 15:00', title: 'Penyusunan dokumen dan penetapan level anggaran oleh PPBJ', subtitle: 'Pengusul pengadaan laptop', badge: 'Dalam Proses', type: 'info', badge_type: 'info' },
+                        { id: 2, time: '18 Jan 2026 - 13:00', title: 'Perencanaan dan Bidang 2 menyetujui form pengajuan', subtitle: 'Dokumen disetujui', badge: 'Disetujui', type: 'success', badge_type: 'success' },
+                        { id: 3, time: '18 Jan 2026 - 11:00', title: 'Perencanaan dan Bidang 2 sedang memeriksa form pengajuan', subtitle: 'Pemeriksaan awal berkas', badge: 'Informasi', type: 'info', badge_type: 'info' },
+                        { id: 4, time: '18 Jan 2026 - 10:00', title: 'Form berhasil disampaikan', subtitle: 'Pihak Perencanaan dan Bidang 2 berhasil menerima notifikasi', badge: 'Dikirim', type: 'gray', badge_type: 'gray' },
+                        { id: 5, time: '18 Jan 2026 - 09:00', title: 'Riyan Sohibul Anam melakukan pengajuan', subtitle: 'Pengajuan pengadaan laptop', badge: 'Informasi', type: 'info', badge_type: 'info' }
+                    ]
+                },
+                { 
+                    id: 2, 
+                    nomor: 'PBJ-2026-0018', 
+                    judul: 'Pengadaan Alat Praktikum Jaringan', 
+                    jenis: 'Barang', 
+                    deskripsi: 'Pengadaan perangkat jaringan untuk laboratorium.', 
+                    status: 'Selesai', 
+                    tanggal: '16 Jan 2026, 11:00', 
+                    currentTahap: 8, 
+                    penanggungJawab: 'Laboratorium',
+                    timeline: [
+                        { id: 1, time: '16 Jan 2026 - 16:00', title: 'Seluruh proses pengadaan selesai & BAST diterbitkan', subtitle: 'Barang telah diterima unit kerja', badge: 'Selesai', type: 'success', badge_type: 'success' }
+                    ]
+                },
+                { 
+                    id: 3, 
+                    nomor: 'PBJ-2026-0019', 
+                    judul: 'Pengadaan Printer', 
+                    jenis: 'Barang', 
+                    deskripsi: 'Pengadaan printer untuk unit kerja.', 
+                    status: 'Perlu Revisi', 
+                    tanggal: '16 Jan 2026, 15:00', 
+                    currentTahap: 2, 
+                    penanggungJawab: 'Umum',
+                    timeline: [
+                        { id: 1, time: '16 Jan 2026 - 15:00', title: 'Form perlu direvisi', subtitle: 'Pemeriksaan awal verifikator', catatan: 'File tidak dapat dibuka', badge: 'Perlu Revisi', type: 'warning', badge_type: 'warning' },
+                        { id: 2, time: '16 Jan 2026 - 10:00', title: 'Perencanaan menolak form pengajuan', subtitle: 'Pengajuan ditolak sementara', badge: 'Ditolak', type: 'danger', badge_type: 'danger' }
+                    ]
+                },
+                { 
+                    id: 4, 
+                    nomor: 'PBJ-2026-0020', 
+                    judul: 'Pengadaan ATK dan Perlengkapan Kantor', 
+                    jenis: 'Barang', 
+                    deskripsi: 'Pengadaan alat tulis kantor untuk operasional.', 
+                    status: 'Menunggu Persetujuan', 
+                    tanggal: '16 Jan 2026, 11:00', 
+                    currentTahap: 1, 
+                    penanggungJawab: 'Keuangan',
+                    timeline: [
+                        { id: 1, time: '16 Jan 2026 - 11:00', title: 'Form berhasil disampaikan', subtitle: 'Menunggu pemeriksaan verifikator', badge: 'Menunggu', type: 'warning', badge_type: 'warning' }
+                    ]
+                }
+            ],
+
+            get filteredList() {
+                return this.items.filter(item => {
+                    const matchSearch = item.judul.toLowerCase().includes(this.searchQuery.toLowerCase()) || 
+                                        item.nomor.toLowerCase().includes(this.searchQuery.toLowerCase());
+                    const matchStatus = this.filterStatus === 'Semua' || item.status === this.filterStatus;
+                    const matchJenis = this.filterJenis === 'Semua' || item.jenis === this.filterJenis;
+                    return matchSearch && matchStatus && matchJenis;
+                });
+            },
+
+            selectItem(item) {
                 this.selectedItem = item;
             },
 
-            getStepTitle(step) {
-                const titles = [
-                    'Permohonan',
-                    'Penelaahan',
-                    'Verifikasi MAK',
-                    'Pembuatan Paket',
-                    'Penetapan HPS',
-                    'Pembuatan SPK',
-                    'Penerimaan',
-                    'Pembayaran'
-                ];
-                return titles[step - 1] || 'Siklus';
+            resetFilters() {
+                this.searchQuery = '';
+                this.filterStatus = 'Semua';
+                this.filterJenis = 'Semua';
+                this.filterTanggal = '';
             },
 
-            getStepColor(step) {
-                if (!this.selectedItem) return 'bg-slate-100 text-slate-400';
-                
-                const st = (this.selectedItem.status_permohonan || this.selectedItem.status || '').toLowerCase();
-                if (st === 'disetujui' || st === 'selesai') {
-                    return 'bg-emerald-500 text-white shadow-emerald-500/20';
-                } else if (step <= 2) {
-                    return 'bg-[#0969da] text-white shadow-blue-500/20';
-                } else {
-                    return 'bg-slate-100 text-slate-400';
+            applyFilters() {
+                // Triggered saat tombol "Cari" diklik
+            },
+
+            hapusPengajuan() {
+                if (confirm('Apakah Anda yakin ingin menghapus pengajuan ini?')) {
+                    alert('Pengajuan berhasil dihapus.');
+                    this.selectedItem = null;
+                    this.viewMode = 'split';
+                }
+            },
+
+            getStatusBadgeClass(status) {
+                switch(status) {
+                    case 'Selesai':
+                    case 'Disetujui':
+                        return {
+                            circle: 'bg-emerald-100 text-emerald-600',
+                            pill: 'bg-emerald-100 text-emerald-700',
+                            icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>'
+                        };
+                    case 'Ditolak':
+                        return {
+                            circle: 'bg-rose-100 text-rose-600',
+                            pill: 'bg-rose-100 text-rose-700',
+                            icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>'
+                        };
+                    case 'Perlu Revisi':
+                    case 'Menunggu Persetujuan':
+                        return {
+                            circle: 'bg-amber-100 text-amber-600',
+                            pill: 'bg-amber-100 text-amber-700',
+                            icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>'
+                        };
+                    default: // Dalam Proses
+                        return {
+                            circle: 'bg-blue-100 text-[#0969da]',
+                            pill: 'bg-blue-100 text-[#0969da]',
+                            icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>'
+                        };
                 }
             }
         };
