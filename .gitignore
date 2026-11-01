@@ -43,3 +43,4 @@ resources/views/auth/teslogin.html
 resources/views/auth/tesregister
 resources/views/permohonan/tesindex
 .venv/**/*.*
+.agents/teamwork
