@@ -191,6 +191,7 @@ class RoleBasedNavigationTest extends TestCase
         $response->assertSee('Master Role');
         $response->assertSee(route('permohonan.index'));
         $response->assertSee('Kelola / Hapus Pengajuan');
+        $response->assertSee(route('notifikasi.index'));
         $response->assertSee(route('dashboard'));
         $response->assertSee(route('profile.index'));
 
@@ -234,6 +235,24 @@ class RoleBasedNavigationTest extends TestCase
         // Admin tidak boleh melihat tombol Permohonan Baru
         $response->assertDontSee('Permohonan Baru');
         $response->assertDontSee('openCreateModal()');
+
+        // Buat usulan dengan status disetujui (bukan draft/diajukan)
+        $permohonanDisetujui = PermohonanPengadaan::create([
+            'nomor_surat' => 'B/DIS-TEST/PL3/TIK/2026',
+            'judul_pengadaan' => 'Pengadaan Server Cloud Lab',
+            'tujuan_pengadaan_ringkas' => 'Untuk server lab riset',
+            'estimasi_total_pagu' => 45000000,
+            'kode_unit' => $this->unitTIK->kode_unit,
+            'id_user' => $this->user->id_user,
+            'status_permohonan' => 'disetujui',
+            'status_anggaran' => 'tersedia',
+        ]);
+
+        // Admin HARUS melihat tombol Hapus Pengajuan pada tracking pengajuan (permohonan.index)
+        $responseWithData = $this->get(route('permohonan.index'));
+        $responseWithData->assertOk();
+        $responseWithData->assertSee('Hapus Pengajuan');
+        $responseWithData->assertSee('modal-delete-permohonan');
     }
 
     /**

@@ -104,7 +104,17 @@
                         
                         <div class="flex items-start justify-between gap-2">
                             <span class="text-xs font-bold font-mono text-[#0969da]">{{ $item->nomor_surat }}</span>
-                            <x-status-badge :status="$item->status_permohonan ?? $item->status" size="sm" />
+                            <div class="flex items-center gap-2">
+                                <x-status-badge :status="$item->status_permohonan ?? $item->status" size="sm" />
+                                @if(Auth::user()->hasRole('admin'))
+                                    <button type="button" 
+                                            @click.stop="openHapusModal({{ json_encode($item) }})"
+                                            class="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                                            title="Hapus Usulan Pengadaan (Admin Cascade)">
+                                        <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                    </button>
+                                @endif
+                            </div>
                         </div>
 
                         <h3 class="text-sm font-bold text-[#213153] line-clamp-2 leading-snug">
@@ -185,25 +195,39 @@
                                 <span>Unduh PDF</span>
                             </a>
 
-                            <!-- Tombol Ajukan Revisi jika Ditolak/Revisi -->
-                            <template x-if="['ditolak', 'revisi', 'perlu_revisi'].includes((selectedItem.status_permohonan || selectedItem.status || '').toLowerCase())">
-                                <button type="button" 
-                                        @click="openRevisiModal(selectedItem)"
-                                        class="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-2 text-xs font-bold shadow-xs transition-colors cursor-pointer">
-                                    <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                                    <span>Ajukan Revisi</span>
-                                </button>
-                            </template>
+                            <!-- Tombol Ajukan Revisi jika Ditolak/Revisi (Hanya untuk User Non-Admin) -->
+                            @if(!Auth::user()->hasRole('admin'))
+                                <template x-if="['ditolak', 'revisi', 'perlu_revisi'].includes((selectedItem.status_permohonan || selectedItem.status || '').toLowerCase())">
+                                    <button type="button" 
+                                            @click="openRevisiModal(selectedItem)"
+                                            class="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-2 text-xs font-bold shadow-xs transition-colors cursor-pointer">
+                                        <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                        <span>Ajukan Revisi</span>
+                                    </button>
+                                </template>
+                            @endif
 
-                            <!-- Tombol Hapus/Batalkan jika Draft/Diajukan/Ditolak -->
-                            <template x-if="['draft', 'diajukan', 'ditolak'].includes((selectedItem.status_permohonan || selectedItem.status || '').toLowerCase())">
+                            <!-- TOMBOL HAPUS / BATALKAN PENGAJUAN -->
+                            @if(Auth::user()->hasRole('admin'))
+                                {{-- ADMIN DAPAT MENGHAPUS SEMUA PENGAJUAN PADA STATUS APA PUN --}}
                                 <button type="button" 
                                         @click="openHapusModal(selectedItem)"
-                                        class="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 px-3.5 py-2 text-xs font-bold transition-colors cursor-pointer">
+                                        class="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 px-3.5 py-2 text-xs font-bold transition-colors cursor-pointer"
+                                        title="Hapus Usulan Pengadaan Beserta Seluruh Relasi Terkait">
                                     <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                                    <span>Batalkan</span>
+                                    <span>Hapus Pengajuan</span>
                                 </button>
-                            </template>
+                            @else
+                                {{-- USER REGULER HANYA DAPAT MEMBATALKAN USULAN MILIK SENDIRI PADA STATUS DRAFT/DIAJUKAN/DITOLAK --}}
+                                <template x-if="['draft', 'diajukan', 'ditolak'].includes((selectedItem.status_permohonan || selectedItem.status || '').toLowerCase()) && selectedItem.id_user == {{ Auth::id() }}">
+                                    <button type="button" 
+                                            @click="openHapusModal(selectedItem)"
+                                            class="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 px-3.5 py-2 text-xs font-bold transition-colors cursor-pointer">
+                                        <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                        <span>Batalkan</span>
+                                    </button>
+                                </template>
+                            @endif
                         </div>
                     </div>
 
@@ -445,8 +469,8 @@
     </x-modal>
 
     <!-- 6. MODAL INTERAKTIF 3: KONFIRMASI HAPUS / BATALKAN PENGAJUAN (Figma 498:4950) -->
-    <x-modal id="modal-delete-permohonan" title="Konfirmasi Pembatalan Pengajuan" maxWidth="md">
-        <form :action="'/permohonan/' + (hapusTarget?.nomor_surat || '')" 
+    <x-modal id="modal-delete-permohonan" :title="Auth::user()->hasRole('admin') ? 'Konfirmasi Hapus Pengajuan (Admin)' : 'Konfirmasi Pembatalan Pengajuan'" maxWidth="md">
+        <form :action="'{{ url('permohonan') }}/' + (hapusTarget?.nomor_surat || '')" 
               method="POST" 
               class="space-y-4">
             @csrf
@@ -456,9 +480,15 @@
                 <div class="size-14 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-3 shadow-xs">
                     <svg class="size-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                 </div>
-                <h4 class="text-base font-bold text-slate-800">Batalkan Pengajuan Permohonan?</h4>
+                <h4 class="text-base font-bold text-slate-800">
+                    {{ Auth::user()->hasRole('admin') ? 'Hapus Usulan Pengadaan?' : 'Batalkan Pengajuan Permohonan?' }}
+                </h4>
                 <p class="text-xs text-slate-500 mt-1.5 leading-relaxed">
-                    Anda akan membatalkan dan menghapus berkas usulan <strong class="text-slate-800 font-mono" x-text="hapusTarget?.nomor_surat"></strong>. Tindakan ini tidak dapat dibatalkan.
+                    @if(Auth::user()->hasRole('admin'))
+                        Anda akan menghapus usulan pengadaan <strong class="text-slate-800 font-mono" x-text="hapusTarget?.nomor_surat"></strong> pada status apa pun beserta seluruh data relasi terkait (paket, kontrak, berkas storage) secara tuntas (*cascade deletion*). Tindakan ini permanen.
+                    @else
+                        Anda akan membatalkan dan menghapus berkas usulan <strong class="text-slate-800 font-mono" x-text="hapusTarget?.nomor_surat"></strong>. Tindakan ini tidak dapat dibatalkan.
+                    @endif
                 </p>
             </div>
 
@@ -470,7 +500,7 @@
                 </button>
                 <button type="submit" 
                         class="rounded-xl bg-rose-600 hover:bg-rose-700 text-white px-5 py-2 text-xs font-bold shadow-md shadow-rose-600/20 transition-all cursor-pointer">
-                    Ya, Batalkan Pengajuan
+                    {{ Auth::user()->hasRole('admin') ? 'Ya, Hapus Pengajuan (Cascade)' : 'Ya, Batalkan Pengajuan' }}
                 </button>
             </div>
         </form>

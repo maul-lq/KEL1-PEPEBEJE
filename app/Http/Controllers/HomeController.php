@@ -491,7 +491,10 @@ class HomeController extends Controller
     public function destroyPermohonan(string $id): RedirectResponse
     {
         $user = Auth::user();
-        $permohonan = PermohonanPengadaan::where('nomor_surat', $id)->firstOrFail();
+        $permohonan = PermohonanPengadaan::where('nomor_surat', $id)
+            ->orWhere('nomor_surat', urldecode($id))
+            ->orWhere('nomor_surat', rawurldecode($id))
+            ->firstOrFail();
 
         $isAdmin = $user->hasRole('admin') || $user->role === User::ROLE_ADMIN || ($user->roleEntity && $user->roleEntity->nama_role === User::ROLE_ADMIN);
 

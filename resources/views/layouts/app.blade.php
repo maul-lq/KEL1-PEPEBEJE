@@ -522,6 +522,26 @@
                     </a>
                 @endif
 
+                <!-- 14. NOTIFIKASI & REMINDER (All Roles) -->
+                <a href="{{ route('notifikasi.index') }}" 
+                   title="Notifikasi & Reminder" 
+                   class="relative flex items-center gap-3 rounded-[10px] p-2.5 transition-colors w-full {{ request()->routeIs('notifikasi.*') ? 'bg-[#0969da]/80 text-white font-semibold' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
+                    <div class="relative size-5 shrink-0 flex items-center justify-center">
+                        <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                        </svg>
+                        @if($unreadHeaderCount > 0)
+                            <span class="absolute -top-1 -right-1 size-2 rounded-full bg-rose-500"></span>
+                        @endif
+                    </div>
+                    <span x-show="sidebarExpanded" x-cloak class="text-sm font-medium whitespace-nowrap">Notifikasi &amp; Reminder</span>
+                    @if($unreadHeaderCount > 0)
+                        <span x-show="sidebarExpanded" x-cloak class="ml-auto inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-500 text-white">
+                            {{ $unreadHeaderCount }}
+                        </span>
+                    @endif
+                </a>
+
             </div>
 
             <!-- Horizontal Divider (Figma Line 3) -->
@@ -543,14 +563,38 @@
         <!-- 3. KONTEN UTAMA HALAMAN -->
         <main class="min-w-0 flex-1 p-6 md:p-10">
             
-            {{-- Inisialisasi Notifikasi Desktop OS (Latar Belakang / Non-Intrusif) --}}
+            {{-- Banner Notifikasi OS Desktop --}}
             @auth
             <div x-data="desktopNotificationManager()" 
                  x-init="init()" 
-                 x-show="false" 
-                 class="hidden" 
-                 aria-hidden="true">
-                <span class="sr-only">Aktifkan Notifikasi Desktop</span>
+                 x-show="showBanner" 
+                 x-cloak
+                 x-transition 
+                 class="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl bg-gradient-to-r from-[#213153] to-[#0969da] p-4 text-white shadow-md">
+                <div class="flex items-center gap-3">
+                    <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-white/15 backdrop-blur-sm">
+                        <svg class="size-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-semibold">Aktifkan Notifikasi Desktop (OS Windows / Mac)</h4>
+                        <p class="text-xs text-blue-100">Dapatkan peringatan batas waktu SPK, pengiriman rekanan, dan disposisi langsung di layar komputer Anda.</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button @click="requestPermission()" 
+                            type="button" 
+                            class="rounded-lg bg-white px-4 py-2 text-xs font-bold text-[#213153] shadow-sm hover:bg-blue-50 transition-colors">
+                        Izinkan Notifikasi OS
+                    </button>
+                    <button @click="dismissBanner()" 
+                            type="button" 
+                            class="rounded-lg p-2 text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+                            title="Tutup banner">
+                        <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
             </div>
             @endauth
 
