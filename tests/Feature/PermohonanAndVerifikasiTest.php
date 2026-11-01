@@ -171,20 +171,10 @@ class PermohonanAndVerifikasiTest extends TestCase
             'kode_unit' => $this->unit->kode_unit,
         ]);
 
-        // Verifikasi inisialisasi antrean verifikasi paralel untuk Staf B2, Wadir 2, dan Perencanaan
+        // Verifikasi inisialisasi antrean verifikasi berantai untuk Staf B2
         $this->assertDatabaseHas('verifikasi_paralel', [
             'nomor_surat' => 'B/TEST-M3/PL3/TIK/2026',
             'role_verifikator' => 'staff_bidang_2',
-            'status_keputusan' => 'menunggu',
-        ]);
-        $this->assertDatabaseHas('verifikasi_paralel', [
-            'nomor_surat' => 'B/TEST-M3/PL3/TIK/2026',
-            'role_verifikator' => 'wadir_2',
-            'status_keputusan' => 'menunggu',
-        ]);
-        $this->assertDatabaseHas('verifikasi_paralel', [
-            'nomor_surat' => 'B/TEST-M3/PL3/TIK/2026',
-            'role_verifikator' => 'perencanaan',
             'status_keputusan' => 'menunggu',
         ]);
     }
@@ -255,7 +245,7 @@ class PermohonanAndVerifikasiTest extends TestCase
             'nomor_surat_revisi' => $induk->nomor_surat,
             'revisi_ke' => 1,
             'estimasi_total_pagu' => 160000000,
-            'status_permohonan' => PermohonanPengadaan::STATUS_REVIU_PARALEL,
+            'status_permohonan' => PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
         ]);
     }
 

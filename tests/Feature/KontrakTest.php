@@ -139,7 +139,7 @@ class KontrakTest extends TestCase
         $response = $this->actingAs($this->userPpbj)->get(route('kontrak.index'));
 
         $response->assertStatus(200);
-        $response->assertSee('Kontrak SPK');
+        $response->assertSee('Dokumen Perikatan');
         $response->assertSee('PKT-KONTRAK-01');
 
         $viewContent = file_get_contents(resource_path('views/kontrak/index.blade.php'));
@@ -171,8 +171,8 @@ class KontrakTest extends TestCase
         $this->assertDatabaseHas('kontrak_spk', [
             'nomor_spk' => 'SPK/PBJ/PNJ/2026/001',
             'nomor_paket' => $this->paket->nomor_paket,
-            'tipe_dokumen' => 'SPK',
-            'sifat_kontrak' => 'lump_sum',
+            'tipe_dokumen' => 'spk',
+            'sifat_kontrak' => 'lumpsum',
             'nilai_kontrak' => 142000000,
             'status_spk' => 'aktif',
         ]);

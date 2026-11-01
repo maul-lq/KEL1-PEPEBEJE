@@ -376,22 +376,12 @@ class ChallengerM3StressTest extends TestCase
         $this->assertEquals(1, $revisi->revisi_ke);
         $this->assertEquals($induk->nomor_surat, $revisi->nomor_surat_revisi);
         $this->assertEquals(240000000, (float) $revisi->estimasi_total_pagu);
-        $this->assertEquals(PermohonanPengadaan::STATUS_REVIU_PARALEL, $revisi->status_permohonan);
+        $this->assertEquals(PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2, $revisi->status_permohonan);
 
-        // Verifikasi 3 verifikasi paralel diinisialisasi
+        // Verifikasi antrean berantai diinisialisasi ke Staf Bidang 2
         $this->assertDatabaseHas('verifikasi_paralel', [
             'nomor_surat' => $revisi->nomor_surat,
             'role_verifikator' => 'staff_bidang_2',
-            'status_keputusan' => 'menunggu',
-        ]);
-        $this->assertDatabaseHas('verifikasi_paralel', [
-            'nomor_surat' => $revisi->nomor_surat,
-            'role_verifikator' => 'wadir_2',
-            'status_keputusan' => 'menunggu',
-        ]);
-        $this->assertDatabaseHas('verifikasi_paralel', [
-            'nomor_surat' => $revisi->nomor_surat,
-            'role_verifikator' => 'perencanaan',
             'status_keputusan' => 'menunggu',
         ]);
     }

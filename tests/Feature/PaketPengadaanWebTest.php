@@ -173,7 +173,7 @@ class PaketPengadaanWebTest extends TestCase
         $this->assertDatabaseHas('paket_pengadaan', [
             'nomor_paket' => 'PKT-LANGSUNG-01',
             'jalur_routing' => PaketPengadaan::ROUTING_LANGSUNG,
-            'status_paket' => 'reviu_dokumen_disetujui',
+            'status_paket' => PaketPengadaan::STATUS_TERDAFTAR,
         ]);
     }
 

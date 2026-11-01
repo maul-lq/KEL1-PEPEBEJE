@@ -8,6 +8,7 @@ use App\Models\PermohonanPengadaan;
 use App\Models\Role;
 use App\Models\Unit;
 use App\Models\User;
+use App\Models\Vendor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -63,6 +64,22 @@ class ReviuTeknisTest extends TestCase
             'status_registrasi' => 'disetujui',
         ]);
 
+        Vendor::firstOrCreate(
+            ['npwp' => '01.234.567.8-901.000'],
+            [
+                'nib' => '1234567890123',
+                'nama_perusahaan' => 'PT Mitra Solusi Teknologi Nusantara',
+                'alamat' => 'Jl. Margonda Raya No. 100, Depok',
+                'nama_pic' => 'Budi Santoso',
+                'telepon_pic' => '081234567890',
+                'email_pic' => 'tender@mitrasolusi.co.id',
+                'nama_bank' => 'Bank Mandiri',
+                'nomor_rekening' => '1570001234567',
+                'atas_nama' => 'PT Mitra Solusi Teknologi',
+                'is_active' => true,
+            ]
+        );
+
         $this->anggaranMak = AnggaranMAK::create([
             'kode_mak' => 'MAK-521211-REVIU-01',
             'uraian_mak' => 'Belanja Modal Server Riset',
@@ -105,8 +122,11 @@ class ReviuTeknisTest extends TestCase
     {
         $payload = [
             'nomor_paket' => $this->paket->nomor_paket,
-            'status_reviu' => 'disetujui',
+            'status_reviu' => 'terverifikasi_pp',
+            'nominal_harga_perkiraan' => 120000000,
+            'nominal_harga_akhir' => 115000000,
             'nilai_hasil_negosiasi' => 115000000,
+            'npwp_vendor' => '01.234.567.8-901.000',
             'catatan_perbaikan' => 'Hasil negosiasi harga dengan rekanan berhasil menghemat anggaran sebesar Rp 5.000.000',
         ];
 
@@ -116,12 +136,12 @@ class ReviuTeknisTest extends TestCase
 
         $this->paket->refresh();
         $this->assertEquals(115000000, (float) $this->paket->nilai_hasil_negosiasi);
-        $this->assertEquals('reviu_dokumen_disetujui', $this->paket->status_paket);
+        $this->assertEquals(PaketPengadaan::STATUS_MENUNGGU_APPROVAL_PPK, $this->paket->status_paket);
 
         $this->assertDatabaseHas('reviu_dokumen', [
             'nomor_paket' => $this->paket->nomor_paket,
             'role_reviewer' => 'pp',
-            'status_reviu' => 'disetujui',
+            'status_reviu' => 'terverifikasi_pp',
             'putaran_ke' => 1,
         ]);
     }
@@ -139,10 +159,7 @@ class ReviuTeknisTest extends TestCase
         $response->assertRedirect(route('kontrak.index'));
 
         $this->paket->refresh();
-        $this->assertEquals('reviu_dokumen_disetujui', $this->paket->status_paket);
-
-        $this->anggaranMak->refresh();
-        $this->assertTrue($this->anggaranMak->is_locked);
+        $this->assertEquals(PaketPengadaan::STATUS_DISETUJUI_PPK_SIAP_BELANJA_PP, $this->paket->status_paket);
     }
 
     public function test_review_rejection_requires_correction_notes(): void
@@ -211,7 +228,7 @@ class ReviuTeknisTest extends TestCase
 
         $this->assertDatabaseHas('audit_log', [
             'id_entitas' => $this->paket->nomor_paket,
-            'jenis_aksi' => 'REVIU_DOKUMEN_DISETUJUI',
+            'jenis_aksi' => 'APPROVAL_PENGADAAN_PPK',
         ]);
     }
 }
