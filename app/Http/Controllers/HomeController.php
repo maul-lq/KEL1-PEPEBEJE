@@ -100,7 +100,7 @@ class HomeController extends Controller
 
         $units = Unit::all();
 
-        return view('dashboard.tes_index', compact('user', 'stats', 'recentPermohonan', 'recentPaket', 'notifications', 'units'));
+        return view('dashboard.index', compact('user', 'stats', 'recentPermohonan', 'recentPaket', 'notifications', 'units'));
     }
 
     // =========================================================================
@@ -110,19 +110,48 @@ class HomeController extends Controller
     /**
      * Menampilkan riwayat usulan permohonan milik user login beserta jejak penolakan.
      */
-    public function permohonanIndex(Request $request): View
-    {
-        $user = Auth::user();
-        $query = PermohonanPengadaan::with(['unit', 'user', 'verifikasiParalel.user', 'suratAsalRevisi']);
+   // app/Http/Controllers/HomeController.php
 
-        if ($user && $user->role === 'user') {
-            $query->where('id_user', $user->id_user);
+public function permohonanIndex(Request $request)
+    {
+        $user = auth()->user();
+
+        // 2. Query menggunakan model PermohonanPengadaan
+        $query = PermohonanPengadaan::with(['unit', 'user', 'verifikasiParalel']);
+
+        // Jika user yang login adalah peran 'perencanaan' / 'user' biasa, filter berdasarkan ID user
+        if ($user && in_array($user->role, ['perencanaan', 'user'])) {
+            $query->where('id_user',$user->id_user);
         }
 
-        $permohonanList = $query->latest('tanggal_pengajuan')->paginate(15);
-        $units = Unit::all();
+        // Terapkan Filter Pencarian (Search / Status / Jenis Pengadaan)
+        if ($request->filled('keyword')) {
+            $keyword =$request->keyword;
+            $query->where(function ($q) use ($keyword) {
+                $q->where('nomor_surat', 'like', "\%{$keyword}%")
+                  ->orWhere('judul_pengadaan', 'like', "%{$keyword}%");
+            });
+        }
 
-        return view('permohonan.tes_index', compact('permohonanList', 'user', 'units'));
+        if ($request->filled('status') &&$request->status !== 'all') {
+            $query->where('status_permohonan',$request->status);
+        }
+
+        if ($request->filled('type') &&$request->type !== 'all') {
+            $query->where('jenis_pengadaan_split',$request->type);
+        }
+
+        // Ambil daftar permohonan
+        $applications =$query->latest('tanggal_pengajuan')->get();
+
+        // Ambil item terpilih berdasarkan ID di query parameter, atau ambil item pertama sebagai default
+        $selectedId =$request->query('id');
+        $selectedApplication =$selectedId 
+            ? $applications->firstWhere('id_permohonan', $selectedId) ?? $applications->first()
+            : $applications->first();
+
+        // Kirim variabel ke view permohonan.index
+        return view('permohonan.index', compact('applications', 'selectedApplication'));
     }
 
     /**

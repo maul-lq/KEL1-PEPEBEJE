@@ -3,9 +3,9 @@
 @section('title', 'Tracking Pengajuan - SIM-PBJ')
 
 @section('content')
-<div x-data="trackingUserManager()" class="space-y-6">
+<div x-data="trackingManager()" class="space-y-6">
 
-    <!-- 1. HEADER HALAMAN & TOMBOL PERMOHONAN BARU -->
+    <!-- 1. HEADER HALAMAN & TOMBOL AKSES -->
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
             <!-- Tombol Kembali (Hanya muncul saat Mode Fullscreen Detail) -->
@@ -24,28 +24,32 @@
             </p>
         </div>
 
-        <!-- Tombol Permohonan Baru (Hanya di mode Split View) -->
-        <div x-show="viewMode === 'split'" class="shrink-0">
-            <a href="{{ route('permohonan.create') }}" 
-               class="inline-flex items-center justify-center h-11 px-6 rounded-lg bg-[#0969da] hover:bg-blue-700 text-white font-medium text-sm transition-colors shadow-sm gap-2">
-                <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
-                Permohonan Baru
-            </a>
-        </div>
+        <!-- Tombol Permohonan Baru (Hanya untuk Unit Pengaju / Perencanaan) -->
+        @if(in_array(auth()->user()->role ?? '', ['perencanaan', 'user']))
+            <div x-show="viewMode === 'split'" class="shrink-0">
+                <a href="{{ route('permohonan.create') }}" 
+                   class="inline-flex items-center justify-center h-11 px-6 rounded-lg bg-[#0969da] hover:bg-blue-700 text-white font-medium text-sm transition-colors shadow-sm gap-2">
+                    <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                    Permohonan Baru
+                </a>
+            </div>
+        @endif
 
-        <!-- Tombol Hapus Pengajuan (Hanya di mode Fullscreen Detail untuk User) -->
-        <div x-show="viewMode === 'fullscreen'" class="shrink-0">
-            <button @click="hapusPengajuan()" type="button" class="inline-flex items-center justify-center h-10 px-5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-medium text-sm transition-colors shadow-sm">
-                Hapus Pengajuan
-            </button>
-        </div>
+        <!-- Tombol Hapus Pengajuan (Fullscreen mode untuk Pengaju) -->
+        @if(in_array(auth()->user()->role ?? '', ['perencanaan', 'user']))
+            <div x-show="viewMode === 'fullscreen'" class="shrink-0">
+                <button @click="hapusPengajuan()" type="button" class="inline-flex items-center justify-center h-10 px-5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-medium text-sm transition-colors shadow-sm">
+                    Hapus Pengajuan
+                </button>
+            </div>
+        @endif
     </div>
 
-    <!-- 2. FILTER BARIS ATAS (Muncul di View Split) -->
+    <!-- 2. FILTER BARIS ATAS -->
     <div x-show="viewMode === 'split'" class="bg-white rounded-xl border border-slate-200/80 p-4 shadow-sm">
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             
-            <!-- Pencarian & Tombol Cari Presisi Figma -->
+            <!-- Pencarian & Tombol Cari -->
             <div class="lg:col-span-2 flex items-center gap-2">
                 <div class="relative w-full">
                     <input type="text" 
@@ -101,7 +105,7 @@
 
     <!-- 3. KONTEN UTAMA: SPLIT VIEW ATAU FULLSCREEN -->
     
-    <!-- A. VIEW MODE: FULLSCREEN DETAIL (FRAME 4 & 5) -->
+    <!-- A. VIEW MODE: FULLSCREEN DETAIL -->
     <template x-if="viewMode === 'fullscreen' && selectedItem">
         <div class="space-y-6">
             
@@ -142,7 +146,7 @@
                         <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                     </div>
                     <div>
-                        <span class="text-xs font-medium text-slate-400 block">Terakhir Diperbarui</span>
+                        <span class="text-xs font-medium text-slate-400 block">Tanggal Pengajuan</span>
                         <span class="text-sm font-bold text-[#213153]" x-text="selectedItem.tanggal"></span>
                     </div>
                 </div>
@@ -152,8 +156,8 @@
                         <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                     </div>
                     <div>
-                        <span class="text-xs font-medium text-slate-400 block">Penanggung Jawab</span>
-                        <span class="text-sm font-bold text-[#213153]" x-text="selectedItem.penanggungJawab || 'Perencanaan'"></span>
+                        <span class="text-xs font-medium text-slate-400 block">Pemohon</span>
+                        <span class="text-sm font-bold text-[#213153]" x-text="selectedItem.penanggungJawab || 'Unit Pengaju'"></span>
                     </div>
                 </div>
             </div>
@@ -162,17 +166,17 @@
             <div class="bg-white rounded-xl border border-slate-200/80 p-6 shadow-sm space-y-6">
                 <h3 class="font-bold text-lg text-[#213153]" x-text="'Tahap ' + selectedItem.currentTahap + ' dari 8'"></h3>
                 
-                <div class="relative flex items-center justify-between">
+                <div class="relative flex items-center justify-between overflow-x-auto pb-2">
                     <div class="absolute top-1/2 left-0 w-full h-1 bg-slate-200 -translate-y-1/2 z-0"></div>
                     <div class="absolute top-1/2 left-0 h-1 bg-[#0969da] -translate-y-1/2 z-0 transition-all duration-300" :style="'width: ' + ((selectedItem.currentTahap - 1) / 7 * 100) + '%'"></div>
 
                     <template x-for="(tahap, idx) in tahapanList" :key="idx">
-                        <div class="relative z-10 flex flex-col items-center group cursor-pointer" @click="selectedItem.currentTahap = idx + 1">
+                        <div class="relative z-10 flex flex-col items-center group cursor-pointer shrink-0 min-w-[80px]" @click="selectedItem.currentTahap = idx + 1">
                             <div class="size-11 rounded-full flex items-center justify-center font-bold text-base transition-all border-2"
                                  :class="idx + 1 <= selectedItem.currentTahap ? 'bg-[#0969da] text-white border-[#0969da] shadow-md shadow-[#0969da]/30' : 'bg-white text-slate-400 border-slate-300'">
                                 <span x-text="idx + 1"></span>
                             </div>
-                            <span class="text-xs font-semibold text-center mt-2 max-w-[100px] line-clamp-2"
+                            <span class="text-[11px] font-semibold text-center mt-2 max-w-[100px] line-clamp-2"
                                   :class="idx + 1 <= selectedItem.currentTahap ? 'text-[#0969da]' : 'text-slate-400'"
                                   x-text="tahap"></span>
                         </div>
@@ -180,110 +184,84 @@
                 </div>
             </div>
 
-            <!-- TWO COLUMNS BOTTOM (DOKUMEN + TIMELINE USER) -->
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                
-                <!-- KOLOM KIRI: PERLU REVISI & SURAT DOKUMEN -->
-                <div class="lg:col-span-6 space-y-6">
-                    <!-- CARD PERLU REVISI (TAMPIL JIKA TERDAPAT REVISI) -->
-                    <template x-if="selectedItem.status === 'Perlu Revisi'">
-                        <div class="bg-white rounded-xl border border-amber-200 shadow-sm p-5 space-y-4">
-                            <div class="flex items-center justify-between border-b border-amber-100 pb-3">
-                                <div class="flex items-center gap-2">
-                                    <svg class="size-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                                    <h3 class="font-bold text-[#213153] text-base">Perlu Revisi</h3>
-                                </div>
-                                <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">1 Dokumen</span>
-                            </div>
-
-                            <div class="bg-amber-50/50 p-4 rounded-xl border border-amber-200 flex items-center justify-between">
-                                <div class="flex items-center gap-3">
-                                    <div class="size-10 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center font-bold text-xs shrink-0">PDF</div>
-                                    <div>
-                                        <h4 class="font-bold text-[#213153] text-xs">Surat Pengajuan Pengadaan</h4>
-                                        <p class="text-[11px] text-slate-500">Surat_017_PNJ_2026.pdf • 1.1 MB</p>
-                                    </div>
-                                </div>
-                                <a href="#" class="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-lg transition-colors">
-                                    Revisi &gt;
-                                </a>
-                            </div>
-                        </div>
-                    </template>
-
-                    <!-- CARD SURAT DAN DOKUMEN -->
-                    <div class="bg-white rounded-xl border border-slate-200/80 p-5 shadow-sm space-y-4">
-                        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                            <h3 class="font-bold text-base text-[#213153]">Surat dan Dokumen</h3>
-                            <span class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-[#0969da]">1 Dokumen</span>
-                        </div>
-
-                        <div class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-colors">
-                            <div class="size-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
-                                <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V7.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 1H7a2 2 0 00-2 2v16a2 2 0 002 2z"/></svg>
-                            </div>
-                            <div class="min-w-0 flex-1">
-                                <div class="font-bold text-xs text-[#213153] truncate">Surat Pengajuan Pengadaan</div>
-                                <div class="text-[11px] text-slate-500 font-medium">Surat_017_PNJ_2026.pdf • 1,1 MB</div>
-                            </div>
-                            <div class="flex items-center gap-2 shrink-0">
-                                <button @click="showModalDoc = true" type="button" class="px-3 py-1.5 text-xs font-bold text-[#0969da] border border-[#0969da] bg-white rounded-lg hover:bg-blue-50 transition-colors">
-                                    Lihat
-                                </button>
-                                <button type="button" class="p-1.5 text-slate-500 hover:text-[#0969da] rounded-lg hover:bg-slate-100 transition-colors">
-                                    <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- KOLOM KANAN: RIWAYAT KRONOLOGIS TIMELINE -->
-                <div class="lg:col-span-6 bg-white rounded-xl border border-slate-200/80 p-5 shadow-sm space-y-4">
-                    <div class="flex items-center gap-2 border-b border-slate-100 pb-3">
-                        <svg class="size-5 text-[#0969da]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        <h3 class="font-bold text-[#213153] text-base">Riwayat Kronologis dan Revisi</h3>
-                    </div>
-
-                    <div class="relative pl-6 border-l-2 border-slate-200 space-y-5 pt-1">
-                        <template x-for="log in selectedItem.timeline" :key="log.id">
-                            <div class="relative">
-                                <!-- Node Icon Circle -->
-                                <div :class="{
-                                    'bg-amber-500 text-white': log.type === 'warning',
-                                    'bg-rose-500 text-white': log.type === 'danger',
-                                    'bg-[#0969da] text-white': log.type === 'info',
-                                    'bg-emerald-500 text-white': log.type === 'success',
-                                    'bg-slate-400 text-white': log.type === 'gray'
-                                }" class="absolute -left-[35px] top-0 size-7 rounded-full flex items-center justify-center shadow-sm">
-                                    <template x-if="log.type === 'warning'"><svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></template>
-                                    <template x-if="log.type === 'danger'"><svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></template>
-                                    <template x-if="log.type === 'info' || log.type === 'success' || log.type === 'gray'"><svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg></template>
-                                </div>
-
-                                <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 flex items-start justify-between gap-3">
-                                    <div>
-                                        <span class="text-[10px] font-semibold text-slate-400 block" x-text="log.time"></span>
-                                        <h4 class="font-bold text-[#213153] text-xs mt-0.5" x-text="log.title"></h4>
-                                        <p class="text-[11px] text-slate-500 mt-0.5" x-text="log.subtitle"></p>
-                                        <template x-if="log.catatan">
-                                            <p class="text-[11px] text-amber-700 bg-amber-50 p-2 rounded border border-amber-200 mt-2 font-mono" x-text="'Catatan: ' + log.catatan"></p>
-                                        </template>
-                                    </div>
-                                    <span :class="{
-                                        'bg-amber-100 text-amber-700': log.badge_type === 'warning',
-                                        'bg-rose-100 text-rose-700': log.badge_type === 'danger',
-                                        'bg-blue-100 text-blue-700': log.badge_type === 'info',
-                                        'bg-emerald-100 text-emerald-700': log.badge_type === 'success',
-                                        'bg-slate-100 text-slate-700': log.badge_type === 'gray'
-                                    }" class="px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0" x-text="log.badge"></span>
-                                </div>
-                            </div>
-                        </template>
-                    </div>
-                </div>
-
+          <!-- TWO COLUMNS BOTTOM (DOKUMEN + FORM AKSI DI KIRI | TIMELINE DI KANAN) -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+    
+    <!-- KOLOM KIRI (6/12): SURAT DOKUMEN & FORM AKSI ROLE -->
+    <div class="lg:col-span-6 space-y-6">
+        
+        <!-- CARD SURAT DAN DOKUMEN -->
+        <div class="bg-white rounded-xl border border-slate-200/80 p-5 shadow-sm space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 class="font-bold text-base text-[#213153]">Surat dan Dokumen</h3>
+                <span class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-[#0969da]">1 Dokumen</span>
             </div>
+
+            <div class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                <div class="size-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 font-bold text-xs">
+                    PDF
+                </div>
+                <div class="min-w-0 flex-1">
+                    <div class="font-bold text-xs text-[#213153] truncate" x-text="selectedItem ? selectedItem.judul : 'Pengadaan'"></div>
+                    <div class="text-[11px] text-slate-500 font-medium" x-text="selectedItem ? selectedItem.nomor + '.pdf' : 'dokumen.pdf'"></div>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                    <button @click="showModalDoc = true" type="button" class="px-3 py-1.5 text-xs font-bold text-[#0969da] border border-[#0969da] bg-white rounded-lg hover:bg-blue-50 transition-colors">
+                        Lihat
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- FORM AKSI INTERAKTIF KHUSUS ROLE -->
+        <div class="bg-white rounded-xl border border-slate-200/80 p-5 shadow-sm">
+            @include('permohonan.partials.role-actions-show')
+        </div>
+
+    </div>
+
+    <!-- KOLOM KANAN (6/12): RIWAYAT KRONOLOGIS TIMELINE -->
+    <div class="lg:col-span-6 bg-white rounded-xl border border-slate-200/80 p-5 shadow-sm space-y-4">
+        <div class="flex items-center gap-2 border-b border-slate-100 pb-3">
+            <svg class="size-5 text-[#0969da]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <h3 class="font-bold text-[#213153] text-base">Riwayat Kronologis dan Revisi</h3>
+        </div>
+
+        <div class="relative pl-6 border-l-2 border-slate-200 space-y-5 pt-1">
+            <template x-for="log in selectedItem.timeline" :key="log.id">
+                <div class="relative">
+                    <div :class="{
+                        'bg-amber-500 text-white': log.type === 'warning',
+                        'bg-rose-500 text-white': log.type === 'danger',
+                        'bg-[#0969da] text-white': log.type === 'info',
+                        'bg-emerald-500 text-white': log.type === 'success',
+                        'bg-slate-400 text-white': log.type === 'gray'
+                    }" class="absolute -left-[35px] top-0 size-7 rounded-full flex items-center justify-center shadow-sm">
+                        <template x-if="log.type === 'warning'"><svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></template>
+                        <template x-if="log.type === 'danger'"><svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></template>
+                        <template x-if="log.type === 'info' || log.type === 'success' || log.type === 'gray'"><svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg></template>
+                    </div>
+
+                    <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 flex items-start justify-between gap-3">
+                        <div>
+                            <span class="text-[10px] font-semibold text-slate-400 block" x-text="log.time"></span>
+                            <h4 class="font-bold text-[#213153] text-xs mt-0.5" x-text="log.title"></h4>
+                            <p class="text-[11px] text-slate-500 mt-0.5" x-text="log.subtitle"></p>
+                        </div>
+                        <span :class="{
+                            'bg-amber-100 text-amber-700': log.badge_type === 'warning',
+                            'bg-rose-100 text-rose-700': log.badge_type === 'danger',
+                            'bg-blue-100 text-blue-700': log.badge_type === 'info',
+                            'bg-emerald-100 text-emerald-700': log.badge_type === 'success',
+                            'bg-slate-100 text-slate-700': log.badge_type === 'gray'
+                        }" class="px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0" x-text="log.badge"></span>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+</div>
 
         </div>
     </template>
@@ -320,7 +298,6 @@
                                           x-text="item.status"></span>
                                 </div>
                                 <div class="text-xs font-semibold text-slate-400 mt-0.5" x-text="item.nomor"></div>
-                                <div class="text-xs text-slate-500 mt-1 truncate" x-text="item.deskripsi"></div>
                                 <div class="text-[10px] text-slate-400 mt-1" x-text="item.tanggal"></div>
                             </div>
 
@@ -330,17 +307,14 @@
                 </div>
             </div>
 
-            <!-- PANEL KANAN: DETAIL DISAMPING -->
-            <div class="lg:col-span-7 bg-white rounded-xl border border-slate-200/80 shadow-sm p-6 min-h-[600px] flex flex-col">
+            <!-- PANEL KANAN: DETAIL DISAMPING (SPLIT VIEW) -->
+            <div class="lg:col-span-7 bg-white rounded-xl border border-slate-200/80 shadow-sm p-6 min-h-[600px] flex flex-col justify-between">
                 
                 <!-- 1. EMPTY STATE SAMA PERSIS FIGMA (FRAME 1) -->
                 <template x-if="!selectedItem">
                     <div class="my-auto flex flex-col items-center justify-center text-center py-10 px-4">
-                        
-                        <!-- SVG Ilustrasi Dokumen + Kaca Pembesar Kuning-Hitam Presisi Figma -->
                         <div class="w-40 h-40 mb-6 flex items-center justify-center shrink-0">
                             <svg class="w-full h-full" viewBox="0 0 178 178" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <!-- Dokumen Belakang -->
                                 <rect x="35" y="30" width="85" height="110" rx="8" fill="white" stroke="#1E293B" stroke-width="4.5"/>
                                 <rect x="48" y="48" width="30" height="22" rx="4" fill="#FACC15" stroke="#1E293B" stroke-width="3.5"/>
                                 <line x1="86" y1="52" x2="106" y2="52" stroke="#1E293B" stroke-width="4" stroke-linecap="round"/>
@@ -348,8 +322,6 @@
                                 <line x1="48" y1="84" x2="106" y2="84" stroke="#1E293B" stroke-width="4" stroke-linecap="round"/>
                                 <line x1="48" y1="98" x2="106" y2="98" stroke="#1E293B" stroke-width="4" stroke-linecap="round"/>
                                 <line x1="48" y1="112" x2="88" y2="112" stroke="#1E293B" stroke-width="4" stroke-linecap="round"/>
-
-                                <!-- Kaca Pembesar Depan -->
                                 <circle cx="115" cy="105" r="22" fill="#38BDF8" fill-opacity="0.2" stroke="#1E293B" stroke-width="5"/>
                                 <path d="M131 121L148 138" stroke="#FACC15" stroke-width="10" stroke-linecap="round"/>
                                 <path d="M131 121L148 138" stroke="#1E293B" stroke-width="5" stroke-linecap="round"/>
@@ -400,7 +372,7 @@
                                 <h4 class="font-bold text-sm text-[#213153]">Riwayat Kronologis dan Revisi</h4>
                             </div>
 
-                            <div class="relative pl-6 border-l-2 border-slate-200 space-y-4">
+                            <div class="relative pl-6 border-l-2 border-slate-200 space-y-4 max-h-[350px] overflow-y-auto">
                                 <template x-for="log in selectedItem.timeline" :key="log.id">
                                     <div class="relative">
                                         <div :class="{
@@ -420,9 +392,6 @@
                                                 <span class="text-[10px] font-semibold text-slate-400 block" x-text="log.time"></span>
                                                 <h5 class="font-bold text-[#213153] text-xs mt-0.5" x-text="log.title"></h5>
                                                 <p class="text-[11px] text-slate-500 mt-0.5" x-text="log.subtitle"></p>
-                                                <template x-if="log.catatan">
-                                                    <p class="text-[11px] text-amber-700 bg-amber-50 p-2 rounded border border-amber-200 mt-2 font-mono" x-text="'Catatan: ' + log.catatan"></p>
-                                                </template>
                                             </div>
                                             <span :class="{
                                                 'bg-amber-100 text-amber-700': log.badge_type === 'warning',
@@ -440,6 +409,13 @@
                     </div>
                 </template>
 
+             <!-- Banner Widget Khusus Role di Bagian Bawah Split View (Hanya muncul jika item terpilih) -->
+<template x-if="selectedItem">
+    <div class="mt-4 pt-4 border-t border-slate-100">
+        @include('permohonan.partials.role-actions-index')
+    </div>
+</template>
+
             </div>
 
         </div>
@@ -452,7 +428,7 @@
          class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
         <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4">
             <h3 class="font-bold text-lg text-[#213153]">Surat Pengajuan Pengadaan</h3>
-            <p class="text-xs text-slate-500">File: Surat_017_PNJ_2026.pdf (1.1 MB)</p>
+            <p class="text-xs text-slate-500" x-text="selectedItem ? selectedItem.nomor + '.pdf' : ''"></p>
             <div class="p-8 bg-slate-100 rounded-xl flex items-center justify-center border border-dashed border-slate-300 text-slate-400 text-xs">
                 [ Preview PDF Document ]
             </div>
@@ -466,12 +442,12 @@
 
 </div>
 
-<!-- SCRIPT ALPINE.JS MANAGEMENT STATE (KHUSUS USER) -->
+<!-- SCRIPT ALPINE.JS MANAGEMENT STATE (DINAMIS DENGAN LARAVEL DATA) -->
 <script>
-    function trackingUserManager() {
+    function trackingManager() {
         return {
-            viewMode: 'split', // 'split' atau 'fullscreen'
-            selectedItem: null, // DEFAULT NULL AGAR DISPLAY EMPTY STATE (FRAME 1) PADA AWALNYA
+            viewMode: 'split',
+            selectedItem: null, // Null secara default untuk menampilkan Empty State (Frame 1)
             searchQuery: '',
             filterStatus: 'Semua',
             filterJenis: 'Semua',
@@ -489,68 +465,45 @@
                 'Selesai'
             ],
 
+            // Konversi data Laravel $applications secara dinamis ke objek Alpine.js
             items: [
-                { 
-                    id: 1, 
-                    nomor: 'PBJ-2026-0017', 
-                    judul: 'Pengadaan Laptop untuk Laboratorium TI', 
-                    jenis: 'Barang', 
-                    deskripsi: 'Pengadaan Laptop untuk kebutuhan praktikum mahasiswa.', 
-                    status: 'Dalam Proses', 
-                    tanggal: '18 Jan 2026, 14:00', 
-                    currentTahap: 3, 
-                    penanggungJawab: 'Perencanaan',
+                @foreach($applications as $app)
+                {
+                    id: '{{ $app->id_permohonan ?? $app->nomor_surat ?? $app->id }}',
+                    nomor: '{{ $app->nomor_surat ?? $app->number ?? 'PBJ-2026-0000' }}',
+                    judul: '{{ addslashes($app->nama_pengadaan ?? $app->title ?? 'Pengadaan') }}',
+                    jenis: '{{ $app->jenis_pengadaan ?? $app->type ?? 'Barang' }}',
+                    status: '{{ $app->status ?? 'Dalam Proses' }}',
+                    tanggal: '{{ isset($app->tanggal_pengajuan) ? \Carbon\Carbon::parse($app->tanggal_pengajuan)->format('d M Y, H:i') : '' }}',
+                    currentTahap: {{ $app->tahap_saat_ini ?? 1 }},
+                    penanggungJawab: '{{ $app->pemohon ?? $app->unit_pengaju ?? 'Unit Pengaju' }}',
                     timeline: [
-                        { id: 1, time: '18 Jan 2026 - 15:00', title: 'Penyusunan dokumen dan penetapan level anggaran oleh PPBJ', subtitle: 'Pengusul pengadaan laptop', badge: 'Dalam Proses', type: 'info', badge_type: 'info' },
-                        { id: 2, time: '18 Jan 2026 - 13:00', title: 'Perencanaan dan Bidang 2 menyetujui form pengajuan', subtitle: 'Dokumen disetujui', badge: 'Disetujui', type: 'success', badge_type: 'success' },
-                        { id: 3, time: '18 Jan 2026 - 11:00', title: 'Perencanaan dan Bidang 2 sedang memeriksa form pengajuan', subtitle: 'Pemeriksaan awal berkas', badge: 'Informasi', type: 'info', badge_type: 'info' },
-                        { id: 4, time: '18 Jan 2026 - 10:00', title: 'Form berhasil disampaikan', subtitle: 'Pihak Perencanaan dan Bidang 2 berhasil menerima notifikasi', badge: 'Dikirim', type: 'gray', badge_type: 'gray' },
-                        { id: 5, time: '18 Jan 2026 - 09:00', title: 'Riyan Sohibul Anam melakukan pengajuan', subtitle: 'Pengajuan pengadaan laptop', badge: 'Informasi', type: 'info', badge_type: 'info' }
+                        @if(isset($app->histories) && count($app->histories) > 0)
+                            @foreach($app->histories as $hist)
+                            {
+                                id: {{ $loop->iteration }},
+                                time: '{{ \Carbon\Carbon::parse($hist->created_at)->format('d M Y - H:i') }}',
+                                title: '{{ addslashes($hist->status_title ?? $hist->keterangan) }}',
+                                subtitle: '{{ addslashes($hist->keterangan ?? '') }}',
+                                badge: '{{ $hist->status ?? 'Informasi' }}',
+                                type: '{{ strtolower($hist->status) === 'disetujui' ? 'success' : (strtolower($hist->status) === 'ditolak' ? 'danger' : 'info') }}',
+                                badge_type: '{{ strtolower($hist->status) === 'disetujui' ? 'success' : (strtolower($hist->status) === 'ditolak' ? 'danger' : 'info') }}'
+                            },
+                            @endforeach
+                        @else
+                            {
+                                id: 1,
+                                time: '{{ isset($app->tanggal_pengajuan) ? \Carbon\Carbon::parse($app->tanggal_pengajuan)->format('d M Y - H:i') : '' }}',
+                                title: 'Pengajuan Berhasil Dibuat',
+                                subtitle: 'Form telah disampaikan ke verifikator',
+                                badge: 'Informasi',
+                                type: 'info',
+                                badge_type: 'info'
+                            }
+                        @endif
                     ]
                 },
-                { 
-                    id: 2, 
-                    nomor: 'PBJ-2026-0018', 
-                    judul: 'Pengadaan Alat Praktikum Jaringan', 
-                    jenis: 'Barang', 
-                    deskripsi: 'Pengadaan perangkat jaringan untuk laboratorium.', 
-                    status: 'Selesai', 
-                    tanggal: '16 Jan 2026, 11:00', 
-                    currentTahap: 8, 
-                    penanggungJawab: 'Laboratorium',
-                    timeline: [
-                        { id: 1, time: '16 Jan 2026 - 16:00', title: 'Seluruh proses pengadaan selesai & BAST diterbitkan', subtitle: 'Barang telah diterima unit kerja', badge: 'Selesai', type: 'success', badge_type: 'success' }
-                    ]
-                },
-                { 
-                    id: 3, 
-                    nomor: 'PBJ-2026-0019', 
-                    judul: 'Pengadaan Printer', 
-                    jenis: 'Barang', 
-                    deskripsi: 'Pengadaan printer untuk unit kerja.', 
-                    status: 'Perlu Revisi', 
-                    tanggal: '16 Jan 2026, 15:00', 
-                    currentTahap: 2, 
-                    penanggungJawab: 'Umum',
-                    timeline: [
-                        { id: 1, time: '16 Jan 2026 - 15:00', title: 'Form perlu direvisi', subtitle: 'Pemeriksaan awal verifikator', catatan: 'File tidak dapat dibuka', badge: 'Perlu Revisi', type: 'warning', badge_type: 'warning' },
-                        { id: 2, time: '16 Jan 2026 - 10:00', title: 'Perencanaan menolak form pengajuan', subtitle: 'Pengajuan ditolak sementara', badge: 'Ditolak', type: 'danger', badge_type: 'danger' }
-                    ]
-                },
-                { 
-                    id: 4, 
-                    nomor: 'PBJ-2026-0020', 
-                    judul: 'Pengadaan ATK dan Perlengkapan Kantor', 
-                    jenis: 'Barang', 
-                    deskripsi: 'Pengadaan alat tulis kantor untuk operasional.', 
-                    status: 'Menunggu Persetujuan', 
-                    tanggal: '16 Jan 2026, 11:00', 
-                    currentTahap: 1, 
-                    penanggungJawab: 'Keuangan',
-                    timeline: [
-                        { id: 1, time: '16 Jan 2026 - 11:00', title: 'Form berhasil disampaikan', subtitle: 'Menunggu pemeriksaan verifikator', badge: 'Menunggu', type: 'warning', badge_type: 'warning' }
-                    ]
-                }
+                @endforeach
             ],
 
             get filteredList() {
@@ -574,9 +527,7 @@
                 this.filterTanggal = '';
             },
 
-            applyFilters() {
-                // Triggered saat tombol "Cari" diklik
-            },
+            applyFilters() {},
 
             hapusPengajuan() {
                 if (confirm('Apakah Anda yakin ingin menghapus pengajuan ini?')) {
@@ -590,12 +541,14 @@
                 switch(status) {
                     case 'Selesai':
                     case 'Disetujui':
+                    case 'disetujui':
                         return {
                             circle: 'bg-emerald-100 text-emerald-600',
                             pill: 'bg-emerald-100 text-emerald-700',
                             icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>'
                         };
                     case 'Ditolak':
+                    case 'ditolak':
                         return {
                             circle: 'bg-rose-100 text-rose-600',
                             pill: 'bg-rose-100 text-rose-700',
@@ -608,11 +561,11 @@
                             pill: 'bg-amber-100 text-amber-700',
                             icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>'
                         };
-                    default: // Dalam Proses
+                    default:
                         return {
                             circle: 'bg-blue-100 text-[#0969da]',
                             pill: 'bg-blue-100 text-[#0969da]',
-                            icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>'
+                            icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 01-2-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>'
                         };
                 }
             }

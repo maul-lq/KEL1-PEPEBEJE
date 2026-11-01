@@ -341,6 +341,93 @@
                 </div>
             </div>
 
+            {{-- 🚀 PANEL AKSI CEPAT TINDAK LANJUT (BERDASARKAN ROLE LOGIN) --}}
+            <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-100">
+                <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <svg class="size-5 text-[#0088E8]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                    </svg>
+                    Tindak Lanjut Verifikasi
+                </h3>
+
+                {{-- 1. FORM AKSI STAFF BIDANG 2 --}}
+                @if(Auth::user()->role === 'staff_bidang_2')
+                    <form action="{{ route('verifikasi.bidang-2.teruskan') }}" method="POST" class="space-y-3">
+                        @csrf
+                        <input type="hidden" name="nomor_surat" value="{{ $permohonan->nomor_surat }}">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Catatan Telaah Staf Bidang II</label>
+                            <textarea name="catatan_staff" rows="3" placeholder="Tulis catatan kelengkapan berkas KAK & spesifikasi..." class="w-full rounded-lg border border-slate-300 p-2.5 text-xs focus:ring-2 focus:ring-blue-500 outline-none" required></textarea>
+                        </div>
+                        <button type="submit" class="w-full rounded-lg bg-[#0088E8] px-4 py-2.5 text-xs font-bold text-white hover:bg-blue-600 transition-colors shadow">
+                            Teruskan Berkas ke Wadir II
+                        </button>
+                    </form>
+
+                {{-- 2. FORM AKSI WADIR 2 --}}
+                @elseif(Auth::user()->role === 'wadir_2')
+                    <form action="{{ route('verifikasi.wadir-2.keputusan') }}" method="POST" class="space-y-3">
+                        @csrf
+                        <input type="hidden" name="nomor_surat" value="{{ $permohonan->nomor_surat }}">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Keputusan Eksekutif</label>
+                            <select name="keputusan" class="w-full rounded-lg border border-slate-300 p-2 text-xs focus:ring-2 focus:ring-blue-500 outline-none" required>
+                                <option value="disetujui">Setujui (ACC)</option>
+                                <option value="ditolak">Tolak / Minta Revisi</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Catatan / Alasan Keputusan</label>
+                            <textarea name="catatan_alasan" rows="3" placeholder="Masukkan alasan jika ditolak atau instruksi revisi..." class="w-full rounded-lg border border-slate-300 p-2.5 text-xs focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+                        </div>
+                        <button type="submit" class="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-emerald-700 transition-colors shadow">
+                            Simpan Keputusan Wadir II
+                        </button>
+                    </form>
+
+                {{-- 3. FORM AKSI BAGIAN PERENCANAAN --}}
+                @elseif(Auth::user()->role === 'perencanaan')
+                    <form action="{{ route('verifikasi.perencanaan.alokasi') }}" method="POST" class="space-y-3">
+                        @csrf
+                        <input type="hidden" name="nomor_surat" value="{{ $permohonan->nomor_surat }}">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Kode MAK (Mata Anggaran)</label>
+                            <input type="text" name="kode_mak" placeholder="Contoh: 521111.001" class="w-full rounded-lg border border-slate-300 p-2 text-xs focus:ring-2 focus:ring-blue-500 outline-none" required>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Nominal Alokasi (Rp)</label>
+                            <input type="number" name="nominal_alokasi" value="{{ $permohonan->estimasi_total_pagu }}" class="w-full rounded-lg border border-slate-300 p-2 text-xs focus:ring-2 focus:ring-blue-500 outline-none" required>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Status Anggaran DIPA</label>
+                            <select name="keputusan_anggaran" class="w-full rounded-lg border border-slate-300 p-2 text-xs focus:ring-2 focus:ring-blue-500 outline-none" required>
+                                <option value="setuju">Setujui & Kunci MAK</option>
+                                <option value="tahan">Tahan / Hold (Anggaran Belum Siap)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Catatan Perencanaan</label>
+                            <textarea name="catatan_anggaran" rows="2" placeholder="Catatan ketersediaan pagu..." class="w-full rounded-lg border border-slate-300 p-2 text-xs focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+                        </div>
+                        <button type="submit" class="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-indigo-700 transition-colors shadow">
+                            Simpan Alokasi MAK & Anggaran
+                        </button>
+                    </form>
+
+                {{-- 4. TAMPILAN INFORMASI UNTUK USER PEMOHON & ROLE LAIN --}}
+                @else
+                    <div class="rounded-xl bg-slate-50 p-3 border border-slate-200/80 text-xs text-slate-500 leading-relaxed">
+                        @if(Auth::user()->role === 'user')
+                            <p class="font-medium text-slate-700 mb-1">Status Pemantauan:</p>
+                            Usulan sedang diproses oleh tim verifikator internal PNJ. Anda dapat memantau perkembangan siklus 8 tahap di panel sebelah kiri.
+                        @else
+                            <p class="font-medium text-slate-700 mb-1">Info Operasional Peran:</p>
+                            Untuk memproses tindakan teknis modul Anda (PPBJ/PPK/Keuangan), silakan akses menu yang tersedia pada navigasi utama sidebar.
+                        @endif
+                    </div>
+                @endif
+            </div>
+
         </div>
 
     </div>
