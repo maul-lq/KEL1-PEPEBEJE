@@ -145,46 +145,38 @@ class PermohonanPengadaanController extends Controller
             $validated['file_permohonan'] = $request->file('file_permohonan')->store('permohonan', 'public');
         }
 
-        // Tetapkan status awal usulan memasuki tahapan reviu paralel
-        $validated['status_permohonan'] = PermohonanPengadaan::STATUS_REVIU_PARALEL;
+        // Tetapkan status awal usulan memasuki antrean Bidang 2 sesuai alur berantai Notulensi PPBJ
+        $validated['status_permohonan'] = PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2;
         $validated['status_anggaran'] = 'pending';
         $validated['tanggal_pengajuan'] = now();
 
         // Simpan data permohonan ke tabel permohonan_pengadaan
         $permohonan = PermohonanPengadaan::create($validated);
 
-        // 2. FR 3.3: Otomatis menerbitkan 2 entri verifikasi paralel (Perencanaan & Wadir 2)
-        // Jalur 1: Verifikasi ketersediaan dan kesesuaian pagu oleh Bagian Perencanaan
+        // Inisialisasi antrean awal di Bidang 2 (Staff Bidang 2 memeriksa kelengkapan & membuat Memo Cek MAK ke Perencanaan)
+        $staffB2 = User::where('role', 'staff_bidang_2')->where('status_aktif', true)->first();
         VerifikasiParalel::create([
-            'id_user' => $permohonan->id_user,
+            'id_user' => $staffB2?->id_user ?? $permohonan->id_user,
             'nomor_surat' => $permohonan->nomor_surat,
-            'role_verifikator' => 'perencanaan',
+            'role_verifikator' => 'staff_bidang_2',
             'status_keputusan' => 'menunggu',
         ]);
 
-        // Jalur 2: Verifikasi urgensi dan persetujuan prinsip pimpinan oleh Wadir 2
-        VerifikasiParalel::create([
-            'id_user' => $permohonan->id_user,
-            'nomor_surat' => $permohonan->nomor_surat,
-            'role_verifikator' => 'wadir_2',
-            'status_keputusan' => 'menunggu',
-        ]);
-
-        // 3. Catat peristiwa pengajuan usulan baru ke tabel audit log
+        // Catat peristiwa pengajuan usulan baru ke tabel audit log
         AuditLog::catat(
             $permohonan->id_user,
             'PENGAJUAN_PERMOHONAN_BARU',
             'permohonan_pengadaan',
             $permohonan->nomor_surat,
             null,
-            PermohonanPengadaan::STATUS_REVIU_PARALEL,
-            'Pengajuan usulan pengadaan baru: '.$permohonan->judul_pengadaan.' (FR 3.1 - FR 3.3)'
+            PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
+            'Pengajuan usulan pengadaan baru ke Bidang 2: '.$permohonan->judul_pengadaan
         );
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Permohonan pengadaan berhasil diajukan dan diteruskan ke verifikasi paralel (FR 3)',
-            'data' => $permohonan->load(['unit', 'user', 'verifikasiParalel']),
+            'message' => 'Permohonan pengadaan berhasil diajukan ke Bidang 2 untuk pemeriksaan berkas dan Memo Cek MAK',
+            'data' => $permohonan->load(['unit', 'user', 'ppkAwal', 'verifikasiParalel']),
         ], 201);
     }
 
@@ -265,7 +257,7 @@ class PermohonanPengadaanController extends Controller
             'judul_pengadaan' => $validated['judul_pengadaan'],
             'tujuan_pengadaan_ringkas' => $validated['tujuan_pengadaan_ringkas'],
             'file_permohonan' => $validated['file_permohonan'],
-            'status_permohonan' => PermohonanPengadaan::STATUS_REVIU_PARALEL,
+            'status_permohonan' => PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
             'status_anggaran' => 'pending',
             'revisi_ke' => $permohonan_pengadaan->revisi_ke + 1, // Naikkan versi revisi
             'estimasi_total_pagu' => $validated['estimasi_total_pagu'] ?? $permohonan_pengadaan->estimasi_total_pagu,
@@ -278,18 +270,12 @@ class PermohonanPengadaanController extends Controller
             'kode_mak' => $permohonan_pengadaan->kode_mak,
         ]);
 
-        // 3. Bangkitkan siklus verifikasi paralel baru untuk berkas revisi
+        // 3. Bangkitkan antrean awal baru di Bidang 2 untuk berkas revisi
+        $staffB2 = User::where('role', 'staff_bidang_2')->where('status_aktif', true)->first();
         VerifikasiParalel::create([
-            'id_user' => $revisi->id_user,
+            'id_user' => $staffB2?->id_user ?? $revisi->id_user,
             'nomor_surat' => $revisi->nomor_surat,
-            'role_verifikator' => 'perencanaan',
-            'status_keputusan' => 'menunggu',
-        ]);
-
-        VerifikasiParalel::create([
-            'id_user' => $revisi->id_user,
-            'nomor_surat' => $revisi->nomor_surat,
-            'role_verifikator' => 'wadir_2',
+            'role_verifikator' => 'staff_bidang_2',
             'status_keputusan' => 'menunggu',
         ]);
 
@@ -300,14 +286,14 @@ class PermohonanPengadaanController extends Controller
             'permohonan_pengadaan',
             $revisi->nomor_surat,
             $permohonan_pengadaan->nomor_surat,
-            PermohonanPengadaan::STATUS_REVIU_PARALEL,
+            PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
             'Revisi pengajuan ulang dengan nomor surat baru atas penolakan surat '.$permohonan_pengadaan->nomor_surat.' (FR 3.4)'
         );
 
         return response()->json([
             'status' => 'success',
             'message' => 'Permohonan revisi berhasil diajukan dengan nomor surat baru: '.$revisi->nomor_surat,
-            'data' => $revisi->load(['unit', 'user', 'suratAsalRevisi', 'verifikasiParalel']),
+            'data' => $revisi->load(['unit', 'user', 'ppkAwal', 'suratAsalRevisi', 'verifikasiParalel']),
         ], 201);
     }
 
@@ -459,6 +445,7 @@ class PermohonanPengadaanController extends Controller
         $permohonan_pengadaan->load([
             'unit',
             'user',
+            'ppkAwal',
             'verifikasiParalel.user',
             'alokasiMak.anggaranMak',
             'paketPengadaan.ppkUser',
@@ -489,12 +476,14 @@ class PermohonanPengadaanController extends Controller
             ],
         ];
 
-        // TAHAP 2: Verifikasi Paralel oleh Pimpinan (Wadir 2) & Bagian Perencanaan
+        // TAHAP 2: Verifikasi Berantai Bidang 2 -> Perencanaan -> Wadir 2 & PPK
         $verif = $permohonan_pengadaan->verifikasiParalel;
+        $verifStaffB2 = $verif->where('role_verifikator', 'staff_bidang_2')->first();
         $verifPerencanaan = $verif->where('role_verifikator', 'perencanaan')->first();
         $verifWadir = $verif->where('role_verifikator', 'wadir_2')->first();
+        $verifPpk = $verif->where('role_verifikator', 'ppk')->first();
         $statusStage2 = 'menunggu';
-        if ($permohonan_pengadaan->status_permohonan === 'disetujui') {
+        if (in_array($permohonan_pengadaan->status_permohonan, ['disetujui', 'diproses_ppbj', 'selesai'], true)) {
             $statusStage2 = 'selesai';
         } elseif ($permohonan_pengadaan->status_permohonan === 'ditolak') {
             $statusStage2 = 'ditolak';
@@ -507,11 +496,19 @@ class PermohonanPengadaanController extends Controller
         $stages[] = [
             'stage_number' => 2,
             'stage_name' => 'Verifikasi Paralel Pimpinan & Perencanaan',
-            'role_in_charge' => 'Staff Bidang 2, Wadir 2 & Bagian Perencanaan',
-            'actor' => 'Perencanaan & Wadir 2',
+            'role_in_charge' => 'Bidang 2 (Staff & Wadir 2), Perencanaan & PPK',
+            'actor' => 'Bidang 2, Perencanaan & PPK',
             'status' => $statusStage2,
             'timestamp' => $verif->max('tanggal_keputusan')?->toIso8601String() ?? null,
             'details' => [
+                'nomor_memo_cek_mak' => $permohonan_pengadaan->nomor_memo_cek_mak,
+                'nomor_memo_ketersediaan_mak' => $permohonan_pengadaan->nomor_memo_ketersediaan_mak,
+                'ppk_awal' => $permohonan_pengadaan->ppkAwal?->nama,
+                'staff_bidang_2' => $verifStaffB2 ? [
+                    'status' => $verifStaffB2->status_keputusan,
+                    'catatan' => $verifStaffB2->catatan_alasan,
+                    'tanggal' => $verifStaffB2->tanggal_keputusan?->toIso8601String(),
+                ] : null,
                 'perencanaan' => $verifPerencanaan ? [
                     'status' => $verifPerencanaan->status_keputusan,
                     'catatan' => $verifPerencanaan->catatan_alasan,
@@ -521,6 +518,11 @@ class PermohonanPengadaanController extends Controller
                     'status' => $verifWadir->status_keputusan,
                     'catatan' => $verifWadir->catatan_alasan,
                     'tanggal' => $verifWadir->tanggal_keputusan?->toIso8601String(),
+                ] : null,
+                'ppk' => $verifPpk ? [
+                    'status' => $verifPpk->status_keputusan,
+                    'catatan' => $verifPpk->catatan_alasan,
+                    'tanggal' => $verifPpk->tanggal_keputusan?->toIso8601String(),
                 ] : null,
             ],
         ];
@@ -584,24 +586,30 @@ class PermohonanPengadaanController extends Controller
             ] : null,
         ];
 
-        // TAHAP 6: Penerbitan Kontrak / Surat Perintah Kerja (SPK) dengan Rekanan oleh PPBJ
+        // TAHAP 6: Penerbitan Dokumen Perikatan Terpilih (> 50jt) atau Kwitansi Belanja Langsung (<= 50jt) oleh PPBJ
         $spk = $paket?->kontrakSpk;
-        $statusStage6 = $spk ? 'selesai' : ($statusStage5 === 'selesai' ? 'sedang_berjalan' : 'menunggu');
+        $isBelanjaLangsungSelesai = $paket && ($paket->jalur_routing === 'langsung_sd_50jt') && ! empty($paket->nomor_kwitansi_belanja);
+        $statusStage6 = ($spk || $isBelanjaLangsungSelesai) ? 'selesai' : ($statusStage5 === 'selesai' ? 'sedang_berjalan' : 'menunggu');
 
         $stages[] = [
             'stage_number' => 6,
             'stage_name' => 'Penerbitan Kontrak / Surat Perintah Kerja (SPK)',
-            'role_in_charge' => 'Unit PPBJ (Pembuat Surat Kontrak / SPK)',
+            'role_in_charge' => 'Unit PPBJ (Dokumen Perikatan / Kwitansi Belanja Langsung)',
             'actor' => $spk?->user?->nama ?? $paket?->ppbjUser?->nama ?? 'Staf PPBJ',
             'status' => $statusStage6,
-            'timestamp' => $spk?->tanggal_spk?->toIso8601String() ?? null,
+            'timestamp' => $spk?->tanggal_spk?->toIso8601String() ?? $paket?->tanggal_eksekusi_belanja?->toIso8601String() ?? null,
             'details' => $spk ? [
+                'tipe_dokumen' => $spk->tipe_dokumen,
                 'nomor_spk' => $spk->nomor_spk,
                 'nilai_kontrak' => (float) $spk->nilai_kontrak,
                 'tanggal_mulai' => $spk->tanggal_mulai?->format('Y-m-d'),
                 'tanggal_selesai' => $spk->tanggal_selesai?->format('Y-m-d'),
                 'status_spk' => $spk->status_spk,
-            ] : null,
+            ] : ($isBelanjaLangsungSelesai ? [
+                'tipe_dokumen' => 'kwitansi_belanja_langsung',
+                'nomor_kwitansi_belanja' => $paket->nomor_kwitansi_belanja,
+                'nominal_harga_akhir' => (float) ($paket->nominal_harga_akhir ?? $paket->nilai_hps),
+            ] : null),
         ];
 
         // TAHAP 7: Pemeriksaan Fisik Barang & Penerbitan BAST Digital oleh Bagian Perlengkapan

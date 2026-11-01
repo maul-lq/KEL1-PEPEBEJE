@@ -90,7 +90,7 @@ Route::middleware('auth')->group(function () {
         ->where(['id' => '.*']);
     // -------------------------------------------------------------------------
     // -------------------------------------------------------------------------
-    // Modul 2 & 3: Verifikasi Paralel (Staf B2, Wadir 2, & Perencanaan)
+    // Modul 2 & 3: Verifikasi Berantai Awal (Staf B2 -> Perencanaan -> Wadir 2 & PPK)
     // -------------------------------------------------------------------------
     Route::middleware('role:staff_bidang_2')->group(function () {
         Route::get('/verifikasi/bidang-2', [HomeController::class, 'verifikasiBidang2'])->name('verifikasi.bidang-2');
@@ -102,30 +102,45 @@ Route::middleware('auth')->group(function () {
         Route::post('/verifikasi/wadir-2/keputusan', [HomeController::class, 'keputusanWadir2'])->name('verifikasi.wadir-2.keputusan');
     });
 
+    Route::middleware('role:ppk')->group(function () {
+        Route::get('/verifikasi/ppk', [HomeController::class, 'verifikasiPpk'])->name('verifikasi.ppk');
+        Route::post('/verifikasi/ppk/keputusan', [HomeController::class, 'keputusanPpkAwal'])->name('verifikasi.ppk.keputusan');
+    });
+
     Route::middleware('role:perencanaan')->group(function () {
         Route::get('/verifikasi/perencanaan', [HomeController::class, 'verifikasiPerencanaan'])->name('verifikasi.perencanaan');
         Route::post('/verifikasi/perencanaan/mak', [HomeController::class, 'alokasiMakPerencanaan'])->name('verifikasi.perencanaan.mak');
         Route::post('/verifikasi/perencanaan/mak/store', [HomeController::class, 'storeMakPerencanaan'])->name('verifikasi.perencanaan.mak.store');
+        Route::post('/verifikasi/perencanaan/mak/{anggaran_mak}/lock', [HomeController::class, 'lockMakWeb'])
+            ->name('verifikasi.perencanaan.mak.lock')
+            ->where(['anggaran_mak' => '.*']);
+        Route::post('/verifikasi/perencanaan/mak/{anggaran_mak}/unlock', [HomeController::class, 'unlockMakWeb'])
+            ->name('verifikasi.perencanaan.mak.unlock')
+            ->where(['anggaran_mak' => '.*']);
         Route::post('/verifikasi/perencanaan/split', [HomeController::class, 'splitMakPerencanaan'])->name('verifikasi.perencanaan.split');
     });
 
     // -------------------------------------------------------------------------
-    // Modul 4: Paket Pengadaan (Koordinator PPBJ)
+    // Modul 4: Paket Pengadaan & Belanja Langsung <= 50 Juta (Koordinator PPBJ)
     // -------------------------------------------------------------------------
     Route::get('/paket-pengadaan', [HomeController::class, 'paketIndex'])->name('paket.index');
     Route::middleware('role:ppbj')->group(function () {
         Route::get('/paket-pengadaan/create', [HomeController::class, 'paketCreate'])->name('paket.create');
         Route::post('/paket-pengadaan', [HomeController::class, 'storePaket'])->name('paket.store');
+        Route::post('/paket-pengadaan/belanja-langsung', [HomeController::class, 'storeBelanjaLangsungWeb'])->name('paket.belanja-langsung');
         Route::post('/paket-pengadaan/reassign-ppk', [HomeController::class, 'reassignPpkWeb'])->name('paket.reassign-ppk');
         Route::post('/paket-pengadaan/split-jenis', [HomeController::class, 'splitJenisPpbj'])->name('paket.split-jenis');
     });
 
     // -------------------------------------------------------------------------
-    // Modul 5: Kontrak SPK (Pejabat Pengadaan & 4 Akun PPK Terisolasi)
+    // Modul 5: Review PP, Approval PPK, Eksekusi Belanja, & Upload 1 Dokumen Perikatan PPBJ
     // -------------------------------------------------------------------------
     Route::get('/kontrak-spk', [HomeController::class, 'kontrakIndex'])->name('kontrak.index');
     Route::post('/kontrak-spk', [HomeController::class, 'storeKontrak'])->name('kontrak.store');
     Route::post('/kontrak-spk/reviu', [HomeController::class, 'storeReviuWeb'])->name('kontrak.reviu');
+    Route::post('/kontrak-spk/eksekusi-belanja', [HomeController::class, 'eksekusiBelanjaWeb'])
+        ->name('kontrak.eksekusi-belanja')
+        ->middleware('role:pp,ppk');
 
     // -------------------------------------------------------------------------
     // Modul 6: Penerimaan Barang & BAST (Unit Perlengkapan / BMN)
@@ -276,23 +291,63 @@ Route::prefix('api')->group(function () {
         ->name('anggaran-mak.hold')
         ->middleware('role:perencanaan');
 
-    // Penguncian pagu MAK secara manual atau otomatis untuk mencegah mutasi anggaran (NFR Integritas MAK)
+    // Penguncian dan pembukaan kunci pagu MAK secara eksklusif oleh Bagian Perencanaan (NFR Integritas MAK)
     Route::post('anggaran-mak/{anggaran_mak}/lock', [AnggaranMAKController::class, 'lock'])
-        ->middleware('role:perencanaan');
+        ->name('anggaran-mak.lock')
+        ->middleware('role:perencanaan')
+        ->where(['anggaran_mak' => '.*']);
+    Route::post('anggaran-mak/{anggaran_mak}/unlock', [AnggaranMAKController::class, 'unlock'])
+        ->name('anggaran-mak.unlock')
+        ->middleware('role:perencanaan')
+        ->where(['anggaran_mak' => '.*']);
 
     // Operasi CRUD master mata anggaran kas (MAK) DIPA kampus
-    Route::apiResource('anggaran-mak', AnggaranMAKController::class);
+    Route::apiResource('anggaran-mak', AnggaranMAKController::class)->where(['anggaran_mak' => '.*']);
 
     // Pengalihan penugasan (reassign) paket pengadaan ke PPK lain disertai alasan dan jejak audit (FR 7.3 & NFR 4)
     Route::post('paket-pengadaan/{paket_pengadaan}/reassign-ppk', [PaketPengadaanController::class, 'reassignPpk'])
         ->name('paket-pengadaan.reassign-ppk')
-        ->middleware('role:ppbj,perencanaan')
+        ->middleware('role:ppbj,perencanaan,admin')
+        ->where(['paket_pengadaan' => '.*']);
+
+    // Eksekusi Belanja Langsung <= Rp 50 Juta oleh PPBJ (output Kwitansi, tanpa Kontrak/SPK)
+    Route::post('paket-pengadaan/{paket_pengadaan}/belanja-langsung', [PaketPengadaanController::class, 'belanjaLangsung'])
+        ->name('paket-pengadaan.belanja-langsung')
+        ->middleware('role:ppbj,admin')
+        ->where(['paket_pengadaan' => '.*']);
+
+    // Review kelengkapan & input Harga Perkiraan, Harga Akhir, serta Vendor oleh PP (50jt - 200jt; PP tidak bisa approval final)
+    Route::post('paket-pengadaan/{paket_pengadaan}/review-pp', [PaketPengadaanController::class, 'reviewPp'])
+        ->name('paket-pengadaan.review-pp')
+        ->middleware('role:pp,admin')
+        ->where(['paket_pengadaan' => '.*']);
+
+    // Eksekusi kewenangan belanja oleh PP (50jt - 200jt pasca-approval PPK) atau PPK (> 200jt)
+    Route::post('paket-pengadaan/{paket_pengadaan}/eksekusi-belanja', [PaketPengadaanController::class, 'eksekusiBelanja'])
+        ->name('paket-pengadaan.eksekusi-belanja')
+        ->middleware('role:pp,ppk,admin')
         ->where(['paket_pengadaan' => '.*']);
 
     // Registrasi dan manajemen paket pengadaan barang/jasa dengan auto-routing HPS (NFR 4)
     Route::apiResource('paket-pengadaan', PaketPengadaanController::class)->where(['paket_pengadaan' => '.*']);
 
-    // Telaah berkas oleh Staf Bidang 2 untuk diteruskan secara resmi ke Wadir 2 (FR 5)
+    // Alur Persetujuan Awal Berantai (Notulensi PPBJ):
+    // 1. Staf Bidang 2 mengirim Memo Cek MAK ke Perencanaan
+    Route::post('verifikasi-paralel/memo-cek-mak', [VerifikasiParalelController::class, 'memoCekMak'])
+        ->name('verifikasi-paralel.memo-cek-mak')
+        ->middleware('role:staff_bidang_2,wadir_2,admin');
+
+    // 2. Perencanaan memeriksa/membuat MAK, memilih 1 dari 4 PPK, & mengirim Memo Ketersediaan MAK ke Wadir 2 + PPK
+    Route::post('verifikasi-paralel/memo-ketersediaan-mak', [VerifikasiParalelController::class, 'memoKetersediaanMak'])
+        ->name('verifikasi-paralel.memo-ketersediaan-mak')
+        ->middleware('role:perencanaan,admin');
+
+    // 3. Keputusan persetujuan awal ganda oleh Wadir 2 (ACC kegiatan) dan PPK terpilih (ACC usulan)
+    Route::post('verifikasi-paralel/keputusan-awal', [VerifikasiParalelController::class, 'keputusanAwal'])
+        ->name('verifikasi-paralel.keputusan-awal')
+        ->middleware('role:wadir_2,ppk,admin');
+
+    // Alias kompatibilitas telaah berkas oleh Staf Bidang 2
     Route::post('verifikasi-paralel/teruskan-ke-wadir', [VerifikasiParalelController::class, 'teruskanKeWadir'])
         ->name('verifikasi-paralel.teruskan-ke-wadir');
 
@@ -330,7 +385,9 @@ Route::prefix('api')->group(function () {
 
     // Penerbitan instruksi perintah bayar oleh Koordinator PPBJ setelah pemeriksaan berkas rampung
     Route::post('pembayaran/{pembayaran}/perintah-bayar', [PembayaranController::class, 'terbitkanPerintahBayar'])
-        ->middleware('role:ppbj');
+        ->name('pembayaran.perintah-bayar')
+        ->middleware('role:ppbj')
+        ->where(['pembayaran' => '.*']);
 
     // Pengajuan tagihan pembayaran SPP (Surat Permintaan Pembayaran) bertahap atau lunas
     Route::apiResource('pembayaran', PembayaranController::class)->where(['pembayaran' => '.*']);

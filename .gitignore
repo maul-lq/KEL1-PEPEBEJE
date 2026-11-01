@@ -30,6 +30,7 @@ Homestead.json
 auth.json
 
 1DokumenPendukungMahPBL/**/*.*
+1DokumenPendukungMahPBL_OLD/**/*.*
 1Jorking/**/*.*
 
 PROMPTS.md
@@ -43,3 +44,6 @@ resources/views/auth/teslogin.html
 resources/views/auth/tesregister
 resources/views/permohonan/tesindex
 .venv/**/*.*
+.agents/teamwork
+00 PBL.zip
+00 PBL/

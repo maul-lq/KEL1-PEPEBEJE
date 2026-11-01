@@ -139,10 +139,11 @@ class FrNfrPriorityFourFiveTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonPath('status', 'success')
-            ->assertJsonPath('data.nomor_surat', $permohonan->nomor_surat);
+            ->assertJsonPath('data.nomor_surat', $permohonan->nomor_surat)
+            ->assertJsonPath('data.status_permohonan', PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN);
 
         $this->assertDatabaseHas('audit_log', [
-            'jenis_aksi' => 'STAFF_B2_TERUSKAN_KE_WADIR',
+            'jenis_aksi' => 'MEMO_CEK_MAK_KE_PERENCANAAN',
             'id_entitas' => $permohonan->nomor_surat,
         ]);
     }
@@ -323,15 +324,32 @@ class FrNfrPriorityFourFiveTest extends TestCase
             ->assertJsonPath('data.jalur_routing', PaketPengadaan::ROUTING_PP)
             ->assertJsonPath('data.nomor_memo_ppbj', 'MEMO/PPBJ/120M/2026');
 
-        // 4. Boundary HPS tepat Rp 200.000.000 (>= 200jt) -> ppk_diatas_200jt & nomor_memo_ppbj otomatis NULL (K2/Q7)
-        $resPpkBoundary = $this->postJson(route('paket-pengadaan.store'), [
-            'nomor_paket' => 'PKT-PPK-200M',
+        // 4. Boundary HPS tepat Rp 200.000.000 (masuk rentang 50-200jt sesuai Notulensi PPBJ) -> pp_50jt_sd_200jt
+        $resPp200Boundary = $this->postJson(route('paket-pengadaan.store'), [
+            'nomor_paket' => 'PKT-PP-200M',
             'nama_paket' => 'Pengadaan Alat Berat Lab Sipil Tepat 200 Juta',
+            'jenis_pengadaan' => 'barang',
+            'platform_pengadaan' => 'E-Katalog',
+            'mekanisme_pengadaan' => 'Pengadaan Langsung PP',
+            'nilai_hps' => 200000000,
+            'alokasi_pagu_paket' => 200000000,
+            'nomor_memo_ppbj' => 'MEMO/PPBJ/200M/2026',
+            'nomor_surat' => $permohonan->nomor_surat,
+            'id_user_ppbj' => $ppbj->id_user,
+        ]);
+        $resPp200Boundary->assertStatus(201)
+            ->assertJsonPath('data.jalur_routing', PaketPengadaan::ROUTING_PP)
+            ->assertJsonPath('data.nomor_memo_ppbj', 'MEMO/PPBJ/200M/2026');
+
+        // 5. Boundary HPS di atas Rp 200.000.000 (> 200jt) -> ppk_diatas_200jt & nomor_memo_ppbj otomatis NULL
+        $resPpkBoundary = $this->postJson(route('paket-pengadaan.store'), [
+            'nomor_paket' => 'PKT-PPK-201M',
+            'nama_paket' => 'Pengadaan Alat Berat Lab Sipil Di Atas 200 Juta',
             'jenis_pengadaan' => 'barang',
             'platform_pengadaan' => 'SPSE-Tender',
             'mekanisme_pengadaan' => 'Tender Cepat',
-            'nilai_hps' => 200000000,
-            'alokasi_pagu_paket' => 200000000,
+            'nilai_hps' => 200000001,
+            'alokasi_pagu_paket' => 200000001,
             'nomor_memo_ppbj' => 'MEMO-INI-HARUS-DIKOSONGKAN-OTOMATIS',
             'nomor_surat' => $permohonan->nomor_surat,
             'id_user_ppbj' => $ppbj->id_user,
@@ -405,7 +423,7 @@ class FrNfrPriorityFourFiveTest extends TestCase
             'file_permohonan' => 'permohonan/proyektor.pdf',
             'status_permohonan' => PermohonanPengadaan::STATUS_DISETUJUI,
             'status_anggaran' => 'disetujui',
-            'estimasi_total_pagu' => 45000000,
+            'estimasi_total_pagu' => 85000000,
             'tanggal_pengajuan' => now(),
             'kode_unit' => Unit::first()->kode_unit,
             'id_user' => $ppbj->id_user,
@@ -417,16 +435,16 @@ class FrNfrPriorityFourFiveTest extends TestCase
             'jenis_pengadaan' => 'barang',
             'platform_pengadaan' => 'E-Katalog',
             'mekanisme_pengadaan' => 'Pengadaan Langsung',
-            'nilai_hps' => 45000000,
-            'alokasi_pagu_paket' => 45000000,
-            'jalur_routing' => PaketPengadaan::ROUTING_LANGSUNG,
+            'nilai_hps' => 85000000,
+            'alokasi_pagu_paket' => 85000000,
+            'jalur_routing' => PaketPengadaan::ROUTING_PP,
             'status_paket' => 'spk_terbit',
             'nomor_surat' => $permohonan->nomor_surat,
             'id_user_ppbj' => $ppbj->id_user,
             'tanggal_registrasi_paket' => now(),
         ]);
 
-        // 1. PPBJ menerbitkan Kontrak/SPK -> Otomatis tembusan ke Perlengkapan & Keuangan
+        // 1. PPBJ menerbitkan Kontrak/SPK (> 50 Juta) -> Otomatis tembusan ke Perlengkapan & Keuangan
         $this->actingAs($ppbj);
         $fileSpk = UploadedFile::fake()->create('spk_proyektor.pdf', 1024, 'application/pdf');
         $resSpk = $this->postJson(route('kontrak-spk.store'), [
@@ -438,7 +456,7 @@ class FrNfrPriorityFourFiveTest extends TestCase
             'status_spk' => 'terbit',
             'tanggal_spk' => now()->toDateString(),
             'jadwal_pengiriman' => now()->addDays(10)->toDateString(),
-            'nilai_kontrak' => 44500000,
+            'nilai_kontrak' => 84500000,
             'file_spk' => $fileSpk,
         ]);
 

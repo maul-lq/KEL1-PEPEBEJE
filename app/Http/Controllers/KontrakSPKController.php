@@ -85,26 +85,45 @@ class KontrakSPKController extends Controller
             'file_spk' => ['required', DokumenUploadRule::pdfOnly()],
         ]);
 
-        if (empty($validated['nilai_kontrak'])) {
-            $validated['nilai_kontrak'] = PaketPengadaan::find($validated['nomor_paket'])?->nilai_hps ?? 0;
+        $paket = PaketPengadaan::findOrFail($validated['nomor_paket']);
+
+        // Aturan Notulensi PPBJ 1: Paket <= Rp 50 Juta (Belanja Langsung) menggunakan Kwitansi, TIDAK ADA Kontrak/SPK/Surat Pesanan
+        if ($paket->jalur_routing === PaketPengadaan::ROUTING_LANGSUNG) {
+            return response()->json([
+                'message' => 'Paket Belanja Langsung (<= Rp 50 Juta) menggunakan output Kwitansi dan tidak menerbitkan Kontrak/SPK/Surat Pesanan.',
+                'errors' => [
+                    'nomor_paket' => ['Paket Belanja Langsung (<= Rp 50 Juta) tidak memiliki Kontrak, SPK, maupun Surat Pesanan.'],
+                ],
+            ], 422);
         }
 
-        // Simpan dokumen fisik SPK ke direktori 'spk' di storage publik
+        // Aturan Notulensi PPBJ 2: Pilih salah satu dokumen perikatan (Surat Pesanan / SPK / Surat Kontrak) untuk setiap paket > 50jt
+        if (KontrakSPK::where('nomor_paket', $paket->nomor_paket)->exists()) {
+            return response()->json([
+                'message' => 'Paket pengadaan ini sudah memiliki 1 dokumen perikatan terpilih (Surat Pesanan / SPK / Surat Kontrak).',
+                'errors' => [
+                    'nomor_paket' => ['Surat Pesanan, SPK, dan Surat Kontrak bersifat pilih salah satu untuk diunggah (maksimal 1 dokumen per paket).'],
+                ],
+            ], 422);
+        }
+
+        if (empty($validated['nilai_kontrak'])) {
+            $validated['nilai_kontrak'] = $paket->nominal_harga_akhir ?? $paket->nilai_hasil_negosiasi ?? $paket->nilai_hps ?? 0;
+        }
+
+        // Simpan dokumen fisik perikatan ke direktori 'spk' di storage publik
         if ($request->hasFile('file_spk')) {
             $validated['file_spk'] = $request->file('file_spk')->store('spk', 'public');
         }
 
-        // 2. Simpan record kontrak_spk (model booted otomatis mengunci MAK terkait jika status 'terbit' / 'aktif')
+        // 2. Simpan record dokumen perikatan tunggal (kunci MAK tidak otomatis; murni wewenang Perencanaan)
         $spk = KontrakSPK::create($validated);
 
         // 3. Perbarui status paket pengadaan menjadi 'spk_terbit'
-        $paket = PaketPengadaan::find($spk->nomor_paket);
-        if ($paket) {
-            $paket->status_paket = 'spk_terbit';
-            $paket->save();
-        }
+        $paket->status_paket = 'spk_terbit';
+        $paket->save();
 
-        // 4. Rekam penerbitan SPK dan penguncian permanen MAK ke audit log (FR 11 & NFR 9)
+        // 4. Rekam unggahan dokumen perikatan terpilih ke audit log
         AuditLog::catat(
             $spk->id_user ?? $request->user()?->id_user ?? 1,
             'PENERBITAN_SPK',
@@ -112,12 +131,12 @@ class KontrakSPKController extends Controller
             $spk->nomor_spk,
             'draft',
             $spk->status_spk,
-            'Penerbitan surat perintah kerja/kontrak pengadaan (FR 11.1) dan penguncian permanen data MAK (FR 11.2 & NFR 6)'
+            'Pengunggahan dokumen perikatan terpilih ('.strtoupper($spk->tipe_dokumen).'): '.$spk->nomor_spk
         );
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Kontrak/SPK berhasil diterbitkan dan data MAK terkait telah dikunci permanen',
+            'message' => 'Dokumen perikatan terpilih ('.strtoupper($spk->tipe_dokumen).') berhasil diterbitkan dan pengingat jadwal pengiriman telah diaktifkan',
             'data' => $spk->load(['paket', 'user']),
         ], 201);
     }

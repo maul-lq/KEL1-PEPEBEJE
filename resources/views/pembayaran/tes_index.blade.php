@@ -1,39 +1,46 @@
 @extends('layouts.tes_app')
 
-@section('title', 'Alur Pembayaran & Pencairan Dana - SIM-PBJ Politeknik Negeri Jakarta')
+@section('title', 'Informasi Dokumen Pembayaran & Pencairan Dana - SIM-PBJ Politeknik Negeri Jakarta')
 
 @section('content')
 <article>
     <header>
-        <h2>Alur Pengajuan, Persetujuan Memo, & Pencairan Pembayaran</h2>
+        <h2>Alur Pengajuan, Persetujuan Memo, &amp; Pencairan Pembayaran</h2>
         <p>
-            Pengelolaan tahapan pembayaran tagihan pengadaan barang dan jasa Politeknik Negeri Jakarta:
-            pengajuan berkas oleh Koordinator PBJ, peninjauan memo bertingkat oleh PPK dan Wadir II,
-            penerbitan Surat Perintah Pembayaran (SPP), serta realisasi pencairan dana SP2D oleh Bagian Keuangan.
+            Pengelolaan <strong>Informasi Dokumen Pembayaran</strong> pengadaan barang dan jasa Politeknik Negeri Jakarta
+            (mencakup dokumen perikatan tunggal <strong>SPK / Surat Pesanan / Surat Kontrak</strong> untuk paket &gt; Rp 50 Juta,
+            ditambah <strong>Kwitansi</strong> dan <strong>Invoice</strong>), dilanjutkan persetujuan Memo Bayar berjenjang oleh PPK dan Wadir II,
+            penerbitan Surat Perintah Pembayaran (SPP) oleh PPBJ, serta pencairan dana SP2D oleh Bagian Keuangan.
         </p>
     </header>
 
-    {{-- 1. FORMULIR PENGAJUAN BERKAS PEMBAYARAN OLEH KOORDINATOR PBJ --}}
+    {{-- 1. FORMULIR PENGAJUAN INFORMASI DOKUMEN PEMBAYARAN OLEH KOORDINATOR PBJ --}}
     @if(Auth::user()->role === 'ppbj')
     <section>
         <form action="{{ route('pembayaran.pengajuan') }}" method="POST" enctype="multipart/form-data">
             @csrf
             <fieldset>
-                <legend><strong>1. Pengajuan Berkas Tagihan Pembayaran & Memo Internal (Koordinator PBJ)</strong></legend>
+                <legend><strong>1. Pengajuan Berkas &amp; Informasi Dokumen Pembayaran (Koordinator PBJ)</strong></legend>
                 <p>
-                    <label for="nomor_paket"><strong>Pilih Paket Pengadaan (BAST Diterima):</strong></label><br>
+                    <label for="nomor_paket"><strong>Pilih Paket Pengadaan (BAST Perlengkapan Diterima):</strong></label><br>
                     <select id="nomor_paket" name="nomor_paket" required>
-                        <option value="">-- Pilih Paket Hasil Penerimaan Barang --</option>
+                        <option value="">-- Pilih Paket Hasil BAST Perlengkapan --</option>
                         @foreach($bastSiapBayar as $b)
+                            @php
+                                $dokPerikatan = $b->paket?->kontrakSpk;
+                                $infoPerikatan = $dokPerikatan
+                                    ? strtoupper(str_replace('_', ' ', $dokPerikatan->tipe_dokumen)) . ': ' . $dokPerikatan->nomor_spk
+                                    : 'Belanja Langsung Tanpa Kontrak (Kwitansi: ' . ($b->paket?->nomor_kwitansi_belanja ?? '-') . ')';
+                            @endphp
                             <option value="{{ $b->nomor_paket }}">
-                                [{{ $b->nomor_bast }}] Paket: {{ $b->nomor_paket }} &bull; Tgl BAST: {{ $b->tanggal_penerimaan ? $b->tanggal_penerimaan->format('d/m/Y') : '-' }}
+                                [BAST: {{ $b->nomor_bast }}] Paket: {{ $b->nomor_paket }} &bull; {{ $infoPerikatan }}
                             </option>
                         @endforeach
                     </select>
                 </p>
 
                 <p>
-                    <label for="nomor_pembayaran"><strong>Nomor Surat Permintaan Pembayaran (SPP):</strong></label><br>
+                    <label for="nomor_pembayaran"><strong>Nomor Pengajuan Pembayaran / SPP:</strong></label><br>
                     <input type="text" id="nomor_pembayaran" name="nomor_pembayaran" value="SPP/PNJ/{{ date('Y') }}/{{ rand(100, 999) }}" required>
                 </p>
 
@@ -57,28 +64,46 @@
                     <input type="date" id="jatuh_tempo" name="jatuh_tempo" value="{{ date('Y-m-d', strtotime('+30 days')) }}" required>
                 </p>
 
+                <fieldset>
+                    <legend>Kelengkapan Informasi Dokumen Pembayaran (SPK / Surat Pesanan / Surat Kontrak + Kwitansi + Invoice)</legend>
+                    <p>
+                        <small><em>Dokumen perikatan tunggal (SPK / Surat Pesanan / Surat Kontrak) otomatis ditautkan dari paket pengadaan; untuk Belanja Langsung (&le; 50 juta), Kwitansi belanja langsung diwariskan otomatis bila tidak diunggah ulang.</em></small>
+                    </p>
+                    <p>
+                        <label for="nomor_kwitansi"><strong>Nomor Kwitansi Pembayaran:</strong></label><br>
+                        <input type="text" id="nomor_kwitansi" name="nomor_kwitansi" value="KWT/PNJ/{{ date('Y') }}/{{ rand(100, 999) }}" size="40">
+                    </p>
+                    <p>
+                        <label for="file_kwitansi"><strong>Unggah Berkas Kwitansi (PDF / Gambar, Maks 10MB):</strong></label><br>
+                        <input type="file" id="file_kwitansi" name="file_kwitansi" accept=".pdf,image/*">
+                    </p>
+                    <p>
+                        <label for="nomor_invoice"><strong>Nomor Invoice Tagihan Penyedia:</strong></label><br>
+                        <input type="text" id="nomor_invoice" name="nomor_invoice" value="INV/PNJ/{{ date('Y') }}/{{ rand(100, 999) }}" size="40">
+                    </p>
+                    <p>
+                        <label for="file_invoice"><strong>Unggah Berkas Invoice (PDF / Gambar, Maks 10MB):</strong></label><br>
+                        <input type="file" id="file_invoice" name="file_invoice" accept=".pdf,image/*">
+                    </p>
+                </fieldset>
+
                 <p>
                     <label for="nomor_memo"><strong>Nomor Memo Pembayaran Internal:</strong></label><br>
                     <input type="text" id="nomor_memo" name="nomor_memo" value="MEMO/BHP/{{ date('Y') }}/{{ rand(10, 99) }}">
                 </p>
 
                 <p>
-                    <label for="file_tagihan_vendor"><strong>Unggah Invoice Rekanan / Kuitansi Tagihan (PDF/Gambar, Maks 10MB):</strong></label><br>
-                    <input type="file" id="file_tagihan_vendor" name="file_tagihan_vendor" accept=".pdf,image/*">
-                </p>
-
-                <p>
-                    <label for="file_dokumen_penunjang"><strong>Unggah Resume Kontrak / Dokumen Penunjang (PDF/Gambar, Maks 10MB):</strong></label><br>
+                    <label for="file_dokumen_penunjang"><strong>Unggah Dokumen Penunjang Tambahan (PDF/Gambar, Opsional):</strong></label><br>
                     <input type="file" id="file_dokumen_penunjang" name="file_dokumen_penunjang" accept=".pdf,image/*">
                 </p>
 
                 <p>
-                    <label for="file_memo"><strong>Unggah Berkas Fisik Memo Pembayaran BHP/TIK (PDF, Maks 10MB):</strong></label><br>
+                    <label for="file_memo"><strong>Unggah Berkas Fisik Memo Pembayaran (PDF, Opsional):</strong></label><br>
                     <input type="file" id="file_memo" name="file_memo" accept=".pdf">
                 </p>
 
                 <p>
-                    <button type="submit">Kirim Berkas Pengajuan Pembayaran ke PPK & Wadir II</button>
+                    <button type="submit"><strong>Kirim Informasi Dokumen Pembayaran &amp; Memo ke PPK serta Wadir II</strong></button>
                 </p>
             </fieldset>
         </form>
@@ -86,23 +111,72 @@
     <hr>
     @endif
 
-    {{-- 2. PANEL PERSETUJUAN MEMO PEMBAYARAN BERTINGKAT (PPK & WADIR II) --}}
-    @if(in_array(Auth::user()->role, ['ppk', 'wadir_2']))
+    {{-- RINGKASAN INFORMASI DOKUMEN PEMBAYARAN (UNTUK SELURUH PERAN PEMBAYARAN) --}}
     <section>
         <fieldset>
-            <legend><strong>2. Peninjauan & Persetujuan Memo Pembayaran ({{ strtoupper(str_replace('_', ' ', Auth::user()->role)) }})</strong></legend>
-
-            @if($memoMenungguReview->isEmpty())
-                <p><em>Saat ini tidak ada disposisi memo pembayaran yang menunggu persetujuan Anda.</em></p>
+            <legend><strong>Ringkasan Informasi Dokumen Pembayaran Aktif (SPK / Surat Pesanan / Surat Kontrak + Kwitansi + Invoice)</strong></legend>
+            @if($pembayaranList->isEmpty())
+                <p><em>Belum ada berkas pengajuan pembayaran yang terdaftar.</em></p>
             @else
-                <table>
+                <table border="1" cellpadding="6" cellspacing="0">
                     <thead>
                         <tr>
                             <th>Nomor SPP</th>
                             <th>Paket Pengadaan</th>
+                            <th>Dokumen Perikatan Terpilih</th>
+                            <th>Kwitansi</th>
+                            <th>Invoice</th>
+                            <th>Nominal Tagihan</th>
+                            <th>Status Pembayaran</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($pembayaranList as $pb)
+                            @php
+                                $infoDok = $pb->informasi_dokumen_pembayaran;
+                            @endphp
+                            <tr>
+                                <td><strong>{{ $pb->nomor_pembayaran }}</strong></td>
+                                <td>{{ $pb->nomor_paket }}</td>
+                                <td>
+                                    @if(($infoDok['dokumen_perikatan']['jenis'] ?? '') === 'tanpa_kontrak_belanja_langsung')
+                                        <em>Tanpa Kontrak (Belanja Langsung &le; 50 Juta)</em>
+                                    @else
+                                        <strong>{{ strtoupper(str_replace('_', ' ', $infoDok['dokumen_perikatan']['jenis'] ?? '-')) }}</strong>:
+                                        {{ $infoDok['dokumen_perikatan']['nomor'] ?? '-' }}
+                                    @endif
+                                </td>
+                                <td>{{ $infoDok['kwitansi']['nomor_kwitansi'] ?? '-' }}</td>
+                                <td>{{ $infoDok['invoice']['nomor_invoice'] ?? '-' }}</td>
+                                <td>Rp {{ number_format($pb->nominal_pengajuan, 0, ',', '.') }}</td>
+                                <td>{{ strtoupper(str_replace('_', ' ', $pb->status_pembayaran)) }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            @endif
+        </fieldset>
+    </section>
+    <hr>
+
+    {{-- 2. PANEL PERSETUJUAN MEMO PEMBAYARAN BERTINGKAT (PPK & WADIR II) --}}
+    @if(in_array(Auth::user()->role, ['ppk', 'wadir_2']))
+    <section>
+        <fieldset>
+            <legend><strong>2. Peninjauan &amp; Persetujuan Memo Pembayaran ({{ strtoupper(str_replace('_', ' ', Auth::user()->role)) }})</strong></legend>
+
+            @if($memoMenungguReview->isEmpty())
+                <p><em>Saat ini tidak ada disposisi memo pembayaran yang menunggu persetujuan Anda.</em></p>
+            @else
+                <table border="1" cellpadding="6" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Nomor SPP</th>
+                            <th>Paket Pengadaan</th>
+                            <th>Dokumen (Perikatan / Kwitansi / Invoice)</th>
                             <th>Tingkat Verifikasi</th>
                             <th>Nominal Tagihan</th>
-                            <th>Keputusan & Catatan</th>
+                            <th>Keputusan &amp; Catatan</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -110,6 +184,10 @@
                             <tr>
                                 <td>{{ $m->nomor_pembayaran }}</td>
                                 <td>{{ $m->pembayaran->nomor_paket ?? '-' }}</td>
+                                <td>
+                                    Perikatan: {{ $m->pembayaran->paket->kontrakSpk->nomor_spk ?? 'Belanja Langsung' }}<br>
+                                    Kwitansi: {{ $m->pembayaran->nomor_kwitansi ?? '-' }} &bull; Invoice: {{ $m->pembayaran->nomor_invoice ?? '-' }}
+                                </td>
                                 <td>Tingkat {{ $m->urutan_level }} ({{ strtoupper($m->role_approver) }})</td>
                                 <td>Rp {{ number_format($m->pembayaran->nominal_pengajuan ?? 0, 0, ',', '.') }}</td>
                                 <td>
@@ -141,11 +219,12 @@
                 <p><em>Tidak ada berkas pembayaran yang telah selesai disetujui lengkap oleh PPK dan Wadir II.</em></p>
             @else
                 <p>Berkas pembayaran berikut telah memperoleh persetujuan lengkap dari PPK dan Wadir II. Terbitkan SPP agar dapat dicairkan oleh Keuangan:</p>
-                <table>
+                <table border="1" cellpadding="6" cellspacing="0">
                     <thead>
                         <tr>
                             <th>Nomor SPP</th>
                             <th>Paket Pengadaan</th>
+                            <th>Kwitansi &amp; Invoice</th>
                             <th>Nominal Tagihan</th>
                             <th>Persetujuan Memo</th>
                             <th>Aksi Penerbitan</th>
@@ -156,8 +235,9 @@
                             <tr>
                                 <td>{{ $spp->nomor_pembayaran }}</td>
                                 <td>{{ $spp->nomor_paket }}</td>
+                                <td>{{ $spp->nomor_kwitansi ?? '-' }} / {{ $spp->nomor_invoice ?? '-' }}</td>
                                 <td>Rp {{ number_format($spp->nominal_pengajuan, 0, ',', '.') }}</td>
-                                <td>Lengkap Disetujui (PPK & Wadir II)</td>
+                                <td>Lengkap Disetujui (PPK &amp; Wadir II)</td>
                                 <td>
                                     <form action="{{ route('pembayaran.terbitkan-spp') }}" method="POST">
                                         @csrf
@@ -190,7 +270,7 @@
                         <option value="">-- Pilih Berkas SPP Resmi --</option>
                         @foreach($siapCairKeuangan as $sc)
                             <option value="{{ $sc->nomor_pembayaran }}">
-                                [{{ $sc->nomor_pembayaran }}] Paket: {{ $sc->nomor_paket }} &bull; Rp {{ number_format($sc->nominal_pengajuan, 0, ',', '.') }} &bull; Vendor: {{ $sc->paket->kontrak->vendor->nama_perusahaan ?? '-' }}
+                                [{{ $sc->nomor_pembayaran }}] Paket: {{ $sc->nomor_paket }} &bull; Rp {{ number_format($sc->nominal_pengajuan, 0, ',', '.') }} &bull; Kwitansi: {{ $sc->nomor_kwitansi ?? '-' }} &bull; Invoice: {{ $sc->nomor_invoice ?? '-' }}
                             </option>
                         @endforeach
                     </select>
@@ -212,7 +292,7 @@
                 </p>
 
                 <p>
-                    <label for="bank_tujuan"><strong>Bank Penyalur & Rekening Rekanan Penerima:</strong></label><br>
+                    <label for="bank_tujuan"><strong>Bank Penyalur &amp; Rekening Rekanan Penerima:</strong></label><br>
                     <input type="text" id="bank_tujuan" name="bank_tujuan" size="50" required placeholder="Contoh: Bank Mandiri KCP Kampus UI - Rek. 1570001234567 a.n PT Rekanan">
                 </p>
 
@@ -223,11 +303,11 @@
 
                 <p>
                     <label for="keterangan_cair"><strong>Catatan Pembukuan Keuangan:</strong></label><br>
-                    <textarea id="keterangan_cair" name="keterangan_cair" rows="2" cols="60" placeholder="Pencairan dana SP2D pengadaan kampus PNJ sesuai perikatan SPK."></textarea>
+                    <textarea id="keterangan_cair" name="keterangan_cair" rows="2" cols="60" placeholder="Pencairan dana SP2D pengadaan kampus PNJ sesuai dokumen pembayaran."></textarea>
                 </p>
 
                 <p>
-                    <button type="submit">Eksekusi Pencairan SP2D & Selesaikan Siklus Pengadaan</button>
+                    <button type="submit"><strong>Eksekusi Pencairan SP2D &amp; Selesaikan Siklus Pengadaan</strong></button>
                 </p>
             </fieldset>
         </form>
@@ -235,9 +315,7 @@
     <hr>
     @endif
 
-    {{-- ===================================================================== --}}
     {{-- 5. RIWAYAT SELURUH TRANSAKSI PEMBAYARAN DAN PENCAIRAN DANA --}}
-    {{-- ===================================================================== --}}
     <section>
         <fieldset>
             <legend><strong>Riwayat Transaksi Pencairan Dana SP2D Politeknik Negeri Jakarta</strong></legend>
@@ -245,7 +323,7 @@
             @if($transaksiList->isEmpty())
                 <p><em>Belum ada transaksi pencairan dana SP2D yang tercatat.</em></p>
             @else
-                <table>
+                <table border="1" cellpadding="6" cellspacing="0">
                     <thead>
                         <tr>
                             <th>Nomor SP2D / Mutasi Bank</th>

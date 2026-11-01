@@ -1,21 +1,22 @@
 @extends('layouts.tes_app')
 
-@section('title', 'Verifikasi Anggaran MAK - Subbagian Perencanaan PNJ')
+@section('title', 'Cek MAK, Kunci/Buka Kunci MAK, & Memo Ketersediaan MAK - Subbagian Perencanaan PNJ')
 
 @section('content')
 <section>
-    <h2>Verifikasi Ketersediaan Anggaran & Penetapan MAK (Subbagian Perencanaan)</h2>
+    <h2>Pemeriksaan Ketersediaan MAK, Pembuatan MAK, &amp; Kontrol Kunci MAK (Subbagian Perencanaan)</h2>
     <p>
-        Bagian Perencanaan bertugas memeriksa ketersediaan pagu dana DIPA, mengalokasikan Mata Anggaran Kegiatan (MAK),
-        serta mengunci anggaran MAK untuk menjaga integritas keuangan institusi.
+        Bagian Perencanaan menerima <strong>Memo Cek MAK</strong> dari Bidang II, membuat serta memeriksa ketersediaan kode MAK DIPA,
+        memegang <strong>otoritas tunggal untuk mengunci (Lock) dan membuka kunci (Unlock) MAK</strong>, memilih 1 dari 4 akun PPK,
+        dan mengirimkan <strong>Memo Ketersediaan MAK</strong> kembali ke Bidang II (Wadir II) serta PPK terpilih untuk disetujui.
     </p>
 
-    {{-- 1. Antrean Permohonan yang Membutuhkan Alokasi MAK --}}
+    {{-- 1. Antrean Permohonan dari Memo Cek MAK Bidang II --}}
     <fieldset>
-        <legend><strong>Antrean Usulan Permohonan Pengadaan Menunggu Alokasi MAK</strong></legend>
+        <legend><strong>Antrean Memo Cek MAK dari Bidang II (Menunggu Pemeriksaan Ketersediaan MAK)</strong></legend>
 
         @if($permohonanAntrean->isEmpty())
-            <p><em>Tidak ada usulan permohonan yang menunggu alokasi MAK saat ini.</em></p>
+            <p><em>Tidak ada usulan permohonan yang menunggu pemeriksaan ketersediaan MAK saat ini.</em></p>
         @else
             @foreach($permohonanAntrean as $p)
                 <article>
@@ -26,14 +27,18 @@
                             <strong>Perihal:</strong> {{ $p->perihal }} &bull;
                             <strong>Estimasi Anggaran Diajukan:</strong> Rp {{ number_format($p->anggaran_diajukan, 0, ',', '.') }}
                         </p>
+                        <p>
+                            <strong>Nomor Memo Cek MAK (Bidang II):</strong> {{ $p->nomor_memo_cek_mak ?? '-' }} &bull;
+                            <strong>Catatan Bidang II:</strong> {{ $p->catatan_memo_cek_mak ?? '-' }}
+                        </p>
 
                         <form action="{{ route('verifikasi.perencanaan.mak') }}" method="POST">
                             @csrf
                             <input type="hidden" name="nomor_surat" value="{{ $p->nomor_surat }}">
 
                             <p>
-                                <label for="kode_mak_{{ $p->nomor_surat }}"><strong>Pilih Mata Anggaran Kegiatan (MAK) DIPA:</strong></label><br>
-                                <select id="kode_mak_{{ $p->nomor_surat }}" name="kode_mak" required>
+                                <label for="kode_mak_{{ $loop->index }}"><strong>Pilih Mata Anggaran Kegiatan (MAK) DIPA:</strong></label><br>
+                                <select id="kode_mak_{{ $loop->index }}" name="kode_mak" required>
                                     <option value="">-- Pilih MAK yang Tersedia --</option>
                                     @foreach($makList as $mak)
                                         <option value="{{ $mak->kode_mak }}" {{ $mak->is_locked ? 'disabled' : '' }}>
@@ -44,29 +49,46 @@
                             </p>
 
                             <p>
-                                <label for="nominal_alokasi_{{ $p->nomor_surat }}"><strong>Nominal Alokasi Anggaran (Rp):</strong></label><br>
-                                <input type="number" id="nominal_alokasi_{{ $p->nomor_surat }}" name="nominal_alokasi" value="{{ $p->anggaran_diajukan }}" step="0.01" min="1" required>
+                                <label for="nominal_alokasi_{{ $loop->index }}"><strong>Nominal Alokasi Anggaran (Rp):</strong></label><br>
+                                <input type="number" id="nominal_alokasi_{{ $loop->index }}" name="nominal_alokasi" value="{{ $p->anggaran_diajukan }}" step="0.01" min="1" required>
+                            </p>
+
+                            <p>
+                                <label for="id_user_ppk_awal_{{ $loop->index }}"><strong>Pilih 1 dari 4 Akun PPK Penerima Memo Ketersediaan MAK:</strong></label><br>
+                                <select id="id_user_ppk_awal_{{ $loop->index }}" name="id_user_ppk_awal">
+                                    <option value="">-- Pilih Pejabat Pembuat Komitmen (PPK) --</option>
+                                    @foreach($ppkUsers ?? [] as $ppk)
+                                        <option value="{{ $ppk->id_user }}" {{ (int) $p->id_user_ppk_awal === (int) $ppk->id_user ? 'selected' : '' }}>
+                                            {{ $ppk->nama }} ({{ $ppk->jabatan }})
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </p>
+
+                            <p>
+                                <label for="nomor_memo_ketersediaan_mak_{{ $loop->index }}"><strong>Nomor Memo Ketersediaan MAK (Perencanaan ke Bidang II &amp; PPK):</strong></label><br>
+                                <input type="text" id="nomor_memo_ketersediaan_mak_{{ $loop->index }}" name="nomor_memo_ketersediaan_mak" value="{{ $p->nomor_memo_ketersediaan_mak ?? ('MEMO-PRC/MAK/' . date('Y') . '/' . rand(100, 999)) }}" size="45">
                             </p>
 
                             <p>
                                 <label>
                                     <input type="radio" name="keputusan_anggaran" value="setuju" checked>
-                                    <strong>Setujui Alokasi Anggaran MAK</strong>
+                                    <strong>MAK Tersedia &mdash; Kirim Memo Ketersediaan MAK ke Bidang II (Wadir II) &amp; PPK</strong>
                                 </label>
                                 &nbsp;&nbsp;
                                 <label>
                                     <input type="radio" name="keputusan_anggaran" value="tahan">
-                                    <strong>Tahan / Tolak (Pagu Anggaran Tidak Cukup)</strong>
+                                    <strong>Tahan / Hold (Pagu MAK Belum Tersedia)</strong>
                                 </label>
                             </p>
 
                             <p>
-                                <label for="catatan_anggaran_{{ $p->nomor_surat }}"><strong>Catatan Perencanaan (Opsional):</strong></label><br>
-                                <textarea id="catatan_anggaran_{{ $p->nomor_surat }}" name="catatan_anggaran" rows="2" cols="60" placeholder="Contoh: Menggunakan pagu BOPTN 2026, MAK telah dialokasikan penuh."></textarea>
+                                <label for="catatan_anggaran_{{ $loop->index }}"><strong>Catatan Memo Ketersediaan MAK (Opsional):</strong></label><br>
+                                <textarea id="catatan_anggaran_{{ $loop->index }}" name="catatan_anggaran" rows="2" cols="60" placeholder="Contoh: Pagu MAK tersedia pada BOPTN {{ date('Y') }}, mohon persetujuan kegiatan oleh Wadir II dan PPK."></textarea>
                             </p>
 
                             <p>
-                                <button type="submit"><strong>Simpan Verifikasi Anggaran MAK</strong></button>
+                                <button type="submit"><strong>Simpan Ketersediaan MAK &amp; Kirim Memo ke Bidang II + PPK</strong></button>
                             </p>
                         </fieldset>
                     </form>
@@ -140,9 +162,9 @@
 
     <hr>
 
-    {{-- 3. Formulir Pendaftaran Rekening MAK DIPA Baru (FR 6.1) --}}
+    {{-- 3. Formulir Pendaftaran Rekening MAK DIPA Baru --}}
     <fieldset>
-        <legend><strong>+ Tambah Master Rekening MAK DIPA Baru (Subbagian Perencanaan)</strong></legend>
+        <legend><strong>+ Buat Master Rekening MAK DIPA Baru (Subbagian Perencanaan)</strong></legend>
         <p>Gunakan formulir ini untuk mendaftarkan pos akun rekening DIPA anggaran baru institusi Politeknik Negeri Jakarta.</p>
 
         <form action="{{ route('verifikasi.perencanaan.mak.store') }}" method="POST">
@@ -190,9 +212,10 @@
 
     <hr>
 
-    {{-- 4. Daftar Master MAK DIPA & Fitur Kunci Anggaran --}}
+    {{-- 4. Daftar Master MAK DIPA & Otoritas Tunggal Kunci / Buka Kunci MAK --}}
     <fieldset>
-        <legend><strong>Daftar Mata Anggaran Kegiatan (MAK) DIPA Kampus PNJ</strong></legend>
+        <legend><strong>Daftar Mata Anggaran Kegiatan (MAK) DIPA &amp; Kontrol Kunci / Buka Kunci MAK (Eksklusif Perencanaan)</strong></legend>
+        <p><em>Hanya Subbagian Perencanaan yang berwenang mengunci dan membuka kunci pagu MAK.</em></p>
         <table border="1" cellpadding="6" cellspacing="0">
             <thead>
                 <tr>
@@ -203,6 +226,7 @@
                     <th>Pagu Awal</th>
                     <th>Sisa Pagu Aktif</th>
                     <th>Status Kunci</th>
+                    <th>Kontrol Kunci Perencanaan</th>
                 </tr>
             </thead>
             <tbody>
@@ -216,9 +240,22 @@
                         <td><strong>Rp {{ number_format($mak->sisa_pagu_mak, 0, ',', '.') }}</strong></td>
                         <td align="center">
                             @if($mak->is_locked)
-                                <strong>TERKUNCI PERMANEN (PASCA-SPK)</strong>
+                                <strong>TERKUNCI</strong>
                             @else
-                                <em>Terbuka (Dapat Dialokasikan & Disesuaikan)</em>
+                                <em>Terbuka</em>
+                            @endif
+                        </td>
+                        <td align="center">
+                            @if($mak->is_locked)
+                                <form action="{{ route('verifikasi.perencanaan.mak.unlock', $mak->kode_mak) }}" method="POST">
+                                    @csrf
+                                    <button type="submit">Buka Kunci MAK</button>
+                                </form>
+                            @else
+                                <form action="{{ route('verifikasi.perencanaan.mak.lock', $mak->kode_mak) }}" method="POST">
+                                    @csrf
+                                    <button type="submit">Kunci MAK</button>
+                                </form>
                             @endif
                         </td>
                     </tr>

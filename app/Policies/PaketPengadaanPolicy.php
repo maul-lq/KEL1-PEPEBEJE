@@ -58,9 +58,9 @@ class PaketPengadaanPolicy
                 : Response::deny('Akses Ditolak: Anda bukan pemohon pengadaan ini.');
         }
 
-        // 4. Peran Manajemen, Pimpinan, dan Pengawasan Kampus
-        // PPBJ, Perencanaan, Wadir 2, Staff Bidang 2, Perlengkapan, dan Keuangan memiliki wewenang lintas paket.
-        if (in_array($user->role, ['ppbj', 'perencanaan', 'wadir_2', 'staff_bidang_2', 'perlengkapan', 'keuangan'], true)) {
+        // 4. Peran Manajemen, Pimpinan, Administrator, dan Pengawasan Kampus
+        // Admin, PPBJ, Perencanaan, Wadir 2, Staff Bidang 2, Perlengkapan, dan Keuangan memiliki wewenang lintas paket.
+        if (in_array($user->role, ['admin', 'ppbj', 'perencanaan', 'wadir_2', 'staff_bidang_2', 'perlengkapan', 'keuangan'], true)) {
             return Response::allow();
         }
 
@@ -74,8 +74,8 @@ class PaketPengadaanPolicy
      */
     public function update(User $user, PaketPengadaan $paket): Response
     {
-        // PPBJ memiliki hak penuh sebagai koordinator pengadaan kampus untuk memperbarui data paket
-        if ($user->role === 'ppbj') {
+        // PPBJ dan Admin memiliki hak penuh sebagai koordinator pengadaan kampus untuk memperbarui data paket
+        if (in_array($user->role, ['ppbj', 'admin'], true)) {
             return Response::allow();
         }
 
@@ -103,8 +103,8 @@ class PaketPengadaanPolicy
      */
     public function reassignPpk(User $user, PaketPengadaan $paket): Response
     {
-        // Validasi apakah user memiliki peran koordinator PPBJ atau Bagian Perencanaan
-        if (in_array($user->role, ['ppbj', 'perencanaan'], true)) {
+        // Validasi apakah user memiliki peran koordinator PPBJ, Bagian Perencanaan, atau Admin
+        if (in_array($user->role, ['ppbj', 'perencanaan', 'admin'], true)) {
             return Response::allow();
         }
 

@@ -135,7 +135,9 @@ class PenerimaanBarangController extends Controller
         // 5. Perbarui status tahapan paket pengadaan terkait
         $paket = PaketPengadaan::find($penerimaan->nomor_paket);
         if ($paket) {
-            $paket->status_paket = ($penerimaan->status_fisik === 'terima') ? 'penerimaan_selesai' : 'penerimaan_pending';
+            $paket->status_paket = in_array($penerimaan->status_fisik, ['terima', 'diterima_lengkap'], true)
+                ? 'penerimaan_selesai'
+                : 'penerimaan_pending';
             $paket->save();
         }
 
