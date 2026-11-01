@@ -224,11 +224,26 @@ class HomeController extends Controller
             ],
             'ppk' => [
                 'stats' => [
+                    'antrean_persetujuan_awal' => PermohonanPengadaan::where('id_user_ppk_awal', $user->id_user)
+                        ->whereIn('status_permohonan', [
+                            PermohonanPengadaan::STATUS_MENUNGGU_ACC_WADIR_PPK,
+                            PermohonanPengadaan::STATUS_REVIU_PARALEL,
+                        ])
+                        ->count(),
                     'total_paket_ppk' => PaketPengadaan::where('id_user_ppk', $user->id_user)->count(),
                     'tender_aktif' => PaketPengadaan::where('id_user_ppk', $user->id_user)->where('jalur_routing', 'ppk_diatas_200jt')->whereIn('status_paket', ['terdaftar', 'proses'])->count(),
                     'spk_aktif' => PaketPengadaan::where('id_user_ppk', $user->id_user)->whereHas('kontrakSpk')->count(),
                     'memo_bayar_pending' => MemoBayar::where('role_approver', 'ppk')->where('status_memo', 'diajukan')->whereHas('pembayaran.paket', fn ($q) => $q->where('id_user_ppk', $user->id_user))->count(),
                 ],
+                'antrean_persetujuan_awal_list' => PermohonanPengadaan::with(['unit', 'user', 'verifikasiParalel'])
+                    ->where('id_user_ppk_awal', $user->id_user)
+                    ->whereIn('status_permohonan', [
+                        PermohonanPengadaan::STATUS_MENUNGGU_ACC_WADIR_PPK,
+                        PermohonanPengadaan::STATUS_REVIU_PARALEL,
+                    ])
+                    ->latest('tanggal_pengajuan')
+                    ->take(5)
+                    ->get(),
                 'paket_komitmen' => PaketPengadaan::with(['permohonan.unit', 'vendor', 'kontrakSpk'])
                     ->where('id_user_ppk', $user->id_user)
                     ->latest('tanggal_registrasi_paket')
@@ -478,16 +493,23 @@ class HomeController extends Controller
         $user = Auth::user();
         $permohonan = PermohonanPengadaan::where('nomor_surat', $id)->firstOrFail();
 
-        if (! $user->hasRole('admin') && (int) $permohonan->id_user !== (int) $user->id_user) {
-            abort(403, 'Akses Ditolak: Anda hanya dapat membatalkan permohonan milik sendiri.');
-        }
+        $isAdmin = $user->hasRole('admin') || $user->role === User::ROLE_ADMIN || ($user->roleEntity && $user->roleEntity->nama_role === User::ROLE_ADMIN);
 
-        if (! in_array($permohonan->status_permohonan, ['draft', 'diajukan', 'ditolak'])) {
-            return redirect()->route('permohonan.index')->with('error', 'Permohonan yang telah diverifikasi atau diproses paket tidak dapat dibatalkan.');
+        if (! $isAdmin) {
+            if ((int) $permohonan->id_user !== (int) $user->id_user) {
+                abort(403, 'Akses Ditolak: Anda hanya dapat membatalkan permohonan milik sendiri.');
+            }
+
+            if (! in_array($permohonan->status_permohonan, ['draft', 'diajukan', 'ditolak'], true)) {
+                return redirect()->route('permohonan.index')->with('error', 'Permohonan yang telah diverifikasi atau diproses paket tidak dapat dibatalkan.');
+            }
         }
 
         $nomor = $permohonan->nomor_surat;
-        $permohonan->delete();
+
+        DB::transaction(function () use ($permohonan) {
+            $permohonan->cascadeDelete();
+        });
 
         AuditLog::catat(
             $user->id_user,

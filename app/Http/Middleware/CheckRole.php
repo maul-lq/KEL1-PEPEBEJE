@@ -117,15 +117,36 @@ class CheckRole
 
         // 3. Periksa otorisasi peran atau hak akses fitur (permissions)
         if (! empty($roles)) {
-            $isAuthorized = false;
+            $isAdmin = $user->role === User::ROLE_ADMIN || ($user->roleEntity && $user->roleEntity->nama_role === User::ROLE_ADMIN);
 
-            // A. Super Administrator ('admin') selalu memiliki hak akses penuh
-            if ($user->role === User::ROLE_ADMIN || ($user->roleEntity && $user->roleEntity->nama_role === User::ROLE_ADMIN)) {
-                $isAuthorized = true;
+            // A. Pembatasan ketat Administrator: Admin HANYA boleh mengakses rute administratif
+            if ($isAdmin) {
+                $hasAdminRole = in_array(User::ROLE_ADMIN, $roles, true) || in_array('admin', $roles, true);
+                $hasAdminPermission = ! empty(array_intersect($roles, [
+                    'admin.approval_registrasi',
+                    'admin.role_manage',
+                    'admin.user_manage',
+                ]));
+
+                if ($hasAdminRole || $hasAdminPermission) {
+                    return $next($request);
+                }
+
+                $message = 'Akses Ditolak: Role Administrator dibatasi untuk fungsi administratif dan dilarang mengakses proses verifikasi teknis pengadaan.';
+                if ($request->expectsJson() || $request->is('api/*')) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => $message,
+                    ], 403);
+                }
+
+                abort(403, $message);
             }
 
+            $isAuthorized = false;
+
             // B. Periksa apakah nama peran pengguna cocok langsung dengan salah satu peran yang diizinkan
-            if (! $isAuthorized && $user->hasRole($roles)) {
+            if ($user->hasRole($roles)) {
                 $isAuthorized = true;
             }
 

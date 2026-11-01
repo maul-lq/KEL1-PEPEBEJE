@@ -74,8 +74,8 @@ class PaketPengadaanPolicy
      */
     public function update(User $user, PaketPengadaan $paket): Response
     {
-        // PPBJ dan Admin memiliki hak penuh sebagai koordinator pengadaan kampus untuk memperbarui data paket
-        if (in_array($user->role, ['ppbj', 'admin'], true)) {
+        // PPBJ memiliki hak penuh sebagai koordinator pengadaan kampus untuk memperbarui data paket
+        if ($user->role === 'ppbj') {
             return Response::allow();
         }
 
@@ -103,8 +103,8 @@ class PaketPengadaanPolicy
      */
     public function reassignPpk(User $user, PaketPengadaan $paket): Response
     {
-        // Validasi apakah user memiliki peran koordinator PPBJ, Bagian Perencanaan, atau Admin
-        if (in_array($user->role, ['ppbj', 'perencanaan', 'admin'], true)) {
+        // Validasi apakah user memiliki peran koordinator PPBJ atau Bagian Perencanaan
+        if (in_array($user->role, ['ppbj', 'perencanaan'], true)) {
             return Response::allow();
         }
 

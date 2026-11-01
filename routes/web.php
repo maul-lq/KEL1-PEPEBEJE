@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\ApprovalRegistrasiController;
 use App\Http\Controllers\Admin\RoleController;
+use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\AlokasiMAKController;
 use App\Http\Controllers\AnggaranMAKController;
 use App\Http\Controllers\AuditLogController;
@@ -129,7 +130,7 @@ Route::middleware('auth')->group(function () {
     // -------------------------------------------------------------------------
     Route::get('/paket-pengadaan', [HomeController::class, 'paketIndex'])->name('paket.index');
     Route::get('/paket-pengadaan/split-jenis', [HomeController::class, 'splitJenisCreate'])->name('paket.split-jenis.create')->middleware('role:ppbj');
-    Route::get('/paket-pengadaan/reassign-ppk', [HomeController::class, 'reassignPpkCreate'])->name('paket.reassign-ppk.create')->middleware('role:ppbj,perencanaan,wadir_2,admin');
+    Route::get('/paket-pengadaan/reassign-ppk', [HomeController::class, 'reassignPpkCreate'])->name('paket.reassign-ppk.create')->middleware('role:ppbj,perencanaan,wadir_2');
     Route::middleware('role:ppbj')->group(function () {
         Route::get('/paket-pengadaan/create', [HomeController::class, 'paketCreate'])->name('paket.create');
         Route::post('/paket-pengadaan', [HomeController::class, 'storePaket'])->name('paket.store');
@@ -201,6 +202,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/persetujuan-registrasi', [ApprovalRegistrasiController::class, 'index'])->name('persetujuan-registrasi.index');
         Route::post('/persetujuan-registrasi/{user}/acc', [ApprovalRegistrasiController::class, 'acc'])->name('persetujuan-registrasi.acc');
         Route::post('/persetujuan-registrasi/{user}/tolak', [ApprovalRegistrasiController::class, 'tolak'])->name('persetujuan-registrasi.tolak');
+
+        // Manajemen Data Pengguna (CRUD User Admin)
+        Route::resource('users', AdminUserController::class);
 
         // Manajemen Master Role & Matriks Hak Akses (Permissions)
         Route::get('/roles', [RoleController::class, 'index'])->name('roles.index');
@@ -278,12 +282,12 @@ Route::prefix('api')->group(function () {
     // Memecah (split) usulan permohonan pengadaan berdasarkan Kode MAK (FR 6.3 - Perencanaan) atau Jenis Pengadaan (FR 7.2 - PPBJ)
     Route::post('permohonan-pengadaan/{permohonan_pengadaan}/split', [PermohonanPengadaanController::class, 'split'])
         ->name('permohonan-pengadaan.split')
-        ->middleware('role:perencanaan,ppbj,admin')
+        ->middleware('role:perencanaan,ppbj')
         ->where(['permohonan_pengadaan' => '.*']);
 
     Route::post('permohonan/{permohonan_pengadaan}/split-ppbj', [PermohonanPengadaanController::class, 'split'])
         ->name('permohonan.split-ppbj')
-        ->middleware('role:ppbj,admin')
+        ->middleware('role:ppbj')
         ->where(['permohonan_pengadaan' => '.*']);
 
     // Mengajukan revisi permohonan yang ditolak dengan nomor surat baru dan relasi unary (FR 3.4)
@@ -326,25 +330,25 @@ Route::prefix('api')->group(function () {
     // Pengalihan penugasan (reassign) paket pengadaan ke PPK lain disertai alasan dan jejak audit (FR 7.3 & NFR 4)
     Route::post('paket-pengadaan/{paket_pengadaan}/reassign-ppk', [PaketPengadaanController::class, 'reassignPpk'])
         ->name('paket-pengadaan.reassign-ppk')
-        ->middleware('role:ppbj,perencanaan,admin')
+        ->middleware('role:ppbj,perencanaan')
         ->where(['paket_pengadaan' => '.*']);
 
     // Eksekusi Belanja Langsung <= Rp 50 Juta oleh PPBJ (output Kwitansi, tanpa Kontrak/SPK)
     Route::post('paket-pengadaan/{paket_pengadaan}/belanja-langsung', [PaketPengadaanController::class, 'belanjaLangsung'])
         ->name('paket-pengadaan.belanja-langsung')
-        ->middleware('role:ppbj,admin')
+        ->middleware('role:ppbj')
         ->where(['paket_pengadaan' => '.*']);
 
     // Review kelengkapan & input Harga Perkiraan, Harga Akhir, serta Vendor oleh PP (50jt - 200jt; PP tidak bisa approval final)
     Route::post('paket-pengadaan/{paket_pengadaan}/review-pp', [PaketPengadaanController::class, 'reviewPp'])
         ->name('paket-pengadaan.review-pp')
-        ->middleware('role:pp,admin')
+        ->middleware('role:pp')
         ->where(['paket_pengadaan' => '.*']);
 
     // Eksekusi kewenangan belanja oleh PP (50jt - 200jt pasca-approval PPK) atau PPK (> 200jt)
     Route::post('paket-pengadaan/{paket_pengadaan}/eksekusi-belanja', [PaketPengadaanController::class, 'eksekusiBelanja'])
         ->name('paket-pengadaan.eksekusi-belanja')
-        ->middleware('role:pp,ppk,admin')
+        ->middleware('role:pp,ppk')
         ->where(['paket_pengadaan' => '.*']);
 
     // Registrasi dan manajemen paket pengadaan barang/jasa dengan auto-routing HPS (NFR 4)
@@ -354,17 +358,17 @@ Route::prefix('api')->group(function () {
     // 1. Staf Bidang 2 mengirim Memo Cek MAK ke Perencanaan
     Route::post('verifikasi-paralel/memo-cek-mak', [VerifikasiParalelController::class, 'memoCekMak'])
         ->name('verifikasi-paralel.memo-cek-mak')
-        ->middleware('role:staff_bidang_2,wadir_2,admin');
+        ->middleware('role:staff_bidang_2,wadir_2');
 
     // 2. Perencanaan memeriksa/membuat MAK, memilih 1 dari 4 PPK, & mengirim Memo Ketersediaan MAK ke Wadir 2 + PPK
     Route::post('verifikasi-paralel/memo-ketersediaan-mak', [VerifikasiParalelController::class, 'memoKetersediaanMak'])
         ->name('verifikasi-paralel.memo-ketersediaan-mak')
-        ->middleware('role:perencanaan,admin');
+        ->middleware('role:perencanaan');
 
     // 3. Keputusan persetujuan awal ganda oleh Wadir 2 (ACC kegiatan) dan PPK terpilih (ACC usulan)
     Route::post('verifikasi-paralel/keputusan-awal', [VerifikasiParalelController::class, 'keputusanAwal'])
         ->name('verifikasi-paralel.keputusan-awal')
-        ->middleware('role:wadir_2,ppk,admin');
+        ->middleware('role:wadir_2,ppk');
 
     // Alias kompatibilitas telaah berkas oleh Staf Bidang 2
     Route::post('verifikasi-paralel/teruskan-ke-wadir', [VerifikasiParalelController::class, 'teruskanKeWadir'])
