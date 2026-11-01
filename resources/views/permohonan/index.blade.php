@@ -3,12 +3,85 @@
 @section('title', 'Tracking Pengajuan - SIM-PBJ')
 
 @section('content')
-<div x-data="trackingManager()" class="space-y-6">
+@php
+    $canCreate = in_array(auth()->user()->role ?? '', ['perencanaan', 'user']);
 
-    <!-- 1. HEADER HALAMAN & TOMBOL AKSES -->
+    // Susun data pengajuan + riwayat di server, lalu kirim ke Alpine lewat @json
+    // (aman dari tanda kutip / baris baru, tidak perlu addslashes lagi).
+    $trackingItems = collect($applications ?? [])->map(function ($app) {
+        $nomor  = $app->nomor_surat ?? $app->number ?? ($app->id ?? '-');
+        $tgl    = !empty($app->tanggal_pengajuan) ? \Carbon\Carbon::parse($app->tanggal_pengajuan) : null;
+        $events = [];
+
+        // 1) Log awal pengajuan
+        $events[] = [
+            'ts' => $tgl ? $tgl->timestamp : 0,
+            'time' => $tgl ? $tgl->format('d M Y - H:i') : '-',
+            'title' => 'Pengajuan Berhasil Dibuat',
+            'subtitle' => 'Form telah disampaikan ke verifikator',
+            'badge' => 'Informasi', 'type' => 'info', 'badge_type' => 'info',
+        ];
+
+        // 2) Riwayat umum (jika relasi histories ada)
+        foreach (($app->histories ?? []) as $h) {
+            $raw  = strtolower((string) ($h->status ?? ''));
+            $type = in_array($raw, ['disetujui', 'selesai']) ? 'success'
+                  : (in_array($raw, ['ditolak']) ? 'danger'
+                  : (in_array($raw, ['revisi', 'perlu_revisi']) ? 'warning' : 'info'));
+            $at = !empty($h->created_at) ? \Carbon\Carbon::parse($h->created_at) : null;
+            $events[] = [
+                'ts' => $at ? $at->timestamp : 0,
+                'time' => $at ? $at->format('d M Y - H:i') : '-',
+                'title' => (string) ($h->status_title ?? $h->keterangan ?? 'Pembaruan Status'),
+                'subtitle' => (string) ($h->keterangan ?? ''),
+                'badge' => ucfirst(str_replace('_', ' ', $h->status ?? 'Informasi')),
+                'type' => $type, 'badge_type' => $type,
+            ];
+        }
+
+        // 3) Hasil verifikasi paralel yang sudah diputuskan
+        foreach (($app->verifikasiParalel ?? []) as $vp) {
+            if (empty($vp->tanggal_verifikasi)) { continue; }
+            $at   = \Carbon\Carbon::parse($vp->tanggal_verifikasi);
+            $st   = strtolower((string) $vp->status_verifikasi);
+            $type = $st === 'disetujui' ? 'success' : ($st === 'ditolak' ? 'danger' : 'info');
+            $events[] = [
+                'ts' => $at->timestamp,
+                'time' => $at->format('d M Y - H:i'),
+                'title' => 'Verifikasi ' . ucwords(str_replace('_', ' ', $vp->peran_verifikator)),
+                'subtitle' => (string) ($vp->catatan ?: (data_get($vp, 'user.nama') ?? '')),
+                'badge' => ucfirst($st ?: 'Informasi'),
+                'type' => $type, 'badge_type' => $type,
+            ];
+        }
+
+        usort($events, fn ($a, $b) => $b['ts'] <=> $a['ts']);
+        foreach ($events as $i => &$e) { $e['id'] = $i + 1; unset($e['ts']); }
+        unset($e);
+
+        return [
+            'id'           => (string) $nomor,
+            'nomor'        => (string) $nomor,
+            'fileName'     => str_replace(['/', '\\'], '-', (string) $nomor) . '.pdf',
+            'judul'        => (string) ($app->perihal ?? $app->nama_pengadaan ?? $app->title ?? 'Pengadaan'),
+            'jenis'        => (string) ($app->jenis_pengadaan ?? $app->jenis ?? ''),
+            'statusRaw'    => (string) ($app->status_permohonan ?? $app->status ?? 'diajukan'),
+            'tanggal'      => $tgl ? $tgl->format('d M Y, H:i') : '-',
+            'tanggalIso'   => $tgl ? $tgl->format('Y-m-d') : '',
+            'currentTahap' => max(1, min(8, (int) ($app->tahap_saat_ini ?? 1))),
+            'pemohon'      => (string) (data_get($app, 'user.nama') ?? data_get($app, 'unit.nama_unit') ?? $app->pemohon ?? 'Unit Pengaju'),
+            'pagu'         => $app->estimasi_total_pagu ?? '',
+            'timeline'     => $events,
+        ];
+    })->values();
+@endphp
+
+<div x-data="trackingManager()" @keydown.escape.window="showModalDoc = false" class="space-y-6">
+
+    <!-- 1. HEADER HALAMAN & TOMBOL AKSI -->
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-            <!-- Tombol Kembali (Hanya muncul saat Mode Fullscreen Detail) -->
+            <!-- Tombol Kembali (hanya di mode fullscreen) -->
             <template x-if="viewMode === 'fullscreen'">
                 <button @click="viewMode = 'split'" type="button" class="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-[#0969da] mb-2 transition-colors">
                     <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
@@ -16,73 +89,80 @@
                 </button>
             </template>
 
-            <h1 class="text-2xl md:text-3xl font-extrabold text-[#213153] tracking-tight">
-                <span x-text="viewMode === 'fullscreen' ? 'Detail & Tracking Pengajuan' : 'Tracking Pengajuan'"></span>
-            </h1>
-            <p class="text-sm text-slate-500 mt-1">
-                Pantau status pengajuan pengadaan Anda secara real-time. Pilih salah satu pengajuan untuk melihat detailnya.
-            </p>
+            <h1 class="text-2xl md:text-3xl font-bold text-[#213153] tracking-tight"
+                x-text="viewMode === 'fullscreen' ? 'Detail & Tracking Pengajuan' : 'Tracking Pengajuan'"></h1>
+            <p class="text-sm text-slate-500 mt-1"
+               x-text="viewMode === 'fullscreen'
+                    ? 'Pantau status, dokumen, dan riwayat proses pengajuan ini.'
+                    : 'Pantau status pengajuan pengadaan secara real-time. Pilih salah satu pengajuan untuk melihat detailnya.'"></p>
         </div>
 
-        <!-- Tombol Permohonan Baru (Hanya untuk Unit Pengaju / Perencanaan) -->
-        @if(in_array(auth()->user()->role ?? '', ['perencanaan', 'user']))
-            <div x-show="viewMode === 'split'" class="shrink-0">
-                <a href="{{ route('permohonan.create') }}" 
-                   class="inline-flex items-center justify-center h-11 px-6 rounded-lg bg-[#0969da] hover:bg-blue-700 text-white font-medium text-sm transition-colors shadow-sm gap-2">
-                    <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+        <div class="flex items-center gap-2 shrink-0">
+            @if($canCreate)
+                <a x-show="viewMode === 'split'" href="{{ route('permohonan.create') }}"
+                   class="inline-flex items-center justify-center h-10 px-5 rounded-lg bg-[#0969da] hover:bg-blue-700 text-white font-semibold text-sm transition-colors shadow-sm gap-2">
+                    <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
                     Permohonan Baru
                 </a>
-            </div>
-        @endif
 
-        <!-- Tombol Hapus Pengajuan (Fullscreen mode untuk Pengaju) -->
-        @if(in_array(auth()->user()->role ?? '', ['perencanaan', 'user']))
-            <div x-show="viewMode === 'fullscreen'" class="shrink-0">
-                <button @click="hapusPengajuan()" type="button" class="inline-flex items-center justify-center h-10 px-5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-medium text-sm transition-colors shadow-sm">
-                    Hapus Pengajuan
-                </button>
-            </div>
-        @endif
+                @if(Route::has('permohonan.destroy'))
+                    <button x-show="viewMode === 'fullscreen'" x-cloak @click="hapusPengajuan()" type="button"
+                            class="inline-flex items-center justify-center h-10 px-5 rounded-lg border border-rose-200 bg-white hover:bg-rose-50 text-rose-600 font-semibold text-sm transition-colors gap-2">
+                        <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        Hapus Pengajuan
+                    </button>
+                @endif
+            @endif
+        </div>
     </div>
 
-    <!-- 2. FILTER BARIS ATAS -->
+    {{-- Form tersembunyi untuk hapus pengajuan (aksi dibuat dinamis oleh Alpine) --}}
+    @if(Route::has('permohonan.destroy'))
+        <form x-ref="deleteForm" method="POST" class="hidden">
+            @csrf
+            @method('DELETE')
+        </form>
+    @endif
+
+    <!-- 2. FILTER -->
     <div x-show="viewMode === 'split'" class="bg-white rounded-xl border border-slate-200/80 p-4 shadow-sm">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-            
-            <!-- Pencarian & Tombol Cari -->
-            <div class="lg:col-span-2 flex items-center gap-2">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3">
+
+            <!-- Pencarian + tombol Cari -->
+            <div class="lg:col-span-5 flex items-center gap-2">
                 <div class="relative w-full">
-                    <input type="text" 
-                           x-model="searchQuery" 
-                           placeholder="Cari nomor surat atau judul pengajuan..." 
+                    <svg class="size-4 text-slate-400 absolute left-3 top-3 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                    <input type="text" x-model="searchQuery"
+                           @keydown.enter="applyFilters()"
+                           @input="if (!searchQuery) applyFilters()"
+                           placeholder="Cari nomor surat atau judul pengajuan..."
                            class="w-full h-10 pl-9 pr-3 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-[#0969da]/20 focus:border-[#0969da] outline-none">
-                    <svg class="size-4 text-slate-400 absolute left-3 top-3 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 0 0114 0z" />
-                    </svg>
                 </div>
-                <button @click="applyFilters()" type="button" class="h-10 px-4 bg-[#0969da] hover:bg-blue-700 text-white font-medium text-sm rounded-lg transition-colors flex items-center gap-2 shrink-0 shadow-sm">
-                    <svg class="size-4 shrink-0 fill-none stroke-current" stroke-width="2.5" viewBox="0 0 24 24">
-                        <circle cx="11" cy="11" r="7" />
-                        <path stroke-linecap="round" d="M16 16l4.5 4.5" />
-                    </svg>
-                    <span>Cari</span>
+                <button @click="applyFilters()" type="button"
+                        class="h-10 px-4 bg-[#0969da] hover:bg-blue-700 text-white font-semibold text-sm rounded-lg transition-colors flex items-center gap-2 shrink-0 shadow-sm">
+                    <svg class="size-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path stroke-linecap="round" d="M16 16l4.5 4.5"/></svg>
+                    Cari
                 </button>
             </div>
 
-            <!-- Filter Status -->
-            <div>
+            <!-- Status -->
+            <div class="lg:col-span-2">
                 <select x-model="filterStatus" class="w-full h-10 px-3 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-[#0969da]/20 focus:border-[#0969da] outline-none">
                     <option value="Semua">Semua Status</option>
+                    <option value="Diajukan">Diajukan</option>
                     <option value="Dalam Proses">Dalam Proses</option>
-                    <option value="Selesai">Selesai</option>
+                    <option value="Menunggu Persetujuan">Menunggu Persetujuan</option>
+                    <option value="Disetujui">Disetujui</option>
                     <option value="Perlu Revisi">Perlu Revisi</option>
                     <option value="Ditolak">Ditolak</option>
-                    <option value="Menunggu Persetujuan">Menunggu Persetujuan</option>
+                    <option value="Selesai">Selesai</option>
                 </select>
             </div>
 
-            <!-- Filter Jenis Pengadaan -->
-            <div>
+            <!-- Jenis -->
+            <div class="lg:col-span-2">
                 <select x-model="filterJenis" class="w-full h-10 px-3 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-[#0969da]/20 focus:border-[#0969da] outline-none">
                     <option value="Semua">Semua Jenis</option>
                     <option value="Barang">Barang</option>
@@ -91,226 +171,232 @@
                 </select>
             </div>
 
-            <!-- Input Tanggal & Tombol Reset -->
-            <div class="flex gap-2">
-                <input type="date" x-model="filterTanggal" class="w-full h-10 px-3 rounded-lg border border-slate-300 text-xs text-slate-600 focus:ring-2 focus:ring-[#0969da]/20 focus:border-[#0969da] outline-none">
-                <button @click="resetFilters()" type="button" class="h-10 px-4 bg-[#0969da] hover:bg-blue-700 text-white font-semibold text-sm rounded-lg transition-colors flex items-center justify-center shrink-0 shadow-sm" title="Reset Filter">
-                    <svg class="size-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                    <span class="ml-1.5">Reset</span>
-                </button>
+            <!-- Tanggal + Reset -->
+            <div class="lg:col-span-3 flex items-center gap-2">
+                <input type="date" x-model="filterTanggal"
+                       class="w-full h-10 px-3 rounded-lg border border-slate-300 text-sm text-slate-600 focus:ring-2 focus:ring-[#0969da]/20 focus:border-[#0969da] outline-none">
+               <button @click="resetFilters()" type="button" title="Reset Filter"
+        class="h-10 px-4 bg-[#0969da] hover:bg-blue-700 text-white font-semibold text-sm rounded-lg transition-colors flex items-center justify-center gap-1.5 shrink-0 shadow-sm">
+    <svg class="size-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+    Reset
+</button>
             </div>
-
         </div>
     </div>
 
-    <!-- 3. KONTEN UTAMA: SPLIT VIEW ATAU FULLSCREEN -->
-    
-    <!-- A. VIEW MODE: FULLSCREEN DETAIL -->
+    <!-- 3. KONTEN UTAMA -->
+
+    <!-- A. MODE FULLSCREEN -->
     <template x-if="viewMode === 'fullscreen' && selectedItem">
         <div class="space-y-6">
-            
-            <!-- 5 Card Informasi Ringkasan -->
+
+            <!-- 5 kartu ringkasan -->
             <div class="bg-white rounded-xl border border-slate-200/80 p-5 shadow-sm grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-3 min-w-0">
                     <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#0969da]">
                         <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                     </div>
-                    <div>
+                    <div class="min-w-0">
                         <span class="text-xs font-medium text-slate-400 block">Nomor Pengajuan</span>
-                        <span class="text-sm font-bold text-[#213153]" x-text="selectedItem.nomor"></span>
+                        <span class="text-sm font-semibold text-[#213153] block truncate" x-text="selectedItem.nomor" :title="selectedItem.nomor"></span>
                     </div>
                 </div>
 
-                <div class="flex items-center gap-3 pt-3 sm:pt-0 sm:pl-4">
+                <div class="flex items-center gap-3 pt-3 sm:pt-0 sm:pl-4 min-w-0">
                     <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#0969da]">
                         <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
                     </div>
-                    <div>
+                    <div class="min-w-0">
                         <span class="text-xs font-medium text-slate-400 block">Nama Pengadaan</span>
-                        <span class="text-sm font-bold text-[#213153] line-clamp-1" x-text="selectedItem.judul"></span>
+                        <span class="text-sm font-semibold text-[#213153] block truncate" x-text="selectedItem.judul" :title="selectedItem.judul"></span>
                     </div>
                 </div>
 
-                <div class="flex items-center gap-3 pt-3 sm:pt-0 sm:pl-4">
+                <div class="flex items-center gap-3 pt-3 sm:pt-0 sm:pl-4 min-w-0">
                     <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#0969da]">
                         <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
                     </div>
-                    <div>
+                    <div class="min-w-0">
                         <span class="text-xs font-medium text-slate-400 block">Status Saat Ini</span>
-                        <span class="text-sm font-bold text-[#0969da]" x-text="selectedItem.status"></span>
+                        <span class="inline-flex mt-0.5 px-2 py-0.5 rounded-full text-[11px] font-semibold"
+                              :class="statusMeta(selectedItem.statusRaw).pill"
+                              x-text="statusMeta(selectedItem.statusRaw).label"></span>
                     </div>
                 </div>
 
-                <div class="flex items-center gap-3 pt-3 sm:pt-0 sm:pl-4">
+                <div class="flex items-center gap-3 pt-3 sm:pt-0 sm:pl-4 min-w-0">
                     <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#0969da]">
                         <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                     </div>
-                    <div>
+                    <div class="min-w-0">
                         <span class="text-xs font-medium text-slate-400 block">Tanggal Pengajuan</span>
-                        <span class="text-sm font-bold text-[#213153]" x-text="selectedItem.tanggal"></span>
+                        <span class="text-sm font-semibold text-[#213153] block truncate" x-text="selectedItem.tanggal"></span>
                     </div>
                 </div>
 
-                <div class="flex items-center gap-3 pt-3 sm:pt-0 sm:pl-4">
+                <div class="flex items-center gap-3 pt-3 sm:pt-0 sm:pl-4 min-w-0">
                     <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#0969da]">
                         <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                     </div>
-                    <div>
+                    <div class="min-w-0">
                         <span class="text-xs font-medium text-slate-400 block">Pemohon</span>
-                        <span class="text-sm font-bold text-[#213153]" x-text="selectedItem.penanggungJawab || 'Unit Pengaju'"></span>
+                        <span class="text-sm font-semibold text-[#213153] block truncate" x-text="selectedItem.pemohon" :title="selectedItem.pemohon"></span>
                     </div>
                 </div>
             </div>
 
-            <!-- Stepper 8 Tahap Lebar dengan Label Teks -->
+            <!-- Stepper 8 tahap (lingkaran selalu sejajar, label tidak terpotong) -->
             <div class="bg-white rounded-xl border border-slate-200/80 p-6 shadow-sm space-y-6">
-                <h3 class="font-bold text-lg text-[#213153]" x-text="'Tahap ' + selectedItem.currentTahap + ' dari 8'"></h3>
-                
-                <div class="relative flex items-center justify-between overflow-x-auto pb-2">
-                    <div class="absolute top-1/2 left-0 w-full h-1 bg-slate-200 -translate-y-1/2 z-0"></div>
-                    <div class="absolute top-1/2 left-0 h-1 bg-[#0969da] -translate-y-1/2 z-0 transition-all duration-300" :style="'width: ' + ((selectedItem.currentTahap - 1) / 7 * 100) + '%'"></div>
+                <h3 class="font-semibold text-lg text-[#213153]" x-text="'Tahap ' + selectedItem.currentTahap + ' dari 8'"></h3>
 
-                    <template x-for="(tahap, idx) in tahapanList" :key="idx">
-                        <div class="relative z-10 flex flex-col items-center group cursor-pointer shrink-0 min-w-[80px]" @click="selectedItem.currentTahap = idx + 1">
-                            <div class="size-11 rounded-full flex items-center justify-center font-bold text-base transition-all border-2"
-                                 :class="idx + 1 <= selectedItem.currentTahap ? 'bg-[#0969da] text-white border-[#0969da] shadow-md shadow-[#0969da]/30' : 'bg-white text-slate-400 border-slate-300'">
-                                <span x-text="idx + 1"></span>
+                <div class="overflow-x-auto pb-2">
+                    <div class="relative flex items-start justify-between min-w-[780px]">
+                        <!-- Garis: dari pusat lingkaran pertama ke pusat lingkaran terakhir -->
+                        <div class="absolute left-12 right-12 top-5 h-1 rounded-full bg-slate-200">
+                            <div class="h-full rounded-full bg-[#0969da] transition-all duration-300"
+                                 :style="'width: ' + stepPercent() + '%'"></div>
+                        </div>
+
+                        <template x-for="(tahap, idx) in tahapanList" :key="idx">
+                            <div class="relative z-10 flex w-24 shrink-0 flex-col items-center">
+                                <div class="size-11 rounded-full flex items-center justify-center font-semibold text-base border-2 transition-all"
+                                     :class="idx + 1 <= selectedItem.currentTahap
+                                        ? 'bg-[#0969da] text-white border-[#0969da] shadow-md shadow-[#0969da]/30'
+                                        : 'bg-white text-slate-400 border-slate-300'">
+                                    <span x-text="idx + 1"></span>
+                                </div>
+                                <span class="mt-2 text-[11px] font-medium text-center leading-tight"
+                                      :class="idx + 1 <= selectedItem.currentTahap ? 'text-[#0969da]' : 'text-slate-400'"
+                                      x-text="tahap"></span>
                             </div>
-                            <span class="text-[11px] font-semibold text-center mt-2 max-w-[100px] line-clamp-2"
-                                  :class="idx + 1 <= selectedItem.currentTahap ? 'text-[#0969da]' : 'text-slate-400'"
-                                  x-text="tahap"></span>
-                        </div>
-                    </template>
-                </div>
-            </div>
-
-          <!-- TWO COLUMNS BOTTOM (DOKUMEN + FORM AKSI DI KIRI | TIMELINE DI KANAN) -->
-<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-    
-    <!-- KOLOM KIRI (6/12): SURAT DOKUMEN & FORM AKSI ROLE -->
-    <div class="lg:col-span-6 space-y-6">
-        
-        <!-- CARD SURAT DAN DOKUMEN -->
-        <div class="bg-white rounded-xl border border-slate-200/80 p-5 shadow-sm space-y-4">
-            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h3 class="font-bold text-base text-[#213153]">Surat dan Dokumen</h3>
-                <span class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-[#0969da]">1 Dokumen</span>
-            </div>
-
-            <div class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-colors">
-                <div class="size-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 font-bold text-xs">
-                    PDF
-                </div>
-                <div class="min-w-0 flex-1">
-                    <div class="font-bold text-xs text-[#213153] truncate" x-text="selectedItem ? selectedItem.judul : 'Pengadaan'"></div>
-                    <div class="text-[11px] text-slate-500 font-medium" x-text="selectedItem ? selectedItem.nomor + '.pdf' : 'dokumen.pdf'"></div>
-                </div>
-                <div class="flex items-center gap-2 shrink-0">
-                    <button @click="showModalDoc = true" type="button" class="px-3 py-1.5 text-xs font-bold text-[#0969da] border border-[#0969da] bg-white rounded-lg hover:bg-blue-50 transition-colors">
-                        Lihat
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- FORM AKSI INTERAKTIF KHUSUS ROLE -->
-        <div class="bg-white rounded-xl border border-slate-200/80 p-5 shadow-sm">
-            @include('permohonan.partials.role-actions-show')
-        </div>
-
-    </div>
-
-    <!-- KOLOM KANAN (6/12): RIWAYAT KRONOLOGIS TIMELINE -->
-    <div class="lg:col-span-6 bg-white rounded-xl border border-slate-200/80 p-5 shadow-sm space-y-4">
-        <div class="flex items-center gap-2 border-b border-slate-100 pb-3">
-            <svg class="size-5 text-[#0969da]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            <h3 class="font-bold text-[#213153] text-base">Riwayat Kronologis dan Revisi</h3>
-        </div>
-
-        <div class="relative pl-6 border-l-2 border-slate-200 space-y-5 pt-1">
-            <template x-for="log in selectedItem.timeline" :key="log.id">
-                <div class="relative">
-                    <div :class="{
-                        'bg-amber-500 text-white': log.type === 'warning',
-                        'bg-rose-500 text-white': log.type === 'danger',
-                        'bg-[#0969da] text-white': log.type === 'info',
-                        'bg-emerald-500 text-white': log.type === 'success',
-                        'bg-slate-400 text-white': log.type === 'gray'
-                    }" class="absolute -left-[35px] top-0 size-7 rounded-full flex items-center justify-center shadow-sm">
-                        <template x-if="log.type === 'warning'"><svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></template>
-                        <template x-if="log.type === 'danger'"><svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></template>
-                        <template x-if="log.type === 'info' || log.type === 'success' || log.type === 'gray'"><svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg></template>
-                    </div>
-
-                    <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 flex items-start justify-between gap-3">
-                        <div>
-                            <span class="text-[10px] font-semibold text-slate-400 block" x-text="log.time"></span>
-                            <h4 class="font-bold text-[#213153] text-xs mt-0.5" x-text="log.title"></h4>
-                            <p class="text-[11px] text-slate-500 mt-0.5" x-text="log.subtitle"></p>
-                        </div>
-                        <span :class="{
-                            'bg-amber-100 text-amber-700': log.badge_type === 'warning',
-                            'bg-rose-100 text-rose-700': log.badge_type === 'danger',
-                            'bg-blue-100 text-blue-700': log.badge_type === 'info',
-                            'bg-emerald-100 text-emerald-700': log.badge_type === 'success',
-                            'bg-slate-100 text-slate-700': log.badge_type === 'gray'
-                        }" class="px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0" x-text="log.badge"></span>
+                        </template>
                     </div>
                 </div>
-            </template>
-        </div>
-    </div>
+            </div>
 
-</div>
+            <!-- Dua kolom bawah -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
+                <!-- KIRI: Dokumen + Aksi role -->
+                <div class="lg:col-span-6 space-y-6">
+
+                    <div class="bg-white rounded-xl border border-slate-200/80 p-5 shadow-sm space-y-4">
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                            <h3 class="font-semibold text-base text-[#213153]">Surat dan Dokumen</h3>
+                            <span class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-[#0969da]">1 Dokumen</span>
+                        </div>
+
+                        <div class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                            <div class="size-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 font-semibold text-xs">PDF</div>
+                            <div class="min-w-0 flex-1">
+                                <div class="font-semibold text-xs text-[#213153] truncate" x-text="selectedItem.judul"></div>
+                                <div class="text-[11px] text-slate-500 truncate" x-text="selectedItem.fileName"></div>
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <template x-if="pdfUrlTemplate">
+                                    <a :href="pdfUrl(selectedItem)" target="_blank" rel="noopener" title="Buka di tab baru"
+                                       class="size-8 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-[#0969da] hover:border-[#0969da] transition-colors">
+                                        <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                    </a>
+                                </template>
+                                <button @click="showModalDoc = true" type="button"
+                                        class="h-8 px-3 text-xs font-semibold text-[#0969da] border border-[#0969da] bg-white rounded-lg hover:bg-blue-50 transition-colors">
+                                    Lihat
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Form aksi sesuai role -->
+                    <div class="bg-white rounded-xl border border-slate-200/80 p-5 shadow-sm">
+                        @include('permohonan.partials.role-actions-show')
+                    </div>
+                </div>
+
+                <!-- KANAN: Timeline -->
+                <div class="lg:col-span-6 bg-white rounded-xl border border-slate-200/80 p-5 shadow-sm space-y-4">
+                    <div class="flex items-center gap-2 border-b border-slate-100 pb-3">
+                        <svg class="size-5 text-[#0969da]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <h3 class="font-semibold text-[#213153] text-base">Riwayat Kronologis dan Revisi</h3>
+                    </div>
+
+                    <div class="pl-3">
+                        <div class="relative pl-6 border-l-2 border-slate-200 space-y-5 pt-1">
+                            <template x-for="log in selectedItem.timeline" :key="log.id">
+                                <div class="relative">
+                                    <div :class="timelineDot(log.type)" class="absolute -left-[35px] top-0 size-7 rounded-full flex items-center justify-center shadow-sm">
+                                        <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" x-html="timelineIcon(log.type)"></svg>
+                                    </div>
+
+                                    <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 flex items-start justify-between gap-3">
+                                        <div class="min-w-0">
+                                            <span class="text-[10px] font-medium text-slate-400 block" x-text="log.time"></span>
+                                            <h4 class="font-semibold text-[#213153] text-xs mt-0.5" x-text="log.title"></h4>
+                                            <p class="text-[11px] text-slate-500 mt-0.5 break-words" x-text="log.subtitle"></p>
+                                        </div>
+                                        <span :class="badgeClass(log.badge_type)" class="px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0" x-text="log.badge"></span>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
         </div>
     </template>
 
-    <!-- B. VIEW MODE: SPLIT VIEW (FRAME 1, 2, & 3) -->
+    <!-- B. MODE SPLIT -->
     <template x-if="viewMode === 'split'">
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            
-            <!-- PANEL KIRI: DAFTAR PENGAJUAN -->
+
+            <!-- PANEL KIRI: DAFTAR -->
             <div class="lg:col-span-5 bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
                 <div class="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                     <div class="flex items-center gap-2.5">
-                        <h2 class="font-bold text-base text-[#213153]">Daftar Pengajuan</h2>
-                        <span class="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-bold text-[#0969da]" x-text="filteredList.length + ' pengajuan'"></span>
+                        <h2 class="font-semibold text-base text-[#213153]">Daftar Pengajuan</h2>
+                        <span class="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-[#0969da]" x-text="filteredList.length + ' pengajuan'"></span>
                     </div>
                 </div>
 
                 <div class="divide-y divide-slate-100 max-h-[720px] overflow-y-auto">
                     <template x-for="item in filteredList" :key="item.id">
-                        <div @click="selectItem(item)" 
+                        <div @click="selectItem(item)"
                              class="p-4 flex items-center gap-3 cursor-pointer transition-all hover:bg-slate-50"
-                             :class="selectedItem && selectedItem.id === item.id ? 'bg-blue-50/60 border-l-4 border-l-[#0969da]' : ''">
-                            
-                            <div class="size-10 rounded-full flex items-center justify-center shrink-0 shadow-sm"
-                                 :class="getStatusBadgeClass(item.status).circle">
-                                <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" x-html="getStatusBadgeClass(item.status).icon"></svg>
+                             :class="selectedItem && selectedItem.id === item.id ? 'bg-blue-50/60 shadow-[inset_4px_0_0_0_#0969da]' : ''">
+
+                            <div class="size-10 rounded-full flex items-center justify-center shrink-0"
+                                 :class="statusMeta(item.statusRaw).circle">
+                                <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" x-html="statusMeta(item.statusRaw).icon"></svg>
                             </div>
 
                             <div class="min-w-0 flex-1">
                                 <div class="flex items-center justify-between gap-2">
-                                    <h3 class="font-bold text-sm text-[#213153] truncate" x-text="item.judul"></h3>
-                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0" 
-                                          :class="getStatusBadgeClass(item.status).pill" 
-                                          x-text="item.status"></span>
+                                    <h3 class="font-semibold text-sm text-[#213153] truncate" x-text="item.judul"></h3>
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0 whitespace-nowrap"
+                                          :class="statusMeta(item.statusRaw).pill"
+                                          x-text="statusMeta(item.statusRaw).label"></span>
                                 </div>
-                                <div class="text-xs font-semibold text-slate-400 mt-0.5" x-text="item.nomor"></div>
+                                <div class="text-xs font-medium text-slate-400 mt-0.5 truncate" x-text="item.nomor"></div>
                                 <div class="text-[10px] text-slate-400 mt-1" x-text="item.tanggal"></div>
                             </div>
 
                             <svg class="size-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
                         </div>
                     </template>
+
+                    <!-- List kosong -->
+                    <div x-show="filteredList.length === 0" x-cloak class="p-10 text-center">
+                        <p class="text-sm font-medium text-slate-500">Tidak ada pengajuan yang sesuai.</p>
+                        <button @click="resetFilters()" type="button" class="mt-2 text-xs font-semibold text-[#0969da] hover:underline">Reset filter</button>
+                    </div>
                 </div>
             </div>
 
-            <!-- PANEL KANAN: DETAIL DISAMPING (SPLIT VIEW) -->
+            <!-- PANEL KANAN: DETAIL -->
             <div class="lg:col-span-7 bg-white rounded-xl border border-slate-200/80 shadow-sm p-6 min-h-[600px] flex flex-col justify-between">
-                
-                <!-- 1. EMPTY STATE SAMA PERSIS FIGMA (FRAME 1) -->
+
+                <!-- Empty state -->
                 <template x-if="!selectedItem">
                     <div class="my-auto flex flex-col items-center justify-center text-center py-10 px-4">
                         <div class="w-40 h-40 mb-6 flex items-center justify-center shrink-0">
@@ -328,112 +414,121 @@
                             </svg>
                         </div>
 
-                        <h3 class="font-extrabold text-2xl text-[#213153] tracking-tight">Pilih Pengajuan untuk Melihat Detail</h3>
+                        <h3 class="font-bold text-2xl text-[#213153] tracking-tight">Pilih Pengajuan untuk Melihat Detail</h3>
                         <p class="text-sm text-slate-500 max-w-md mt-2 leading-relaxed">
-                            Silahkan pilih salah satu pengajuan dari daftar sebelah kiri untuk melihat informasi lengkap, dokumen, dan riwayat prosesnya.
+                            Silakan pilih salah satu pengajuan dari daftar sebelah kiri untuk melihat informasi lengkap, dokumen, dan riwayat prosesnya.
                         </p>
                     </div>
                 </template>
 
-                <!-- 2. TERPILIH ITEM (FRAME 2 & 3 USER) -->
+                <!-- Item terpilih -->
                 <template x-if="selectedItem">
                     <div class="space-y-6">
-                        
-                        <!-- Header Tracking & Link Fullscreen -->
-                        <div class="flex items-center justify-between border-b border-slate-100 pb-4">
-                            <div>
-                                <h3 class="font-bold text-lg text-[#213153]" x-text="selectedItem.judul"></h3>
-                                <div class="text-xs text-slate-400 mt-0.5" x-text="selectedItem.nomor"></div>
+
+                        <div class="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
+                            <div class="min-w-0">
+                                <h3 class="font-semibold text-lg text-[#213153] truncate" x-text="selectedItem.judul"></h3>
+                                <div class="text-xs text-slate-400 mt-0.5 truncate" x-text="selectedItem.nomor"></div>
                             </div>
-                            <button @click="viewMode = 'fullscreen'" type="button" class="inline-flex items-center gap-1.5 text-xs font-bold text-[#0969da] hover:underline">
+                            <button @click="viewMode = 'fullscreen'" type="button"
+                                    class="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0969da] hover:underline shrink-0">
                                 Lihat Detail
                                 <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
                             </button>
                         </div>
 
-                        <!-- Stepper 8 Tahap Ringkas Circle (Frame 2 & 3) -->
+                        <!-- Stepper ringkas -->
                         <div class="p-4 rounded-xl bg-slate-50 border border-slate-200/80">
                             <div class="flex items-center justify-between relative">
                                 <div class="absolute top-1/2 left-0 w-full h-1 bg-slate-200 -translate-y-1/2 z-0"></div>
-                                <div class="absolute top-1/2 left-0 h-1 bg-[#0969da] -translate-y-1/2 z-0 transition-all duration-300" :style="'width: ' + ((selectedItem.currentTahap - 1) / 7 * 100) + '%'"></div>
+                                <div class="absolute top-1/2 left-0 h-1 bg-[#0969da] -translate-y-1/2 z-0 transition-all duration-300" :style="'width: ' + stepPercent() + '%'"></div>
 
                                 <template x-for="n in 8" :key="n">
-                                    <div class="relative z-10 size-9 rounded-full flex items-center justify-center font-bold text-xs border-2 transition-all"
+                                    <div class="relative z-10 size-9 rounded-full flex items-center justify-center font-semibold text-xs border-2 transition-all"
                                          :class="n <= selectedItem.currentTahap ? 'bg-[#0969da] text-white border-[#0969da]' : 'bg-white text-slate-400 border-slate-300'"
                                          x-text="n"></div>
                                 </template>
                             </div>
                         </div>
 
-                        <!-- Timeline Kronologis & Revisi (Mode Split User) -->
+                        <!-- Timeline (ikon tidak lagi terpotong di tepi kiri) -->
                         <div class="space-y-4 pt-2 border-t border-slate-100">
                             <div class="flex items-center gap-2">
                                 <svg class="size-5 text-[#0969da]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                <h4 class="font-bold text-sm text-[#213153]">Riwayat Kronologis dan Revisi</h4>
+                                <h4 class="font-semibold text-sm text-[#213153]">Riwayat Kronologis dan Revisi</h4>
                             </div>
 
-                            <div class="relative pl-6 border-l-2 border-slate-200 space-y-4 max-h-[350px] overflow-y-auto">
-                                <template x-for="log in selectedItem.timeline" :key="log.id">
-                                    <div class="relative">
-                                        <div :class="{
-                                            'bg-amber-500 text-white': log.type === 'warning',
-                                            'bg-rose-500 text-white': log.type === 'danger',
-                                            'bg-[#0969da] text-white': log.type === 'info',
-                                            'bg-emerald-500 text-white': log.type === 'success',
-                                            'bg-slate-400 text-white': log.type === 'gray'
-                                        }" class="absolute -left-[35px] top-0 size-7 rounded-full flex items-center justify-center shadow-sm">
-                                            <template x-if="log.type === 'warning'"><svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></template>
-                                            <template x-if="log.type === 'danger'"><svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></template>
-                                            <template x-if="log.type === 'info' || log.type === 'success' || log.type === 'gray'"><svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg></template>
-                                        </div>
-
-                                        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200/80 flex items-start justify-between gap-3">
-                                            <div>
-                                                <span class="text-[10px] font-semibold text-slate-400 block" x-text="log.time"></span>
-                                                <h5 class="font-bold text-[#213153] text-xs mt-0.5" x-text="log.title"></h5>
-                                                <p class="text-[11px] text-slate-500 mt-0.5" x-text="log.subtitle"></p>
+                            <div class="max-h-[350px] overflow-y-auto pl-3 pr-1">
+                                <div class="relative pl-6 border-l-2 border-slate-200 space-y-4">
+                                    <template x-for="log in selectedItem.timeline" :key="log.id">
+                                        <div class="relative">
+                                            <div :class="timelineDot(log.type)" class="absolute -left-[35px] top-0 size-7 rounded-full flex items-center justify-center shadow-sm">
+                                                <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" x-html="timelineIcon(log.type)"></svg>
                                             </div>
-                                            <span :class="{
-                                                'bg-amber-100 text-amber-700': log.badge_type === 'warning',
-                                                'bg-rose-100 text-rose-700': log.badge_type === 'danger',
-                                                'bg-blue-100 text-blue-700': log.badge_type === 'info',
-                                                'bg-emerald-100 text-emerald-700': log.badge_type === 'success',
-                                                'bg-slate-100 text-slate-700': log.badge_type === 'gray'
-                                            }" class="px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0" x-text="log.badge"></span>
+
+                                            <div class="bg-slate-50 p-3 rounded-xl border border-slate-200/80 flex items-start justify-between gap-3">
+                                                <div class="min-w-0">
+                                                    <span class="text-[10px] font-medium text-slate-400 block" x-text="log.time"></span>
+                                                    <h5 class="font-semibold text-[#213153] text-xs mt-0.5" x-text="log.title"></h5>
+                                                    <p class="text-[11px] text-slate-500 mt-0.5 break-words" x-text="log.subtitle"></p>
+                                                </div>
+                                                <span :class="badgeClass(log.badge_type)" class="px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0" x-text="log.badge"></span>
+                                            </div>
                                         </div>
-                                    </div>
-                                </template>
+                                    </template>
+                                </div>
                             </div>
                         </div>
 
                     </div>
                 </template>
 
-             <!-- Banner Widget Khusus Role di Bagian Bawah Split View (Hanya muncul jika item terpilih) -->
-<template x-if="selectedItem">
-    <div class="mt-4 pt-4 border-t border-slate-100">
-        @include('permohonan.partials.role-actions-index')
-    </div>
-</template>
+                <!-- Banner aksi sesuai role (hanya jika ada item terpilih) -->
+                <template x-if="selectedItem">
+                    <div class="mt-6 pt-4 border-t border-slate-100">
+                        @include('permohonan.partials.role-actions-index')
+                    </div>
+                </template>
 
             </div>
-
         </div>
     </template>
 
-    <!-- MODAL POPUP PREVIEW DOKUMEN -->
-    <div x-show="showModalDoc" 
-         x-cloak
-         @click.away="showModalDoc = false" 
-         class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-        <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4">
-            <h3 class="font-bold text-lg text-[#213153]">Surat Pengajuan Pengadaan</h3>
-            <p class="text-xs text-slate-500" x-text="selectedItem ? selectedItem.nomor + '.pdf' : ''"></p>
-            <div class="p-8 bg-slate-100 rounded-xl flex items-center justify-center border border-dashed border-slate-300 text-slate-400 text-xs">
-                [ Preview PDF Document ]
+    <!-- MODAL PREVIEW DOKUMEN (klik latar gelap / Esc untuk menutup) -->
+    <div x-show="showModalDoc" x-cloak x-transition.opacity
+         @click.self="showModalDoc = false"
+         class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div class="bg-white rounded-2xl w-full max-w-4xl shadow-2xl flex flex-col max-h-[92vh]">
+            <div class="flex items-start justify-between gap-4 p-5 border-b border-slate-100">
+                <div class="min-w-0">
+                    <h3 class="font-semibold text-lg text-[#213153]">Surat Pengajuan Pengadaan</h3>
+                    <p class="text-xs text-slate-500 truncate" x-text="selectedItem ? selectedItem.fileName : ''"></p>
+                </div>
+                <button @click="showModalDoc = false" type="button" class="text-slate-400 hover:text-slate-700 transition-colors" title="Tutup">
+                    <svg class="size-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
             </div>
-            <div class="flex justify-end">
-                <button @click="showModalDoc = false" type="button" class="px-4 py-2 bg-[#0969da] text-white font-bold text-xs rounded-lg">
+
+            <div class="p-5 flex-1 min-h-0">
+                <template x-if="showModalDoc && selectedItem && pdfUrlTemplate">
+                    <iframe :src="pdfUrl(selectedItem)" class="w-full h-[65vh] rounded-xl border border-slate-200 bg-slate-100"></iframe>
+                </template>
+                <template x-if="!pdfUrlTemplate">
+                    <div class="h-64 rounded-xl border border-dashed border-slate-300 bg-slate-50 flex items-center justify-center text-sm text-slate-400">
+                        Pratinjau dokumen belum tersedia.
+                    </div>
+                </template>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 p-5 border-t border-slate-100">
+                <template x-if="pdfUrlTemplate && selectedItem">
+                    <a :href="pdfUrl(selectedItem)" target="_blank" rel="noopener"
+                       class="h-10 px-4 inline-flex items-center rounded-lg border border-slate-300 bg-white text-slate-700 font-semibold text-sm hover:bg-slate-50 transition-colors">
+                        Buka di Tab Baru
+                    </a>
+                </template>
+                <button @click="showModalDoc = false" type="button"
+                        class="h-10 px-5 bg-[#0969da] hover:bg-blue-700 text-white font-semibold text-sm rounded-lg transition-colors">
                     Tutup
                 </button>
             </div>
@@ -442,17 +537,20 @@
 
 </div>
 
-<!-- SCRIPT ALPINE.JS MANAGEMENT STATE (DINAMIS DENGAN LARAVEL DATA) -->
 <script>
     function trackingManager() {
         return {
             viewMode: 'split',
-            selectedItem: null, // Null secara default untuk menampilkan Empty State (Frame 1)
+            selectedItem: null,            // null = tampilkan empty state (Figma frame 1)
             searchQuery: '',
+            appliedQuery: '',              // diterapkan saat klik Cari / Enter
             filterStatus: 'Semua',
             filterJenis: 'Semua',
             filterTanggal: '',
             showModalDoc: false,
+
+            deleteUrlTemplate: @json(Route::has('permohonan.destroy') ? route('permohonan.destroy', '__ID__') : null),
+            pdfUrlTemplate:    @json(Route::has('dokumen.pdf') ? route('dokumen.pdf', ['jenis' => 'permohonan', 'id' => '__ID__']) : null),
 
             tahapanList: [
                 'Pengajuan',
@@ -465,109 +563,103 @@
                 'Selesai'
             ],
 
-            // Konversi data Laravel $applications secara dinamis ke objek Alpine.js
-            items: [
-                @foreach($applications as $app)
-                {
-                    id: '{{ $app->id_permohonan ?? $app->nomor_surat ?? $app->id }}',
-                    nomor: '{{ $app->nomor_surat ?? $app->number ?? 'PBJ-2026-0000' }}',
-                    judul: '{{ addslashes($app->nama_pengadaan ?? $app->title ?? 'Pengadaan') }}',
-                    jenis: '{{ $app->jenis_pengadaan ?? $app->type ?? 'Barang' }}',
-                    status: '{{ $app->status ?? 'Dalam Proses' }}',
-                    tanggal: '{{ isset($app->tanggal_pengajuan) ? \Carbon\Carbon::parse($app->tanggal_pengajuan)->format('d M Y, H:i') : '' }}',
-                    currentTahap: {{ $app->tahap_saat_ini ?? 1 }},
-                    penanggungJawab: '{{ $app->pemohon ?? $app->unit_pengaju ?? 'Unit Pengaju' }}',
-                    timeline: [
-                        @if(isset($app->histories) && count($app->histories) > 0)
-                            @foreach($app->histories as $hist)
-                            {
-                                id: {{ $loop->iteration }},
-                                time: '{{ \Carbon\Carbon::parse($hist->created_at)->format('d M Y - H:i') }}',
-                                title: '{{ addslashes($hist->status_title ?? $hist->keterangan) }}',
-                                subtitle: '{{ addslashes($hist->keterangan ?? '') }}',
-                                badge: '{{ $hist->status ?? 'Informasi' }}',
-                                type: '{{ strtolower($hist->status) === 'disetujui' ? 'success' : (strtolower($hist->status) === 'ditolak' ? 'danger' : 'info') }}',
-                                badge_type: '{{ strtolower($hist->status) === 'disetujui' ? 'success' : (strtolower($hist->status) === 'ditolak' ? 'danger' : 'info') }}'
-                            },
-                            @endforeach
-                        @else
-                            {
-                                id: 1,
-                                time: '{{ isset($app->tanggal_pengajuan) ? \Carbon\Carbon::parse($app->tanggal_pengajuan)->format('d M Y - H:i') : '' }}',
-                                title: 'Pengajuan Berhasil Dibuat',
-                                subtitle: 'Form telah disampaikan ke verifikator',
-                                badge: 'Informasi',
-                                type: 'info',
-                                badge_type: 'info'
-                            }
-                        @endif
-                    ]
-                },
-                @endforeach
-            ],
+            items: @json($trackingItems),
 
+            // ---------- Status ----------
+            statusMeta(raw) {
+                const key = String(raw || '').toLowerCase().trim().replace(/[\s-]+/g, '_');
+                const tone = {
+                    sky:     { circle: 'bg-sky-100 text-sky-600',         pill: 'bg-sky-100 text-sky-700',         icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>' },
+                    amber:   { circle: 'bg-amber-100 text-amber-600',     pill: 'bg-amber-100 text-amber-700',     icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>' },
+                    emerald: { circle: 'bg-emerald-100 text-emerald-600', pill: 'bg-emerald-100 text-emerald-700', icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>' },
+                    orange:  { circle: 'bg-orange-100 text-orange-600',   pill: 'bg-orange-100 text-orange-700',   icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>' },
+                    rose:    { circle: 'bg-rose-100 text-rose-600',       pill: 'bg-rose-100 text-rose-700',       icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>' },
+                };
+                const map = {
+                    diajukan:            { label: 'Diajukan',             group: 'Diajukan',             t: 'sky' },
+                    reviu_paralel:       { label: 'Reviu Paralel',        group: 'Dalam Proses',         t: 'amber' },
+                    diproses:            { label: 'Diproses',             group: 'Dalam Proses',         t: 'amber' },
+                    dalam_proses:        { label: 'Dalam Proses',         group: 'Dalam Proses',         t: 'amber' },
+                    menunggu_persetujuan:{ label: 'Menunggu Persetujuan', group: 'Menunggu Persetujuan', t: 'amber' },
+                    disetujui:           { label: 'Disetujui',            group: 'Disetujui',            t: 'emerald' },
+                    selesai:             { label: 'Selesai',              group: 'Selesai',              t: 'emerald' },
+                    revisi:              { label: 'Perlu Revisi',         group: 'Perlu Revisi',         t: 'orange' },
+                    perlu_revisi:        { label: 'Perlu Revisi',         group: 'Perlu Revisi',         t: 'orange' },
+                    ditolak:             { label: 'Ditolak',              group: 'Ditolak',              t: 'rose' },
+                };
+                const m = map[key] || {
+                    label: key ? key.replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase()) : 'Diproses',
+                    group: 'Dalam Proses',
+                    t: 'sky'
+                };
+                return Object.assign({ label: m.label, group: m.group }, tone[m.t]);
+            },
+
+            // ---------- Timeline ----------
+            timelineDot(type) {
+                return ({
+                    warning: 'bg-amber-500 text-white',
+                    danger:  'bg-rose-500 text-white',
+                    info:    'bg-[#0969da] text-white',
+                    success: 'bg-emerald-500 text-white',
+                    gray:    'bg-slate-400 text-white'
+                })[type] || 'bg-slate-400 text-white';
+            },
+            timelineIcon(type) {
+                if (type === 'danger')  return '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>';
+                if (type === 'warning') return '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>';
+                return '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>';
+            },
+            badgeClass(type) {
+                return ({
+                    warning: 'bg-amber-100 text-amber-700',
+                    danger:  'bg-rose-100 text-rose-700',
+                    info:    'bg-blue-100 text-blue-700',
+                    success: 'bg-emerald-100 text-emerald-700',
+                    gray:    'bg-slate-100 text-slate-700'
+                })[type] || 'bg-slate-100 text-slate-700';
+            },
+
+            // ---------- Daftar & filter ----------
             get filteredList() {
+                const q = this.appliedQuery.toLowerCase();
                 return this.items.filter(item => {
-                    const matchSearch = item.judul.toLowerCase().includes(this.searchQuery.toLowerCase()) || 
-                                        item.nomor.toLowerCase().includes(this.searchQuery.toLowerCase());
-                    const matchStatus = this.filterStatus === 'Semua' || item.status === this.filterStatus;
-                    const matchJenis = this.filterJenis === 'Semua' || item.jenis === this.filterJenis;
-                    return matchSearch && matchStatus && matchJenis;
+                    const matchSearch = !q || item.judul.toLowerCase().includes(q) || item.nomor.toLowerCase().includes(q);
+                    const matchStatus = this.filterStatus === 'Semua' || this.statusMeta(item.statusRaw).group === this.filterStatus;
+                    const matchJenis  = this.filterJenis === 'Semua' || item.jenis === this.filterJenis;
+                    const matchTgl    = !this.filterTanggal || item.tanggalIso === this.filterTanggal;
+                    return matchSearch && matchStatus && matchJenis && matchTgl;
                 });
             },
 
-            selectItem(item) {
-                this.selectedItem = item;
-            },
-
+            selectItem(item) { this.selectedItem = item; },
+            applyFilters() { this.appliedQuery = this.searchQuery.trim(); },
             resetFilters() {
                 this.searchQuery = '';
+                this.appliedQuery = '';
                 this.filterStatus = 'Semua';
                 this.filterJenis = 'Semua';
                 this.filterTanggal = '';
             },
 
-            applyFilters() {},
-
-            hapusPengajuan() {
-                if (confirm('Apakah Anda yakin ingin menghapus pengajuan ini?')) {
-                    alert('Pengajuan berhasil dihapus.');
-                    this.selectedItem = null;
-                    this.viewMode = 'split';
-                }
+            stepPercent() {
+                if (!this.selectedItem) return 0;
+                return ((this.selectedItem.currentTahap - 1) / 7) * 100;
             },
 
-            getStatusBadgeClass(status) {
-                switch(status) {
-                    case 'Selesai':
-                    case 'Disetujui':
-                    case 'disetujui':
-                        return {
-                            circle: 'bg-emerald-100 text-emerald-600',
-                            pill: 'bg-emerald-100 text-emerald-700',
-                            icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>'
-                        };
-                    case 'Ditolak':
-                    case 'ditolak':
-                        return {
-                            circle: 'bg-rose-100 text-rose-600',
-                            pill: 'bg-rose-100 text-rose-700',
-                            icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>'
-                        };
-                    case 'Perlu Revisi':
-                    case 'Menunggu Persetujuan':
-                        return {
-                            circle: 'bg-amber-100 text-amber-600',
-                            pill: 'bg-amber-100 text-amber-700',
-                            icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>'
-                        };
-                    default:
-                        return {
-                            circle: 'bg-blue-100 text-[#0969da]',
-                            pill: 'bg-blue-100 text-[#0969da]',
-                            icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 01-2-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>'
-                        };
-                }
+            // ---------- Dokumen & hapus ----------
+            idForUrl(item) {
+                // Samakan perilaku route(): garis miring pada nomor surat tidak di-encode
+                return encodeURIComponent(item.nomor).replace(/%2F/gi, '/');
+            },
+            pdfUrl(item) {
+                return this.pdfUrlTemplate ? this.pdfUrlTemplate.replace('__ID__', this.idForUrl(item)) : '#';
+            },
+            hapusPengajuan() {
+                if (!this.deleteUrlTemplate || !this.selectedItem || !this.$refs.deleteForm) return;
+                if (!confirm('Apakah Anda yakin ingin menghapus pengajuan ini? Tindakan ini tidak dapat dibatalkan.')) return;
+                this.$refs.deleteForm.action = this.deleteUrlTemplate.replace('__ID__', this.idForUrl(this.selectedItem));
+                this.$refs.deleteForm.submit();
             }
         };
     }
