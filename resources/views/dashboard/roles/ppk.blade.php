@@ -18,8 +18,18 @@
         </div>
     </div>
 
-    {{-- 1. 4-COLUMN KPI STAT CARDS --}}
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+    {{-- 1. 5-COLUMN KPI STAT CARDS --}}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <x-stat-card
+            title="Antrean Persetujuan Awal"
+            :value="$stats['antrean_persetujuan_awal'] ?? 0"
+            color="teal"
+            icon="check"
+            badge="Tahap 2"
+            subtitle="Usulan baru perlu ACC PPK"
+            :href="route('verifikasi.ppk')"
+        />
+
         <x-stat-card
             title="Paket Komitmen Saya"
             :value="$stats['total_paket_ppk'] ?? 0"
@@ -43,7 +53,7 @@
             :value="$stats['spk_aktif'] ?? 0"
             color="blue"
             icon="document"
-            subtitle="Kontrak rekanan terbit & kunci MAK"
+            subtitle="Kontrak rekanan sah terbit (PPK)"
         />
 
         <x-stat-card
@@ -56,6 +66,75 @@
             :href="route('pembayaran.index')"
         />
     </div>
+
+    {{-- SECTION ANTREAN PERSETUJUAN AWAL USULAN PPK (TAHAP 2 ALUR BERANTAI) --}}
+    @if(($stats['antrean_persetujuan_awal'] ?? 0) > 0 || !empty($roleData['antrean_persetujuan_awal_list']))
+    <div class="space-y-4">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <span class="size-2 rounded-full bg-[#087F79] animate-pulse"></span>
+                <h2 class="text-lg font-bold text-[#213153]">Antrean Persetujuan Awal Usulan Masuk (Tahap 2)</h2>
+                <span class="rounded-full bg-teal-100 px-2.5 py-0.5 text-xs font-bold text-[#087F79]">
+                    {{ $stats['antrean_persetujuan_awal'] ?? count($roleData['antrean_persetujuan_awal_list'] ?? []) }} Perlu Keputusan
+                </span>
+            </div>
+            <a href="{{ route('verifikasi.ppk') }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#087F79] text-xs font-bold text-white hover:bg-[#06635e] shadow-xs transition-all">
+                <span>Buka Panel ACC PPK</span>
+                <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
+        </div>
+
+        <div class="overflow-hidden rounded-xl border border-teal-200/80 bg-white shadow-sm">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                    <thead>
+                        <tr class="bg-teal-50/70 text-[#213153] font-bold">
+                            <th class="px-4 py-3">Nomor Surat Srikandi</th>
+                            <th class="px-4 py-3">Perihal Pengadaan</th>
+                            <th class="px-4 py-3">Unit Pengusul</th>
+                            <th class="px-4 py-3">Estimasi Pagu</th>
+                            <th class="px-4 py-3 text-center">Status Alur</th>
+                            <th class="px-4 py-3 text-right">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 font-medium text-slate-600">
+                        @forelse($roleData['antrean_persetujuan_awal_list'] ?? [] as $usulan)
+                            <tr class="hover:bg-slate-50 transition-colors">
+                                <td class="px-4 py-3 whitespace-nowrap font-bold font-mono text-[#087F79]">
+                                    {{ $usulan->nomor_surat }}
+                                </td>
+                                <td class="px-4 py-3 max-w-xs truncate" title="{{ $usulan->judul_pengadaan ?? $usulan->perihal }}">
+                                    {{ $usulan->judul_pengadaan ?? $usulan->perihal }}
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    {{ $usulan->unit->nama_unit ?? $usulan->kode_unit }}
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap font-semibold text-[#213153]">
+                                    Rp {{ number_format((float) ($usulan->estimasi_total_pagu ?? $usulan->anggaran_diajukan ?? 0), 0, ',', '.') }}
+                                </td>
+                                <td class="px-4 py-3 text-center whitespace-nowrap">
+                                    <x-status-badge :status="$usulan->status_permohonan ?? $usulan->status" size="xs" />
+                                </td>
+                                <td class="px-4 py-3 text-right whitespace-nowrap">
+                                    <a href="{{ route('verifikasi.ppk') }}" class="px-3 py-1 rounded-lg text-xs font-bold text-white bg-[#087F79] hover:bg-[#06635e] shadow-xs transition-colors inline-flex items-center gap-1">
+                                        <span>ACC Usulan</span>
+                                        <svg class="size-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                    </a>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="6" class="px-4 py-6 text-center text-slate-400">
+                                    Tidak ada permohonan baru yang menunggu keputusan persetujuan awal Anda.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    @endif
 
     {{-- 2. MAIN OPERATION GRID --}}
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">

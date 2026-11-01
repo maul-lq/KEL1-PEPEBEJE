@@ -23,3 +23,10 @@ paths:
 5. **BAST Murni di Perlengkapan & Informasi Dokumen Pembayaran**:
    - **BAST** hanya diterbitkan oleh **Perlengkapan** saat serah terima fisik barang (beserta penentuan `belanja_barang` / `belanja_modal`, foto, & TTD digital HMAC), baik untuk paket `> 50jt` maupun `<= 50jt` Belanja Langsung.
    - **Informasi Dokumen Pembayaran** menampilkan referensi dokumen perikatan tunggal (`SPK` / `Surat Pesanan` / `Surat Kontrak` untuk `> 50jt`) **ditambah** `Kwitansi` dan `Invoice`, lalu melewati Memo Bayar berjenjang (`PPK` -> `Wadir 2`) -> Perintah Bayar `PPBJ` -> Pencairan `Keuangan`.
+6. **Kelengkapan Navigasi & Entrypoint Antarmuka (End-to-End Navigation)**:
+   - Setiap peran yang memiliki tanggung jawab pada alur persetujuan berantai (`staff_bidang_2`, `perencanaan`, `wadir_2`, `ppk`) **wajib** memiliki 2 pintu masuk antarmuka:
+     a. **Ikon Menu Sidebar**: Terpasang di `resources/views/layouts/app.blade.php` dengan pengecekan role yang sesuai, title deskriptif, dan indikator badge antrean aktif.
+     b. **Daftar Antrean & Kartu KPI Dashboard**: Tampil di `resources/views/dashboard/roles/{role}.blade.php` lengkap dengan tombol aksi langsung menuju halaman verifikasi, disuplai datanya melalui `HomeController::getRoleDashboardData()`.
+7. **Integritas Sinkronisasi Skema Database**:
+   - Setelah setiap penggabungan kode (merge git) atau penambahan migrasi baru, wajib memverifikasi `php artisan migrate:status` dan menjalankan `php artisan migrate --no-interaction` sebelum memulai pengujian alur bisnis.
+

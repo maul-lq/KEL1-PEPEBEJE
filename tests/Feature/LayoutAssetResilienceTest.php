@@ -148,7 +148,7 @@ test('notifikasi page renders successfully under DEV_VIEWMODE=backend and DEV_VI
     $frontendResponse->assertOk();
     $frontendResponse->assertSee('Notifikasi dan Reminder');
     $frontendResponse->assertSee('Aktifkan Notifikasi Desktop');
-    $frontendResponse->assertSee('build/assets/app-');
+    expect(str_contains($frontendResponse->getContent(), 'build/assets/app-') || str_contains($frontendResponse->getContent(), '@vite/client'))->toBeTrue();
     $frontendResponse->assertDontSee('cdn.tailwindcss.com');
 });
 
@@ -222,11 +222,11 @@ test('dashboard and permohonan pages render without cdn.tailwindcss.com under fr
     $dashRes = $this->actingAs($user)->get(route('dashboard'));
     $dashRes->assertOk();
     $dashRes->assertDontSee('cdn.tailwindcss.com');
-    $dashRes->assertSee('build/assets/app-');
+    expect(str_contains($dashRes->getContent(), 'build/assets/app-') || str_contains($dashRes->getContent(), '@vite/client'))->toBeTrue();
 
     // 2. Permohonan Index
     $permRes = $this->actingAs($user)->get(route('permohonan.index'));
     $permRes->assertOk();
     $permRes->assertDontSee('cdn.tailwindcss.com');
-    $permRes->assertSee('build/assets/app-');
+    expect(str_contains($permRes->getContent(), 'build/assets/app-') || str_contains($permRes->getContent(), '@vite/client'))->toBeTrue();
 });

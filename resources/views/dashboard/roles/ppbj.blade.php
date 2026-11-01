@@ -19,7 +19,7 @@
             :value="$stats['routing_langsung'] ?? 0"
             color="teal"
             icon="box"
-            subtitle="Auto-routing mandiri SPK"
+            subtitle="Eksekusi Kwitansi (Tanpa SPK)"
         />
 
         <x-stat-card

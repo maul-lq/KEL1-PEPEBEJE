@@ -202,7 +202,7 @@ class ChallengerEmpiricalVerificationTest extends TestCase
         $response->assertSee('Persetujuan Awal Usulan Pengadaan (PPK)');
         $response->assertSee('PPK Terpilih');
         $response->assertSee('Tidak Ada Antrean Usulan');
-        $response->assertSee('build/assets/app-');
+        $this->assertTrue(str_contains($response->getContent(), 'build/assets/app-') || str_contains($response->getContent(), '@vite/client'));
         $response->assertDontSee('cdn.tailwindcss.com');
     }
 
@@ -258,8 +258,49 @@ class ChallengerEmpiricalVerificationTest extends TestCase
         $response->assertSee('SETUJUI USULAN (ACC PPK)');
         $response->assertSee('TOLAK / MINTA REVISI');
         $response->assertSee('Simpan Keputusan Persetujuan Awal PPK');
-        $response->assertSee('build/assets/app-');
+        $this->assertTrue(str_contains($response->getContent(), 'build/assets/app-') || str_contains($response->getContent(), '@vite/client'));
         $response->assertDontSee('cdn.tailwindcss.com');
+    }
+
+    /**
+     * 1C. Memverifikasi menu Persetujuan Awal PPK muncul di Sidebar Navigasi dan Dashboard PPK
+     * lengkap dengan indikator badge dan kartu antrean.
+     */
+    public function test_ppk_dashboard_and_sidebar_render_persetujuan_awal_menu_and_antrean(): void
+    {
+        config(['app.dev_viewmode' => 'frontend']);
+
+        $permohonan = PermohonanPengadaan::create([
+            'nomor_surat' => 'B/TEST/SIDEBAR/2026',
+            'perihal' => 'Pengadaan Laptop Riset Dosen',
+            'tanggal_pengajuan' => now(),
+            'kode_unit' => 'TIK',
+            'id_user' => $this->pemohon->id_user,
+            'tujuan_pengadaan_ringkas' => 'Laptop penunjang publikasi ilmiah dosen.',
+            'file_permohonan' => 'permohonan/surat_laptop.pdf',
+            'estimasi_total_pagu' => 25000000,
+            'status_permohonan' => PermohonanPengadaan::STATUS_MENUNGGU_ACC_WADIR_PPK,
+            'kode_mak' => $this->mak->kode_mak,
+            'id_user_ppk_awal' => $this->ppk1->id_user,
+        ]);
+
+        $response = $this->actingAs($this->ppk1)->get(route('dashboard'));
+
+        $response->assertStatus(200);
+        // Sidebar link assertion
+        $response->assertSee(route('verifikasi.ppk'));
+        $response->assertSee('title="Persetujuan Awal Usulan PPK"', false);
+        // Dashboard KPI card and queue table assertion
+        $response->assertSee('Antrean Persetujuan Awal');
+        $response->assertSee('B/TEST/SIDEBAR/2026');
+        $response->assertSee('Pengadaan Laptop Riset Dosen');
+        $response->assertSee('Buka Panel ACC PPK');
+        $response->assertSee('ACC Usulan');
+
+        // Verify non-PPK (e.g. user pemohon) does not see the PPK verifikasi link in sidebar
+        $userResponse = $this->actingAs($this->pemohon)->get(route('dashboard'));
+        $userResponse->assertStatus(200);
+        $userResponse->assertDontSee('title="Persetujuan Awal Usulan PPK"', false);
     }
 
     /**

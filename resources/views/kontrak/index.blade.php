@@ -151,7 +151,7 @@
     {{-- ===================================================================== --}}
     <div x-show="activeTab === 'reviu'" class="space-y-6">
 
-        @if(Auth::user() && in_array(Auth::user()->role, ['pp', 'ppk', 'admin']))
+        @if(Auth::user() && in_array(Auth::user()->role, ['pp', 'ppk']))
             {{-- Form Penelaahan Dokumen & Negosiasi --}}
             <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80">
                 <div class="border-b border-slate-100 pb-4 mb-5">
@@ -219,24 +219,11 @@
                                         <input type="radio" name="status_reviu" value="perlu_perbaikan" class="text-rose-600 focus:ring-rose-500">
                                         <span><strong>Perlu Perbaikan</strong> &mdash; Kembalikan berkas ke PP/PPBJ disertai catatan revisi wajib.</span>
                                     </label>
-                                @else
-                                    <label class="flex items-center text-xs text-slate-800 cursor-pointer gap-2">
-                                        <input type="radio" name="status_reviu" value="disetujui" checked class="text-[#0969da] focus:ring-[#0969da]">
-                                        <span><strong>Disetujui (ACC)</strong> &mdash; Berkas lengkap, valid, dan disetujui.</span>
-                                    </label>
-                                    <label class="flex items-center text-xs text-slate-800 cursor-pointer gap-2">
-                                        <input type="radio" name="status_reviu" value="terverifikasi_pp" class="text-teal-600 focus:ring-teal-500">
-                                        <span><strong>Terverifikasi PP</strong> &mdash; Telaah PP selesai.</span>
-                                    </label>
-                                    <label class="flex items-center text-xs text-slate-800 cursor-pointer gap-2">
-                                        <input type="radio" name="status_reviu" value="perlu_perbaikan" class="text-rose-600 focus:ring-rose-500">
-                                        <span><strong>Perlu Perbaikan</strong> &mdash; Kembalikan berkas disertai catatan revisi wajib.</span>
-                                    </label>
                                 @endif
                             </div>
 
                             {{-- PP: Negosiasi Harga, Harga Perkiraan, Vendor, & Kalkulator Efisiensi --}}
-                            @if(Auth::user()->role === 'pp' || Auth::user()->role === 'admin')
+                            @if(Auth::user()->role === 'pp')
                                 <div class="p-4 rounded-xl bg-amber-50/60 border border-amber-200/80 space-y-3">
                                     <div>
                                         <label for="nominal_harga_perkiraan" class="block text-xs font-bold text-amber-900 mb-1">
@@ -332,8 +319,6 @@
                                     Kirim Hasil Reviu &amp; Negosiasi PP
                                 @elseif(Auth::user()->role === 'ppk')
                                     Kirim Persetujuan Dokumen (ACC PPK)
-                                @else
-                                    Kirim Keputusan Penelaahan Dokumen
                                 @endif
                             </button>
                         </div>

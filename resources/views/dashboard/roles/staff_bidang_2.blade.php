@@ -28,7 +28,7 @@
             :value="$stats['selesai_telaah'] ?? 0"
             color="emerald"
             icon="check"
-            subtitle="Lolos telaah kelengkapan ke Wadir 2"
+            subtitle="Kirim Memo Cek MAK ke Perencanaan"
         />
 
         <x-stat-card

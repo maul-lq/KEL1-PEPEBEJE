@@ -16,7 +16,7 @@
             </p>
         </div>
 
-        @if(Auth::user()->hasRole('user') || Auth::user()->hasRole('admin') || Auth::user()->hasAnyPermission(['permohonan.create']))
+        @if(! Auth::user()->hasRole('admin') && (Auth::user()->hasRole('user') || Auth::user()->hasAnyPermission(['permohonan.create'])))
             <button type="button" 
                     @click="openCreateModal()" 
                     class="inline-flex items-center justify-center gap-2 shrink-0 rounded-xl bg-[#0969da] px-5 py-3 text-sm font-bold text-white shadow-md shadow-[#0969da]/20 hover:bg-blue-700 transition-all cursor-pointer">

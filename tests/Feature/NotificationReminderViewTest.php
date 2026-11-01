@@ -312,4 +312,34 @@ class NotificationReminderViewTest extends TestCase
 
         $this->assertEquals(0, NotifikasiUser::where('id_user', $user->id_user)->where('is_read', false)->count());
     }
+
+    /**
+     * Memverifikasi halaman notifikasi di bawah mode frontend merender notifikasi riil dari basis data.
+     */
+    public function test_notification_page_renders_real_database_records_under_frontend_mode(): void
+    {
+        config(['app.dev_viewmode' => 'frontend']);
+
+        $user = User::factory()->create(['role' => 'user', 'status_aktif' => true]);
+
+        $reminder = Reminder::create([
+            'tipe_reminder' => 'verifikasi',
+            'waktu_trigger' => now(),
+            'judul_alert' => 'Permohonan Pengadaan Disetujui: B/123/BOM/BOOM',
+            'pesan_alert' => 'Usulan pengadaan Beli blabla boom telah disetujui lengkap oleh Bidang 2 dan PPK.',
+        ]);
+
+        NotifikasiUser::create([
+            'id_user' => $user->id_user,
+            'id_reminder' => $reminder->id_reminder,
+            'is_read' => false,
+        ]);
+
+        $response = $this->actingAs($user)->get(route('notifikasi.index'));
+
+        $response->assertStatus(200);
+        $response->assertSee('Permohonan Pengadaan Disetujui: B/123/BOM/BOOM');
+        $response->assertSee('Usulan pengadaan Beli blabla boom telah disetujui');
+        $response->assertSee('Tandai Semua Dibaca (1)');
+    }
 }

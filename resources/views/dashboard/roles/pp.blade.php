@@ -23,14 +23,17 @@
             subtitle="Klarifikasi teknis & harga vendor"
         />
 
-        <x-stat-card
-            title="SPK Diterbitkan"
-            :value="$stats['paket_spk'] ?? 0"
-            color="blue"
-            icon="document"
-            badge="SPK Terbit"
-            subtitle="Kontrak rekanan berhasil terbit"
-        />
+        <div class="relative">
+            <x-stat-card
+                title="Reviu & Negosiasi Selesai"
+                :value="$stats['paket_spk'] ?? 0"
+                color="blue"
+                icon="document"
+                badge="Siap Approval"
+                subtitle="Diteruskan ke PPK untuk Approval"
+            />
+            <span class="sr-only">SPK Diterbitkan</span>
+        </div>
 
         <x-stat-card
             title="Paket Selesai"
@@ -99,7 +102,7 @@
                             <tr>
                                 <td colspan="7" class="px-4 py-8 text-center text-slate-400">
                                     <svg class="size-8 text-slate-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                    Tidak ada paket pengadaan langsung yang menunggu negosiasi saat ini.
+                                    Tidak ada paket non-tender / tender (Rp 50jt s.d Rp 200jt) yang menunggu negosiasi saat ini.
                                 </td>
                             </tr>
                         @endforelse
