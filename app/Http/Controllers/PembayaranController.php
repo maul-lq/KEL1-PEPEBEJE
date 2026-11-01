@@ -27,7 +27,7 @@ class PembayaranController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Pembayaran::with(['paket.vendor', 'pengaju', 'memoBayar', 'transaksiPencairan']);
+        $query = Pembayaran::with(['paket.vendor', 'paket.kontrakSpk', 'pengaju', 'memoBayar', 'transaksiPencairan']);
 
         // Filter berdasarkan status pembayaran ('reviu_memo', 'perintah_bayar', 'lunas', dll.)
         if ($request->filled('status')) {
@@ -57,7 +57,14 @@ class PembayaranController extends Controller
             $request->merge(['tanggal_pengajuan' => now()->toDateString()]);
         }
 
-        // 1. Validasi input pengajuan pembayaran SPP
+        $fileKwitansiRule = $request->hasFile('file_kwitansi')
+            ? ['nullable', DokumenUploadRule::pdfOrImage()]
+            : 'nullable|string|max:255';
+        $fileInvoiceRule = $request->hasFile('file_invoice')
+            ? ['nullable', DokumenUploadRule::pdfOrImage()]
+            : 'nullable|string|max:255';
+
+        // 1. Validasi input pengajuan pembayaran SPP beserta Kwitansi dan Invoice (Informasi Dokumen Pembayaran)
         $validated = $request->validate([
             'nomor_pembayaran' => 'required|string|max:100|unique:pembayaran,nomor_pembayaran',
             'nomor_paket' => 'required|exists:paket_pengadaan,nomor_paket',
@@ -67,9 +74,15 @@ class PembayaranController extends Controller
             'tanggal_pengajuan' => 'required|date',
             'file_tagihan_vendor' => ['nullable', DokumenUploadRule::pdfOrImage()],
             'file_dokumen_penunjang' => ['nullable', DokumenUploadRule::pdfOrImage()],
+            'nomor_kwitansi' => 'nullable|string|max:100',
+            'file_kwitansi' => $fileKwitansiRule,
+            'nomor_invoice' => 'nullable|string|max:100',
+            'file_invoice' => $fileInvoiceRule,
             'nomor_memo' => 'nullable|string|max:100',
             'file_memo' => ['nullable', DokumenUploadRule::pdfOnly()],
         ]);
+
+        $paket = PaketPengadaan::with('kontrakSpk')->find($validated['nomor_paket']);
 
         // Simpan dokumen tagihan vendor ke penyimpanan disk
         if ($request->hasFile('file_tagihan_vendor')) {
@@ -79,6 +92,29 @@ class PembayaranController extends Controller
         // Simpan dokumen penunjang lainnya
         if ($request->hasFile('file_dokumen_penunjang')) {
             $validated['file_dokumen_penunjang'] = $request->file('file_dokumen_penunjang')->store('penunjang', 'public');
+        }
+
+        // Simpan berkas Kwitansi dan Invoice untuk Informasi Dokumen Pembayaran
+        if ($request->hasFile('file_kwitansi')) {
+            $validated['file_kwitansi'] = $request->file('file_kwitansi')->store('kwitansi', 'public');
+        }
+        if ($request->hasFile('file_invoice')) {
+            $validated['file_invoice'] = $request->file('file_invoice')->store('invoice', 'public');
+        }
+
+        // Untuk paket <= 50jt (Belanja Langsung), warisi otomatis Kwitansi Belanja Langsung jika tidak diunggah ulang
+        if ($paket && $paket->jalur_routing === PaketPengadaan::ROUTING_LANGSUNG) {
+            $validated['nomor_kwitansi'] = $validated['nomor_kwitansi'] ?? $paket->nomor_kwitansi_belanja;
+            $validated['file_kwitansi'] = $validated['file_kwitansi'] ?? $paket->file_kwitansi_belanja;
+
+            if (empty($validated['nomor_kwitansi']) && empty($validated['file_kwitansi'])) {
+                return response()->json([
+                    'message' => 'Kwitansi wajib tersedia untuk pengajuan pembayaran paket Belanja Langsung (<= Rp 50 Juta).',
+                    'errors' => [
+                        'nomor_kwitansi' => ['Nomor atau berkas Kwitansi wajib dilampirkan untuk paket Belanja Langsung.'],
+                    ],
+                ], 422);
+            }
         }
 
         // Simpan dokumen memo internal jika ada
@@ -92,7 +128,6 @@ class PembayaranController extends Controller
         $pembayaran = Pembayaran::create($validated);
 
         // 2. FR 16.1: Buat memo bayar bertingkat secara otomatis
-        $paket = PaketPengadaan::find($pembayaran->nomor_paket);
         if ($paket) {
             $paket->status_paket = 'pengajuan_pembayaran';
             $paket->save();
@@ -132,10 +167,13 @@ class PembayaranController extends Controller
             "PPBJ mengajukan berkas pembayaran {$pembayaran->nomor_pembayaran} termin ke-{$pembayaran->tahap_termin} nilai Rp ".number_format($pembayaran->nominal_pengajuan)
         );
 
+        $pembayaran->load(['paket.kontrakSpk', 'memoBayar']);
+
         return response()->json([
             'status' => 'success',
             'message' => 'Pengajuan pembayaran berhasil diajukan dan memo pembayaran diteruskan ke PPK dan Wadir 2',
-            'data' => $pembayaran->load(['paket', 'memoBayar']),
+            'data' => $pembayaran,
+            'informasi_dokumen_pembayaran' => $pembayaran->informasi_dokumen_pembayaran,
         ], 201);
     }
 
@@ -146,7 +184,7 @@ class PembayaranController extends Controller
     {
         return response()->json([
             'status' => 'success',
-            'data' => $pembayaran->load(['paket.vendor', 'pengaju', 'reviuUser', 'memoBayar.user', 'transaksiPencairan']),
+            'data' => $pembayaran->load(['paket.vendor', 'paket.kontrakSpk', 'pengaju', 'reviuUser', 'memoBayar.user', 'transaksiPencairan']),
         ]);
     }
 
@@ -155,6 +193,10 @@ class PembayaranController extends Controller
      */
     public function terbitkanPerintahBayar(Request $request, Pembayaran $pembayaran): JsonResponse
     {
+        if (! $request->filled('id_user_reviu') && $request->user()) {
+            $request->merge(['id_user_reviu' => $request->user()->id_user]);
+        }
+
         // 1. Validasi ID verifikator PPBJ
         $validated = $request->validate([
             'id_user_reviu' => 'required|exists:users,id_user',
@@ -212,6 +254,10 @@ class PembayaranController extends Controller
             'jatuh_tempo' => 'sometimes|required|date',
             'file_tagihan_vendor' => 'nullable|string|max:255',
             'file_dokumen_penunjang' => 'nullable|string|max:255',
+            'nomor_kwitansi' => 'nullable|string|max:100',
+            'file_kwitansi' => 'nullable|string|max:255',
+            'nomor_invoice' => 'nullable|string|max:100',
+            'file_invoice' => 'nullable|string|max:255',
         ]);
 
         $pembayaran->update($validated);
@@ -219,7 +265,7 @@ class PembayaranController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Data pembayaran berhasil diperbarui',
-            'data' => $pembayaran,
+            'data' => $pembayaran->load('paket.kontrakSpk'),
         ]);
     }
 

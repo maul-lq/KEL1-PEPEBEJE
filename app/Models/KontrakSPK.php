@@ -10,14 +10,14 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasOneThrough;
 
 /**
- * Model Kontrak SPK (Surat Perintah Kerja / Kontrak Pengadaan)
+ * Model Kontrak SPK (Dokumen Perikatan Terpilih: Surat Pesanan / SPK / Surat Kontrak)
  *
- * Merepresentasikan berkas legalitas perjanjian kerja atau kontrak pengadaan barang/jasa
- * antara institusi dan rekanan (vendor).
- * Model ini mengimplementasikan logika pemicu otomatis penting dalam sistem:
- * 1. Penguncian permanen data MAK (FR 6.4, FR 11.2, NFR Integritas Data MAK) saat status
- *    SPK diterbitkan/aktif agar anggaran tidak bisa dimanipulasi setelah komitmen dibuat.
- * 2. Pembuatan pengingat/alarm otomatis (Reminder) untuk tanggal jatuh tempo pengiriman barang (FR 12.2).
+ * Merepresentasikan dokumen tunggal legalitas perikatan pengadaan barang/jasa (> Rp 50.000.000)
+ * antara institusi dan rekanan (vendor). Untuk setiap paket > Rp 50 Juta hanya diunggah salah satu:
+ * - surat_pesanan atau spk (umumnya E-Katalog / Inaproc)
+ * - surat_kontrak atau spk (umumnya Non-Tender / Tender pihak ketiga)
+ * Catatan: Paket <= Rp 50 Juta (Belanja Langsung) menggunakan Kwitansi tanpa Kontrak/SPK.
+ * Penguncian & pembukaan kunci MAK murni menjadi wewenang Perencanaan (tidak dikunci otomatis saat SPK terbit).
  */
 class KontrakSPK extends Model
 {
@@ -29,6 +29,12 @@ class KontrakSPK extends Model
      * @var string
      */
     protected $table = 'kontrak_spk';
+
+    public const DOKUMEN_SPK = 'spk';
+
+    public const DOKUMEN_SURAT_PESANAN = 'surat_pesanan';
+
+    public const DOKUMEN_SURAT_KONTRAK = 'surat_kontrak';
 
     public const TIPE_SEKALI_SELESAI = 'sekali_selesai';
 
@@ -112,12 +118,10 @@ class KontrakSPK extends Model
     protected static function booted(): void
     {
         static::saved(function (KontrakSPK $spk) {
-            // Jika SPK terbit/aktif, picu penguncian permanen data MAK terkait (FR 6.4, FR 11.2, NFR Integritas Data MAK)
+            // Jika dokumen perikatan terbit/aktif, bangkitkan Reminder jadwal pengiriman & tembusan ke Perlengkapan/Keuangan.
+            // Sesuai Notulensi PPBJ terbaru, penguncian & pembukaan kunci MAK dikendalikan eksklusif oleh Perencanaan.
             if (in_array($spk->status_spk, ['terbit', 'aktif', 'selesai'])) {
                 $paket = $spk->paket;
-                if ($paket) {
-                    $paket->kunciMakTerkait();
-                }
 
                 // Buat rekaman pengingat otomatis (Reminder) jadwal pengiriman barang jika belum ada (FR 12.2)
                 Reminder::firstOrCreate(

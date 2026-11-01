@@ -53,8 +53,15 @@ class PermohonanPengadaan extends Model
 
     /**
      * Konstanta status siklus hidup surat permohonan pengadaan.
+     * Mencakup alur berantai terbaru: menunggu_bidang_2 -> cek_mak_perencanaan -> menunggu_acc_wadir_ppk -> disetujui -> diproses_ppbj -> selesai.
      */
     const STATUS_DIAJUKAN = 'diajukan';
+
+    const STATUS_MENUNGGU_BIDANG_2 = 'menunggu_bidang_2';
+
+    const STATUS_CEK_MAK_PERENCANAAN = 'cek_mak_perencanaan';
+
+    const STATUS_MENUNGGU_ACC_WADIR_PPK = 'menunggu_acc_wadir_ppk';
 
     const STATUS_REVIU_PARALEL = 'reviu_paralel';
 
@@ -98,12 +105,12 @@ class PermohonanPengadaan extends Model
         'tanggal_revisi',
         'alasan_revisi',
         'kode_mak',
+        'nomor_memo_cek_mak',
+        'catatan_memo_cek_mak',
+        'nomor_memo_ketersediaan_mak',
+        'catatan_memo_ketersediaan_mak',
+        'id_user_ppk_awal',
         'jenis_pengadaan_split',
-        // Alias pendukung mass-assignment dari formulir web
-        'perihal',
-        'anggaran_diajukan',
-        'file_surat_permohonan',
-        'status',
     ];
 
     /**
@@ -266,6 +273,17 @@ class PermohonanPengadaan extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'id_user', 'id_user');
+    }
+
+    /**
+     * Relasi many-to-one ke akun PPK (1 dari 4 akun PPK) yang dipilih oleh Perencanaan
+     * untuk memberikan persetujuan awal usulan berdampingan dengan Wadir 2.
+     *
+     * @return BelongsTo Relasi ke model User (role ppk)
+     */
+    public function ppkAwal(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'id_user_ppk_awal', 'id_user');
     }
 
     /**

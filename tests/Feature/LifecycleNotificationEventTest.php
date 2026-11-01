@@ -12,7 +12,6 @@ use App\Models\Role;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\Vendor;
-use App\Models\VerifikasiParalel;
 use App\Notifications\PengingatPengadaanNotification;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -207,19 +206,14 @@ class LifecycleNotificationEventTest extends TestCase
 
         $response->assertRedirect(route('permohonan.index'));
 
-        // Notifikasi harus dibuat untuk Staf B2, Wadir 2, dan Perencanaan
+        // Sesuai alur berantai Notulensi PPBJ: pengajuan baru dari User masuk ke Bidang 2 terlebih dahulu
         $this->assertDatabaseHas('notifikasi_user', ['id_user' => $this->userStaffB2->id_user]);
-        $this->assertDatabaseHas('notifikasi_user', ['id_user' => $this->userWadir2->id_user]);
-        $this->assertDatabaseHas('notifikasi_user', ['id_user' => $this->userPerencanaan->id_user]);
 
-        // Email harus terkirim
         Notification::assertSentTo($this->userStaffB2, PengingatPengadaanNotification::class);
-        Notification::assertSentTo($this->userWadir2, PengingatPengadaanNotification::class);
-        Notification::assertSentTo($this->userPerencanaan, PengingatPengadaanNotification::class);
     }
 
     /**
-     * 2. Staf Bidang 2 menelaah dan meneruskan usulan ke Wadir 2 memicu notifikasi ke Wadir 2.
+     * 2. Staf Bidang 2 menelaah berkas dan mengirim Memo Cek MAK memicu notifikasi ke Perencanaan.
      */
     public function test_telaah_staff_bidang_2_memicu_notifikasi_ke_wadir_2(): void
     {
@@ -233,20 +227,21 @@ class LifecycleNotificationEventTest extends TestCase
             'kode_unit' => 'TIK',
             'id_user' => $this->userPengaju->id_user,
             'tanggal_pengajuan' => now(),
-            'status_permohonan' => 'diajukan',
+            'status_permohonan' => PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
         ]);
 
         $response = $this->actingAs($this->userStaffB2)
             ->post(route('verifikasi.bidang-2.teruskan'), [
                 'nomor_surat' => $permohonan->nomor_surat,
-                'catatan_staff' => 'Berkas lengkap dan sesuai spesifikasi KAK',
+                'nomor_memo_cek_mak' => 'MEMO/B2/101/2026',
+                'catatan_staff' => 'Berkas lengkap, mohon dicek ketersediaan MAK oleh Perencanaan',
             ]);
 
         $response->assertRedirect(route('verifikasi.bidang-2'));
 
-        // Notifikasi harus dibuat untuk Wadir 2
-        $this->assertDatabaseHas('notifikasi_user', ['id_user' => $this->userWadir2->id_user]);
-        Notification::assertSentTo($this->userWadir2, PengingatPengadaanNotification::class);
+        // Notifikasi Memo Cek MAK harus dibuat untuk Perencanaan
+        $this->assertDatabaseHas('notifikasi_user', ['id_user' => $this->userPerencanaan->id_user]);
+        Notification::assertSentTo($this->userPerencanaan, PengingatPengadaanNotification::class);
     }
 
     /**
@@ -295,28 +290,41 @@ class LifecycleNotificationEventTest extends TestCase
             'kode_unit' => 'TIK',
             'id_user' => $this->userPengaju->id_user,
             'tanggal_pengajuan' => now(),
-            'status_permohonan' => 'reviu_paralel',
+            'status_permohonan' => PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN,
         ]);
 
-        // Simpan keputusan Wadir 2 telah disetujui sebelumnya
-        VerifikasiParalel::create([
-            'nomor_surat' => $permohonan->nomor_surat,
-            'role_verifikator' => 'wadir_2',
-            'id_user' => $this->userWadir2->id_user,
-            'status_keputusan' => 'disetujui',
-        ]);
-
-        // Perencanaan menyetujui dan alokasikan MAK
-        $response = $this->actingAs($this->userPerencanaan)
+        // 1. Perencanaan mengecek ketersediaan MAK, memilih PPK 1, & mengirim Memo Ketersediaan MAK ke Wadir 2 & PPK 1
+        $resPerencanaan = $this->actingAs($this->userPerencanaan)
             ->post(route('verifikasi.perencanaan.mak'), [
                 'nomor_surat' => $permohonan->nomor_surat,
                 'kode_mak' => $this->mak->kode_mak,
                 'nominal_alokasi' => 45000000,
                 'keputusan_anggaran' => 'setuju',
+                'id_user_ppk_awal' => $this->userPpk->id_user,
+                'nomor_memo_ketersediaan_mak' => 'MEMO/MAK/103/2026',
                 'catatan_anggaran' => 'Pagu DIPA tersedia',
             ]);
+        $resPerencanaan->assertRedirect(route('verifikasi.perencanaan'));
+        Notification::assertSentTo($this->userWadir2, PengingatPengadaanNotification::class);
+        Notification::assertSentTo($this->userPpk, PengingatPengadaanNotification::class);
 
-        $response->assertRedirect(route('verifikasi.perencanaan'));
+        // 2. Wadir 2 menyetujui kegiatan
+        $this->actingAs($this->userWadir2)
+            ->post(route('verifikasi.wadir-2.keputusan'), [
+                'nomor_surat' => $permohonan->nomor_surat,
+                'keputusan' => 'disetujui',
+                'catatan_alasan' => 'Kegiatan disetujui Wadir 2',
+            ])
+            ->assertRedirect(route('verifikasi.wadir-2'));
+
+        // 3. PPK terpilih menyetujui usulan -> Persetujuan penuh tercapai, memicu notifikasi ke Pengusul dan PPBJ
+        $this->actingAs($this->userPpk)
+            ->post(route('verifikasi.ppk.keputusan'), [
+                'nomor_surat' => $permohonan->nomor_surat,
+                'keputusan' => 'disetujui',
+                'catatan_alasan' => 'Usulan disetujui PPK 1',
+            ])
+            ->assertRedirect(route('verifikasi.ppk'));
 
         // Notifikasi persetujuan penuh terkirim ke Pengusul dan PPBJ
         $this->assertDatabaseHas('notifikasi_user', ['id_user' => $this->userPengaju->id_user]);
@@ -327,7 +335,7 @@ class LifecycleNotificationEventTest extends TestCase
     }
 
     /**
-     * 5. Penerbitan Kontrak SPK memicu notifikasi tembusan ke Perlengkapan, Keuangan, dan Pengusul.
+     * 5. Penerbitan Kontrak SPK (> Rp 50 Juta) memicu notifikasi tembusan ke Perlengkapan, Keuangan, dan Pengusul.
      */
     public function test_penerbitan_spk_memicu_notifikasi_tembusan_dan_surel(): void
     {
@@ -337,7 +345,7 @@ class LifecycleNotificationEventTest extends TestCase
             'nomor_surat' => '104/PL3/TIK/2026',
             'judul_pengadaan' => 'Pengadaan Switch 24 Port',
             'perihal' => 'Pengadaan Switch 24 Port',
-            'anggaran_diajukan' => 40000000,
+            'anggaran_diajukan' => 80000000,
             'kode_unit' => 'TIK',
             'id_user' => $this->userPengaju->id_user,
             'tanggal_pengajuan' => now(),
@@ -350,13 +358,13 @@ class LifecycleNotificationEventTest extends TestCase
             'nama_paket' => 'Paket Pengadaan Switch 24 Port',
             'nomor_surat' => $permohonan->nomor_surat,
             'jenis_pengadaan' => 'barang',
-            'platform_pengadaan' => 'spse',
-            'mekanisme_pengadaan' => 'pengadaan_langsung',
-            'nilai_hps' => 40000000,
-            'alokasi_pagu_paket' => 40000000,
-            'jalur_routing' => 'langsung_sd_50jt',
+            'platform_pengadaan' => 'inaproc',
+            'mekanisme_pengadaan' => 'non_tender',
+            'nilai_hps' => 80000000,
+            'alokasi_pagu_paket' => 80000000,
+            'jalur_routing' => PaketPengadaan::ROUTING_PP,
             'id_user_ppbj' => $this->userPpbj->id_user,
-            'status_paket' => 'reviu_dokumen_disetujui',
+            'status_paket' => PaketPengadaan::STATUS_SIAP_UPLOAD_DOKUMEN_PPBJ,
         ]);
 
         $vendor = Vendor::create([
@@ -376,9 +384,10 @@ class LifecycleNotificationEventTest extends TestCase
         $response = $this->actingAs($this->userPpbj)
             ->post(route('kontrak.store'), [
                 'kode_paket' => $paket->nomor_paket,
+                'tipe_dokumen' => 'spk',
                 'id_vendor' => $vendor->npwp,
                 'nomor_kontrak_spk' => 'SPK/TIK/2026/001',
-                'nilai_kontrak' => 38500000,
+                'nilai_kontrak' => 78500000,
                 'tanggal_mulai' => now()->toDateString(),
                 'tanggal_selesai' => now()->addDays(14)->toDateString(),
             ]);

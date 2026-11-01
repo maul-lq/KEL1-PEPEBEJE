@@ -75,9 +75,20 @@ class ReviuDokumenController extends Controller
             'id_user' => 'required|exists:users,id_user',
             'putaran_ke' => 'required|integer|min:1',
             'role_reviewer' => 'required|string|in:pp,ppk',
-            'status_reviu' => 'required|string|in:disetujui,perlu_perbaikan,ditolak',
+            'status_reviu' => 'required|string|in:disetujui,terverifikasi_pp,perlu_perbaikan,ditolak',
             'catatan_perbaikan' => 'nullable|string',
         ]);
+
+        // Aturan Notulensi PPBJ: PP tidak bisa memberikan Approval final ('disetujui'), persetujuan tetap oleh PPK
+        if ($validated['role_reviewer'] === 'pp' && $validated['status_reviu'] === 'disetujui') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Pejabat Pengadaan (PP) tidak berwenang memberikan Approval final. PP hanya melakukan review/verifikasi kelengkapan, sedangkan Approval tetap dilakukan oleh PPK.',
+                'errors' => [
+                    'status_reviu' => ['Pejabat Pengadaan (PP) tidak dapat melakukan Approval final; gunakan status terverifikasi_pp atau endpoint review-pp.'],
+                ],
+            ], 422);
+        }
 
         // 2. NFR RBAC: Tegakkan isolasi berkas 4 akun PPK saat mereviu paket
         $user = $request->user();
@@ -104,15 +115,15 @@ class ReviuDokumenController extends Controller
         // 4. Simpan hasil reviu ke database
         $reviu = ReviuDokumen::create($validated);
 
-        // 5. Perbarui status tahapan pada tabel paket_pengadaan
+        // 5. Perbarui status tahapan pada tabel paket_pengadaan (Tanpa mengunci MAK; kunci MAK murni di Perencanaan)
         $paket = $reviu->paket;
         if ($paket) {
-            if ($validated['status_reviu'] === 'disetujui') {
-                $paket->status_paket = 'reviu_dokumen_disetujui';
-                // Jika PPK yang menyetujui reviu dokumen, kunci Kode MAK terkait sesuai alur BPMN
-                if ($validated['role_reviewer'] === 'ppk') {
-                    $paket->kunciMakTerkait();
-                }
+            if ($validated['status_reviu'] === 'terverifikasi_pp') {
+                $paket->status_paket = PaketPengadaan::STATUS_MENUNGGU_APPROVAL_PPK;
+            } elseif ($validated['status_reviu'] === 'disetujui') {
+                $paket->status_paket = ($paket->jalur_routing === PaketPengadaan::ROUTING_PP)
+                    ? PaketPengadaan::STATUS_DISETUJUI_PPK_SIAP_BELANJA_PP
+                    : 'reviu_dokumen_disetujui';
             } elseif ($validated['status_reviu'] === 'perlu_perbaikan') {
                 $paket->status_paket = 'perlu_perbaikan';
             }
@@ -120,14 +131,19 @@ class ReviuDokumenController extends Controller
         }
 
         // 6. Rekam jejak hasil penelaahan ke audit log institusi (FR 9 & NFR 9)
+        $aksiAudit = match ($validated['status_reviu']) {
+            'disetujui' => 'REVIU_DOKUMEN_DISETUJUI',
+            'terverifikasi_pp' => 'REVIEW_KELENGKAPAN_PP',
+            default => 'REVIU_DOKUMEN_PERBAIKAN',
+        };
         AuditLog::catat(
             $validated['id_user'],
-            $validated['status_reviu'] === 'disetujui' ? 'REVIU_DOKUMEN_DISETUJUI' : 'REVIU_DOKUMEN_PERBAIKAN',
+            $aksiAudit,
             'paket_pengadaan',
             $validated['nomor_paket'],
             $paket?->status_paket,
             $paket?->status_paket,
-            'Penelaahan dokumen oleh '.strtoupper($validated['role_reviewer']).' (FR 9): '.($validated['catatan_perbaikan'] ?? 'Dokumen spesifikasi teknis dan HPS disetujui untuk penerbitan SPK')
+            'Penelaahan dokumen oleh '.strtoupper($validated['role_reviewer']).': '.($validated['catatan_perbaikan'] ?? 'Dokumen spesifikasi teknis dan HPS telah ditindaklanjuti')
         );
 
         return response()->json([

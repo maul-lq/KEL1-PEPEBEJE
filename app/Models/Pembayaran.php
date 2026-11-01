@@ -72,12 +72,25 @@ class Pembayaran extends Model
         'status_pembayaran',
         'file_tagihan_vendor',
         'file_dokumen_penunjang',
+        'nomor_kwitansi',
+        'file_kwitansi',
+        'nomor_invoice',
+        'file_invoice',
         'nomor_memo',
         'file_memo',
         'id_user_reviu',
         'tanggal_perintah_bayar',
         'status_reviu_akhir',
         'catatan_reviu_akhir',
+    ];
+
+    /**
+     * Atribut tambahan terstruktur untuk Informasi Dokumen Pembayaran pada serialisasi JSON.
+     *
+     * @var array<int, string>
+     */
+    protected $appends = [
+        'informasi_dokumen_pembayaran',
     ];
 
     /**
@@ -159,5 +172,49 @@ class Pembayaran extends Model
     public function transaksiPencairan(): HasOne
     {
         return $this->hasOne(TransaksiPencairan::class, 'nomor_pembayaran', 'nomor_pembayaran');
+    }
+
+    /**
+     * Menyusun ringkasan terstruktur Informasi Dokumen Pembayaran sesuai Notulensi PPBJ:
+     * Menampilkan dokumen perikatan tunggal (SPK / Surat Pesanan / Surat Kontrak untuk > 50jt,
+     * atau keterangan tanpa kontrak untuk <= 50jt Belanja Langsung) ditambah Kwitansi dan Invoice.
+     *
+     * @return array{dokumen_perikatan: array<string, mixed>, kwitansi: array<string, mixed>, invoice: array<string, mixed>}
+     */
+    public function getInformasiDokumenPembayaranAttribute(): array
+    {
+        $paket = $this->relationLoaded('paket')
+            ? $this->paket
+            : $this->paket()->with('kontrakSpk')->first();
+        $kontrak = ($paket && $paket->relationLoaded('kontrakSpk'))
+            ? $paket->kontrakSpk
+            : $paket?->kontrakSpk;
+
+        $isBelanjaLangsung = $paket?->jalur_routing === PaketPengadaan::ROUTING_LANGSUNG;
+
+        return [
+            'dokumen_perikatan' => $isBelanjaLangsung
+                ? [
+                    'jenis' => 'tanpa_kontrak_belanja_langsung',
+                    'nomor' => null,
+                    'file' => null,
+                    'nilai_kontrak' => null,
+                    'keterangan' => 'Belanja Langsung (<= Rp 50 Juta) tidak menggunakan Kontrak/SPK/Surat Pesanan.',
+                ]
+                : [
+                    'jenis' => $kontrak?->tipe_dokumen,
+                    'nomor' => $kontrak?->nomor_spk,
+                    'file' => $kontrak?->file_spk,
+                    'nilai_kontrak' => $kontrak?->nilai_kontrak,
+                ],
+            'kwitansi' => [
+                'nomor_kwitansi' => $this->nomor_kwitansi ?? $paket?->nomor_kwitansi_belanja,
+                'file_kwitansi' => $this->file_kwitansi ?? $paket?->file_kwitansi_belanja,
+            ],
+            'invoice' => [
+                'nomor_invoice' => $this->nomor_invoice,
+                'file_invoice' => $this->file_invoice,
+            ],
+        ];
     }
 }

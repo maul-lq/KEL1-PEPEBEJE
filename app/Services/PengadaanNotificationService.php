@@ -119,51 +119,60 @@ class PengadaanNotificationService
     // =========================================================================
 
     /**
-     * Event 1: Pengajuan Usulan Permohonan Pengadaan Baru.
-     * Notifikasi dikirimkan ke: Staf Bidang 2, Wadir 2, dan Perencanaan.
+     * Event 1: Pengajuan Usulan Permohonan Pengadaan Baru (Alur Berantai).
+     * Surat dari User masuk terlebih dahulu ke Bidang 2 (Staf Bidang 2 & Wadir 2).
      */
     public function notifyPengajuanBaru(PermohonanPengadaan $permohonan): void
     {
-        $judul = "Usulan Pengadaan Baru: {$permohonan->nomor_surat}";
+        $judul = "Usulan Pengadaan Baru ke Bidang 2: {$permohonan->nomor_surat}";
         $estimasi = number_format($permohonan->estimasi_total_pagu ?? $permohonan->anggaran_diajukan ?? 0, 0, ',', '.');
         $unitName = $permohonan->unit->nama_unit ?? $permohonan->kode_unit;
 
-        $pesan = "Unit {$unitName} mengajukan usulan pengadaan baru: '{$permohonan->perihal}' dengan estimasi anggaran Rp {$estimasi}. Menunggu telaah kelengkapan berkas.";
+        $pesan = "Unit {$unitName} mengajukan surat permohonan baru ke Bidang 2: '{$permohonan->perihal}' (Estimasi Rp {$estimasi}). Menunggu pemeriksaan berkas & pembuatan Memo Cek MAK oleh Staf Bidang 2 ke Perencanaan.";
 
-        $this->kirimKePeran(['staff_bidang_2', 'wadir_2', 'perencanaan'], $judul, $pesan, 'verifikasi', $permohonan->nomor_surat);
+        $this->kirimKePeran(['staff_bidang_2', 'wadir_2'], $judul, $pesan, 'verifikasi', $permohonan->nomor_surat);
     }
 
     /**
      * Event 2: Pengajuan Revisi Usulan Permohonan Pengadaan.
-     * Notifikasi dikirimkan ke: Staf Bidang 2, Wadir 2, dan Perencanaan.
+     * Surat revisi masuk kembali ke antrean Bidang 2.
      */
     public function notifyPengajuanRevisi(PermohonanPengadaan $permohonan): void
     {
         $judul = "Revisi Usulan Pengadaan: {$permohonan->nomor_surat}";
         $unitName = $permohonan->unit->nama_unit ?? $permohonan->kode_unit;
 
-        $pesan = "Unit {$unitName} telah memperbarui dokumen usulan pengadaan: '{$permohonan->perihal}' (Revisi ke-{$permohonan->revisi_ke}). Silakan lakukan penelaahan kembali.";
+        $pesan = "Unit {$unitName} memperbarui dokumen usulan pengadaan ke Bidang 2: '{$permohonan->perihal}' (Revisi ke-{$permohonan->revisi_ke}). Silakan periksa dan kirim Memo Cek MAK ke Perencanaan.";
 
-        $this->kirimKePeran(['staff_bidang_2', 'wadir_2', 'perencanaan'], $judul, $pesan, 'verifikasi', $permohonan->nomor_surat);
+        $this->kirimKePeran(['staff_bidang_2', 'wadir_2'], $judul, $pesan, 'verifikasi', $permohonan->nomor_surat);
     }
 
     /**
-     * Event 3: Staf Bidang 2 Menyelesaikan Telaah dan Meneruskan ke Wadir 2.
-     * Notifikasi dikirimkan ke: Wadir 2.
+     * Event 3: Staf Bidang 2 Mengirimkan Memo Cek MAK ke Bagian Perencanaan.
+     * Notifikasi dikirimkan ke: Perencanaan.
+     */
+    public function notifyMemoCekMak(PermohonanPengadaan $permohonan, ?string $nomorMemo = null, ?string $catatan = null): void
+    {
+        $memoRef = $nomorMemo ?: ($permohonan->nomor_memo_cek_mak ?: '-');
+        $judul = "Memo Cek MAK dari Bidang 2: {$permohonan->nomor_surat}";
+        $pesan = "Bidang 2 mengirimkan Memo Cek MAK ({$memoRef}) untuk usulan '{$permohonan->perihal}'. Catatan: ".($catatan ?: 'Mohon periksa/buat ketersediaan MAK DIPA dan pilih PPK').'.';
+
+        $this->kirimKePeran('perencanaan', $judul, $pesan, 'verifikasi', $permohonan->nomor_surat);
+    }
+
+    /**
+     * Alias kompatibilitas penerusan berkas Staf Bidang 2 -> Memo Cek MAK ke Perencanaan.
      */
     public function notifyDiteruskanStaffB2(PermohonanPengadaan $permohonan, ?string $catatan = null): void
     {
-        $judul = "Telaah Berkas Selesai: {$permohonan->nomor_surat}";
-        $pesan = "Staf Bidang 2 telah memeriksa kelengkapan KAK dan spesifikasi teknis usulan '{$permohonan->perihal}'. Catatan: ".($catatan ?: 'Berkas lengkap').'. Menunggu persetujuan eksekutif Wadir 2.';
-
-        $this->kirimKePeran('wadir_2', $judul, $pesan, 'verifikasi', $permohonan->nomor_surat);
+        $this->notifyMemoCekMak($permohonan, $permohonan->nomor_memo_cek_mak, $catatan);
     }
 
     /**
-     * Event 4: Keputusan Wadir 2 (Setuju / Tolak).
-     * Jika Ditolak: Notifikasi dikirim ke Pengusul (User) dengan alasan.
-     * Jika Disetujui Penuh (Perencanaan juga sudah ACC): Notifikasi ke Pengusul dan Seluruh PPBJ.
-     * Jika Disetujui tapi Perencanaan belum: Notifikasi ke Perencanaan.
+     * Event 4: Keputusan Wadir 2 (ACC Kegiatan / Tolak).
+     * Jika Ditolak: Notifikasi ke Pengusul (User) dengan alasan.
+     * Jika Disetujui Penuh (PPK terpilih juga sudah ACC): Notifikasi ke Pengusul dan Seluruh PPBJ.
+     * Jika Disetujui tapi PPK terpilih belum ACC: Notifikasi ke PPK terpilih.
      */
     public function notifyKeputusanWadir2(PermohonanPengadaan $permohonan, string $keputusan, ?string $catatan = null): void
     {
@@ -178,23 +187,49 @@ class PengadaanNotificationService
             return;
         }
 
-        // Jika disetujui penuh oleh Wadir 2 & Perencanaan
         if ($permohonan->status_permohonan === PermohonanPengadaan::STATUS_DISETUJUI) {
-            $this->notifyPersetujuanPenuh($permohonan);
+            $this->notifyPersetujuanPenuh($permohonan, $permohonan->kode_mak);
+        } elseif ($permohonan->id_user_ppk_awal) {
+            $judul = "ACC Kegiatan Wadir 2 Dicatat: {$permohonan->nomor_surat}";
+            $pesan = "Wakil Direktur II telah menyetujui kegiatan '{$permohonan->perihal}'. Menunggu persetujuan usulan awal oleh PPK untuk diteruskan ke PPBJ.";
+
+            $this->kirimKeUser($permohonan->id_user_ppk_awal, $judul, $pesan, 'verifikasi', $permohonan->nomor_surat);
         } else {
-            // Notifikasi ke Bagian Perencanaan untuk menyelesaikan alokasi MAK
             $judul = "Persetujuan Wadir 2 Dicatat: {$permohonan->nomor_surat}";
-            $pesan = "Wakil Direktur II telah menyetujui usulan '{$permohonan->perihal}'. Menunggu penetapan dan alokasi pagu MAK oleh Bagian Perencanaan.";
+            $pesan = "Wakil Direktur II telah menyetujui usulan '{$permohonan->perihal}'. Menunggu penyelesaian verifikasi anggaran oleh Bagian Perencanaan.";
 
             $this->kirimKePeran('perencanaan', $judul, $pesan, 'verifikasi', $permohonan->nomor_surat);
         }
     }
 
     /**
-     * Event 5: Keputusan Anggaran MAK oleh Bagian Perencanaan.
-     * Jika Hold/Pending Anggaran: Notifikasi ke Pengusul.
-     * Jika Disetujui Penuh (Wadir 2 juga sudah ACC): Notifikasi ke Pengusul dan Seluruh PPBJ.
-     * Jika Disetujui tapi Wadir 2 belum: Notifikasi ke Wadir 2.
+     * Event 4B: Keputusan Persetujuan Awal oleh PPK Terpilih (id_user_ppk_awal).
+     */
+    public function notifyKeputusanPpkAwal(PermohonanPengadaan $permohonan, string $keputusan, ?string $catatan = null): void
+    {
+        if ($keputusan === 'ditolak') {
+            if ($permohonan->id_user) {
+                $judul = "Usulan Pengadaan Ditolak PPK: {$permohonan->nomor_surat}";
+                $pesan = "Usulan permohonan '{$permohonan->perihal}' ditolak oleh Pejabat Pembuat Komitmen (PPK). Alasan: ".($catatan ?: 'Perlu perbaikan spesifikasi/KAK').'.';
+
+                $this->kirimKeUser($permohonan->id_user, $judul, $pesan, 'verifikasi', $permohonan->nomor_surat);
+            }
+
+            return;
+        }
+
+        if ($permohonan->status_permohonan === PermohonanPengadaan::STATUS_DISETUJUI) {
+            $this->notifyPersetujuanPenuh($permohonan, $permohonan->kode_mak);
+        } else {
+            $judul = "Persetujuan Awal PPK Dicatat: {$permohonan->nomor_surat}";
+            $pesan = "PPK terpilih telah menyetujui usulan '{$permohonan->perihal}'. Menunggu persetujuan kegiatan (ACC) oleh Wakil Direktur II.";
+
+            $this->kirimKePeran('wadir_2', $judul, $pesan, 'verifikasi', $permohonan->nomor_surat);
+        }
+    }
+
+    /**
+     * Event 5: Memo Ketersediaan MAK oleh Bagian Perencanaan ke Bidang 2 (Wadir 2) dan PPK Terpilih.
      */
     public function notifyAlokasiMak(PermohonanPengadaan $permohonan, AnggaranMAK $mak, string $keputusan, ?string $catatan = null): void
     {
@@ -209,19 +244,25 @@ class PengadaanNotificationService
             return;
         }
 
-        // Jika disetujui penuh oleh Wadir 2 & Perencanaan
         if ($permohonan->status_permohonan === PermohonanPengadaan::STATUS_DISETUJUI) {
             $this->notifyPersetujuanPenuh($permohonan, $mak->kode_mak);
-        } else {
-            $judul = "Alokasi MAK Selesai: {$permohonan->nomor_surat}";
-            $pesan = "Bagian Perencanaan telah mengalokasikan MAK {$mak->kode_mak} untuk usulan '{$permohonan->perihal}'. Menunggu persetujuan akhir Wakil Direktur II.";
 
-            $this->kirimKePeran('wadir_2', $judul, $pesan, 'verifikasi', $permohonan->nomor_surat);
+            return;
+        }
+
+        $memoRef = $permohonan->nomor_memo_ketersediaan_mak ?: '-';
+        $judul = "Memo Ketersediaan MAK ({$mak->kode_mak}): {$permohonan->nomor_surat}";
+        $pesan = "Tim Perencanaan telah memastikan ketersediaan MAK {$mak->kode_mak} (Memo: {$memoRef}) untuk usulan '{$permohonan->perihal}'. Mohon persetujuan Wadir 2 dan PPK agar berkas dapat diteruskan ke PPBJ.";
+
+        $this->kirimKePeran('wadir_2', $judul, $pesan, 'verifikasi', $permohonan->nomor_surat);
+
+        if ($permohonan->id_user_ppk_awal) {
+            $this->kirimKeUser($permohonan->id_user_ppk_awal, $judul, $pesan, 'verifikasi', $permohonan->nomor_surat);
         }
     }
 
     /**
-     * Helper: Notifikasi persetujuan penuh paralel (Wadir 2 + Perencanaan).
+     * Helper: Notifikasi persetujuan penuh (Perencanaan MAK + Wadir 2 + PPK).
      * Dikirimkan ke: Pengaju (User) dan Seluruh Petugas PPBJ.
      */
     public function notifyPersetujuanPenuh(PermohonanPengadaan $permohonan, ?string $kodeMak = null): void
@@ -231,14 +272,14 @@ class PengadaanNotificationService
         // 1. Notifikasi ke Pengusul (User)
         if ($permohonan->id_user) {
             $judulUser = "Permohonan Pengadaan Disetujui: {$permohonan->nomor_surat}";
-            $pesanUser = "Kabar baik! Usulan pengadaan '{$permohonan->perihal}' telah disetujui penuh oleh Wadir 2 dan Perencanaan{$makInfo}. Dokumen otomatis diteruskan ke PPBJ untuk pembuatan paket.";
+            $pesanUser = "Usulan pengadaan '{$permohonan->perihal}' telah disetujui lengkap oleh Bidang 2 (Wadir 2) dan PPK{$makInfo}. Dokumen otomatis diteruskan ke PPBJ untuk penentuan metode pengadaan.";
 
             $this->kirimKeUser($permohonan->id_user, $judulUser, $pesanUser, 'verifikasi', $permohonan->nomor_surat);
         }
 
         // 2. Notifikasi ke seluruh petugas PPBJ
-        $judulPpbj = "Paket Siap Dibuat: {$permohonan->nomor_surat}";
-        $pesanPpbj = "Usulan '{$permohonan->perihal}' nomor {$permohonan->nomor_surat} telah disetujui penuh oleh pimpinan (Wadir 2 & Perencanaan). Silakan buat paket pengadaan dan lakukan penugasan PPK/PP.";
+        $judulPpbj = "Paket Siap Diregistrasi PPBJ: {$permohonan->nomor_surat}";
+        $pesanPpbj = "Usulan '{$permohonan->perihal}' nomor {$permohonan->nomor_surat} telah disetujui penuh oleh Wadir 2 dan PPK. Silakan registrasi paket dan tentukan metode pengadaan (Belanja Langsung / Non-Tender / Tender SPSE).";
 
         $this->kirimKePeran('ppbj', $judulPpbj, $pesanPpbj, 'verifikasi', $permohonan->nomor_surat);
     }
@@ -294,6 +335,49 @@ class PengadaanNotificationService
                 $this->kirimKeUser($paket->permohonan->id_user, $judul, $pesan, 'pengingat', $paket->nomor_paket);
             }
         }
+    }
+
+    /**
+     * Event 8B: PP Selesai Mereview & Menginput Harga Perkiraan, Harga Akhir, dan Vendor (50-200jt).
+     * Berkoordinasi mengirimkan permintaan Approval ke PPK penanggung jawab paket.
+     */
+    public function notifyReviewPpKePpk(PaketPengadaan $paket, ?string $catatan = null): void
+    {
+        if (! $paket->id_user_ppk) {
+            return;
+        }
+
+        $hargaAkhir = number_format((float) ($paket->nominal_harga_akhir ?? $paket->nilai_hasil_negosiasi ?? 0), 0, ',', '.');
+        $judul = "Permintaan Approval PPK atas Review PP: {$paket->nomor_paket}";
+        $pesan = "Pejabat Pengadaan (PP) telah memverifikasi kelengkapan paket '{$paket->nama_paket}' (Harga Akhir Rp {$hargaAkhir}). Catatan: ".($catatan ?: 'Berkas lengkap, mohon Approval PPK').'.';
+
+        $this->kirimKeUser($paket->id_user_ppk, $judul, $pesan, 'verifikasi', $paket->nomor_paket);
+    }
+
+    /**
+     * Event 8C: PPK Memberikan Approval pada Paket > 50jt s.d. 200jt -> Memberitahu PP untuk Eksekusi Belanja.
+     */
+    public function notifyApprovalPpkKePp(PaketPengadaan $paket): void
+    {
+        $judul = "Approval PPK Diterbitkan (Siap Belanja PP): {$paket->nomor_paket}";
+        $pesan = "PPK telah memberikan Approval pada paket '{$paket->nama_paket}'. Silakan Pejabat Pengadaan (PP) mengeksekusi kewenangan belanja.";
+
+        if ($paket->id_user_pp) {
+            $this->kirimKeUser($paket->id_user_pp, $judul, $pesan, 'verifikasi', $paket->nomor_paket);
+        } else {
+            $this->kirimKePeran('pp', $judul, $pesan, 'verifikasi', $paket->nomor_paket);
+        }
+    }
+
+    /**
+     * Event 8D: Eksekusi Belanja oleh PP (50-200jt) atau PPK (>200jt) Selesai -> PPBJ Siap Upload 1 Dokumen Perikatan.
+     */
+    public function notifySiapUploadDokumenPpbj(PaketPengadaan $paket, string $rolePelaksana): void
+    {
+        $judul = "Eksekusi Belanja Selesai (Upload Dokumen): {$paket->nomor_paket}";
+        $pesan = strtoupper($rolePelaksana)." telah mengeksekusi belanja paket '{$paket->nama_paket}'. Silakan PPBJ mengunggah salah satu dokumen perikatan (Surat Pesanan / SPK / Surat Kontrak) dan mengatur Reminder.";
+
+        $this->kirimKePeran('ppbj', $judul, $pesan, 'spk', $paket->nomor_paket);
     }
 
     /**

@@ -7,13 +7,14 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Model Verifikasi Paralel (Reviu Tiga Arah Permohonan Pengadaan)
+ * Model Verifikasi Paralel / Berantai Permohonan Pengadaan
  *
- * Merepresentasikan pencatatan telaah dan keputusan verifikasi paralel simultan
- * terhadap suatu surat usulan permohonan pengadaan oleh tiga pihak independen:
- * 1. staff_bidang_2: Memeriksa kelayakan dan kelengkapan berkas fisik/administrasi awal (readonly/penyampai).
- * 2. perencanaan: Memverifikasi ketersediaan pagu pada Mata Anggaran Kegiatan (MAK).
- * 3. wadir_2: Pemegang hak veto mutlak penentu apakah usulan disetujui (disetujui) atau ditolak (ditolak).
+ * Merepresentasikan pencatatan telaah dan keputusan persetujuan awal terhadap suatu surat usulan
+ * permohonan pengadaan sesuai alur berantai Notulensi PPBJ:
+ * 1. staff_bidang_2: Memeriksa kelengkapan berkas awal dari User dan mengirim Memo Cek MAK ke Perencanaan.
+ * 2. perencanaan: Memverifikasi/membuat Mata Anggaran Kegiatan (MAK), memilih 1 dari 4 PPK, & mengirim Memo Ketersediaan MAK.
+ * 3. wadir_2: Menyetujui kegiatan (ACC kegiatan Bidang 2) atau menolak beserta alasan wajib.
+ * 4. ppk: Pejabat Pembuat Komitmen terpilih (id_user_ppk_awal) yang menyetujui usulan awal bersama Wadir 2 sebelum lanjut ke PPBJ.
  */
 class VerifikasiParalel extends Model
 {
@@ -25,6 +26,14 @@ class VerifikasiParalel extends Model
      * @var string
      */
     protected $table = 'verifikasi_paralel';
+
+    public const ROLE_STAFF_BIDANG_2 = 'staff_bidang_2';
+
+    public const ROLE_PERENCANAAN = 'perencanaan';
+
+    public const ROLE_WADIR_2 = 'wadir_2';
+
+    public const ROLE_PPK = 'ppk';
 
     public const STATUS_MENUNGGU = 'menunggu';
 
