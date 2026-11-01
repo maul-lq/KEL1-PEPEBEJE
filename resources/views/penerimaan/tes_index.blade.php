@@ -5,11 +5,12 @@
 @section('content')
 <article>
     <header>
-        <h2>Pemeriksaan Fisik Barang & Penerbitan BAST (Unit Perlengkapan / BMN)</h2>
+        <h2>Pemeriksaan Fisik Barang &amp; Penerbitan BAST (Unit Perlengkapan / BMN)</h2>
         <p>
-            Petugas Unit Perlengkapan melakukan inspeksi fisik kiriman barang atau hasil pekerjaan rekanan penyedia,
-            mengunggah foto dokumentasi fisik serta berkas serah terima pihak ketiga (tender),
-            dan mengesahkan Berita Acara Serah Terima (BAST) dengan tanda tangan digital.
+            Unit Perlengkapan merupakan <strong>satu-satunya unit yang menerbitkan Berita Acara Serah Terima (BAST)</strong>,
+            baik untuk paket pengadaan &gt; Rp 50.000.000 (berdokumen SPK / Surat Pesanan / Surat Kontrak)
+            maupun paket Belanja Langsung &le; Rp 50.000.000 (berdokumen Kwitansi tanpa Kontrak).
+            Petugas memeriksa fisik barang, menentukan kategori Belanja Barang atau Belanja Modal (BMN), mengunggah dokumentasi multi-foto, dan mengesahkan BAST dengan tanda tangan digital HMAC.
         </p>
     </header>
 
@@ -18,18 +19,32 @@
         <form action="{{ route('penerimaan.store') }}" method="POST" enctype="multipart/form-data">
             @csrf
             <fieldset>
-                <legend><strong>Formulir Pemeriksaan Fisik & Pengesahan BAST</strong></legend>
+                <legend><strong>Formulir Pemeriksaan Fisik &amp; Pengesahan BAST</strong></legend>
 
                 <p>
-                    <label for="nomor_kontrak_spk"><strong>Pilih Kontrak SPK Aktif:</strong></label><br>
-                    <select id="nomor_kontrak_spk" name="nomor_kontrak_spk" required>
-                        <option value="">-- Pilih Kontrak SPK --</option>
+                    <label for="nomor_kontrak_spk"><strong>Opsi A &mdash; Pilih Dokumen Perikatan Paket &gt; Rp 50 Juta (SPK / Surat Pesanan / Kontrak):</strong></label><br>
+                    <select id="nomor_kontrak_spk" name="nomor_kontrak_spk">
+                        <option value="">-- Pilih Dokumen Perikatan (&gt; Rp 50 Juta) --</option>
                         @foreach($kontrakList as $k)
                             <option value="{{ $k->nomor_kontrak_spk ?? $k->nomor_spk }}">
-                                [{{ $k->nomor_kontrak_spk ?? $k->nomor_spk }}] Paket: {{ $k->nomor_paket }} &bull; Nilai: Rp {{ number_format($k->nilai_kontrak, 0, ',', '.') }}
+                                [{{ strtoupper(str_replace('_', ' ', $k->tipe_dokumen ?? 'spk')) }}: {{ $k->nomor_kontrak_spk ?? $k->nomor_spk }}] Paket: {{ $k->nomor_paket }} &bull; Nilai: Rp {{ number_format($k->nilai_kontrak, 0, ',', '.') }}
                             </option>
                         @endforeach
                     </select>
+                </p>
+
+                <p>
+                    <label for="nomor_paket"><strong>Opsi B &mdash; Atau Pilih Paket Belanja Langsung &le; Rp 50 Juta (Kwitansi Tanpa Kontrak):</strong></label><br>
+                    <select id="nomor_paket" name="nomor_paket">
+                        <option value="">-- Pilih Paket Belanja Langsung (&le; Rp 50 Juta) --</option>
+                        @foreach($belanjaLangsungList ?? [] as $bl)
+                            <option value="{{ $bl->nomor_paket }}">
+                                [Kwitansi: {{ $bl->nomor_kwitansi_belanja ?? '-' }}] Paket: {{ $bl->nomor_paket }} ({{ $bl->nama_paket }}) &bull; Rp {{ number_format($bl->nominal_harga_akhir ?? $bl->nilai_hps, 0, ',', '.') }}
+                            </option>
+                        @endforeach
+                    </select>
+                    <br>
+                    <small><em>Pilih salah satu (Opsi A untuk paket berdokumen perikatan, atau Opsi B untuk paket Belanja Langsung ber-Kwitansi).</em></small>
                 </p>
 
                 <p>
@@ -67,17 +82,17 @@
                 </p>
 
                 <p>
-                    <label for="file_penerimaan_pihak3"><strong>Unggah Dokumen Penerimaan Pihak Ketiga / Ekspedisi (Tender):</strong></label><br>
+                    <label for="file_penerimaan_pihak3"><strong>Unggah Dokumen Penerimaan Pihak Ketiga / Ekspedisi (Opsional):</strong></label><br>
                     <input type="file" id="file_penerimaan_pihak3" name="file_penerimaan_pihak3" accept=".pdf,image/*">
                 </p>
 
                 <p>
                     <label for="catatan_pemeriksaan"><strong>Catatan Hasil Pemeriksaan Fisik:</strong></label><br>
-                    <textarea id="catatan_pemeriksaan" name="catatan_pemeriksaan" rows="3" cols="60" placeholder="Pemeriksaan fisik telah selesai dilakukan, kuantitas dan kelengkapan sesuai dengan kontrak."></textarea>
+                    <textarea id="catatan_pemeriksaan" name="catatan_pemeriksaan" rows="3" cols="60" placeholder="Pemeriksaan fisik telah selesai dilakukan, kuantitas dan kelengkapan sesuai."></textarea>
                 </p>
 
                 <p>
-                    <button type="submit">Sahkan BAST & Tanda Tangan Digital (HMAC)</button>
+                    <button type="submit"><strong>Sahkan BAST &amp; Tanda Tangan Digital (HMAC)</strong></button>
                 </p>
             </fieldset>
         </form>
@@ -93,7 +108,7 @@
             @if($bastList->isEmpty())
                 <p><em>Belum ada dokumen BAST yang diterbitkan.</em></p>
             @else
-                <table>
+                <table border="1" cellpadding="6" cellspacing="0">
                     <thead>
                         <tr>
                             <th>Nomor BAST</th>

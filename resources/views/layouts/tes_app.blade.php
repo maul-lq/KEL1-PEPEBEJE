@@ -78,42 +78,43 @@
 
                 {{-- Menu Khusus Peran: Staf Bidang 2 --}}
                 @if(Auth::user()->hasRole('staff_bidang_2') || Auth::user()->hasAnyPermission(['verifikasi.bidang_2_view', 'verifikasi.bidang_2_teruskan']))
-                    <li><a href="{{ route('verifikasi.bidang-2') }}">Antrean Telaah Berkas Permohonan Masuk</a></li>
+                    <li><a href="{{ route('verifikasi.bidang-2') }}">Antrean Pemeriksaan Berkas &amp; Memo Cek MAK (Staf Bidang II)</a></li>
                 @endif
 
                 {{-- Menu Khusus Peran: Wadir 2 --}}
                 @if(Auth::user()->hasRole('wadir_2') || Auth::user()->hasAnyPermission(['verifikasi.wadir_2_view', 'verifikasi.wadir_2_decide']))
-                    <li><a href="{{ route('verifikasi.wadir-2') }}">Antrean Verifikasi Eksekutif Wadir 2 (ACC/Tolak)</a></li>
+                    <li><a href="{{ route('verifikasi.wadir-2') }}">Antrean Persetujuan Kegiatan Wadir II (ACC / Tolak)</a></li>
                 @endif
 
                 {{-- Menu Khusus Peran: Perencanaan --}}
                 @if(Auth::user()->hasRole('perencanaan') || Auth::user()->hasAnyPermission(['anggaran.mak_view', 'anggaran.mak_manage', 'anggaran.mak_alokasi', 'anggaran.mak_lock', 'permohonan.split_mak']))
-                    <li><a href="{{ route('verifikasi.perencanaan') }}">Verifikasi Anggaran MAK & Penetapan Pagu</a></li>
+                    <li><a href="{{ route('verifikasi.perencanaan') }}">Verifikasi Anggaran MAK (Cek/Buat, Kunci/Buka Kunci, &amp; Memo ke Bidang II/PPK)</a></li>
                 @endif
 
                 {{-- Menu Khusus Peran: PPBJ --}}
                 @if(Auth::user()->hasRole('ppbj') || Auth::user()->hasAnyPermission(['paket.create', 'paket.view_all', 'paket.reassign_ppk', 'paket.split_jenis', 'spk.create', 'reminder.manage', 'pembayaran.pengajuan', 'pembayaran.spp_terbitkan']))
-                    <li><a href="{{ route('paket.index') }}">Daftar Paket Pengadaan, Split Jenis & Alih Tugas PPK</a></li>
+                    <li><a href="{{ route('paket.index') }}">Daftar Paket Pengadaan, Belanja Langsung (&le; 50 Juta), Split Jenis &amp; Alih Tugas PPK</a></li>
                     @if(Auth::user()->hasRole('ppbj') || Auth::user()->hasPermission('paket.create'))
-                        <li><a href="{{ route('paket.create') }}">Registrasi Paket Baru (Auto-Routing HPS)</a></li>
+                        <li><a href="{{ route('paket.create') }}">Registrasi Paket Baru &amp; Penentuan Metode Pengadaan</a></li>
                     @endif
                     @if(Auth::user()->hasRole('ppbj') || Auth::user()->hasAnyPermission(['spk.create', 'reminder.manage']))
-                        <li><a href="{{ route('kontrak.index') }}">Penerbitan Surat Kontrak / SPK & Reminder (PPBJ)</a></li>
+                        <li><a href="{{ route('kontrak.index') }}">Unggah Dokumen Perikatan Terpilih (SPK / Surat Pesanan / Kontrak) &amp; Reminder</a></li>
                     @endif
                     @if(Auth::user()->hasRole('ppbj') || Auth::user()->hasAnyPermission(['pembayaran.pengajuan', 'pembayaran.spp_terbitkan']))
-                        <li><a href="{{ route('pembayaran.index') }}">Pengajuan Berkas Pembayaran & Terbitkan SPP</a></li>
+                        <li><a href="{{ route('pembayaran.index') }}">Informasi Dokumen Pembayaran &amp; Terbitkan SPP</a></li>
                     @endif
                 @endif
 
                 {{-- Menu Khusus Peran: Pejabat Pengadaan (PP) --}}
                 @if(Auth::user()->hasRole('pp') || Auth::user()->hasPermission('reviu.pp'))
-                    <li><a href="{{ route('kontrak.index') }}">Verifikasi & Negosiasi Harga Paket (&gt; 50 Juta s.d &lt; 200 Juta)</a></li>
+                    <li><a href="{{ route('kontrak.index') }}">Review Kelengkapan, Input Harga &amp; Vendor, serta Eksekusi Belanja PP (50&ndash;200 Juta)</a></li>
                 @endif
 
                 {{-- Menu Khusus Peran: Pejabat Pembuat Komitmen (PPK 1-4 Terisolasi) --}}
                 @if(Auth::user()->hasRole('ppk') || Auth::user()->hasAnyPermission(['reviu.ppk', 'pembayaran.memo_ppk']))
+                    <li><a href="{{ route('verifikasi.ppk') }}">Persetujuan Awal Usulan Permohonan (PPK Terpilih)</a></li>
                     @if(Auth::user()->hasRole('ppk') || Auth::user()->hasPermission('reviu.ppk'))
-                        <li><a href="{{ route('kontrak.index') }}">Tinjau Dokumen & Kunci MAK Paket Komitmen Saya (Terisolasi)</a></li>
+                        <li><a href="{{ route('kontrak.index') }}">Approval Pengadaan &amp; Eksekusi Belanja Paket Komitmen Saya (Terisolasi)</a></li>
                     @endif
                     @if(Auth::user()->hasRole('ppk') || Auth::user()->hasPermission('pembayaran.memo_ppk'))
                         <li><a href="{{ route('pembayaran.index') }}">Persetujuan Memo Pembayaran (PPK)</a></li>

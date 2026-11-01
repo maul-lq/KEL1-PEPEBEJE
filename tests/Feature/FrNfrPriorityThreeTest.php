@@ -58,24 +58,19 @@ class FrNfrPriorityThreeTest extends TestCase
 
         $response->assertStatus(201)
             ->assertJsonPath('data.nomor_surat', 'B/001/PL3.TIK/PG/2026')
-            ->assertJsonPath('data.status_permohonan', PermohonanPengadaan::STATUS_REVIU_PARALEL);
+            ->assertJsonPath('data.status_permohonan', PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2);
 
-        // Verifikasi database permohonan
+        // Verifikasi database permohonan masuk antrean awal Bidang 2 (Alur Berantai Notulensi PPBJ)
         $this->assertDatabaseHas('permohonan_pengadaan', [
             'nomor_surat' => 'B/001/PL3.TIK/PG/2026',
             'judul_pengadaan' => 'Pengadaan Komputer Lab TIK',
-            'status_permohonan' => PermohonanPengadaan::STATUS_REVIU_PARALEL,
+            'status_permohonan' => PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
         ]);
 
-        // Verifikasi otomatisasi 2 verifikator paralel (Perencanaan & Wadir 2)
+        // Verifikasi otomatisasi antrean tahap 1 pada Staf Bidang 2 (sebelum Memo Cek MAK ke Perencanaan)
         $this->assertDatabaseHas('verifikasi_paralel', [
             'nomor_surat' => 'B/001/PL3.TIK/PG/2026',
-            'role_verifikator' => 'perencanaan',
-            'status_keputusan' => 'menunggu',
-        ]);
-        $this->assertDatabaseHas('verifikasi_paralel', [
-            'nomor_surat' => 'B/001/PL3.TIK/PG/2026',
-            'role_verifikator' => 'wadir_2',
+            'role_verifikator' => VerifikasiParalel::ROLE_STAFF_BIDANG_2,
             'status_keputusan' => 'menunggu',
         ]);
 
@@ -192,23 +187,18 @@ class FrNfrPriorityThreeTest extends TestCase
             ->assertJsonPath('data.nomor_surat_revisi', 'B/003/PL3.TIK/PG/2026')
             ->assertJsonPath('data.revisi_ke', 1);
 
-        // Cek di DB
+        // Cek di DB: surat revisi kembali masuk antrean awal Bidang 2
         $this->assertDatabaseHas('permohonan_pengadaan', [
             'nomor_surat' => 'B/003-REV/PL3.TIK/PG/2026',
             'nomor_surat_revisi' => 'B/003/PL3.TIK/PG/2026',
             'revisi_ke' => 1,
-            'status_permohonan' => PermohonanPengadaan::STATUS_REVIU_PARALEL,
+            'status_permohonan' => PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
         ]);
 
-        // Cek verifikasi paralel baru telah dibuat
+        // Cek antrean awal Staf Bidang 2 baru telah dibuat untuk surat revisi
         $this->assertDatabaseHas('verifikasi_paralel', [
             'nomor_surat' => 'B/003-REV/PL3.TIK/PG/2026',
-            'role_verifikator' => 'perencanaan',
-            'status_keputusan' => 'menunggu',
-        ]);
-        $this->assertDatabaseHas('verifikasi_paralel', [
-            'nomor_surat' => 'B/003-REV/PL3.TIK/PG/2026',
-            'role_verifikator' => 'wadir_2',
+            'role_verifikator' => VerifikasiParalel::ROLE_STAFF_BIDANG_2,
             'status_keputusan' => 'menunggu',
         ]);
 

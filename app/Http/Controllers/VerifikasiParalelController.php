@@ -2,25 +2,32 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AlokasiMAK;
+use App\Models\AnggaranMAK;
 use App\Models\AuditLog;
 use App\Models\PermohonanPengadaan;
 use App\Models\User;
 use App\Models\VerifikasiParalel;
+use App\Services\PengadaanNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * Controller Verifikasi Paralel Usulan Pengadaan (VerifikasiParalelController)
+ * Controller Verifikasi Berantai & Persetujuan Awal Usulan Pengadaan (VerifikasiParalelController)
  *
- * Mengelola tahapan verifikasi ganda usulan permohonan pengadaan:
- * 1. Staf Bidang 2: Melakukan telaah berkas fisik/administrasi dan meneruskannya ke Wadir 2 (FR 5.1).
- * 2. Wadir 2: Persetujuan eksekutif pimpinan (hak mutlak Setuju / Tolak / Minta Revisi) (FR 5.2 - FR 5.4).
- * 3. Bagian Perencanaan: Verifikasi ketersediaan mata anggaran kas (MAK) dan pagu DIPA (FR 3.3 & FR 6.2).
- * 4. Dual Approval Cascade: Otomatis memajukan status permohonan menjadi 'disetujui' (diteruskan ke PPBJ)
- *    jika kedua pihak (Wadir 2 & Perencanaan) telah memberikan persetujuan 'disetujui'.
+ * Mengelola tahapan persetujuan awal berantai sesuai Notulensi Pertemuan PPBJ:
+ * 1. Staf Bidang 2: Memeriksa kelengkapan berkas surat dari User dan mengirim Memo Cek MAK ke Perencanaan.
+ * 2. Bagian Perencanaan: Membuat/mengecek ketersediaan MAK DIPA (Tersedia? / Hold), memilih 1 dari 4 akun PPK
+ *    (id_user_ppk_awal), dan mengirim Memo Ketersediaan MAK ke Bidang 2 (Wadir 2) & PPK terpilih.
+ * 3. Wadir 2 (ACC Kegiatan) & PPK Terpilih (ACC Usulan): Memberikan persetujuan ganda sebelum berkas
+ *    otomatis diteruskan menjadi 'disetujui' ke PPBJ.
  */
 class VerifikasiParalelController extends Controller
 {
+    public function __construct(
+        public PengadaanNotificationService $notificationService
+    ) {}
+
     /**
      * Menampilkan daftar entri verifikasi paralel dengan filter nomor surat, peran, dan status keputusan.
      */
@@ -60,7 +67,7 @@ class VerifikasiParalelController extends Controller
         $validated = $request->validate([
             'id_user' => 'nullable|exists:users,id_user',
             'nomor_surat' => 'required|exists:permohonan_pengadaan,nomor_surat',
-            'role_verifikator' => 'required|string|in:perencanaan,staff_bidang_2,wadir_2',
+            'role_verifikator' => 'required|string|in:perencanaan,staff_bidang_2,wadir_2,ppk',
             'status_keputusan' => 'required|string|in:menunggu,disetujui,ditolak,revisi,pending_anggaran',
             'catatan_alasan' => 'nullable|string',
         ]);
@@ -111,6 +118,17 @@ class VerifikasiParalelController extends Controller
     {
         $user = $request->user();
 
+        // Tegakkan isolasi akun PPK jika entri verifikasi awal milik role PPK
+        if ($verifikasi_paralel->role_verifikator === 'ppk' && $user && $user->role === 'ppk') {
+            $permohonanTerkait = PermohonanPengadaan::find($verifikasi_paralel->nomor_surat);
+            if ($permohonanTerkait && (int) $permohonanTerkait->id_user_ppk_awal !== (int) $user->id_user) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Akses Ditolak: Anda bukan akun PPK yang ditunjuk pada Memo Ketersediaan MAK usulan ini (Isolasi Akun PPK).',
+                ], 403);
+            }
+        }
+
         // 1. Validasi status dan keharusan catatan alasan saat menolak/meminta revisi
         $validated = $request->validate([
             'status_keputusan' => 'required|string|in:menunggu,disetujui,ditolak,revisi,pending_anggaran',
@@ -127,7 +145,7 @@ class VerifikasiParalelController extends Controller
         // 2. Simpan pembaruan keputusan verifikator
         $verifikasi_paralel->update($validated);
 
-        // 3. Evaluasi apakah kondisi dual approval telah terpenuhi untuk meneruskan status permohonan
+        // 3. Evaluasi apakah kondisi persetujuan lengkap telah terpenuhi untuk meneruskan status permohonan ke PPBJ
         $this->cekKelulusanParalel($verifikasi_paralel->nomor_surat, $verifikasi_paralel->id_user);
 
         return response()->json([
@@ -138,49 +156,306 @@ class VerifikasiParalelController extends Controller
     }
 
     /**
-     * Staf Bidang 2 memeriksa berkas administrasi dan meneruskan usulan ke Wadir 2 (FR 5.1).
+     * Tahap 1 Alur Berantai: Staf Bidang 2 memeriksa kelengkapan berkas dan mengirimkan Memo Cek MAK ke Perencanaan.
      */
-    public function teruskanKeWadir(Request $request): JsonResponse
+    public function memoCekMak(Request $request): JsonResponse
     {
         $user = $request->user();
 
-        // 1. Validasi keberadaan nomor surat usulan
+        if (! $request->filled('catatan_memo_cek_mak') && $request->filled('catatan_pemeriksaan')) {
+            $request->merge(['catatan_memo_cek_mak' => $request->input('catatan_pemeriksaan')]);
+        }
+
         $validated = $request->validate([
             'nomor_surat' => 'required|exists:permohonan_pengadaan,nomor_surat',
-            'catatan_pemeriksaan' => 'nullable|string',
+            'nomor_memo_cek_mak' => 'nullable|string|max:100',
+            'catatan_memo_cek_mak' => 'nullable|string',
         ]);
 
         $permohonan = PermohonanPengadaan::findOrFail($validated['nomor_surat']);
+        $statusLama = $permohonan->status_permohonan;
+        $operatorId = $user?->id_user ?? User::first()->id_user;
 
-        // 2. Rekam jejak telaah Staf Bidang 2 ke audit log institusi
+        $nomorMemo = $validated['nomor_memo_cek_mak']
+            ?? $permohonan->nomor_memo_cek_mak
+            ?? ('MEMO-CEK-MAK/'.date('Ymd').'/'.rand(100, 999));
+        $catatan = $validated['catatan_memo_cek_mak'] ?? 'Berkas lengkap, mohon pemeriksaan ketersediaan MAK DIPA.';
+
+        $permohonan->nomor_memo_cek_mak = $nomorMemo;
+        $permohonan->catatan_memo_cek_mak = $catatan;
+        $permohonan->status_permohonan = PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN;
+        $permohonan->save();
+
+        // Catat penyelesaian telaah Staf Bidang 2
+        $verifB2 = VerifikasiParalel::firstOrCreate(
+            ['nomor_surat' => $permohonan->nomor_surat, 'role_verifikator' => 'staff_bidang_2'],
+            ['id_user' => $operatorId, 'status_keputusan' => 'menunggu']
+        );
+        $verifB2->id_user = $operatorId;
+        $verifB2->status_keputusan = 'disetujui';
+        $verifB2->catatan_alasan = $catatan;
+        $verifB2->tanggal_keputusan = now();
+        $verifB2->save();
+
+        // Aktifkan antrean pemeriksaan MAK di Bagian Perencanaan
+        $perencanaanUser = User::where('role', 'perencanaan')->where('status_aktif', true)->first();
+        VerifikasiParalel::firstOrCreate(
+            ['nomor_surat' => $permohonan->nomor_surat, 'role_verifikator' => 'perencanaan'],
+            ['id_user' => $perencanaanUser?->id_user ?? $operatorId, 'status_keputusan' => 'menunggu']
+        );
+
         AuditLog::catat(
-            $user?->id_user ?? User::first()->id_user,
-            'STAFF_B2_TERUSKAN_KE_WADIR',
+            $operatorId,
+            'MEMO_CEK_MAK_KE_PERENCANAAN',
             'permohonan_pengadaan',
             $permohonan->nomor_surat,
-            $permohonan->status_permohonan,
-            $permohonan->status_permohonan,
-            'Staff Bidang 2 memeriksa kelengkapan berkas dan menyampaikan usulan permohonan ke Wadir 2 untuk persetujuan (FR 5.1): '.($validated['catatan_pemeriksaan'] ?? 'Berkas lengkap')
+            $statusLama,
+            PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN,
+            "Bidang 2 menerbitkan Memo Cek MAK ({$nomorMemo}) ke Perencanaan: {$catatan}"
         );
+
+        $this->notificationService->notifyMemoCekMak($permohonan, $nomorMemo, $catatan);
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Berkas permohonan berhasil disampaikan/diteruskan ke Wadir 2 untuk persetujuan eksekutif (FR 5.1)',
-            'data' => [
-                'nomor_surat' => $permohonan->nomor_surat,
-                'status_permohonan' => $permohonan->status_permohonan,
-                'catatan_pemeriksaan' => $validated['catatan_pemeriksaan'] ?? 'Berkas lengkap telah diteruskan ke Wadir 2',
-            ],
+            'message' => 'Memo Cek MAK berhasil dikirimkan dari Bidang 2 ke Bagian Perencanaan',
+            'data' => $permohonan->load(['verifikasiParalel']),
         ]);
     }
 
     /**
-     * Logika internal untuk mengevaluasi kelulusan verifikasi paralel secara otomatis (Dual Approval).
+     * Alias kompatibilitas endpoint lama penerusan berkas Staf Bidang 2.
+     */
+    public function teruskanKeWadir(Request $request): JsonResponse
+    {
+        return $this->memoCekMak($request);
+    }
+
+    /**
+     * Tahap 2 Alur Berantai: Bagian Perencanaan memeriksa ketersediaan MAK (Tersedia? / Hold / Tidak Tersedia),
+     * memilih 1 dari 4 akun PPK (id_user_ppk_awal), dan mengirimkan Memo Ketersediaan MAK ke Bidang 2 (Wadir 2) & PPK.
+     */
+    public function memoKetersediaanMak(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $operatorId = $user?->id_user ?? User::first()->id_user;
+
+        if (! $request->filled('keputusan_mak') && $request->filled('keputusan_anggaran')) {
+            $request->merge(['keputusan_mak' => $request->input('keputusan_anggaran')]);
+        }
+
+        $validated = $request->validate([
+            'nomor_surat' => 'required|exists:permohonan_pengadaan,nomor_surat',
+            'keputusan_mak' => 'required|string|in:tersedia,tidak_tersedia,hold',
+            'kode_mak' => 'required_if:keputusan_mak,tersedia|nullable|exists:anggaran_mak,kode_mak',
+            'nominal_alokasi' => 'nullable|numeric|min:0',
+            'id_user_ppk_awal' => 'required_if:keputusan_mak,tersedia|nullable|exists:users,id_user',
+            'nomor_memo_ketersediaan_mak' => 'nullable|string|max:100',
+            'catatan_memo_ketersediaan_mak' => 'required_if:keputusan_mak,tidak_tersedia,hold|nullable|string',
+        ], [
+            'id_user_ppk_awal.required_if' => 'Perencanaan wajib memilih salah satu dari 4 akun PPK untuk menerima Memo Ketersediaan MAK.',
+            'kode_mak.required_if' => 'Kode MAK wajib dipilih apabila anggaran dinyatakan tersedia.',
+            'catatan_memo_ketersediaan_mak.required_if' => 'Catatan alasan wajib diisi apabila MAK ditahan (Hold) atau tidak tersedia.',
+        ]);
+
+        $permohonan = PermohonanPengadaan::findOrFail($validated['nomor_surat']);
+        $statusLama = $permohonan->status_permohonan;
+
+        $verifPerencanaan = VerifikasiParalel::firstOrCreate(
+            ['nomor_surat' => $permohonan->nomor_surat, 'role_verifikator' => 'perencanaan'],
+            ['id_user' => $operatorId, 'status_keputusan' => 'menunggu']
+        );
+        $verifPerencanaan->id_user = $operatorId;
+        $verifPerencanaan->tanggal_keputusan = now();
+
+        if (in_array($validated['keputusan_mak'], ['hold', 'tidak_tersedia'], true)) {
+            $isHold = $validated['keputusan_mak'] === 'hold';
+            $verifPerencanaan->status_keputusan = $isHold ? 'pending_anggaran' : 'ditolak';
+            $verifPerencanaan->catatan_alasan = $validated['catatan_memo_ketersediaan_mak'];
+            $verifPerencanaan->save();
+
+            $permohonan->status_permohonan = $isHold
+                ? PermohonanPengadaan::STATUS_PENDING_ANGGARAN
+                : PermohonanPengadaan::STATUS_DITOLAK;
+            $permohonan->status_anggaran = $isHold ? 'hold' : 'ditolak';
+            $permohonan->catatan_memo_ketersediaan_mak = $validated['catatan_memo_ketersediaan_mak'];
+            if (! $isHold) {
+                $permohonan->alasan_revisi = $validated['catatan_memo_ketersediaan_mak'];
+            }
+            $permohonan->save();
+
+            AuditLog::catat(
+                $operatorId,
+                $isHold ? 'HOLD_ANGGARAN_MAK' : 'TOLAK_MAK_TIDAK_TERSEDIA',
+                'permohonan_pengadaan',
+                $permohonan->nomor_surat,
+                $statusLama,
+                $permohonan->status_permohonan,
+                'Keputusan ketersediaan MAK oleh Perencanaan: '.$validated['catatan_memo_ketersediaan_mak']
+            );
+
+            return response()->json([
+                'status' => 'success',
+                'message' => $isHold
+                    ? 'Permohonan ditandai Pending Anggaran (Hold) oleh Perencanaan'
+                    : 'Permohonan dikembalikan karena MAK tidak tersedia',
+                'data' => $permohonan->load(['verifikasiParalel']),
+            ]);
+        }
+
+        // Validasi bahwa user yang dipilih sebagai PPK awal benar-benar memiliki role 'ppk'
+        $ppkAwal = User::find($validated['id_user_ppk_awal']);
+        if (! $ppkAwal || $ppkAwal->role !== 'ppk') {
+            return response()->json([
+                'message' => 'Data yang diberikan tidak valid.',
+                'errors' => [
+                    'id_user_ppk_awal' => ['Akun PPK terpilih harus memiliki role PPK aktif (1 dari 4 akun PPK).'],
+                ],
+            ], 422);
+        }
+
+        $mak = AnggaranMAK::findOrFail($validated['kode_mak']);
+        $nominalAlokasi = (float) ($validated['nominal_alokasi'] ?? $permohonan->estimasi_total_pagu ?? 0);
+
+        if ($nominalAlokasi > 0) {
+            AlokasiMAK::updateOrCreate(
+                ['nomor_surat' => $permohonan->nomor_surat, 'kode_mak' => $mak->kode_mak],
+                ['nominal_alokasi' => $nominalAlokasi]
+            );
+
+            if ((float) $mak->sisa_pagu_mak >= $nominalAlokasi) {
+                $mak->sisa_pagu_mak = (float) $mak->sisa_pagu_mak - $nominalAlokasi;
+                $mak->save();
+            }
+        }
+
+        $nomorMemo = $validated['nomor_memo_ketersediaan_mak']
+            ?? $permohonan->nomor_memo_ketersediaan_mak
+            ?? ('MEMO-MAK/'.date('Ymd').'/'.rand(100, 999));
+        $catatan = $validated['catatan_memo_ketersediaan_mak'] ?? "MAK {$mak->kode_mak} tersedia dan siap disetujui Wadir 2 serta PPK.";
+
+        $verifPerencanaan->status_keputusan = 'disetujui';
+        $verifPerencanaan->catatan_alasan = $catatan;
+        $verifPerencanaan->save();
+
+        $permohonan->kode_mak = $mak->kode_mak;
+        $permohonan->id_user_ppk_awal = $ppkAwal->id_user;
+        $permohonan->nomor_memo_ketersediaan_mak = $nomorMemo;
+        $permohonan->catatan_memo_ketersediaan_mak = $catatan;
+        $permohonan->status_anggaran = 'tersedia';
+        $permohonan->status_permohonan = PermohonanPengadaan::STATUS_MENUNGGU_ACC_WADIR_PPK;
+        $permohonan->save();
+
+        // Aktifkan antrean persetujuan ganda pada Wadir 2 dan PPK terpilih
+        $wadirUser = User::where('role', 'wadir_2')->where('status_aktif', true)->first();
+        VerifikasiParalel::firstOrCreate(
+            ['nomor_surat' => $permohonan->nomor_surat, 'role_verifikator' => 'wadir_2'],
+            ['id_user' => $wadirUser?->id_user ?? $operatorId, 'status_keputusan' => 'menunggu']
+        );
+
+        $verifPpk = VerifikasiParalel::firstOrCreate(
+            ['nomor_surat' => $permohonan->nomor_surat, 'role_verifikator' => 'ppk'],
+            ['id_user' => $ppkAwal->id_user, 'status_keputusan' => 'menunggu']
+        );
+        $verifPpk->id_user = $ppkAwal->id_user;
+        $verifPpk->save();
+
+        // Evaluasi jika sebelumnya Wadir 2 & PPK sudah menyetujui
+        $this->cekKelulusanParalel($permohonan->nomor_surat, $operatorId);
+        $permohonan->refresh();
+
+        AuditLog::catat(
+            $operatorId,
+            'MEMO_KETERSEDIAAN_MAK_KE_B2_PPK',
+            'permohonan_pengadaan',
+            $permohonan->nomor_surat,
+            $statusLama,
+            $permohonan->status_permohonan,
+            "Perencanaan memastikan MAK {$mak->kode_mak} tersedia, menunjuk PPK {$ppkAwal->nama}, & mengirim Memo {$nomorMemo} ke Bidang 2 dan PPK"
+        );
+
+        $this->notificationService->notifyAlokasiMak($permohonan, $mak, 'setuju', $catatan);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Memo Ketersediaan MAK berhasil dikirimkan ke Bidang 2 (Wadir 2) dan PPK terpilih',
+            'data' => $permohonan->load(['anggaranMak', 'ppkAwal', 'verifikasiParalel']),
+        ]);
+    }
+
+    /**
+     * Tahap 3 Alur Berantai: Persetujuan ganda oleh Wadir 2 (ACC Kegiatan) dan PPK Terpilih (ACC Usulan).
+     * Berkas hanya beralih ke 'disetujui' (siap diproses PPBJ) apabila Wadir 2 DAN PPK terpilih sama-sama menyetujui.
+     */
+    public function keputusanAwal(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'nomor_surat' => 'required|exists:permohonan_pengadaan,nomor_surat',
+            'status_keputusan' => 'required|string|in:disetujui,ditolak,revisi',
+            'catatan_alasan' => 'required_if:status_keputusan,ditolak,revisi|nullable|string',
+            'role_verifikator' => 'nullable|string|in:wadir_2,ppk',
+        ], [
+            'catatan_alasan.required_if' => 'Catatan alasan wajib diisi saat menolak atau meminta revisi usulan.',
+        ]);
+
+        $permohonan = PermohonanPengadaan::findOrFail($validated['nomor_surat']);
+        $roleVerifikator = ($user && in_array($user->role, ['wadir_2', 'ppk'], true))
+            ? $user->role
+            : ($validated['role_verifikator'] ?? 'wadir_2');
+
+        // Isolasi 4 akun PPK: Hanya akun PPK yang ditunjuk pada id_user_ppk_awal yang berhak memutus
+        if ($roleVerifikator === 'ppk' && $user && $user->role === 'ppk') {
+            if ((int) $permohonan->id_user_ppk_awal !== (int) $user->id_user) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Akses Ditolak: Anda bukan akun PPK yang ditunjuk pada Memo Ketersediaan MAK usulan ini (Isolasi Akun PPK).',
+                ], 403);
+            }
+        }
+
+        $operatorId = $user?->id_user ?? ($roleVerifikator === 'ppk' ? $permohonan->id_user_ppk_awal : User::first()->id_user);
+
+        $verif = VerifikasiParalel::firstOrCreate(
+            ['nomor_surat' => $permohonan->nomor_surat, 'role_verifikator' => $roleVerifikator],
+            ['id_user' => $operatorId, 'status_keputusan' => 'menunggu']
+        );
+        $verif->id_user = $operatorId;
+        $verif->status_keputusan = $validated['status_keputusan'];
+        $verif->catatan_alasan = $validated['catatan_alasan'] ?? null;
+        $verif->tanggal_keputusan = now();
+        $verif->save();
+
+        if ($validated['status_keputusan'] === 'ditolak') {
+            $permohonan->alasan_revisi = $validated['catatan_alasan'];
+            $permohonan->save();
+        }
+
+        $this->cekKelulusanParalel($permohonan->nomor_surat, $operatorId);
+        $permohonan->refresh();
+
+        if ($roleVerifikator === 'wadir_2') {
+            $this->notificationService->notifyKeputusanWadir2($permohonan, $validated['status_keputusan'], $validated['catatan_alasan'] ?? null);
+        } else {
+            $this->notificationService->notifyKeputusanPpkAwal($permohonan, $validated['status_keputusan'], $validated['catatan_alasan'] ?? null);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Keputusan persetujuan awal '.strtoupper($roleVerifikator).' berhasil disimpan',
+            'data' => $permohonan->load(['ppkAwal', 'verifikasiParalel']),
+        ]);
+    }
+
+    /**
+     * Logika internal untuk mengevaluasi kelulusan persetujuan awal secara otomatis.
      *
-     * Aturan cascade status:
+     * Aturan cascade status sesuai Notulensi PPBJ:
      * - Jika salah satu verifikator menolak ('ditolak') => Status permohonan menjadi 'ditolak'.
      * - Jika ada keputusan 'pending_anggaran' => Status permohonan menjadi 'pending_anggaran' (Hold).
-     * - Jika kedua verifikator (Perencanaan & Wadir 2) sama-sama 'disetujui' => Status permohonan menjadi 'disetujui' (diteruskan ke PPBJ).
+     * - Jika Perencanaan, Wadir 2, DAN PPK terpilih (bila id_user_ppk_awal / antrean PPK ada) semuanya 'disetujui'
+     *   => Status permohonan menjadi 'disetujui' (otomatis diteruskan ke PPBJ).
      */
     private function cekKelulusanParalel(string $nomor_surat, ?int $operatorId = null): void
     {
@@ -205,7 +480,7 @@ class VerifikasiParalelController extends Controller
                 $nomor_surat,
                 $statusLama,
                 PermohonanPengadaan::STATUS_DITOLAK,
-                'Permohonan ditolak oleh verifikator dalam verifikasi paralel'
+                'Permohonan ditolak oleh verifikator dalam persetujuan awal'
             );
 
             return;
@@ -230,11 +505,14 @@ class VerifikasiParalelController extends Controller
             return;
         }
 
-        // KASUS 3: Kedua belah pihak (Perencanaan & Wadir 2) sama-sama menyetujui
+        // KASUS 3: Evaluasi persetujuan Perencanaan, Wadir 2, dan PPK terpilih
         $perencanaanOk = $verifikasi->where('role_verifikator', 'perencanaan')->where('status_keputusan', 'disetujui')->isNotEmpty();
         $wadirOk = $verifikasi->where('role_verifikator', 'wadir_2')->where('status_keputusan', 'disetujui')->isNotEmpty();
 
-        if ($perencanaanOk && $wadirOk) {
+        $requiresPpk = ! empty($permohonan->id_user_ppk_awal) || $verifikasi->where('role_verifikator', 'ppk')->isNotEmpty();
+        $ppkOk = ! $requiresPpk || $verifikasi->where('role_verifikator', 'ppk')->where('status_keputusan', 'disetujui')->isNotEmpty();
+
+        if ($perencanaanOk && $wadirOk && $ppkOk) {
             $permohonan->status_permohonan = PermohonanPengadaan::STATUS_DISETUJUI;
             $permohonan->status_anggaran = 'disetujui';
             $permohonan->save();
@@ -246,7 +524,7 @@ class VerifikasiParalelController extends Controller
                 $nomor_surat,
                 $statusLama,
                 PermohonanPengadaan::STATUS_DISETUJUI,
-                'Permohonan disetujui penuh oleh Perencanaan & Wadir 2 dan siap diregistrasi PPBJ (FR 3.3)'
+                'Permohonan disetujui penuh oleh Perencanaan, Wadir 2, dan PPK serta siap diregistrasi PPBJ'
             );
         }
     }

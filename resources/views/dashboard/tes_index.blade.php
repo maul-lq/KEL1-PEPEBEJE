@@ -113,10 +113,10 @@
 @if($user->hasRole('staff_bidang_2') || $user->hasAnyPermission(['verifikasi.bidang_2_view', 'verifikasi.bidang_2_teruskan']))
     <section>
         <fieldset>
-            <legend><strong>Ruang Kerja Staf Bidang II (Pemeriksa Berkas Administrasi)</strong></legend>
+            <legend><strong>Ruang Kerja Staf Bidang II (Pemeriksa Berkas &amp; Pengirim Memo Cek MAK)</strong></legend>
             <p>
-                Tugas utama Staf Bidang 2 adalah memeriksa kelengkapan berkas fisik dan lampiran Srikandi (dokumen KAK, spesifikasi teknis)
-                dari permohonan yang masuk sebelum diteruskan secara resmi kepada Wakil Direktur II.
+                Tugas utama Staf Bidang II adalah memeriksa kelengkapan berkas fisik dan lampiran Srikandi (dokumen KAK, spesifikasi teknis)
+                dari permohonan yang masuk lalu mengirimkan <strong>Memo Cek MAK</strong> kepada Bagian Perencanaan.
             </p>
             <p>
                 <a href="{{ route('verifikasi.bidang-2') }}">
@@ -167,8 +167,8 @@
         <fieldset>
             <legend><strong>Ruang Kerja Wakil Direktur II (Otoritas Mutlak Persetujuan / ACC)</strong></legend>
             <p>
-                Sebagai Wakil Direktur Bidang Umum dan Keuangan, Anda memegang hak mutlak persetujuan institusi (ACC atau Penolakan/Revisi).
-                Permohonan yang telah disetujui bersama Bagian Perencanaan akan otomatis beralih status ke <strong>DISANGKUPI / DISETUJUI</strong> dan diteruskan ke PPBJ.
+                Sebagai Wakil Direktur Bidang Umum dan Keuangan, Anda menyetujui kegiatan (ACC atau Penolakan/Revisi) atas dasar
+                <strong>Memo Ketersediaan MAK</strong> dari Perencanaan. Permohonan yang telah disetujui bersama oleh Wadir II dan PPK terpilih akan beralih status ke <strong>DISETUJUI</strong> dan diteruskan ke PPBJ.
             </p>
             <p>
                 <a href="{{ route('verifikasi.wadir-2') }}">
@@ -217,10 +217,10 @@
 @if($user->hasRole('perencanaan') || $user->hasAnyPermission(['anggaran.mak_view', 'anggaran.mak_manage', 'anggaran.mak_alokasi', 'anggaran.mak_lock', 'permohonan.split_mak']))
     <section>
         <fieldset>
-            <legend><strong>Ruang Kerja Subbagian Perencanaan & Anggaran MAK</strong></legend>
+            <legend><strong>Ruang Kerja Subbagian Perencanaan &amp; Otoritas Anggaran MAK</strong></legend>
             <p>
-                Anda bertugas memverifikasi ketersediaan pagu dana DIPA, menetapkan kode Mata Anggaran Kegiatan (MAK),
-                serta mengunci anggaran MAK untuk mencegah manipulasi pagu kas.
+                Anda bertugas membuat dan mengecek ketersediaan kode Mata Anggaran Kegiatan (MAK) atas Memo Cek MAK dari Bidang II,
+                memilih 1 dari 4 akun PPK untuk menerima <strong>Memo Ketersediaan MAK</strong> bersama Wadir II, serta memegang wewenang tunggal mengunci dan membuka kunci MAK.
             </p>
             <p>
                 <a href="{{ route('verifikasi.perencanaan') }}">
@@ -269,15 +269,15 @@
 @if($user->hasRole('ppbj') || $user->hasAnyPermission(['paket.create', 'paket.view_all', 'paket.reassign_ppk', 'paket.split_jenis', 'spk.create', 'reminder.manage', 'pembayaran.pengajuan', 'pembayaran.spp_terbitkan']))
     <section>
         <fieldset>
-            <legend><strong>Ruang Kerja Koordinator PPBJ (Registrasi Paket & Penugasan)</strong></legend>
+            <legend><strong>Ruang Kerja Koordinator PPBJ (Metode Pengadaan, Belanja Langsung, &amp; Dokumen Perikatan)</strong></legend>
             <p>
-                Koordinator PPBJ mengelola registrasi paket pengadaan, penentuan metode, dan penugasan dengan aturan auto-routing HPS presisi 100%:
+                Koordinator PPBJ menetapkan <strong>Metode Pengadaan</strong> (Tender/SPSE, Non-Tender/E-Katalog Inaproc, atau Belanja Langsung):
                 <br>
-                &bull; &le; Rp 50 Juta: Pengadaan Langsung
+                &bull; &le; Rp 50 Juta: <strong>Belanja Langsung</strong> oleh PPBJ (output Kwitansi, tanpa Kontrak/SPK)
                 <br>
-                &bull; Rp 50 Juta s.d Rp 200 Juta: Pejabat Pengadaan (PP)
+                &bull; &gt; Rp 50 Juta s.d. Rp 200 Juta: <strong>Melibatkan Pejabat Pengadaan (PP)</strong> untuk Tender maupun Non-Tender (Approval tetap di PPK, eksekusi belanja oleh PP)
                 <br>
-                &bull; &gt; Rp 200 Juta: Pejabat Pembuat Komitmen (1 dari 4 akun PPK PNJ)
+                &bull; &gt; Rp 200 Juta: <strong>Melibatkan Pejabat Pembuat Komitmen (PPK)</strong> (1 dari 4 akun PPK PNJ)
             </p>
             <p>
                 @if($user->hasRole('ppbj') || $user->hasPermission('paket.create'))
@@ -330,14 +330,15 @@
 @if($user->hasRole('pp') || $user->hasPermission('reviu.pp'))
     <section>
         <fieldset>
-            <legend><strong>Ruang Kerja Pejabat Pengadaan (Paket &le; Rp 200 Juta)</strong></legend>
+            <legend><strong>Ruang Kerja Pejabat Pengadaan (&gt; Rp 50 Juta s.d. Rp 200 Juta)</strong></legend>
             <p>
-                Pejabat Pengadaan menangani paket pengadaan langsung dan pemilihan rekanan penyedia bernilai sampai dengan Rp 200 Juta,
-                serta menerbitkan Surat Perintah Kerja (SPK).
+                Pejabat Pengadaan terlibat pada paket bernilai di atas Rp 50 Juta s.d. Rp 200 Juta (baik Tender maupun Non-Tender):
+                mereview kelengkapan berkas, menginput Nominal Harga Perkiraan, Nominal Harga Akhir, dan Vendor Pemenang
+                (tanpa hak klik Approval final), berkoordinasi dengan PPK, lalu mengeksekusi belanja setelah disetujui PPK.
             </p>
             <p>
                 <a href="{{ route('kontrak.index') }}">
-                    <button type="button"><strong>Buka Daftar Paket Pengadaan & Penerbitan SPK</strong></button>
+                    <button type="button"><strong>Buka Review Kelengkapan &amp; Eksekusi Belanja PP</strong></button>
                 </a>
             </p>
             <table border="1" cellpadding="6" cellspacing="0">
@@ -382,14 +383,19 @@
 @if($user->hasRole('ppk') || $user->hasAnyPermission(['reviu.ppk', 'pembayaran.memo_ppk']))
     <section>
         <fieldset>
-            <legend><strong>Ruang Kerja Pejabat Pembuat Komitmen (Paket &gt; Rp 200 Juta - Terisolasi)</strong></legend>
+            <legend><strong>Ruang Kerja Pejabat Pembuat Komitmen (4 Akun Terisolasi)</strong></legend>
             <p>
-                <strong>Penegakan Isolasi Data:</strong> Anda hanya dapat melihat dan mengelola paket komitmen yang ditugaskan secara spesifik
-                kepada akun Anda (<strong>{{ $user->nama }}</strong>). Paket milik PPK lainnya tidak akan tampil pada daftar ini.
+                <strong>Penegakan Isolasi Data:</strong> Anda menyetujui usulan awal permohonan yang ditujukan Perencanaan ke akun Anda,
+                memberikan <strong>Approval</strong> pada paket komitmen <strong>{{ $user->nama }}</strong> (baik hasil koordinasi review PP 50&ndash;200 juta maupun review langsung &amp; eksekusi belanja &gt; 200 juta),
+                serta menyetujui Memo Pembayaran Level 1.
             </p>
             <p>
+                <a href="{{ route('verifikasi.ppk') }}">
+                    <button type="button"><strong>Persetujuan Awal Usulan Permohonan (PPK)</strong></button>
+                </a>
+                &nbsp;
                 <a href="{{ route('kontrak.index') }}">
-                    <button type="button"><strong>Buka Daftar Paket Komitmen Saya & SPK</strong></button>
+                    <button type="button"><strong>Approval Pengadaan &amp; Eksekusi Belanja PPK</strong></button>
                 </a>
             </p>
             <table border="1" cellpadding="6" cellspacing="0">

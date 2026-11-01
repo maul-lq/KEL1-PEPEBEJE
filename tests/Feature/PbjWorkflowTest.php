@@ -74,13 +74,13 @@ class PbjWorkflowTest extends TestCase
         $this->assertEquals(PaketPengadaan::ROUTING_LANGSUNG, PaketPengadaan::tentukanRouting(35000000));
         $this->assertEquals(PaketPengadaan::ROUTING_LANGSUNG, PaketPengadaan::tentukanRouting(50000000));
 
-        // > 50M and < 200M: Pejabat Pengadaan
+        // > 50M and <= 200M (50-200jt melibatkan PP sesuai Notulensi PPBJ): Pejabat Pengadaan
         $this->assertEquals(PaketPengadaan::ROUTING_PP, PaketPengadaan::tentukanRouting(50000001));
         $this->assertEquals(PaketPengadaan::ROUTING_PP, PaketPengadaan::tentukanRouting(125000000));
-        $this->assertEquals(PaketPengadaan::ROUTING_PP, PaketPengadaan::tentukanRouting(199999999));
+        $this->assertEquals(PaketPengadaan::ROUTING_PP, PaketPengadaan::tentukanRouting(200000000));
 
-        // >= 200M: PPK
-        $this->assertEquals(PaketPengadaan::ROUTING_PPK, PaketPengadaan::tentukanRouting(200000000));
+        // > 200M (di atas 200jt melibatkan PPK): PPK
+        $this->assertEquals(PaketPengadaan::ROUTING_PPK, PaketPengadaan::tentukanRouting(200000001));
         $this->assertEquals(PaketPengadaan::ROUTING_PPK, PaketPengadaan::tentukanRouting(350000000));
     }
 

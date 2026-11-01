@@ -12,13 +12,13 @@ use Carbon\Carbon;
 /**
  * Service Penentuan Jalur Pengadaan & Pembangkit Pengingat (PengadaanRoutingService)
  *
- * Mengimplementasikan aturan bisnis sesuai BPMN (bepemen.drawio) & Dokumen Alur Pekerjaan:
- * 1. FR 8.0: Auto-routing penentuan jalur pengadaan secara otomatis berdasarkan nilai HPS/pagu:
- *    - Nilai <= Rp 50.000.000                => Jalur Pengadaan Langsung (langsung_sd_50jt) -> PPBJ langsung terbitkan SPK -> Perlengkapan
- *    - Nilai > Rp 50.000.000 dan < 200.000.000 => Jalur Pejabat Pengadaan (pp_50jt_sd_200jt) -> PP -> PPK -> PPBJ -> Perlengkapan
- *    - Nilai >= Rp 200.000.000               => Jalur Pejabat Pembuat Komitmen (ppk_diatas_200jt) -> PPK -> PPBJ -> Perlengkapan (Tanpa Memo)
- * 2. FR 11.3 & FR 12.0: Pembangkitan alarm / reminder otomatis untuk pengiriman barang (termasuk H-2)
- *    dan distribusi tembusan otomatis SPK ke Unit Perlengkapan serta Bagian Keuangan.
+ * Mengimplementasikan aturan bisnis sesuai Notulensi Pertemuan PPBJ terbaru:
+ * 1. Auto-routing penentuan jalur pengadaan berdasarkan nilai HPS/pagu:
+ *    - Nilai <= Rp 50.000.000                     => Belanja Langsung (langsung_sd_50jt): dieksekusi PPBJ, output Kwitansi (tanpa Kontrak/SPK) -> Perlengkapan
+ *    - Nilai > Rp 50.000.000 s.d. Rp 200.000.000  => Melibatkan PP (pp_50jt_sd_200jt): Review PP + Input Harga & Vendor -> Approval PPK -> PP Belanja -> PPBJ Upload 1 Dokumen
+ *    - Nilai > Rp 200.000.000                     => Melibatkan PPK (ppk_diatas_200jt): PPBJ Input Data Lelang -> Approval & Belanja PPK -> PPBJ Upload 1 Dokumen (Tanpa Memo PPBJ)
+ * 2. Pembangkitan alarm / reminder otomatis untuk pengiriman barang (termasuk H-2)
+ *    dan distribusi tembusan ke Unit Perlengkapan serta Bagian Keuangan.
  */
 class PengadaanRoutingService
 {
@@ -32,9 +32,83 @@ class PengadaanRoutingService
         $nominal = (float) ($paket->nilai_hps ?: $paket->alokasi_pagu_paket);
         $paket->jalur_routing = PaketPengadaan::tentukanRouting($nominal);
 
-        // Paket >= 200 juta (jalur PPK) tidak menggunakan memo pengadaan PPBJ
+        // Paket > 200 juta (jalur PPK) tidak menggunakan memo pengadaan PPBJ
         if ($paket->jalur_routing === PaketPengadaan::ROUTING_PPK) {
             $paket->nomor_memo_ppbj = null;
+        }
+    }
+
+    /**
+     * Membangkitkan pengingat (reminder) dan tembusan persiapan BAST untuk Belanja Langsung <= Rp 50 Juta (tanpa Kontrak/SPK).
+     *
+     * @param  PaketPengadaan  $paket  Model paket pengadaan Belanja Langsung
+     * @param  string|null  $jadwalPengiriman  Jadwal target pengiriman barang (opsional)
+     */
+    public static function generateBelanjaLangsungReminder(PaketPengadaan $paket, ?string $jadwalPengiriman = null): void
+    {
+        $nominal = (float) ($paket->nominal_harga_akhir ?: $paket->nilai_hps ?: $paket->alokasi_pagu_paket);
+
+        $reminderBelanja = Reminder::firstOrCreate(
+            [
+                'nomor_paket' => $paket->nomor_paket,
+                'tipe_reminder' => 'belanja_langsung_kwitansi',
+            ],
+            [
+                'waktu_trigger' => now(),
+                'is_recurring' => false,
+                'interval_bulan' => null,
+                'judul_alert' => 'Belanja Langsung Selesai: '.$paket->nama_paket,
+                'pesan_alert' => 'Belanja Langsung (Kwitansi '.($paket->nomor_kwitansi_belanja ?? '-').') senilai Rp '.number_format($nominal, 0, ',', '.').' telah dieksekusi oleh PPBJ tanpa Kontrak/SPK. Menunggu pemeriksaan fisik dan BAST Perlengkapan.',
+            ]
+        );
+
+        $users = User::whereIn('role', [User::ROLE_PERLENGKAPAN, User::ROLE_KEUANGAN])
+            ->where('status_aktif', true)
+            ->get();
+
+        foreach ($users as $targetUser) {
+            NotifikasiUser::firstOrCreate(
+                [
+                    'id_user' => $targetUser->id_user,
+                    'id_reminder' => $reminderBelanja->id_reminder,
+                ],
+                [
+                    'is_read' => false,
+                    'is_dismissed' => false,
+                ]
+            );
+        }
+
+        if ($jadwalPengiriman) {
+            $jadwalCarbon = Carbon::parse($jadwalPengiriman);
+
+            Reminder::firstOrCreate(
+                [
+                    'nomor_paket' => $paket->nomor_paket,
+                    'tipe_reminder' => 'pengiriman',
+                ],
+                [
+                    'waktu_trigger' => $jadwalCarbon->copy()->startOfDay(),
+                    'is_recurring' => false,
+                    'interval_bulan' => null,
+                    'judul_alert' => 'Jadwal Pengiriman Belanja Langsung: '.$paket->nama_paket,
+                    'pesan_alert' => 'Target kedatangan barang Belanja Langsung pada '.$jadwalCarbon->format('d M Y').'.',
+                ]
+            );
+
+            Reminder::firstOrCreate(
+                [
+                    'nomor_paket' => $paket->nomor_paket,
+                    'tipe_reminder' => 'h_minus_2_termin',
+                ],
+                [
+                    'waktu_trigger' => $jadwalCarbon->copy()->subDays(2)->startOfDay(),
+                    'is_recurring' => false,
+                    'interval_bulan' => null,
+                    'judul_alert' => 'H-2 Pengiriman Belanja Langsung: '.$paket->nama_paket,
+                    'pesan_alert' => 'Memasuki H-2 target kedatangan barang Belanja Langsung ('.$jadwalCarbon->format('d M Y').').',
+                ]
+            );
         }
     }
 
