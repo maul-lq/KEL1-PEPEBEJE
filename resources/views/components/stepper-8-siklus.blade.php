@@ -9,10 +9,10 @@
 @php
     $stages = [
         1 => ['title' => 'Diajukan', 'desc' => 'Pengajuan Usulan Srikandi', 'actor' => 'Unit / Pemohon'],
-        2 => ['title' => 'Verifikasi Paralel', 'desc' => 'Telaah B2, Wadir 2 & MAK', 'actor' => 'Bidang 2 & Perencanaan'],
+        2 => ['title' => 'Verifikasi Paralel & Berantai', 'desc' => 'Telaah B2, MAK Perencanaan, ACC Wadir 2 & PPK', 'actor' => 'Staff B2, Perencanaan, Wadir 2, PPK'],
         3 => ['title' => 'Registrasi Paket', 'desc' => 'Pembuatan Paket & Routing HPS', 'actor' => 'Koordinator PPBJ'],
         4 => ['title' => 'Reviu Dokumen', 'desc' => 'Reviu Teknis & Negosiasi', 'actor' => 'PP / PPK'],
-        5 => ['title' => 'Kontrak SPK', 'desc' => 'Penerbitan Kontrak & Kunci MAK', 'actor' => 'PPBJ & PPK'],
+        5 => ['title' => 'Perikatan & Belanja', 'desc' => 'Kwitansi / Surat Pesanan / SPK / Kontrak', 'actor' => 'PPBJ / PP / PPK'],
         6 => ['title' => 'Pengingat & Pengiriman', 'desc' => 'Pengiriman & Alarm H-2', 'actor' => 'Vendor & Sistem'],
         7 => ['title' => 'Penerimaan BAST', 'desc' => 'Pemeriksaan Fisik & TTD BAST', 'actor' => 'Perlengkapan BMN'],
         8 => ['title' => 'SP2D Lunas', 'desc' => 'Memo Bayar, SPP & Cair SP2D', 'actor' => 'PPK, Wadir 2 & Keuangan'],

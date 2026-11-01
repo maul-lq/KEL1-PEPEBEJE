@@ -133,9 +133,35 @@
                     <input type="text" id="nomor_memo_fe" name="nomor_memo" value="MEMO/BHP/{{ date('Y') }}/{{ rand(10, 99) }}" class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 font-mono focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
                 </div>
 
+                {{-- Kelengkapan Berkas Tagihan Resmi (Kwitansi & Invoice) --}}
+                <div class="rounded-xl border border-blue-100 bg-blue-50/40 p-4 space-y-4">
+                    <h4 class="text-xs font-bold text-[#213153] uppercase tracking-wider flex items-center gap-1.5">
+                        <svg class="size-4 text-[#0969da]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        Informasi Dokumen Pembayaran (Kwitansi &amp; Invoice Tagihan Rekanan)
+                    </h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="nomor_kwitansi" class="block text-xs font-bold text-slate-700 mb-1">Nomor Kwitansi Pembayaran</label>
+                            <input type="text" id="nomor_kwitansi" name="nomor_kwitansi" value="KWT/PNJ/{{ date('Y') }}/{{ rand(100, 999) }}" class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-mono text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20" />
+                        </div>
+                        <div>
+                            <label for="file_kwitansi" class="block text-xs font-bold text-slate-700 mb-1">Unggah Berkas Kwitansi (PDF/Gambar)</label>
+                            <input type="file" id="file_kwitansi" name="file_kwitansi" accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da]" />
+                        </div>
+                        <div>
+                            <label for="nomor_invoice" class="block text-xs font-bold text-slate-700 mb-1">Nomor Invoice Tagihan Rekanan</label>
+                            <input type="text" id="nomor_invoice" name="nomor_invoice" value="INV/PNJ/{{ date('Y') }}/{{ rand(100, 999) }}" class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-mono text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20" />
+                        </div>
+                        <div>
+                            <label for="file_invoice" class="block text-xs font-bold text-slate-700 mb-1">Unggah Berkas Invoice Tagihan (PDF/Gambar)</label>
+                            <input type="file" id="file_invoice" name="file_invoice" accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da]" />
+                        </div>
+                    </div>
+                </div>
+
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">Invoice Rekanan (PDF/Gambar)</label>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Invoice Rekanan / Tagihan Tambahan (PDF/Gambar)</label>
                         <input type="file" name="file_tagihan_vendor" accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da]">
                     </div>
 

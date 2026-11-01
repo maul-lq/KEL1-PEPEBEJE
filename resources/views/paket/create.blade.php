@@ -93,13 +93,13 @@
                     </div>
 
                     <p class="text-xs mt-1 leading-relaxed" x-show="routing() === 'langsung'">
-                        <strong>Alur Kerja:</strong> Nilai HPS &le; Rp 50 Juta tidak memerlukan verifikasi Pejabat Pengadaan atau reviu PPK. PPBJ langsung menerbitkan Surat Kontrak/SPK dan sistem menjadwalkan Reminder pengiriman ke Unit Perlengkapan.
+                        <strong>Alur Kerja:</strong> Nilai HPS &le; Rp 50 Juta adalah Belanja Langsung (output Kwitansi sah tanpa Kontrak/SPK/Surat Pesanan). PPBJ langsung melakukan eksekusi Belanja Langsung dan mengunggah berkas kwitansi untuk pemeriksaan BAST Perlengkapan.
                     </p>
                     <p class="text-xs mt-1 leading-relaxed" x-show="routing() === 'pp'">
-                        <strong>Alur Kerja:</strong> Ditugaskan ke Pejabat Pengadaan (PP) untuk verifikasi teknis dan negosiasi harga definitif &rarr; PPK meninjau dokumen &amp; mengunci MAK permanen &rarr; PPBJ menerbitkan SPK.
+                        <strong>Alur Kerja:</strong> Ditugaskan ke Pejabat Pengadaan (PP) untuk verifikasi teknis dan negosiasi harga definitif &rarr; PPK menyetujui dokumen &rarr; PP mengeksekusi belanja &rarr; PPBJ mengunggah 1 dokumen perikatan terpilih (SPK / Surat Pesanan / Surat Kontrak).
                     </p>
                     <p class="text-xs mt-1 leading-relaxed" x-show="routing() === 'ppk'">
-                        <strong>Alur Kerja:</strong> Ditugaskan langsung ke salah satu dari 4 akun PPK aktif untuk penelaahan dokumen dan penguncian MAK permanen. <em>Catatan: Paket &ge; Rp 200 Juta tidak menggunakan memo pengadaan PPBJ (otomatis null).</em>
+                        <strong>Alur Kerja:</strong> Ditugaskan ke PPK terpilih untuk penelaahan spesifikasi teknis &rarr; PPK menyetujui &amp; mengeksekusi belanja &rarr; PPBJ mengunggah 1 dokumen perikatan terpilih (SPK / Surat Pesanan / Surat Kontrak). <em>Catatan: Paket &ge; Rp 200 Juta tidak menggunakan memo pengadaan PPBJ (otomatis null).</em>
                     </p>
                 </div>
             </div>

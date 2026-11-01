@@ -70,7 +70,7 @@
             color="teal"
             badge="&le; Rp 50 Jt"
             badgeColor="bg-teal-50 text-teal-700 border-teal-200"
-            subtitle="Langsung terbit SPK oleh PPBJ"
+            subtitle="Belanja Langsung &amp; Kwitansi sah"
         />
 
         <x-stat-card
@@ -257,13 +257,46 @@
                                             </button>
                                         @endif
 
-                                        <a
-                                            href="{{ route('kontrak.index') }}"
-                                            class="px-2.5 py-1 rounded-lg bg-[#213153] text-xs font-semibold text-white hover:bg-slate-800 transition shadow-xs"
-                                            title="Ke Modul Kontrak / SPK"
-                                        >
-                                            SPK &rarr;
-                                        </a>
+                                        @if($pkt->jalur_routing === 'langsung_sd_50jt' || (float)($pkt->nilai_hps ?: $pkt->alokasi_pagu_paket) <= 50000000)
+                                            @if(Auth::user() && in_array(Auth::user()->role, ['ppbj', 'admin']))
+                                                <button
+                                                    type="button"
+                                                    @click="selectedPaket = '{{ $pkt->nomor_paket }}'; $dispatch('open-modal', 'modal-belanja-langsung')"
+                                                    class="px-2.5 py-1 rounded-lg bg-teal-600 text-xs font-semibold text-white hover:bg-teal-700 transition shadow-xs"
+                                                    title="Eksekusi Belanja Langsung (Kwitansi)"
+                                                >
+                                                    Belanja &rarr;
+                                                </button>
+                                            @endif
+                                        @else
+                                            @if(Auth::user() && Auth::user()->role === 'pp' && in_array($pkt->status_paket, [\App\Models\PaketPengadaan::STATUS_DISETUJUI_PPK_SIAP_BELANJA_PP, 'reviu_dokumen_disetujui']))
+                                                <button
+                                                    type="button"
+                                                    @click="selectedPaket = '{{ $pkt->nomor_paket }}'; $dispatch('open-modal', 'modal-eksekusi-belanja')"
+                                                    class="px-2.5 py-1 rounded-lg bg-amber-600 text-xs font-semibold text-white hover:bg-amber-700 transition shadow-xs"
+                                                    title="Eksekusi Belanja PP"
+                                                >
+                                                    Belanja PP &rarr;
+                                                </button>
+                                            @elseif(Auth::user() && Auth::user()->role === 'ppk' && $pkt->jalur_routing === 'ppk_diatas_200jt' && in_array($pkt->status_paket, [\App\Models\PaketPengadaan::STATUS_MENUNGGU_APPROVAL_PPK, 'reviu_dokumen_disetujui']))
+                                                <button
+                                                    type="button"
+                                                    @click="selectedPaket = '{{ $pkt->nomor_paket }}'; $dispatch('open-modal', 'modal-eksekusi-belanja')"
+                                                    class="px-2.5 py-1 rounded-lg bg-purple-600 text-xs font-semibold text-white hover:bg-purple-700 transition shadow-xs"
+                                                    title="Eksekusi Belanja PPK"
+                                                >
+                                                    Belanja PPK &rarr;
+                                                </button>
+                                            @else
+                                                <a
+                                                    href="{{ route('kontrak.index') }}"
+                                                    class="px-2.5 py-1 rounded-lg bg-[#213153] text-xs font-semibold text-white hover:bg-slate-800 transition shadow-xs"
+                                                    title="Ke Modul Dokumen Perikatan / SPK"
+                                                >
+                                                    Perikatan &rarr;
+                                                </a>
+                                            @endif
+                                        @endif
                                     </div>
                                 </td>
                             </tr>
@@ -453,6 +486,91 @@
                 </button>
                 <button type="submit" class="px-5 py-2 rounded-xl bg-amber-600 text-xs font-bold text-white hover:bg-amber-700 shadow-sm transition">
                     Simpan Alih Tugas PPK
+                </button>
+            </div>
+        </form>
+    </x-modal>
+
+    {{-- 8. Modal Belanja Langsung <= 50jt (PPBJ) --}}
+    <x-modal id="modal-belanja-langsung" title="Eksekusi Belanja Langsung (&le; Rp 50 Juta)" subtitle="Pencatatan pembelian langsung dengan output Kwitansi sah (tanpa SPK/Kontrak) - FR 7.1" maxWidth="lg">
+        <form action="{{ route('paket.belanja-langsung') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+            @csrf
+            <input type="hidden" name="nomor_paket" x-model="selectedPaket">
+
+            <div>
+                <label for="modal_nomor_kwitansi" class="block text-xs font-bold text-slate-700 mb-1">
+                    Nomor Kwitansi Pembelian Langsung <span class="text-rose-500">*</span>
+                </label>
+                <input type="text" id="modal_nomor_kwitansi" name="nomor_kwitansi_belanja" required value="KWT/PL/{{ date('Ymd') }}/{{ rand(100, 999) }}" class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 font-mono focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20">
+            </div>
+
+            <div>
+                <label for="modal_nominal_harga_akhir" class="block text-xs font-bold text-slate-700 mb-1">
+                    Nominal Harga Akhir Realisasi (Rupiah)
+                </label>
+                <input type="number" id="modal_nominal_harga_akhir" name="nominal_harga_akhir" step="0.01" min="1" placeholder="Kosongkan jika sama dengan pagu HPS" class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 font-mono focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20">
+            </div>
+
+            <div>
+                <label for="modal_npwp_vendor_bl" class="block text-xs font-bold text-slate-700 mb-1">
+                    Penyedia / Toko Rekanan
+                </label>
+                <select id="modal_npwp_vendor_bl" name="npwp_vendor" class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20">
+                    <option value="">-- Pilih Toko / Rekanan Penyedia --</option>
+                    @foreach($vendors as $v)
+                        <option value="{{ $v->npwp }}">{{ $v->nama_vendor }} ({{ $v->npwp }})</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div>
+                <label for="modal_jadwal_pengiriman_bl" class="block text-xs font-bold text-slate-700 mb-1">
+                    Target Tanggal Pengiriman Barang / Jasa
+                </label>
+                <input type="date" id="modal_jadwal_pengiriman_bl" name="jadwal_pengiriman" value="{{ date('Y-m-d', strtotime('+7 days')) }}" class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20">
+            </div>
+
+            <div>
+                <label for="modal_file_kwitansi" class="block text-xs font-bold text-slate-700 mb-1">
+                    Unggah Berkas Kwitansi / Nota Pembelian (PDF/Gambar)
+                </label>
+                <input type="file" id="modal_file_kwitansi" name="file_kwitansi_belanja" accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-teal-50 file:text-teal-700">
+            </div>
+
+            <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <button type="button" @click="$dispatch('close-modal', 'modal-belanja-langsung')" class="px-4 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">
+                    Batal
+                </button>
+                <button type="submit" class="px-5 py-2 rounded-xl bg-teal-600 text-xs font-bold text-white hover:bg-teal-700 shadow-sm transition">
+                    Simpan Belanja Langsung
+                </button>
+            </div>
+        </form>
+    </x-modal>
+
+    {{-- 9. Modal Eksekusi Belanja (PP / PPK) --}}
+    <x-modal id="modal-eksekusi-belanja" title="Eksekusi Kewenangan Belanja" subtitle="Konfirmasi eksekusi belanja oleh PP / PPK setelah persetujuan dokumen pengadaan" maxWidth="md">
+        <form action="{{ route('kontrak.eksekusi-belanja') }}" method="POST" class="space-y-4">
+            @csrf
+            <input type="hidden" name="nomor_paket" x-model="selectedPaket">
+
+            <p class="text-xs text-slate-600 leading-relaxed">
+                Anda akan mengeksekusi kewenangan belanja untuk paket pengadaan ini. Setelah dieksekusi, status paket beralih siap upload dokumen perikatan oleh PPBJ.
+            </p>
+
+            <div>
+                <label for="modal_catatan_belanja" class="block text-xs font-bold text-slate-700 mb-1">
+                    Catatan Pelaksanaan Belanja
+                </label>
+                <textarea id="modal_catatan_belanja" name="catatan_belanja" rows="3" placeholder="Contoh: Negosiasi dan pemesanan ke rekanan telah tuntas, siap penerbitan perikatan..." class="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20"></textarea>
+            </div>
+
+            <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <button type="button" @click="$dispatch('close-modal', 'modal-eksekusi-belanja')" class="px-4 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">
+                    Batal
+                </button>
+                <button type="submit" class="px-5 py-2 rounded-xl bg-[#213153] text-xs font-bold text-white hover:bg-slate-800 shadow-sm transition">
+                    Konfirmasi Eksekusi Belanja
                 </button>
             </div>
         </form>

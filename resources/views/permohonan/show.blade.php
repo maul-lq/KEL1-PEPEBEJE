@@ -6,13 +6,13 @@
 @php
     $st = strtolower((string) ($permohonan->status_permohonan ?? $permohonan->status ?? 'diajukan'));
     $currentStep = 1;
-    if (in_array($st, ['reviu_paralel', 'pending_anggaran', 'hold', 'perlu_revisi', 'revisi'])) $currentStep = 2;
-    elseif (in_array($st, ['disetujui', 'diproses_ppbj'])) $currentStep = 3;
-    elseif (in_array($st, ['reviu_dokumen'])) $currentStep = 4;
-    elseif (in_array($st, ['spk_terbit', 'kontrak'])) $currentStep = 5;
+    if (in_array($st, ['reviu_paralel', 'pending_anggaran', 'hold', 'perlu_revisi', 'revisi', 'menunggu_memo_cek_mak', 'menunggu_memo_ketersediaan_mak', 'menunggu_persetujuan_wadir2_dan_ppk'])) $currentStep = 2;
+    elseif (in_array($st, ['disetujui', 'diproses_ppbj', 'disetujui_wadir2_dan_ppk', 'paket_terdaftar'])) $currentStep = 3;
+    elseif (in_array($st, ['reviu_dokumen', 'menunggu_reviu_pp', 'menunggu_reviu_ppk'])) $currentStep = 4;
+    elseif (in_array($st, ['spk_terbit', 'kontrak', 'surat_pesanan_terbit', 'surat_kontrak_terbit', 'belanja_langsung', 'belanja_langsung_selesai'])) $currentStep = 5;
     elseif (in_array($st, ['pengingat_h2', 'pengiriman'])) $currentStep = 6;
     elseif (in_array($st, ['pemeriksaan_fisik', 'bast_terbit'])) $currentStep = 7;
-    elseif (in_array($st, ['selesai', 'sp2d_lunas'])) $currentStep = 8;
+    elseif (in_array($st, ['selesai', 'sp2d_lunas', 'cair'])) $currentStep = 8;
 @endphp
 
 <div class="mx-auto max-w-[1650px] space-y-6">

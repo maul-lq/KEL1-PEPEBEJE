@@ -15,7 +15,7 @@
                 </h1>
             </div>
             <p class="text-xs md:text-sm text-slate-500 mt-1">
-                Staf Tata Usaha Bidang II bertugas menelaah dan memeriksa kelengkapan fisik/digital naskah dinas Srikandi, KAK, dan Spesifikasi Teknis sebelum diteruskan kepada Wakil Direktur II.
+                Staf Tata Usaha Bidang II bertugas menelaah kelengkapan fisik/digital naskah dinas Srikandi, KAK, dan Spesifikasi Teknis, serta menerbitkan Memo Cek MAK ke Bagian Perencanaan.
             </p>
         </div>
 
@@ -27,7 +27,7 @@
         </div>
     </div>
 
-    <!-- 2. STEPPER SIKLUS PENGADAAN (TAHAP 2: VERIFIKASI PARALEL) -->
+    <!-- 2. STEPPER SIKLUS PENGADAAN (TAHAP 2: VERIFIKASI BERANTAI) -->
     <x-stepper-8-siklus :currentStep="2" status="reviu_paralel" />
 
     <!-- 3. KPI STAT CARDS -->
@@ -42,9 +42,9 @@
                      subtitle="Perlu verifikasi checklist" 
                      color="amber" />
 
-        <x-stat-card title="Diteruskan ke Wadir 2" 
+        <x-stat-card title="Memo Cek MAK Terbit" 
                      :value="\App\Models\VerifikasiParalel::where('role_verifikator', 'staff_bidang_2')->where('status_keputusan', 'disetujui')->count()" 
-                     subtitle="Telaah tuntas" 
+                     subtitle="Diteruskan ke Perencanaan" 
                      color="teal" />
     </div>
 
@@ -56,7 +56,7 @@
             </div>
             <h3 class="text-base font-bold text-[#213153]">Tidak Ada Antrean Berkas</h3>
             <p class="mt-1 text-xs text-slate-400 max-w-sm mx-auto">
-                Seluruh berkas usulan permohonan baru telah ditelaah dan diteruskan ke Wakil Direktur II.
+                Seluruh berkas usulan permohonan baru telah ditelaah dan diteruskan dengan Memo Cek MAK ke Bagian Perencanaan.
             </p>
         </div>
     @else
@@ -136,21 +136,33 @@
                             </label>
                         </div>
 
+                        <div>
+                            <label for="nomor_memo_cek_mak_{{ $p->nomor_surat }}" class="block text-xs font-bold text-slate-700 mb-1">
+                                Nomor Memo Cek MAK ke Bagian Perencanaan <span class="text-rose-500">*</span>
+                            </label>
+                            <input type="text" 
+                                   id="nomor_memo_cek_mak_{{ $p->nomor_surat }}" 
+                                   name="nomor_memo_cek_mak" 
+                                   value="MEMO-B2/MAK/{{ date('Ymd') }}/{{ rand(100, 999) }}" 
+                                   required 
+                                   class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-mono font-bold text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20" />
+                        </div>
+
                         <div class="space-y-1.5">
                             <label for="catatan_staff_{{ $p->nomor_surat }}" class="block text-xs font-bold text-slate-700">
-                                Catatan Hasil Telaah Staf Bidang II untuk Wadir II (Rekomendasi Disposisi)
+                                Catatan Hasil Telaah &amp; Instruksi Memo Cek MAK untuk Bagian Perencanaan
                             </label>
                             <textarea id="catatan_staff_{{ $p->nomor_surat }}" 
                                       name="catatan_staff" 
-                                      rows="2"
-                                      placeholder="Contoh: Berkas telah diverifikasi lengkap, spesifikasi server sesuai standar lab TIK. Direkomendasikan untuk disetujui."
+                                      rows="2" 
+                                      placeholder="Contoh: Berkas administrasi lengkap, mohon periksa dan alokasikan pagu MAK DIPA serta tetapkan PPK penanggung jawab..."
                                       class="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-800 placeholder-slate-400 focus:border-[#0969da] focus:outline-none focus:ring-2 focus:ring-[#0969da]/20"></textarea>
                         </div>
 
                         <div class="flex justify-end pt-2">
                             <button type="submit" 
                                     class="inline-flex items-center gap-2 rounded-xl bg-[#0969da] px-6 py-2.5 text-xs font-bold text-white shadow-md shadow-[#0969da]/20 hover:bg-blue-700 transition-all cursor-pointer">
-                                <span>Teruskan Telaah Berkas ke Wadir 2</span>
+                                <span>Kirim Memo Cek MAK ke Bagian Perencanaan</span>
                                 <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
                             </button>
                         </div>

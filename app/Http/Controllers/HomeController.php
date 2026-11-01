@@ -620,7 +620,11 @@ class HomeController extends Controller
 
         $permohonan = PermohonanPengadaan::findOrFail($validated['nomor_surat']);
 
-        if (! in_array($permohonan->status_permohonan, [PermohonanPengadaan::STATUS_DIAJUKAN, PermohonanPengadaan::STATUS_REVIU_PARALEL], true)) {
+        if (! in_array($permohonan->status_permohonan, [
+            PermohonanPengadaan::STATUS_DIAJUKAN,
+            PermohonanPengadaan::STATUS_REVIU_PARALEL,
+            PermohonanPengadaan::STATUS_MENUNGGU_ACC_WADIR_PPK,
+        ], true)) {
             return redirect()->route('verifikasi.wadir-2')
                 ->with('error', 'Permohonan yang telah disetujui atau diproses lanjut tidak dapat diubah keputusannya.');
         }
@@ -1044,19 +1048,27 @@ class HomeController extends Controller
 
         $nomorMemoMak = $validated['nomor_memo_ketersediaan_mak'] ?? ('MEMO-PRC/MAK/'.date('Ymd').'/'.rand(100, 999));
 
+        $nominalAlokasi = (float) $validated['nominal_alokasi'];
+
+        // Validasi ketersediaan saldo sisa pagu MAK sebelum alokasi
+        if ($nominalAlokasi > (float) $mak->sisa_pagu_mak) {
+            return redirect()->back()
+                ->with('error', 'Nominal alokasi melebihi sisa pagu MAK yang tersedia.');
+        }
+
         // Catat alokasi MAK
         AlokasiMAK::updateOrCreate(
             ['nomor_surat' => $permohonan->nomor_surat, 'kode_mak' => $mak->kode_mak],
-            ['nominal_alokasi' => $validated['nominal_alokasi']]
+            ['nominal_alokasi' => $nominalAlokasi]
         );
 
-            // Kurangi sisa pagu MAK
-            $mak->sisa_pagu_mak = max(0, (float) $mak->sisa_pagu_mak - $nominalAlokasi);
-            $mak->save();
+        // Kurangi sisa pagu MAK
+        $mak->sisa_pagu_mak = max(0, (float) $mak->sisa_pagu_mak - $nominalAlokasi);
+        $mak->save();
 
-            // Perbarui kode_mak dan status anggaran usulan
-            $permohonan->kode_mak = $mak->kode_mak;
-            $permohonan->status_anggaran = 'allocated';
+        // Perbarui kode_mak dan status anggaran usulan
+        $permohonan->kode_mak = $mak->kode_mak;
+        $permohonan->status_anggaran = 'allocated';
 
         // Catat keputusan ketersediaan MAK oleh Perencanaan
         $verifPerencanaan = VerifikasiParalel::firstOrCreate(

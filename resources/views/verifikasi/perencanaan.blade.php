@@ -85,6 +85,9 @@
                                 <div class="text-xs text-slate-500 mt-0.5">
                                     Unit: <strong class="text-slate-800">{{ $p->unit->nama_unit ?? $p->kode_unit }}</strong> &bull;
                                     Diajukan: {{ $p->tanggal_pengajuan ? date('d/m/Y', strtotime($p->tanggal_pengajuan)) : '-' }}
+                                    @if(!empty($p->nomor_memo_cek_mak))
+                                        &bull; Memo B2: <strong class="text-indigo-700 font-mono">{{ $p->nomor_memo_cek_mak }}</strong>
+                                    @endif
                                 </div>
                             </div>
                             <div class="text-right">
@@ -189,6 +192,36 @@
                                     </div>
                                 </div>
 
+                                <!-- Pilih 1 dari 4 Akun PPK Penerima Memo MAK -->
+                                <div class="space-y-1">
+                                    <label for="id_user_ppk_awal_{{ $p->nomor_surat }}" class="block text-xs font-bold text-slate-700">
+                                        Pilih 1 dari 4 Akun PPK Penerima Memo MAK
+                                    </label>
+                                    <select id="id_user_ppk_awal_{{ $p->nomor_surat }}" 
+                                            name="id_user_ppk_awal" 
+                                            class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2 text-xs font-medium focus:border-[#0969da] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0969da]/20">
+                                        <option value="">-- Pilih Pejabat Pembuat Komitmen (PPK) --</option>
+                                        @foreach($ppkUsers ?? [] as $ppk)
+                                            <option value="{{ $ppk->id_user }}" {{ (int) $p->id_user_ppk_awal === (int) $ppk->id_user ? 'selected' : '' }}>
+                                                {{ $ppk->nama }} ({{ $ppk->jabatan ?? 'PPK' }})
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+
+                                <!-- Nomor Memo Ketersediaan MAK -->
+                                <div class="space-y-1">
+                                    <label for="nomor_memo_ketersediaan_mak_{{ $p->nomor_surat }}" class="block text-xs font-bold text-slate-700">
+                                        Nomor Memo Ketersediaan MAK (Perencanaan ke Wadir 2 &amp; PPK)
+                                    </label>
+                                    <input type="text" 
+                                           id="nomor_memo_ketersediaan_mak_{{ $p->nomor_surat }}" 
+                                           name="nomor_memo_ketersediaan_mak" 
+                                           value="{{ $p->nomor_memo_ketersediaan_mak ?? ('MEMO-PRC/MAK/' . date('Y') . '/' . rand(100, 999)) }}"
+                                           placeholder="Contoh: MEMO-PRC/MAK/2026/001"
+                                           class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2 text-xs font-mono font-medium focus:border-[#0969da] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0969da]/20">
+                                </div>
+
                                 <!-- Catatan Perencanaan -->
                                 <div class="space-y-1 md:col-span-2">
                                     <label for="catatan_anggaran_{{ $p->nomor_surat }}" class="block text-xs font-bold text-slate-700">
@@ -197,7 +230,7 @@
                                     <textarea id="catatan_anggaran_{{ $p->nomor_surat }}" 
                                               name="catatan_anggaran" 
                                               rows="2" 
-                                              placeholder="Contoh: Menggunakan pagu BOPTN 2026, MAK telah dialokasikan penuh dan siap dieksekusi PPBJ."
+                                              placeholder="Contoh: Menggunakan pagu BOPTN 2026, MAK telah dialokasikan penuh dan siap diteruskan ke Wadir 2 & PPK."
                                               class="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-800 placeholder-slate-400 focus:border-[#0969da] focus:outline-none focus:ring-2 focus:ring-[#0969da]/20"></textarea>
                                 </div>
                             </div>
@@ -206,7 +239,7 @@
                                 <button type="submit" 
                                         class="inline-flex items-center gap-2 rounded-xl bg-[#0969da] px-6 py-2.5 text-xs font-bold text-white shadow-md shadow-[#0969da]/20 hover:bg-blue-700 transition-all cursor-pointer">
                                     <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                                    <span>Simpan Verifikasi Anggaran MAK</span>
+                                    <span>Teruskan Memo Ketersediaan MAK ke Wadir 2 &amp; PPK</span>
                                 </button>
                             </div>
                         </form>
@@ -412,6 +445,7 @@
                         <th class="px-4 py-3 text-right">Pagu Awal</th>
                         <th class="px-4 py-3 text-right">Sisa Pagu Bebas</th>
                         <th class="px-4 py-3 text-center">Status Akun</th>
+                        <th class="px-4 py-3 text-center">Aksi (Lock/Unlock)</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100">
@@ -436,6 +470,29 @@
                                     <span class="rounded-full bg-rose-100 px-2.5 py-0.5 text-[10px] font-bold text-rose-800">Terkunci</span>
                                 @else
                                     <span class="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-bold text-emerald-800">Terbuka</span>
+                                @endif
+                            </td>
+                            <td class="px-4 py-3 text-center whitespace-nowrap">
+                                @if($mak->is_locked)
+                                    <form action="{{ route('verifikasi.perencanaan.mak.unlock', $mak->kode_mak) }}" method="POST" class="inline">
+                                        @csrf
+                                        <button type="submit" 
+                                                title="Buka Kunci Rekening MAK"
+                                                class="inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 hover:bg-emerald-100 hover:border-emerald-400 transition-colors cursor-pointer">
+                                            <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>
+                                            <span>Buka Kunci (Unlock)</span>
+                                        </button>
+                                    </form>
+                                @else
+                                    <form action="{{ route('verifikasi.perencanaan.mak.lock', $mak->kode_mak) }}" method="POST" class="inline">
+                                        @csrf
+                                        <button type="submit" 
+                                                title="Kunci Rekening MAK"
+                                                class="inline-flex items-center gap-1 rounded-lg border border-rose-300 bg-rose-50 px-2.5 py-1 text-[11px] font-bold text-rose-700 hover:bg-rose-100 hover:border-rose-400 transition-colors cursor-pointer">
+                                            <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                                            <span>Kunci MAK (Lock)</span>
+                                        </button>
+                                    </form>
                                 @endif
                             </td>
                         </tr>

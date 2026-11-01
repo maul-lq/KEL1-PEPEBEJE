@@ -9,12 +9,27 @@
         $stepMap = [
             'terdaftar' => 3,
             'reviu_dokumen' => 4,
+            'menunggu_reviu_pp' => 4,
+            'menunggu_approval_ppk' => 4,
+            'menunggu_reviu_ppk' => 4,
             'perlu_perbaikan' => 4,
             'reviu_dokumen_disetujui' => 4,
+            'disetujui_ppk_siap_belanja_pp' => 5,
+            'siap_upload_dokumen_ppbj' => 5,
+            'belanja_langsung' => 5,
+            'belanja_langsung_selesai' => 5,
             'spk_terbit' => 5,
+            'surat_pesanan_terbit' => 5,
+            'surat_kontrak_terbit' => 5,
+            'pengiriman' => 6,
+            'bast_terbit' => 7,
+            'spp_terbit' => 8,
+            'pencairan' => 8,
+            'sp2d_lunas' => 8,
             'selesai' => 8,
         ];
         $currentStep = $stepMap[$paket->status_paket] ?? 3;
+        $isBelanjaLangsung = $paket->jalur_routing === 'langsung_sd_50jt' || (float)($paket->nilai_hps ?: $paket->alokasi_pagu_paket) <= 50000000;
     @endphp
 
     {{-- 1. Stepper 8 Siklus --}}
@@ -36,7 +51,7 @@
                 </p>
             </div>
 
-            <div class="flex items-center gap-2.5 shrink-0">
+            <div class="flex items-center gap-2.5 shrink-0 flex-wrap">
                 <a
                     href="{{ route('paket.index') }}"
                     class="px-4 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
@@ -44,13 +59,56 @@
                     &larr; Kembali
                 </a>
 
-                <a
-                    href="{{ route('kontrak.index') }}"
-                    class="px-4 py-2 rounded-xl bg-[#0969da] text-xs font-bold text-white hover:bg-blue-700 shadow-sm transition inline-flex items-center gap-1.5"
-                >
-                    <span>Modul Kontrak / SPK</span>
-                    <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
-                </a>
+                @if($isBelanjaLangsung)
+                    @if($paket->nomor_kwitansi_belanja)
+                        <span class="px-3.5 py-2 rounded-xl bg-teal-50 border border-teal-200 text-teal-800 text-xs font-bold inline-flex items-center gap-1.5">
+                            <svg class="size-4 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            Kwitansi Sah: {{ $paket->nomor_kwitansi_belanja }}
+                        </span>
+                    @elseif(Auth::user() && in_array(Auth::user()->role, ['ppbj', 'admin']))
+                        <a
+                            href="{{ route('paket.index') }}"
+                            class="px-4 py-2 rounded-xl bg-teal-600 text-xs font-bold text-white hover:bg-teal-700 shadow-sm transition inline-flex items-center gap-1.5"
+                        >
+                            <span>Eksekusi Belanja Langsung</span>
+                            <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                        </a>
+                    @endif
+                @else
+                    @if(Auth::user() && Auth::user()->role === 'pp' && in_array($paket->status_paket, [\App\Models\PaketPengadaan::STATUS_DISETUJUI_PPK_SIAP_BELANJA_PP, 'reviu_dokumen_disetujui']))
+                        <form action="{{ route('kontrak.eksekusi-belanja') }}" method="POST" class="inline">
+                            @csrf
+                            <input type="hidden" name="nomor_paket" value="{{ $paket->nomor_paket }}">
+                            <button
+                                type="submit"
+                                class="px-4 py-2 rounded-xl bg-amber-600 text-xs font-bold text-white hover:bg-amber-700 shadow-sm transition inline-flex items-center gap-1.5"
+                            >
+                                <span>Eksekusi Belanja PP</span>
+                                <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            </button>
+                        </form>
+                    @elseif(Auth::user() && Auth::user()->role === 'ppk' && $paket->jalur_routing === 'ppk_diatas_200jt' && in_array($paket->status_paket, [\App\Models\PaketPengadaan::STATUS_MENUNGGU_APPROVAL_PPK, 'reviu_dokumen_disetujui']))
+                        <form action="{{ route('kontrak.eksekusi-belanja') }}" method="POST" class="inline">
+                            @csrf
+                            <input type="hidden" name="nomor_paket" value="{{ $paket->nomor_paket }}">
+                            <button
+                                type="submit"
+                                class="px-4 py-2 rounded-xl bg-purple-600 text-xs font-bold text-white hover:bg-purple-700 shadow-sm transition inline-flex items-center gap-1.5"
+                            >
+                                <span>Eksekusi Belanja PPK</span>
+                                <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            </button>
+                        </form>
+                    @else
+                        <a
+                            href="{{ route('kontrak.index') }}"
+                            class="px-4 py-2 rounded-xl bg-[#0969da] text-xs font-bold text-white hover:bg-blue-700 shadow-sm transition inline-flex items-center gap-1.5"
+                        >
+                            <span>Modul Dokumen Perikatan / SPK</span>
+                            <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                        </a>
+                    @endif
+                @endif
             </div>
         </div>
 
@@ -172,23 +230,42 @@
         <h3 class="text-sm font-bold text-[#213153] mb-4">Dokumen Rangkaian Siklus Pengadaan</h3>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-            {{-- Dokumen SPK --}}
+            {{-- Dokumen Perikatan / Kwitansi --}}
             <div class="p-4 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col justify-between">
                 <div>
-                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tahap 5: Kontrak SPK</span>
-                    <h4 class="text-sm font-bold text-slate-800 mt-1">
-                        {{ $paket->kontrakSpk->nomor_spk ?? 'Belum Diterbitkan' }}
-                    </h4>
-                    @if($paket->kontrakSpk)
-                        <p class="text-xs text-slate-500 mt-1">Nilai Kontrak: Rp {{ number_format($paket->kontrakSpk->nilai_kontrak, 0, ',', '.') }}</p>
+                    @if($isBelanjaLangsung)
+                        <span class="text-[10px] font-bold uppercase tracking-wider text-teal-600">Tahap 5: Belanja Langsung (Kwitansi)</span>
+                        <h4 class="text-sm font-bold text-slate-800 mt-1">
+                            {{ $paket->nomor_kwitansi_belanja ?? 'Belum Ada Kwitansi' }}
+                        </h4>
+                        <p class="text-xs text-slate-500 mt-1">
+                            Realisasi: Rp {{ number_format($paket->nominal_harga_akhir ?: $paket->nilai_hps, 0, ',', '.') }}
+                        </p>
+                        @if($paket->file_kwitansi_belanja)
+                            <a href="{{ asset('storage/' . $paket->file_kwitansi_belanja) }}" target="_blank" class="text-[11px] text-teal-700 underline mt-1 block font-semibold">
+                                Unduh Kwitansi Pembelian (PDF/Foto)
+                            </a>
+                        @endif
                     @else
-                        <p class="text-xs text-slate-400 mt-1">Menunggu penelaahan reviu teknis atau penerbitan SPK.</p>
+                        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tahap 5: Dokumen Perikatan</span>
+                        <h4 class="text-sm font-bold text-slate-800 mt-1">
+                            {{ $paket->kontrakSpk->nomor_spk ?? 'Belum Diterbitkan' }}
+                        </h4>
+                        @if($paket->kontrakSpk)
+                            <p class="text-xs text-slate-500 mt-1">Tipe: {{ strtoupper($paket->kontrakSpk->tipe_dokumen ?? 'SPK') }} &bull; Nilai: Rp {{ number_format($paket->kontrakSpk->nilai_kontrak, 0, ',', '.') }}</p>
+                        @else
+                            <p class="text-xs text-slate-400 mt-1">Menunggu penelaahan reviu teknis atau penerbitan SPK.</p>
+                        @endif
                     @endif
                 </div>
                 <div class="mt-4 pt-3 border-t border-slate-200/60">
-                    <a href="{{ route('kontrak.index') }}" class="text-xs font-bold text-[#0969da] hover:underline">
-                        Buka Modul SPK &rarr;
-                    </a>
+                    @if(! $isBelanjaLangsung)
+                        <a href="{{ route('kontrak.index') }}" class="text-xs font-bold text-[#0969da] hover:underline">
+                            Buka Modul Dokumen Perikatan &rarr;
+                        </a>
+                    @else
+                        <span class="text-xs text-slate-400">Kwitansi sah Belanja Langsung</span>
+                    @endif
                 </div>
             </div>
 

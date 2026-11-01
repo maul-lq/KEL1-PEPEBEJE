@@ -96,18 +96,40 @@
             @csrf
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-                <div class="md:col-span-2">
-                    <label for="nomor_kontrak_spk" class="block text-xs font-bold text-slate-700 mb-1">
-                        Pilih Kontrak SPK yang Barang Kirimannya Siap Diperiksa <span class="text-rose-500">*</span>
-                    </label>
-                    <select id="nomor_kontrak_spk" name="nomor_kontrak_spk" required class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 font-mono focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
-                        <option value="">-- Pilih Kontrak SPK Hasil Pengadaan --</option>
-                        @foreach($kontrakList as $k)
-                            <option value="{{ $k->nomor_kontrak_spk ?? $k->nomor_spk }}">
-                                [{{ $k->nomor_kontrak_spk ?? $k->nomor_spk }}] Paket: {{ $k->nomor_paket }} &bull; Nilai: Rp {{ number_format($k->nilai_kontrak, 0, ',', '.') }} ({{ $k->paket->vendor->nama_vendor ?? '-' }})
-                            </option>
-                        @endforeach
-                    </select>
+                <div class="md:col-span-2 space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">
+                            Pilih Sumber Pengadaan untuk Pemeriksaan Fisik &amp; BAST <span class="text-rose-500">*</span>
+                        </label>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {{-- Opsi A: Kontrak / SPK (>50jt) --}}
+                            <div class="p-4 rounded-xl border border-slate-200 bg-white space-y-2">
+                                <span class="text-xs font-bold text-[#213153] block">Opsi A: Paket dengan Dokumen Perikatan (&gt; Rp 50 Juta)</span>
+                                <select id="nomor_kontrak_spk" name="nomor_kontrak_spk" class="w-full h-10 rounded-lg border border-slate-200 text-xs text-slate-800 bg-white px-2 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
+                                    <option value="">-- Pilih Kontrak / SPK / Surat Pesanan --</option>
+                                    @foreach($kontrakList as $k)
+                                        <option value="{{ $k->nomor_kontrak_spk ?? $k->nomor_spk }}">
+                                            [{{ strtoupper($k->tipe_dokumen ?? 'SPK') }}: {{ $k->nomor_spk }}] Paket: {{ $k->nomor_paket }} &bull; Rp {{ number_format($k->nilai_kontrak, 0, ',', '.') }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            {{-- Opsi B: Belanja Langsung (<=50jt) --}}
+                            <div class="p-4 rounded-xl border border-teal-200 bg-teal-50/50 space-y-2">
+                                <span class="text-xs font-bold text-[#087F79] block">Opsi B: Paket Belanja Langsung (&le; Rp 50 Juta)</span>
+                                <select id="nomor_paket" name="nomor_paket" class="w-full h-10 rounded-lg border border-teal-200 text-xs text-slate-800 bg-white px-2 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20">
+                                    <option value="">-- Pilih Paket Belanja Langsung Siap BAST --</option>
+                                    @foreach($belanjaLangsungList as $bl)
+                                        <option value="{{ $bl->nomor_paket }}">
+                                            [{{ $bl->nomor_paket }}] Kwitansi: {{ $bl->nomor_kwitansi_belanja ?? '-' }} &bull; Rp {{ number_format($bl->nilai_hps, 0, ',', '.') }} ({{ $bl->vendor->nama_vendor ?? '-' }})
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+                        <p class="text-[11px] text-slate-400 mt-1">*Pilih salah satu: Opsi A jika paket bernilai &gt; Rp 50 Juta (berdokumen perikatan), atau Opsi B jika paket Belanja Langsung &le; Rp 50 Juta.</p>
+                    </div>
                 </div>
 
                 <div>
@@ -251,7 +273,7 @@
 
                                 <td class="px-5 py-4">
                                     <span class="font-mono font-semibold text-slate-800 block">{{ $b->nomor_paket }}</span>
-                                    <span class="text-[11px] text-slate-400 font-mono mt-0.5 block">{{ $b->nomor_kontrak_spk }}</span>
+                                    <span class="text-[11px] text-slate-400 font-mono mt-0.5 block">{{ $b->nomor_kontrak_spk ?: ($b->paket && $b->paket->nomor_kwitansi_belanja ? 'Kwitansi: ' . $b->paket->nomor_kwitansi_belanja : 'Belanja Langsung') }}</span>
                                 </td>
 
                                 <td class="px-5 py-4 text-slate-600">
