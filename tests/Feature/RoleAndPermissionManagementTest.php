@@ -52,7 +52,7 @@ class RoleAndPermissionManagementTest extends TestCase
         $this->actingAs($this->admin);
         $allowedResponse = $this->get(route('admin.roles.index'));
         $allowedResponse->assertOk();
-        $allowedResponse->assertViewIs('admin.tes_roles');
+        $allowedResponse->assertViewIs('admin.roles');
         $allowedResponse->assertSee('Manajemen Role');
     }
 
@@ -325,9 +325,9 @@ class RoleAndPermissionManagementTest extends TestCase
         $dashboardResponse = $this->get(route('dashboard'));
         $dashboardResponse->assertOk();
         $dashboardResponse->assertSee('Si Paling Rajin (SIRAJIN)');
-        $dashboardResponse->assertSee('Daftar Paket Pengadaan');
-        $dashboardResponse->assertSee('Verifikasi Anggaran MAK');
-        $dashboardResponse->assertSee('Manajemen Role');
+        $dashboardResponse->assertSee('Paket Pengadaan');
+        $dashboardResponse->assertSee('Verifikasi MAK & Pagu');
+        $dashboardResponse->assertSee('Master Role & Hak Akses');
 
         // 4. Akses rute yang diizinkan via CheckRole middleware (memetakan permission ke rute)
         // Rute /paket-pengadaan dilindungi role:ppbj,pp,ppk -> role sirajin memiliki paket.view_all

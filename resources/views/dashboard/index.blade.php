@@ -12,7 +12,11 @@
                 <div class="flex items-center gap-2 mb-2">
                     <span class="inline-flex items-center gap-1.5 rounded-full bg-[#0969da]/10 px-3 py-1 text-xs font-semibold text-[#0969da]">
                         <span class="size-2 rounded-full bg-[#0969da] animate-pulse"></span>
-                        Dashboard {{ strtoupper(str_replace('_', ' ', $user->role ?? Auth::user()->role ?? 'user')) }}
+                        @if(($user->roleEntity ?? Auth::user()?->roleEntity) && !($user->roleEntity ?? Auth::user()?->roleEntity)->is_system)
+                            {{ ($user->roleEntity ?? Auth::user()?->roleEntity)->label }} ({{ strtoupper($user->role ?? Auth::user()->role) }})
+                        @else
+                            Dashboard {{ strtoupper(str_replace('_', ' ', $user->role ?? Auth::user()->role ?? 'user')) }}
+                        @endif
                     </span>
                     <span class="text-xs text-slate-400 font-medium">• {{ date('d F Y') }}</span>
                 </div>

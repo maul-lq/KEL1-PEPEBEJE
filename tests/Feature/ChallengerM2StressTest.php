@@ -69,24 +69,10 @@ function createStressUser(string $role, array $attributes = []): User
 }
 
 // =========================================================================
-// 1. DUAL VIEWMODE VERIFICATION ACROSS ALL 10 ROLES
+// 1. DASHBOARD VIEW VERIFICATION ACROSS ALL 10 ROLES
 // =========================================================================
 
-test('all 10 roles render HTTP 200 without 500 error in DEV_VIEWMODE=backend', function () {
-    config(['app.dev_viewmode' => 'backend']);
-
-    $roles = ['admin', 'user', 'staff_bidang_2', 'wadir_2', 'perencanaan', 'ppbj', 'pp', 'ppk', 'perlengkapan', 'keuangan'];
-
-    foreach ($roles as $role) {
-        $user = createStressUser($role);
-        $response = $this->actingAs($user)->get(route('dashboard'));
-        $response->assertOk();
-    }
-});
-
-test('all 10 roles render HTTP 200 without 500 error in DEV_VIEWMODE=frontend', function () {
-    config(['app.dev_viewmode' => 'frontend']);
-
+test('all 10 roles render HTTP 200 without 500 error on dashboard', function () {
     $roles = ['admin', 'user', 'staff_bidang_2', 'wadir_2', 'perencanaan', 'ppbj', 'pp', 'ppk', 'perlengkapan', 'keuangan'];
 
     foreach ($roles as $role) {

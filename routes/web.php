@@ -52,12 +52,6 @@ Route::middleware('guest')->group(function () {
     Route::get('/reset-password/{token}', [AuthController::class, 'showResetPasswordForm'])->name('password.reset');
     Route::post('/reset-password', [AuthController::class, 'resetPassword'])->name('password.update');
 
-    // Backward-compatibility aliases untuk rute pengujian sebelumnya
-    Route::get('/tes-login', [AuthController::class, 'showLoginForm']);
-    Route::post('/tes-login', [AuthController::class, 'login']);
-    Route::get('/tes-registrasi', [AuthController::class, 'showRegistrationForm']);
-    Route::post('/tes-registrasi', [AuthController::class, 'register']);
-
     // Otentikasi Masuk Google OAuth (Laravel Socialite)
     Route::get('/auth/google', [GoogleAuthController::class, 'redirectToGoogle'])->name('auth.google');
     Route::get('/auth/google/callback', [GoogleAuthController::class, 'handleGoogleCallback'])->name('auth.google.callback');
@@ -239,23 +233,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/dokumen-pdf/{jenis}/{id}', [HomeController::class, 'unduhDokumenPdf'])
         ->name('dokumen.pdf')
         ->where(['id' => '.*']);
-
-    // -------------------------------------------------------------------------
-    // Backward-Compatibility Aliases (Menjaga Kompatibilitas Tautan Pengujian Lama)
-    // -------------------------------------------------------------------------
-    Route::get('/tes-home', fn () => redirect()->route('dashboard'))->name('home');
-    Route::get('/tes-permohonan', [HomeController::class, 'permohonanIndex'])->name('permohonan.web');
-    Route::post('/tes-permohonan', [HomeController::class, 'storePermohonan'])->name('permohonan.web.store');
-    Route::post('/tes-permohonan/revisi', [HomeController::class, 'revisiPermohonan'])->name('permohonan.web.revisi');
-    Route::get('/tes-monitoring', [HomeController::class, 'monitoringIndex'])->name('monitoring.web');
-    Route::get('/tes-paket', [HomeController::class, 'paketIndex'])->name('paket.web');
-    Route::post('/tes-paket', [HomeController::class, 'storePaket'])->name('paket.web.store')->middleware('role:ppbj');
-    Route::post('/tes-paket/reassign-ppk', [HomeController::class, 'reassignPpkWeb'])->name('paket.web.reassign')->middleware('role:ppbj');
-    Route::get('/tes-verifikasi-b2', [HomeController::class, 'verifikasiBidang2'])->name('verifikasi-b2.web')->middleware('role:staff_bidang_2');
-    Route::post('/tes-verifikasi-b2/teruskan-staff', [HomeController::class, 'teruskanStaffB2'])->name('verifikasi-b2.web.teruskan')->middleware('role:staff_bidang_2');
-    Route::post('/tes-verifikasi-b2/keputusan-wadir', [HomeController::class, 'keputusanWadir2'])->name('verifikasi-b2.web.keputusan')->middleware('role:wadir_2');
-    Route::get('/tes-unduh-pdf/{jenis}/{id}', [HomeController::class, 'unduhDokumenPdf'])->name('unduh.pdf.web')->where(['id' => '.*']);
-    Route::post('/tes-logout', [AuthController::class, 'logout']);
 
     // -------------------------------------------------------------------------
     // Modul Profil Pengguna & Penautan Akun Google (Google Account Linking)

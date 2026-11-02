@@ -121,17 +121,10 @@ class PermohonanAndVerifikasiTest extends TestCase
     /**
      * 1. Halaman permohonan create dapat diakses pada kedua viewmode (backend & frontend).
      */
-    public function test_permohonan_create_page_renders_in_both_viewmodes(): void
+    public function test_permohonan_create_page_renders_successfully(): void
     {
         $this->actingAs($this->userPemohon);
 
-        // Mode backend
-        config(['app.dev_viewmode' => 'backend']);
-        $respBackend = $this->get(route('permohonan.create'));
-        $respBackend->assertStatus(200);
-
-        // Mode frontend
-        config(['app.dev_viewmode' => 'frontend']);
         $respFrontend = $this->get(route('permohonan.create'));
         $respFrontend->assertStatus(200);
         $respFrontend->assertSee('Ajukan Usulan Pengadaan Baru');

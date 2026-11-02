@@ -246,13 +246,13 @@
                 </main>
             </div>
 
-            <!-- Panel Akses Cepat untuk Pengujian Manual Overseer -->
+            {{-- Panel Akses Cepat Direktori Akun Dinas --}}
             <section class="rounded-[10px] border border-slate-200 bg-white/95 p-6 shadow-md backdrop-blur-sm">
                 <h3 class="text-xl font-bold text-slate-800">
-                    Panel Bantuan Pengujian Manual
+                    Direktori Akun Dinas Pengguna Resmi Politeknik Negeri Jakarta
                 </h3>
                 <p class="mt-1 text-sm text-slate-600 mb-4">
-                    <em>Klik tombol <strong>"Gunakan Akun Ini"</strong> pada kentang goreng.</em>
+                    Sistem Informasi Manajemen Pengadaan Barang dan Jasa (SIM-PBJ) &mdash; <em>Klik tombol <strong>"Gunakan Akun Ini"</strong> untuk mengisi form secara instan.</em>
                 </p>
 
                 <div class="overflow-x-auto">

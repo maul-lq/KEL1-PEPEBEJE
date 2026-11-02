@@ -147,26 +147,25 @@ class HomeController extends Controller
             ],
             'staff_bidang_2' => [
                 'stats' => [
-                    'menunggu_telaah' => PermohonanPengadaan::where('status_permohonan', 'diajukan')->count(),
+                    'menunggu_telaah' => PermohonanPengadaan::whereIn('status_permohonan', ['diajukan', PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2])->count(),
                     'reviu_paralel' => PermohonanPengadaan::where('status_permohonan', 'reviu_paralel')->count(),
-                    'selesai_telaah' => VerifikasiParalel::where('role_verifikator', 'staff_bidang_2')->where('status_keputusan', 'disetujui')->count(),
                     'total_berkas' => PermohonanPengadaan::count(),
                 ],
                 'antrean_telaah' => PermohonanPengadaan::with(['unit', 'user'])
-                    ->where('status_permohonan', 'diajukan')
+                    ->whereIn('status_permohonan', ['diajukan', PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2])
                     ->latest('tanggal_pengajuan')
                     ->take(5)
                     ->get(),
             ],
             'wadir_2' => [
                 'stats' => [
-                    'menunggu_persetujuan' => PermohonanPengadaan::whereIn('status_permohonan', ['diajukan', 'reviu_paralel'])->count(),
+                    'menunggu_persetujuan' => PermohonanPengadaan::whereIn('status_permohonan', ['diajukan', PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2, PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN, PermohonanPengadaan::STATUS_MENUNGGU_ACC_WADIR_PPK, 'reviu_paralel'])->count(),
                     'memo_bayar_pending' => MemoBayar::where('role_approver', 'wadir_2')->where('status_memo', 'diajukan')->count(),
                     'total_disetujui' => PermohonanPengadaan::where('status_permohonan', 'disetujui')->count(),
                     'total_ditolak' => PermohonanPengadaan::where('status_permohonan', 'ditolak')->count(),
                 ],
                 'antrean_disposisi' => PermohonanPengadaan::with(['unit', 'user'])
-                    ->whereIn('status_permohonan', ['diajukan', 'reviu_paralel'])
+                    ->whereIn('status_permohonan', ['diajukan', PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2, PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN, PermohonanPengadaan::STATUS_MENUNGGU_ACC_WADIR_PPK, 'reviu_paralel'])
                     ->latest('tanggal_pengajuan')
                     ->take(5)
                     ->get(),
@@ -317,7 +316,7 @@ class HomeController extends Controller
         $permohonanList = $query->latest('tanggal_pengajuan')->paginate(15);
         $units = Unit::all();
 
-        return view('permohonan.tes_index', compact('permohonanList', 'user', 'units'));
+        return view('permohonan.index', compact('permohonanList', 'user', 'units'));
     }
 
     /**
@@ -343,7 +342,7 @@ class HomeController extends Controller
     {
         $units = Unit::all();
 
-        return view('permohonan.tes_create', compact('units'));
+        return view('permohonan.create', compact('units'));
     }
 
     /**
@@ -397,11 +396,23 @@ class HomeController extends Controller
             'status' => PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
         ]);
 
-        // Inisialisasi antrean awal khusus untuk Staf Bidang 2 (alur berantai: User -> Bidang 2 -> Perencanaan -> Wadir 2 & PPK)
+        // Inisialisasi antrean telaah untuk Wadir 2, Perencanaan, dan pemantauan Staf Bidang 2
         VerifikasiParalel::create([
             'id_user' => $user->id_user,
             'nomor_surat' => $permohonan->nomor_surat,
             'role_verifikator' => VerifikasiParalel::ROLE_STAFF_BIDANG_2,
+            'status_keputusan' => 'menunggu',
+        ]);
+        VerifikasiParalel::create([
+            'id_user' => $user->id_user,
+            'nomor_surat' => $permohonan->nomor_surat,
+            'role_verifikator' => VerifikasiParalel::ROLE_WADIR_2,
+            'status_keputusan' => 'menunggu',
+        ]);
+        VerifikasiParalel::create([
+            'id_user' => $user->id_user,
+            'nomor_surat' => $permohonan->nomor_surat,
+            'role_verifikator' => VerifikasiParalel::ROLE_PERENCANAAN,
             'status_keputusan' => 'menunggu',
         ]);
 
@@ -661,7 +672,7 @@ class HomeController extends Controller
             ->latest('tanggal_pengajuan')
             ->get();
 
-        return view('verifikasi.tes_bidang_2', compact('permohonanMasuk'));
+        return view('verifikasi.bidang_2', compact('permohonanMasuk'));
     }
 
     /**
@@ -735,13 +746,15 @@ class HomeController extends Controller
         $permohonanAntrean = PermohonanPengadaan::with(['unit', 'user', 'ppkAwal', 'verifikasiParalel'])
             ->whereIn('status_permohonan', [
                 'diajukan',
+                PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
+                PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN,
                 PermohonanPengadaan::STATUS_MENUNGGU_ACC_WADIR_PPK,
                 PermohonanPengadaan::STATUS_REVIU_PARALEL,
             ])
             ->latest('tanggal_pengajuan')
             ->get();
 
-        return view('verifikasi.tes_wadir_2', compact('permohonanAntrean'));
+        return view('verifikasi.wadir_2', compact('permohonanAntrean'));
     }
 
     /**
@@ -763,6 +776,8 @@ class HomeController extends Controller
 
         if (! in_array($permohonan->status_permohonan, [
             PermohonanPengadaan::STATUS_DIAJUKAN,
+            PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
+            PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN,
             PermohonanPengadaan::STATUS_REVIU_PARALEL,
             PermohonanPengadaan::STATUS_MENUNGGU_ACC_WADIR_PPK,
         ], true)) {
@@ -777,7 +792,7 @@ class HomeController extends Controller
         );
         $verifWadir->id_user = $user->id_user;
         $verifWadir->status_keputusan = $validated['keputusan'];
-        $verifWadir->catatan_alasan = $validated['catatan_alasan'];
+        $verifWadir->catatan_alasan = $validated['catatan_alasan'] ?? null;
         $verifWadir->tanggal_keputusan = now();
         $verifWadir->save();
 
@@ -901,7 +916,7 @@ class HomeController extends Controller
             ->latest('tanggal_pengajuan')
             ->get();
 
-        return view('verifikasi.tes_ppk', compact('permohonanAntrean'));
+        return view('verifikasi.ppk', compact('permohonanAntrean'));
     }
 
     /**
@@ -1039,7 +1054,7 @@ class HomeController extends Controller
         $makList = AnggaranMAK::orderBy('kode_mak')->get();
         $ppkUsers = User::where('role', 'ppk')->where('status_aktif', true)->get();
 
-        return view('verifikasi.tes_perencanaan', compact('permohonanAntrean', 'makList', 'ppkUsers'));
+        return view('verifikasi.perencanaan', compact('permohonanAntrean', 'makList', 'ppkUsers'));
     }
 
     /**
@@ -1522,7 +1537,7 @@ class HomeController extends Controller
             ->get();
         $vendors = Vendor::all();
 
-        return view('paket.tes_index', compact('paketList', 'ppkUsers', 'riwayatPenugasan', 'permohonanDisetujui', 'vendors'));
+        return view('paket.index', compact('paketList', 'ppkUsers', 'riwayatPenugasan', 'permohonanDisetujui', 'vendors'));
     }
 
     /**
@@ -1605,7 +1620,7 @@ class HomeController extends Controller
         $ppUsers = User::where('role', 'pp')->where('status_aktif', true)->get();
         $vendors = Vendor::all();
 
-        return view('paket.tes_create', compact('permohonanDisetujui', 'ppkUsers', 'ppUsers', 'vendors'));
+        return view('paket.create', compact('permohonanDisetujui', 'ppkUsers', 'ppUsers', 'vendors'));
     }
 
     /**
@@ -1950,7 +1965,7 @@ class HomeController extends Controller
             PaketPengadaan::STATUS_SIAP_UPLOAD_DOKUMEN_PPBJ,
         ])->get();
 
-        return view('kontrak.tes_index', compact('paketList', 'kontrakList', 'vendors', 'paketReviu'));
+        return view('kontrak.index', compact('paketList', 'kontrakList', 'vendors', 'paketReviu'));
     }
 
     /**
@@ -2269,7 +2284,7 @@ class HomeController extends Controller
             ->get();
         $bastList = PenerimaanBarang::with(['kontrak', 'paket'])->latest()->paginate(15);
 
-        return view('penerimaan.tes_index', compact('kontrakList', 'belanjaLangsungList', 'bastList'));
+        return view('penerimaan.index', compact('kontrakList', 'belanjaLangsungList', 'bastList'));
     }
 
     /**

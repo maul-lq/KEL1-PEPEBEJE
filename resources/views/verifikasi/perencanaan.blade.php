@@ -421,7 +421,7 @@
     <div class="rounded-2xl border border-slate-200/80 bg-white p-6 md:p-7 shadow-xs space-y-6">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
             <div>
-                <h2 class="text-lg font-bold text-[#213153]">Katalog Master Mata Anggaran Kegiatan (MAK) DIPA PNJ</h2>
+                <h2 class="text-lg font-bold text-[#213153]">Katalog Master Mata Anggaran Kegiatan (MAK) DIPA PNJ &amp; Kontrol Kunci / Buka Kunci MAK (Eksklusif Perencanaan)</h2>
                 <p class="text-xs text-slate-500">Daftar rekening pagu anggaran institusi beserta status keterkuncian akun.</p>
             </div>
 

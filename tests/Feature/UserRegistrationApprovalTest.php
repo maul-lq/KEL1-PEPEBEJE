@@ -131,8 +131,8 @@ class UserRegistrationApprovalTest extends TestCase
         $this->actingAs($this->admin);
         $allowedResponse = $this->get(route('admin.persetujuan-registrasi.index'));
         $allowedResponse->assertOk();
-        $allowedResponse->assertViewIs('admin.tes_approval_registrasi');
-        $allowedResponse->assertSee('Antrean Pendaftar Akun Menunggu Persetujuan');
+        $allowedResponse->assertViewIs('admin.approval_registrasi');
+        $allowedResponse->assertSee('Persetujuan Registrasi Pengguna Baru');
     }
 
     /**

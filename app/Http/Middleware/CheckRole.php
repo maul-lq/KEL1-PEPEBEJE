@@ -36,7 +36,6 @@ class CheckRole
         ],
         'staff_bidang_2' => [
             'verifikasi.bidang_2_view',
-            'verifikasi.bidang_2_teruskan',
         ],
         'wadir_2' => [
             'verifikasi.wadir_2_view',

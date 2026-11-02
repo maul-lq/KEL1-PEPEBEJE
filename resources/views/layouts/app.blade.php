@@ -51,6 +51,7 @@
         @php
             $headerNotifs = \App\Models\NotifikasiUser::with('reminder')
                 ->where('id_user', Auth::id())
+                ->where('is_read', false)
                 ->latest()
                 ->take(5)
                 ->get();
@@ -213,7 +214,11 @@
                                 {{ Auth::user()->unit->nama_unit ?? Auth::user()->jabatan ?? 'Pegawai Dinas' }}
                             </p>
                             <span class="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-[#0969da] uppercase tracking-wide mt-1.5">
-                                {{ str_replace('_', ' ', Auth::user()->role) }}
+                                @if(Auth::user()->roleEntity && !Auth::user()->roleEntity->is_system)
+                                    {{ Auth::user()->roleEntity->label }} ({{ strtoupper(Auth::user()->role) }})
+                                @else
+                                    {{ str_replace('_', ' ', Auth::user()->role) }}
+                                @endif
                             </span>
                         </div>
 
@@ -291,52 +296,60 @@
                 </a>
 
                 <!-- 2. ADMIN ONLY: RBAC, User CRUD & Master Management -->
-                @if(Auth::user()->hasRole('admin'))
-                    @php
-                        $pendingRegistrasiCount = \App\Models\User::where('status_registrasi', \App\Models\User::STATUS_REGISTRASI_MENUNGGU)->count();
-                    @endphp
-                    <a href="{{ route('admin.persetujuan-registrasi.index') }}" 
-                       title="Persetujuan Registrasi" 
-                       class="relative flex items-center justify-between rounded-[10px] p-2.5 transition-colors w-full {{ request()->routeIs('admin.persetujuan-registrasi.*') ? 'bg-[#0969da]/80 text-white font-semibold' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
-                        <div class="flex items-center gap-3 min-w-0">
+                @if(Auth::user()->hasRole('admin') || Auth::user()->hasAnyPermission(['admin.approval_registrasi', 'admin.user_manage', 'admin.role_manage']))
+                    @if(Auth::user()->hasRole('admin') || Auth::user()->hasPermission('admin.approval_registrasi'))
+                        @php
+                            $pendingRegistrasiCount = \App\Models\User::where('status_registrasi', \App\Models\User::STATUS_REGISTRASI_MENUNGGU)->count();
+                        @endphp
+                        <a href="{{ route('admin.persetujuan-registrasi.index') }}" 
+                           title="Persetujuan Registrasi" 
+                           class="relative flex items-center justify-between rounded-[10px] p-2.5 transition-colors w-full {{ request()->routeIs('admin.persetujuan-registrasi.*') ? 'bg-[#0969da]/80 text-white font-semibold' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                                </svg>
+                                <span x-show="sidebarExpanded" x-cloak class="text-sm font-medium whitespace-nowrap">Persetujuan Registrasi</span>
+                            </div>
+                            @if($pendingRegistrasiCount > 0)
+                                <span x-show="sidebarExpanded" x-cloak class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white">
+                                    {{ $pendingRegistrasiCount }}
+                                </span>
+                            @endif
+                        </a>
+                    @endif
+
+                    @if(Auth::user()->hasRole('admin') || Auth::user()->hasPermission('admin.user_manage'))
+                        <a href="{{ route('admin.users.index') }}" 
+                           title="Manajemen Pengguna" 
+                           class="relative flex items-center gap-3 rounded-[10px] p-2.5 transition-colors w-full {{ request()->routeIs('admin.users.*') ? 'bg-[#0969da]/80 text-white font-semibold' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
                             <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                             </svg>
-                            <span x-show="sidebarExpanded" x-cloak class="text-sm font-medium whitespace-nowrap">Persetujuan Registrasi</span>
-                        </div>
-                        @if($pendingRegistrasiCount > 0)
-                            <span x-show="sidebarExpanded" x-cloak class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white">
-                                {{ $pendingRegistrasiCount }}
-                            </span>
-                        @endif
-                    </a>
+                            <span x-show="sidebarExpanded" x-cloak class="text-sm font-medium whitespace-nowrap">Manajemen Pengguna</span>
+                        </a>
+                    @endif
 
-                    <a href="{{ route('admin.users.index') }}" 
-                       title="Manajemen Pengguna" 
-                       class="relative flex items-center gap-3 rounded-[10px] p-2.5 transition-colors w-full {{ request()->routeIs('admin.users.*') ? 'bg-[#0969da]/80 text-white font-semibold' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
-                        <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
-                        <span x-show="sidebarExpanded" x-cloak class="text-sm font-medium whitespace-nowrap">Manajemen Pengguna</span>
-                    </a>
+                    @if(Auth::user()->hasRole('admin') || Auth::user()->hasPermission('admin.role_manage'))
+                        <a href="{{ route('admin.roles.index') }}" 
+                           title="Master Role & Hak Akses" 
+                           class="relative flex items-center gap-3 rounded-[10px] p-2.5 transition-colors w-full {{ request()->routeIs('admin.roles.*') ? 'bg-[#0969da]/80 text-white font-semibold' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
+                            <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                            </svg>
+                            <span x-show="sidebarExpanded" x-cloak class="text-sm font-medium whitespace-nowrap">Master Role &amp; Hak Akses</span>
+                        </a>
+                    @endif
 
-                    <a href="{{ route('admin.roles.index') }}" 
-                       title="Master Role & Hak Akses" 
-                       class="relative flex items-center gap-3 rounded-[10px] p-2.5 transition-colors w-full {{ request()->routeIs('admin.roles.*') ? 'bg-[#0969da]/80 text-white font-semibold' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
-                        <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-                        </svg>
-                        <span x-show="sidebarExpanded" x-cloak class="text-sm font-medium whitespace-nowrap">Master Role &amp; Hak Akses</span>
-                    </a>
-
-                    <a href="{{ route('permohonan.index') }}" 
-                       title="Kelola / Hapus Pengajuan" 
-                       class="relative flex items-center gap-3 rounded-[10px] p-2.5 transition-colors w-full {{ request()->routeIs('permohonan.*') ? 'bg-[#0969da]/80 text-white font-semibold' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
-                        <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                        <span x-show="sidebarExpanded" x-cloak class="text-sm font-medium whitespace-nowrap">Kelola / Hapus Pengajuan</span>
-                    </a>
+                    @if(Auth::user()->hasRole('admin'))
+                        <a href="{{ route('permohonan.index') }}" 
+                           title="Kelola / Hapus Pengajuan" 
+                           class="relative flex items-center gap-3 rounded-[10px] p-2.5 transition-colors w-full {{ request()->routeIs('permohonan.*') ? 'bg-[#0969da]/80 text-white font-semibold' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
+                            <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            <span x-show="sidebarExpanded" x-cloak class="text-sm font-medium whitespace-nowrap">Kelola / Hapus Pengajuan</span>
+                        </a>
+                    @endif
                 @endif
 
                 <!-- 3. USER: Permohonan Pengadaan -->
@@ -357,7 +370,8 @@
                        title="Telaah Berkas Bidang II" 
                        class="relative flex items-center gap-3 rounded-[10px] p-2.5 transition-colors w-full {{ request()->routeIs('verifikasi.bidang-2*') ? 'bg-[#0969da]/80 text-white font-semibold' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
                         <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                         </svg>
                         <span x-show="sidebarExpanded" x-cloak class="text-sm font-medium whitespace-nowrap">Telaah Berkas Bidang II</span>
                     </a>
@@ -385,7 +399,7 @@
                 @endif
 
                 <!-- 6. PERENCANAAN -->
-                @if(Auth::user()->hasRole('perencanaan'))
+                @if(!Auth::user()->hasRole('admin') && (Auth::user()->hasRole('perencanaan') || Auth::user()->hasPermission('anggaran.mak_view')))
                     <a href="{{ route('verifikasi.perencanaan') }}" 
                        title="Verifikasi MAK & Pagu" 
                        class="relative flex items-center gap-3 rounded-[10px] p-2.5 transition-colors w-full {{ request()->routeIs('verifikasi.perencanaan*') ? 'bg-[#0969da]/80 text-white font-semibold' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
@@ -397,7 +411,7 @@
                 @endif
 
                 <!-- 7. PPBJ -->
-                @if(Auth::user()->hasRole('ppbj'))
+                @if(!Auth::user()->hasRole('admin') && (Auth::user()->hasRole('ppbj') || Auth::user()->hasPermission('paket.view_all')))
                     <a href="{{ route('paket.index') }}" 
                        title="Paket Pengadaan" 
                        class="relative flex items-center gap-3 rounded-[10px] p-2.5 transition-colors w-full {{ request()->routeIs('paket.*') ? 'bg-[#0969da]/80 text-white font-semibold' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">

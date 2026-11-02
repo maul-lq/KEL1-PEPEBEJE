@@ -7,7 +7,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
-test('public/build/manifest.json exists and maps all 4 required assets', function () {
+test('public/build/manifest.json exists and maps production assets', function () {
     $manifestPath = public_path('build/manifest.json');
     expect(file_exists($manifestPath))->toBeTrue("Manifest build tidak ditemukan di: {$manifestPath}");
 
@@ -17,8 +17,6 @@ test('public/build/manifest.json exists and maps all 4 required assets', functio
     $requiredAssets = [
         'resources/css/app.css',
         'resources/js/app.js',
-        'resources/css/tes_app.css',
-        'resources/js/tes_app.js',
     ];
 
     foreach ($requiredAssets as $assetKey) {
@@ -96,27 +94,7 @@ test('desktop notification manager is properly modularized and bundled in app.js
     expect($compiledJs)->toContain('/api/notifikasi-terbaru');
 });
 
-test('dual mode switching behaves correctly for backend and frontend view resolution', function () {
-    $finder = app('view.finder');
-
-    // 1. Mode Backend
-    config(['app.dev_viewmode' => 'backend']);
-    $dashboardBackend = $finder->find('dashboard.index');
-    expect(str_replace('\\', '/', $dashboardBackend))->toContain('tes_index.blade.php');
-
-    $notifBackend = $finder->find('notifikasi.index');
-    expect(str_replace('\\', '/', $notifBackend))->toContain('tes_index.blade.php');
-
-    // 2. Mode Frontend
-    config(['app.dev_viewmode' => 'frontend']);
-    $dashboardFrontend = $finder->find('dashboard.index');
-    expect(str_replace('\\', '/', $dashboardFrontend))->toEndWith('dashboard/index.blade.php');
-
-    $notifFrontend = $finder->find('notifikasi.index');
-    expect(str_replace('\\', '/', $notifFrontend))->toEndWith('notifikasi/index.blade.php');
-});
-
-test('notifikasi page renders successfully under DEV_VIEWMODE=backend and DEV_VIEWMODE=frontend', function () {
+test('notifikasi page renders successfully under frontend mode', function () {
     $unit = Unit::firstOrCreate(
         ['kode_unit' => 'TIK'],
         ['nama_unit' => 'Jurusan Teknik Informatika dan Komputer', 'jenis_unit' => 'jurusan']
@@ -135,15 +113,6 @@ test('notifikasi page renders successfully under DEV_VIEWMODE=backend and DEV_VI
         'status_registrasi' => 'disetujui',
     ]);
 
-    // Uji Mode Backend
-    config(['app.dev_viewmode' => 'backend']);
-    $backendResponse = $this->actingAs($user)->get(route('notifikasi.index'));
-    $backendResponse->assertOk();
-    $backendResponse->assertSee('Pusat Notifikasi, Pengingat Jadwal');
-    $backendResponse->assertSee('Mode Tampilan Aktif:');
-
-    // Uji Mode Frontend
-    config(['app.dev_viewmode' => 'frontend']);
     $frontendResponse = $this->actingAs($user)->get(route('notifikasi.index'));
     $frontendResponse->assertOk();
     $frontendResponse->assertSee('Notifikasi dan Reminder');

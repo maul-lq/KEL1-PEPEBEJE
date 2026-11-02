@@ -388,7 +388,7 @@
                                         <span class="inline-block px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-slate-100 text-slate-700 mr-1.5">
                                             {{ $log->jenis_aksi ?? 'LOG' }}
                                         </span>
-                                        {{ $log->deskripsi_aktivitas ?? $log->rincian_perubahan }}
+                                        {{ $log->alasan ?? $log->deskripsi_aktivitas ?? $log->rincian_perubahan }}
                                     </td>
                                 </tr>
                             @empty

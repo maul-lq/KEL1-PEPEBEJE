@@ -101,11 +101,11 @@ class PbjWorkflowTest extends TestCase
 
         $this->actingAs($user)->get(route('permohonan.create'))
             ->assertStatus(200)
-            ->assertSee('Pengajuan Usulan Permohonan Pengadaan');
+            ->assertSee('Ajukan Usulan Pengadaan Baru');
 
         $this->actingAs($user)->get(route('monitoring.index'))
             ->assertStatus(200)
-            ->assertSee('Monitoring Tahapan Siklus Pengadaan');
+            ->assertSee('Monitoring Agregat 8 Siklus');
     }
 
     public function test_reminders_and_reports_pages_are_accessible_by_authorized_staff(): void
@@ -125,7 +125,7 @@ class PbjWorkflowTest extends TestCase
 
         $this->actingAs($ppbj)->get(route('laporan.rekapitulasi'))
             ->assertStatus(200)
-            ->assertSee('Laporan Rekapitulasi Total Anggaran');
+            ->assertSee('Laporan Rekapitulasi Realisasi Anggaran');
     }
 
     public function test_procurement_print_sheet_is_rendered_with_complete_data(): void

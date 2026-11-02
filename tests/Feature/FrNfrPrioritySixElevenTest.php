@@ -841,11 +841,7 @@ class FrNfrPrioritySixElevenTest extends TestCase
     }
 
     /**
-     * Memverifikasi render dan konten semantik halaman Kontrak SPK (/kontrak-spk).
-     *
-     * Catatan: Kebijakan Zero CSS dan ketiadaan script inline secara menyeluruh
-     * pada view tes_* kini ditegakkan secara global oleh test arsitektur terpisah
-     * (Tests\Feature\ViewArchitecturePolicyTest).
+     * Memverifikasi render dan konten halaman Kontrak SPK (/kontrak-spk).
      */
     public function test_halaman_kontrak_spk_merender_konten_semantik_dengan_benar(): void
     {
@@ -853,17 +849,13 @@ class FrNfrPrioritySixElevenTest extends TestCase
 
         $resKontrak = $this->get('/kontrak-spk');
         $resKontrak->assertStatus(200)
-            ->assertSee('Review Kelengkapan PP, Approval PPK, Eksekusi Belanja', false)
-            ->assertSee('Keputusan Approval PPK', false)
-            ->assertSee('Unggah Salah Satu Dokumen Perikatan Terpilih', false);
+            ->assertSee('Penelaahan Dokumen', false)
+            ->assertSee('Siklus 4 &amp; 5: Reviu &amp; Kontrak SPK', false)
+            ->assertSee('PPK:', false);
     }
 
     /**
-     * Memverifikasi render dan konten semantik halaman Monitoring Pengadaan (/monitoring).
-     *
-     * Catatan: Kebijakan Zero CSS dan ketiadaan script inline secara menyeluruh
-     * pada view tes_* kini ditegakkan secara global oleh test arsitektur terpisah
-     * (Tests\Feature\ViewArchitecturePolicyTest).
+     * Memverifikasi render dan konten halaman Monitoring Pengadaan (/monitoring).
      */
     public function test_halaman_monitoring_merender_konten_semantik_dengan_benar(): void
     {
@@ -871,8 +863,8 @@ class FrNfrPrioritySixElevenTest extends TestCase
 
         $resMonitoring = $this->get('/monitoring');
         $resMonitoring->assertStatus(200)
-            ->assertSee('Pemantauan Real-Time 8 Siklus Pengadaan', false)
-            ->assertSee('Pencarian Multi-Filter Siklus Pengadaan', false)
-            ->assertSee('Jejak Audit Transaksi', false);
+            ->assertSee('Monitoring Siklus Pengadaan Institusi', false)
+            ->assertSee('Monitoring Agregat 8 Siklus', false)
+            ->assertSee('Refresh Data', false);
     }
 }

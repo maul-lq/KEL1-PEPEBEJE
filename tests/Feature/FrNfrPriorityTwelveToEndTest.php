@@ -295,7 +295,7 @@ class FrNfrPriorityTwelveToEndTest extends TestCase
         // PPBJ membuka halaman modul pembayaran
         $responsePembayaran = $this->get(route('pembayaran.index'));
         $responsePembayaran->assertStatus(200);
-        $responsePembayaran->assertSee('Alur Pengajuan, Persetujuan Memo');
+        $responsePembayaran->assertSee('Alur Pembayaran Tagihan');
     }
 
     /**
@@ -661,7 +661,7 @@ class FrNfrPriorityTwelveToEndTest extends TestCase
         ]));
 
         $responseWeb->assertStatus(200);
-        $responseWeb->assertSee('Laporan Rekapitulasi Total Anggaran Pengadaan');
+        $responseWeb->assertSee('Laporan Rekapitulasi Realisasi Anggaran');
         $responseWeb->assertSee('Jurusan Teknik Informatika dan Komputer');
 
         // Akses endpoint API rekapitulasi anggaran

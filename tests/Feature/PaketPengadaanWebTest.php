@@ -8,7 +8,6 @@ use App\Models\Role;
 use App\Models\Unit;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Config;
 use Tests\TestCase;
 
 class PaketPengadaanWebTest extends TestCase
@@ -427,13 +426,6 @@ class PaketPengadaanWebTest extends TestCase
             'status_paket' => 'terdaftar',
         ]);
 
-        // Backend Mode
-        Config::set('app.dev_viewmode', 'backend');
-        $responseBackend = $this->actingAs($this->userPpbj)->get(route('paket.index'));
-        $responseBackend->assertStatus(200);
-
-        // Frontend Mode
-        Config::set('app.dev_viewmode', 'frontend');
         $responseFrontend = $this->actingAs($this->userPpbj)->get(route('paket.index'));
         $responseFrontend->assertStatus(200);
     }

@@ -4,7 +4,7 @@
 - **Framework & Runtime**: Laravel 13 running on PHP 8.5 with Vite & Tailwind CSS v4.
 - **Frontend Architecture**: Blade template engine with Alpine.js 3.x and Tailwind CSS v4 styling matching 190 Figma designs (Navy `#213153`, Blue `#0969da`, Teal `#087F79`, Ice Canvas `#F4F8FA`). Shared UI component library in `resources/views/components/`.
 - **Backend Architecture**: RESTful API endpoints and Web routes in `routes/web.php` with RBAC middleware `CheckRole` supporting 9 official roles (10 role slugs). FormRequests, Eloquent models with query scopes, and service classes supporting 8 procurement cycles.
-- **Dual-Engine View Mode**: `App\View\DevModeViewFinder` dynamically resolves `DEV_VIEWMODE=frontend` to standard production Blade views with seamless fallback to `tes_*` semantic views.
+- **Production View Architecture**: Standard production Blade views with Tailwind CSS v4 and Alpine.js. Legacy `tes_*` views and `DEV_VIEWMODE` have been fully cleaned up.
 
 ## Feature Inventory
 | # | Feature | Description | Milestone | Source |
@@ -41,7 +41,7 @@
 | 30 | Penerbitan SPP & Pencairan SP2D Anti-Duplikasi | Form penerbitan SPP oleh PPBJ dan pencairan SP2D keuangan dengan proteksi anti-pencairan ganda | M4 | PANDUAN_INTEGRASI §8.3, §9.1 & NFR 8 |
 | 31 | Approval Registrasi Akun & Manajemen Role | Panel admin untuk persetujuan akun baru (penetapan role) dan matriks hak akses permissions dinamis | M4 | PANDUAN_INTEGRASI §1.3-1.4 & Figma 558:3052 |
 | 32 | Pelacakan Monitoring 8 Siklus & Laporan Realisasi DIPA | Halaman monitoring real-time alur 8 siklus dengan isolasi data dan rekapitulasi realisasi DIPA (unduh PDF) | M4 | PANDUAN_INTEGRASI §10.1, §11.2 & Figma 526:3083 |
-| 33 | E2E Multi-Role Integration & Verification Suite | Verifikasi menyeluruh 9 role, 8 siklus pengadaan, switch DEV_VIEWMODE=frontend, dan audit integritas forensik | M5 | Acceptance Criteria & Integrity Forensics |
+| 33 | E2E Multi-Role Integration & Verification Suite | Verifikasi menyeluruh 9 role, 8 siklus pengadaan, arsitektur frontend penuh, dan audit integritas forensik | M5 | Acceptance Criteria & Integrity Forensics |
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
@@ -63,7 +63,7 @@
 ### Controllers ↔ Views
 - All controllers pass variables via `compact(...)` as documented in `backend_readiness_report.md § 4`.
 - Views access data seamlessly: `$user`, `$stats`, `$recentPermohonan`, `$recentPaket`, `$notifications`, `$units`, `$permohonanList`, `$paketList`, `$kontrakList`, `$bastList`, etc.
-- In `DEV_VIEWMODE=frontend`, `HomeController` and related controllers render the non-`tes_*` Blade views directly.
+- All controllers render standard production Blade views directly with Tailwind CSS v4.
 
 ## Code Layout
 - `resources/views/layouts/app.blade.php`: Master production layout.

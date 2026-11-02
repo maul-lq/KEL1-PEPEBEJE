@@ -56,7 +56,7 @@
             <!-- Main Form Content -->
             <main class="flex-1 bg-white/[0.92] p-6 sm:p-10 lg:px-[67px] lg:py-[42px]">
                 <div class="flex flex-col justify-between gap-2 sm:flex-row sm:items-start">
-                    <h1 class="text-4xl font-semibold text-black">Buat Akun Baru</h1>
+                    <h1 class="text-3xl lg:text-4xl font-semibold text-black">Pendaftaran Akun Pegawai / Pengusul Baru</h1>
                     <p class="text-lg font-medium text-[#AAA] sm:pt-1 sm:text-right">
                         Sudah punya akun? <a href="{{ url('/login') }}" class="text-[#3B82F6] hover:underline">Masuk</a>
                     </p>

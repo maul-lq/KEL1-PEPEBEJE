@@ -159,8 +159,6 @@ class MonitoringIsolationTest extends TestCase
      */
     public function test_pengaju_hanya_melihat_dokumen_miliknya_sendiri(): void
     {
-        config(['app.dev_viewmode' => 'backend']);
-
         $response = $this->actingAs($this->pengajuTik)
             ->get(route('monitoring.index'));
 
@@ -180,8 +178,6 @@ class MonitoringIsolationTest extends TestCase
      */
     public function test_pengaju_hanya_melihat_audit_log_usulan_miliknya_sendiri(): void
     {
-        config(['app.dev_viewmode' => 'backend']);
-
         $response = $this->actingAs($this->pengajuTik)
             ->get(route('monitoring.index'));
 
@@ -195,8 +191,6 @@ class MonitoringIsolationTest extends TestCase
      */
     public function test_peran_manajemen_dapat_melihat_seluruh_usulan_pengadaan(): void
     {
-        config(['app.dev_viewmode' => 'backend']);
-
         $response = $this->actingAs($this->wadir2)
             ->get(route('monitoring.index'));
 
@@ -210,18 +204,10 @@ class MonitoringIsolationTest extends TestCase
     }
 
     /**
-     * Memastikan halaman monitoring meresolusi view sesuai dev_viewmode.
+     * Memastikan halaman monitoring meresolusi view antarmuka frontend.
      */
-    public function test_monitoring_view_resolves_correctly_per_dev_viewmode(): void
+    public function test_monitoring_view_resolves_correctly(): void
     {
-        // 1. Mode Backend
-        config(['app.dev_viewmode' => 'backend']);
-        $responseBackend = $this->actingAs($this->pengajuTik)->get(route('monitoring.index'));
-        $responseBackend->assertOk();
-        $responseBackend->assertSee('Mode Tampilan Aktif:');
-
-        // 2. Mode Frontend
-        config(['app.dev_viewmode' => 'frontend']);
         $responseFrontend = $this->actingAs($this->pengajuTik)->get(route('monitoring.index'));
         $responseFrontend->assertOk();
         $responseFrontend->assertSee('Detail & Tracking Pengadaan Saya');

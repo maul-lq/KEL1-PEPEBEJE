@@ -1,5 +1,5 @@
 {{-- resources/views/dashboard/roles/staff_bidang_2.blade.php --}}
-{{-- Role: Staf Bidang II - Penelaah Administrasi (staff_bidang_2) --}}
+{{-- Role: Staf Bidang II - Pemantau Administrasi (staff_bidang_2 - Read Only) --}}
 
 <div class="space-y-8">
 
@@ -10,8 +10,8 @@
             :value="$stats['menunggu_telaah'] ?? 0"
             color="amber"
             icon="document"
-            badge="Prioritas"
-            subtitle="Berkas dinas masuk belum ditelaah"
+            badge="Read-Only"
+            subtitle="Berkas dinas masuk di sistem"
             :href="route('verifikasi.bidang-2')"
         />
 
@@ -20,15 +20,15 @@
             :value="$stats['reviu_paralel'] ?? 0"
             color="blue"
             icon="bell"
-            subtitle="Telaah bersama Perencanaan & Wadir"
+            subtitle="Telaah Perencanaan & Wadir II"
         />
 
         <x-stat-card
             title="Selesai Diteruskan"
-            :value="$stats['selesai_telaah'] ?? 0"
+            :value="\App\Models\PermohonanPengadaan::where('status_permohonan', 'disetujui')->count()"
             color="emerald"
             icon="check"
-            subtitle="Kirim Memo Cek MAK ke Perencanaan"
+            subtitle="Usulan telah di-ACC Wadir II"
         />
 
         <x-stat-card
@@ -44,11 +44,11 @@
     <div class="space-y-4">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div class="flex items-center gap-2">
-                <span class="size-2 rounded-full bg-amber-500 animate-pulse"></span>
+                <span class="size-2 rounded-full bg-blue-500 animate-pulse"></span>
                 <h2 class="text-lg font-bold text-[#213153]">Antrean Telaah Kelengkapan Berkas Srikandi</h2>
             </div>
             <a href="{{ route('verifikasi.bidang-2') }}" class="text-xs font-bold text-[#0969da] hover:underline flex items-center gap-1">
-                Buka Halaman Telaah Lengkap
+                Buka Halaman Pemantauan Lengkap
                 <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
             </a>
         </div>
@@ -89,8 +89,8 @@
                                     <x-status-badge :status="$usulan->status_permohonan ?? $usulan->status" size="sm" />
                                 </td>
                                 <td class="px-4 py-3 text-right whitespace-nowrap">
-                                    <a href="{{ route('verifikasi.bidang-2') }}" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-[#0969da] hover:bg-blue-700 shadow-sm transition-colors">
-                                        Periksa Berkas
+                                    <a href="{{ route('verifikasi.bidang-2') }}" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors">
+                                        Periksa Berkas (Read-Only)
                                         <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                                     </a>
                                 </td>

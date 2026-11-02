@@ -1,7 +1,7 @@
 /**
  * Entrypoint Skrip Frontend Utama SIM-PBJ Politeknik Negeri Jakarta (app.js)
  *
- * Mengorkestrasi interaktivitas modern antarmuka pengguna front end (non-tes_*).
+ * Mengorkestrasi interaktivitas modern antarmuka pengguna front end.
  *
  * Catatan Arsitektur:
  * Berkas ini bertindak sebagai entrypoint/bundler utama. Jangan menumpuk seluruh kode

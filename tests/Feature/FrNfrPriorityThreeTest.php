@@ -330,29 +330,29 @@ class FrNfrPriorityThreeTest extends TestCase
         $this->assertStringContainsString('NFR 8 Keandalan Pembayaran', $errorMessage);
     }
 
-    public function test_frontend_simulation_views_tes_permohonan_and_tes_monitoring_render_properly(): void
+    public function test_frontend_views_permohonan_and_monitoring_render_properly(): void
     {
         $user = User::where('role', 'user')->first();
         $this->actingAs($user);
 
         $permohonan = PermohonanPengadaan::first();
 
-        // Halaman simulasi permohonan
-        $response = $this->get(route('permohonan.web'));
+        // Halaman permohonan
+        $response = $this->get(route('permohonan.index'));
         $response->assertStatus(200)
-            ->assertSee('Status Usulan Permohonan Pengadaan');
+            ->assertSee('Tracking Pengajuan');
 
-        // Halaman simulasi monitoring
-        $response = $this->get(route('monitoring.web'));
+        // Halaman monitoring
+        $response = $this->get(route('monitoring.index'));
         $response->assertStatus(200)
-            ->assertSee('Pelacakan 8 Tahapan Siklus Pengadaan');
+            ->assertSee('Detail & Tracking Pengadaan Saya');
 
-        // Lacak berkas spesifik pada halaman simulasi monitoring
+        // Lacak berkas spesifik pada halaman monitoring
         if ($permohonan) {
-            $response = $this->get(route('monitoring.web', ['nomor_surat' => $permohonan->nomor_surat]));
+            $response = $this->get(route('monitoring.index', ['nomor_surat' => $permohonan->nomor_surat]));
             $response->assertStatus(200)
                 ->assertSee($permohonan->nomor_surat)
-                ->assertSee('Pelacakan 8 Tahapan Siklus Pengadaan');
+                ->assertSee('Detail & Tracking Pengadaan Saya');
         }
     }
 }

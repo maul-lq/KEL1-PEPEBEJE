@@ -15,14 +15,14 @@
                 </h1>
             </div>
             <p class="text-xs md:text-sm text-slate-500 mt-1">
-                Staf Tata Usaha Bidang II bertugas menelaah kelengkapan fisik/digital naskah dinas Srikandi, KAK, dan Spesifikasi Teknis, serta menerbitkan Memo Cek MAK ke Bagian Perencanaan.
+                Staf Tata Usaha Bidang II memantau berkas usulan naskah dinas Srikandi, KAK, dan Spesifikasi Teknis secara read-only. Pemeriksaan kelengkapan dokumen dan persetujuan (ACC/Tolak) dilakukan langsung oleh Wakil Direktur II.
             </p>
         </div>
 
         <div class="flex items-center gap-2">
             <span class="inline-flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200/80 px-3 py-1 text-xs font-bold text-[#0969da]">
                 <span class="size-2 rounded-full bg-[#0969da] animate-pulse"></span>
-                Staf Bidang II (Pemeriksa Berkas)
+                Staf Bidang II (Pemantau Berkas - Read Only)
             </span>
         </div>
     </div>
@@ -107,66 +107,38 @@
                         </a>
                     </div>
 
-                    <!-- FORM TELAAH STAF BIDANG 2 (POST /verifikasi/bidang-2/teruskan) -->
-                    <form action="{{ route('verifikasi.bidang-2.teruskan') }}" 
-                          method="POST" 
-                          class="rounded-xl bg-slate-50/70 p-5 md:p-6 border border-slate-200/80 space-y-4">
-                        @csrf
-                        <input type="hidden" name="nomor_surat" value="{{ $p->nomor_surat }}">
-
-                        <div class="flex items-center gap-2">
-                            <svg class="size-4 text-[#0969da]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700">Checklist Pemeriksaan Administrasi (Wajib)</h3>
+                    <!-- PANEL INFORMASI & STATUS TELAAH READ-ONLY (STAF BIDANG II) -->
+                    <div class="rounded-xl bg-slate-50/70 p-5 md:p-6 border border-slate-200/80 space-y-4">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="size-2 rounded-full bg-[#0969da]"></span>
+                                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700">Status Berkas &amp; Informasi Pengadaan (Read-Only)</h3>
+                            </div>
+                            <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 text-slate-600 px-2.5 py-0.5 text-[11px] font-semibold">
+                                Staf B2: Pemantauan
+                            </span>
                         </div>
 
-                        <div class="space-y-2.5 bg-white p-4 rounded-xl border border-slate-200/60">
-                            <label class="flex items-start gap-3 text-xs text-slate-700 cursor-pointer">
-                                <input type="checkbox" name="is_kak_valid" value="1" required class="mt-0.5 rounded text-[#0969da] focus:ring-[#0969da]">
-                                <span>Dokumen Kerangka Acuan Kerja (KAK) telah diperiksa, lengkap spesifikasi, dan bermeterai/tervalidasi.</span>
-                            </label>
-
-                            <label class="flex items-start gap-3 text-xs text-slate-700 cursor-pointer">
-                                <input type="checkbox" name="is_spesifikasi_valid" value="1" required class="mt-0.5 rounded text-[#0969da] focus:ring-[#0969da]">
-                                <span>Dokumen Spesifikasi Teknis dan rincian estimasi harga wajar pasar terlampir jelas dan akuntabel.</span>
-                            </label>
-
-                            <label class="flex items-start gap-3 text-xs text-slate-700 cursor-pointer">
-                                <input type="checkbox" name="is_srikandi_valid" value="1" required class="mt-0.5 rounded text-[#0969da] focus:ring-[#0969da]">
-                                <span>Nomor naskah dinas resmi terdaftar sah pada tata naskah persuratan Srikandi Politeknik Negeri Jakarta.</span>
-                            </label>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                            <div class="bg-white p-3.5 rounded-xl border border-slate-200/60 space-y-1">
+                                <span class="text-slate-400 block text-[11px]">Surat Srikandi</span>
+                                <span class="font-bold text-slate-800 font-mono">{{ $p->nomor_surat }}</span>
+                            </div>
+                            <div class="bg-white p-3.5 rounded-xl border border-slate-200/60 space-y-1">
+                                <span class="text-slate-400 block text-[11px]">Pemeriksaan Kelengkapan</span>
+                                <span class="font-bold text-indigo-700">Wadir II &amp; Pengusul</span>
+                            </div>
+                            <div class="bg-white p-3.5 rounded-xl border border-slate-200/60 space-y-1">
+                                <span class="text-slate-400 block text-[11px]">Ketersediaan Pagu MAK</span>
+                                <span class="font-bold text-teal-700">{{ $p->kode_mak ? $p->kode_mak : 'Ditinjau Perencanaan' }}</span>
+                            </div>
                         </div>
 
-                        <div>
-                            <label for="nomor_memo_cek_mak_{{ $p->nomor_surat }}" class="block text-xs font-bold text-slate-700 mb-1">
-                                Nomor Memo Cek MAK ke Bagian Perencanaan <span class="text-rose-500">*</span>
-                            </label>
-                            <input type="text" 
-                                   id="nomor_memo_cek_mak_{{ $p->nomor_surat }}" 
-                                   name="nomor_memo_cek_mak" 
-                                   value="MEMO-B2/MAK/{{ date('Ymd') }}/{{ rand(100, 999) }}" 
-                                   required 
-                                   class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-mono font-bold text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20" />
+                        <div class="rounded-xl bg-blue-50/60 border border-blue-100 p-3 text-xs text-blue-800 flex items-start gap-2">
+                            <svg class="size-4 text-[#0969da] shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            <span>Staf Bidang II memantau berkas secara read-only. Pemeriksaan kelengkapan dokumen administrasi (Surat Srikandi, KAK, Spesifikasi) dan penetapan keputusan eksekutif (ACC/Tolak/Revisi) dilakukan langsung oleh <strong>Wakil Direktur II</strong>.</span>
                         </div>
-
-                        <div class="space-y-1.5">
-                            <label for="catatan_staff_{{ $p->nomor_surat }}" class="block text-xs font-bold text-slate-700">
-                                Catatan Hasil Telaah &amp; Instruksi Memo Cek MAK untuk Bagian Perencanaan
-                            </label>
-                            <textarea id="catatan_staff_{{ $p->nomor_surat }}" 
-                                      name="catatan_staff" 
-                                      rows="2" 
-                                      placeholder="Contoh: Berkas administrasi lengkap, mohon periksa dan alokasikan pagu MAK DIPA serta tetapkan PPK penanggung jawab..."
-                                      class="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-800 placeholder-slate-400 focus:border-[#0969da] focus:outline-none focus:ring-2 focus:ring-[#0969da]/20"></textarea>
-                        </div>
-
-                        <div class="flex justify-end pt-2">
-                            <button type="submit" 
-                                    class="inline-flex items-center gap-2 rounded-xl bg-[#0969da] px-6 py-2.5 text-xs font-bold text-white shadow-md shadow-[#0969da]/20 hover:bg-blue-700 transition-all cursor-pointer">
-                                <span>Kirim Memo Cek MAK ke Bagian Perencanaan</span>
-                                <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
-                            </button>
-                        </div>
-                    </form>
+                    </div>
 
                 </div>
             @endforeach

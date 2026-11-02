@@ -9,8 +9,10 @@ paths:
 
 # Aturan Domain & Alur Bisnis SIM-PBJ (Notulensi PPBJ Terbaru)
 
-1. **Alur Persetujuan Awal Berantai (Bukan Paralel Langsung)**:
-   - `User` mengajukan permohonan ke **Bidang 2** -> `Staff Bidang 2` memeriksa kelengkapan & mengirim **Memo Cek MAK** ke **Perencanaan** -> `Perencanaan` membuat/mengecek ketersediaan MAK (`Tersedia?`), memilih **1 dari 4 akun PPK** (`id_user_ppk_awal`), dan mengirim **Memo Ketersediaan MAK** ke `Wadir 2` & `PPK` terpilih -> `Wadir 2` (ACC kegiatan) **dan** `PPK` sama-sama menyetujui -> lanjut ke **PPBJ** (PPBJ tetap dapat *reassign* PPK bila ada penyesuaian).
+1. **Alur Telaah Berkas & Persetujuan Eksekutif Wadir 2 (Staf Bidang 2 Read-Only)**:
+   - **Peran Staf Bidang II (Read-Only)**: Staf Bidang II hanya memiliki hak akses melihat/membaca seluruh usulan permohonan masuk (monitoring & preview dokumen) tanpa memiliki hak meneruskan atau mendisposisikan berkas ke Wadir 2.
+   - **Pemeriksaan Kelengkapan Dokumen & Keputusan oleh Wadir II**: Wakil Direktur II secara langsung memeriksa kelengkapan administrasi berkas dinas (Surat Usulan Srikandi, KAK, Spesifikasi Teknis) dan menetapkan keputusan eksekutif: **ACC (Disetujui)**, **Tolak**, atau **Minta Revisi**.
+   - **Pemeriksaan Anggaran oleh Subbagian Perencanaan**: Bagian Perencanaan memeriksa/mengalokasikan ketersediaan MAK DIPA dan memilih PPK awal, yang kemudian disahkan bersama Wadir II sebelum dilanjutkan ke modul PPBJ.
 2. **Otoritas Tunggal Kunci & Buka Kunci MAK di Perencanaan**:
    - Selain membuat MAK, **hanya role `perencanaan`** yang berwenang mengunci (`lock`) dan membuka kunci (`unlock`) MAK. PPK maupun penerbitan SPK tidak mengunci MAK secara sepihak.
 3. **Penentuan Metode Pengadaan & 3 Jalur Eksekusi**:

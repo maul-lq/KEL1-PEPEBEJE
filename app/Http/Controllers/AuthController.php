@@ -24,12 +24,12 @@ use Illuminate\View\View;
 class AuthController extends Controller
 {
     /**
-     * Menampilkan formulir halaman login simulasi backend.
-     * Menggunakan template murni HTML semantik tanpa CSS total (AGENTS-BACKEND.md).
+     * Menampilkan formulir halaman login institusi.
+     * Menggunakan template Blade antarmuka resmi SIM-PBJ.
      */
     public function showLoginForm(): View
     {
-        return view('auth.tes_login');
+        return view('auth.login');
     }
 
     /**
@@ -41,7 +41,7 @@ class AuthController extends Controller
         // Mengambil semua data unit kerja kampus untuk pilihan dropdown registrasi
         $units = Unit::all();
 
-        return view('auth.tes_register', compact('units'));
+        return view('auth.register', compact('units'));
     }
 
     /**
