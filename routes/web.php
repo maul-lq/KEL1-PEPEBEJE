@@ -249,3 +249,7 @@ Route::get('/health-check', [HomeController::class, 'healthCheck']);
 Route::delete('/permohonan/{id}', [HomeController::class, 'destroyPermohonan'])
     ->where('id', '.*')                 // nomor surat mengandung "/"
     ->name('permohonan.destroy');
+
+Route::get('/admin/roles', function () {
+    return view('admin.roles.index');
+})->name('admin.roles.index');
