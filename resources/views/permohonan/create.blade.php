@@ -51,7 +51,7 @@
                     <!-- Nomor Surat Resmi Srikandi PNJ -->
                     <div class="space-y-1.5">
                         <label for="nomor_surat" class="block text-sm font-semibold text-[#213153]">
-                            Nomor Surat Resmi Srikandi PNJ <span class="text-rose-600">*</span>
+                            Nomor Surat <span class="text-rose-600">*</span>
                         </label>
                         <input type="text" 
                                id="nomor_surat" 
