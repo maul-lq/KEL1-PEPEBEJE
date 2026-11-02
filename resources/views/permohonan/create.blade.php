@@ -8,10 +8,13 @@
     <!-- HEADER PAGE -->
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
-            <a href="{{ route('permohonan.index') }}" class="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-[#0969da] mb-2 transition-colors">
-                <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
-                Batal dan Kembali
-            </a>
+            <a href="{{ route('permohonan.index') }}" 
+   class="inline-flex items-center justify-center gap-2 px-4 py-2 bg-[#0969da] hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-sm hover:shadow-md transition-all duration-200 mb-4">
+    <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+    </svg>
+    <span>Batal dan Kembali</span>
+</a>
             <h1 class="text-2xl md:text-3xl font-extrabold text-[#213153] tracking-tight">Pengajuan Usulan Permohonan Pengadaan Barang & Jasa</h1>
             <p class="text-sm text-slate-500 mt-1">
                 Formulir ini digunakan oleh Unit Kerja / Jurusan untuk mendaftarkan usulan pengadaan berbasis surat dinas resmi Srikandi, dilengkapi dengan Kerangka Acuan Kerja (KAK) dan Spesifikasi Teknis.
@@ -218,15 +221,19 @@
             </div>
 
             <!-- ACTION BUTTONS -->
-            <div class="flex items-center justify-end gap-3 pt-6 border-t border-slate-100">
-                <a href="{{ route('permohonan.index') }}" class="h-11 px-6 rounded-xl border border-slate-300 text-slate-600 font-semibold text-sm hover:bg-slate-50 transition-colors flex items-center justify-center">
-                    Batal dan Kembali
-                </a>
-                <button type="submit" class="h-11 px-8 rounded-xl bg-[#0969da] hover:bg-blue-700 text-white font-bold text-sm transition-colors shadow-sm shadow-[#0969da]/30 flex items-center justify-center gap-2">
-                    <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                    Kirimkan Usulan Permohonan Pengadaan
-                </button>
-            </div>
+           <div class="flex items-center justify-end gap-3 pt-6 border-t border-slate-100">
+    <a href="{{ route('permohonan.index') }}" 
+       class="inline-flex items-center justify-center gap-2 px-5 h-11 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl border border-slate-300 transition-all duration-200">
+        <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+        </svg>
+        <span>Batal dan Kembali</span>
+    </a>
+    <button type="submit" class="h-11 px-8 rounded-xl bg-[#0969da] hover:bg-blue-700 text-white font-bold text-sm transition-colors shadow-sm shadow-[#0969da]/30 flex items-center justify-center gap-2">
+        <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+        Kirimkan Usulan Permohonan Pengadaan
+    </button>
+</div>
 
         </form>
 
