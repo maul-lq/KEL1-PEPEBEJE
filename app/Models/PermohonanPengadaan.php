@@ -575,8 +575,15 @@ class PermohonanPengadaan extends Model
         // 3. Hapus VerifikasiParalel
         VerifikasiParalel::where('nomor_surat', $nomorSurat)->delete();
 
-        // 4. Hapus AlokasiMAK
-        AlokasiMAK::where('nomor_surat', $nomorSurat)->delete();
+        // 4. Hapus AlokasiMAK dan kembalikan sisa pagu ke anggaran_mak
+        $alokasiList = AlokasiMAK::where('nomor_surat', $nomorSurat)->get();
+        foreach ($alokasiList as $alokasi) {
+            if ($mak = AnggaranMAK::find($alokasi->kode_mak)) {
+                $mak->sisa_pagu_mak = (float) $mak->sisa_pagu_mak + (float) $alokasi->nominal_alokasi;
+                $mak->save();
+            }
+            $alokasi->delete();
+        }
 
         // 5. Bersihkan berkas permohonan
         $permohonanFiles = [

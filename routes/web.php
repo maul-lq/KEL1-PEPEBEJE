@@ -26,6 +26,7 @@ use App\Http\Controllers\TransaksiPencairanController;
 use App\Http\Controllers\UnitController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VendorController;
+use App\Http\Controllers\VendorWebController;
 use App\Http\Controllers\VerifikasiParalelController;
 use Illuminate\Support\Facades\Route;
 
@@ -141,6 +142,19 @@ Route::middleware('auth')->group(function () {
     Route::get('/paket-pengadaan/{id}', [HomeController::class, 'paketShow'])
         ->name('paket.show')
         ->where(['id' => '.*']);
+
+    // -------------------------------------------------------------------------
+    // Modul Direktori Rekanan & Master Vendor (Otoritas Khusus Role PPBJ)
+    // -------------------------------------------------------------------------
+    Route::middleware('role:ppbj')->group(function () {
+        Route::get('/vendors', [VendorWebController::class, 'index'])->name('vendors.index');
+        Route::post('/vendors', [VendorWebController::class, 'store'])->name('vendors.store');
+        Route::put('/vendors/{vendor}', [VendorWebController::class, 'update'])->name('vendors.update');
+        Route::delete('/vendors/{vendor}', [VendorWebController::class, 'destroy'])->name('vendors.destroy');
+        Route::post('/vendors/{vendor}/toggle-status', [VendorWebController::class, 'toggleStatus'])->name('vendors.toggle-status');
+        Route::post('/vendors/{vendor}/upload-legalitas', [VendorWebController::class, 'uploadLegalitas'])->name('vendors.upload-legalitas');
+        Route::delete('/vendors/legalitas/{file}', [VendorWebController::class, 'destroyLegalitas'])->name('vendors.legalitas.destroy');
+    });
 
     // -------------------------------------------------------------------------
     // Modul 5: Review PP, Approval PPK, Eksekusi Belanja, & Upload 1 Dokumen Perikatan PPBJ

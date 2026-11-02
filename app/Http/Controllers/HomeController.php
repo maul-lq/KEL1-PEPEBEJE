@@ -199,6 +199,7 @@ class HomeController extends Controller
                     'routing_langsung' => PaketPengadaan::where('jalur_routing', 'langsung_sd_50jt')->count(),
                     'routing_pp' => PaketPengadaan::where('jalur_routing', 'pp_50jt_sd_200jt')->count(),
                     'routing_ppk' => PaketPengadaan::where('jalur_routing', 'ppk_diatas_200jt')->count(),
+                    'total_vendor' => Vendor::count(),
                     'belum_spk' => PaketPengadaan::whereDoesntHave('kontrakSpk')->count(),
                     'usulan_siap_paket' => PermohonanPengadaan::where('status_permohonan', 'disetujui')->whereDoesntHave('paketPengadaan')->count(),
                 ],
@@ -306,7 +307,8 @@ class HomeController extends Controller
     public function permohonanIndex(Request $request): View
     {
         $user = Auth::user();
-        $query = PermohonanPengadaan::with(['unit', 'user', 'verifikasiParalel.user', 'suratAsalRevisi']);
+        $query = PermohonanPengadaan::with(['unit', 'user', 'verifikasiParalel.user', 'suratAsalRevisi'])
+            ->where('status_permohonan', '!=', 'digantikan_oleh_revisi');
 
         if ($user && $user->role === 'user') {
             $query->where('id_user', $user->id_user);
@@ -424,7 +426,8 @@ class HomeController extends Controller
     }
 
     /**
-     * Memproses pengajuan revisi surat usulan permohonan yang sebelumnya ditolak kembali ke Bidang 2.
+     * Memproses pengajuan revisi surat usulan permohonan yang sebelumnya ditolak/perlu revisi secara in-place (Opsi A).
+     * Mendukung pembaruan in-place maupun pewarisan ke nomor surat baru tanpa pemotongan ganda saldo pagu MAK.
      */
     public function revisiPermohonan(Request $request): RedirectResponse
     {
@@ -432,7 +435,7 @@ class HomeController extends Controller
 
         $validated = $request->validate([
             'nomor_surat_lama' => ['required', 'exists:permohonan_pengadaan,nomor_surat'],
-            'nomor_surat_baru' => ['required', 'string', 'max:100', 'unique:permohonan_pengadaan,nomor_surat'],
+            'nomor_surat_baru' => ['nullable', 'string', 'max:100'],
             'perihal' => ['required', 'string', 'max:255'],
             'tujuan_pengadaan_ringkas' => ['nullable', 'string', 'max:500'],
             'anggaran_diajukan' => ['required', 'numeric', 'min:1'],
@@ -441,47 +444,160 @@ class HomeController extends Controller
         ]);
 
         $induk = PermohonanPengadaan::findOrFail($validated['nomor_surat_lama']);
+        $oldNomorSurat = $induk->nomor_surat;
+        $targetNomorSurat = trim($validated['nomor_surat_baru'] ?? '');
+        $isSameSurat = empty($targetNomorSurat) || ($targetNomorSurat === $oldNomorSurat);
+
+        if (! $isSameSurat) {
+            $isUsed = PermohonanPengadaan::where('nomor_surat', $targetNomorSurat)->exists();
+            if ($isUsed) {
+                return back()->withErrors(['nomor_surat_baru' => "Nomor surat {$targetNomorSurat} sudah terdaftar di sistem."])->withInput();
+            }
+        }
 
         $fileKakPath = $request->hasFile('file_kak')
             ? $request->file('file_kak')->store('kak', 'public')
             : $induk->file_kak;
 
-        $revisi = PermohonanPengadaan::create([
-            'nomor_surat' => $validated['nomor_surat_baru'],
-            'judul_pengadaan' => $validated['perihal'],
-            'tujuan_pengadaan_ringkas' => $validated['tujuan_pengadaan_ringkas'] ?? $induk->tujuan_pengadaan_ringkas ?? $validated['perihal'],
-            'estimasi_total_pagu' => $validated['anggaran_diajukan'],
-            'perihal' => $validated['perihal'],
-            'anggaran_diajukan' => $validated['anggaran_diajukan'],
-            'kode_unit' => $induk->kode_unit,
-            'id_user' => $user->id_user,
-            'tanggal_pengajuan' => now(),
-            'file_permohonan' => $induk->file_permohonan ?? 'permohonan/dummy.pdf',
-            'file_surat_permohonan' => $induk->file_permohonan ?? 'permohonan/dummy.pdf',
-            'file_kak' => $fileKakPath,
-            'status_permohonan' => PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
-            'status_anggaran' => 'pending',
-            'status' => PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
-            'revisi_ke' => ($induk->revisi_ke ?? 0) + 1,
-            'nomor_surat_revisi' => $induk->nomor_surat,
-            'tanggal_revisi' => now(),
-            'alasan_revisi' => $validated['keterangan_revisi'] ?? 'Perbaikan dokumen KAK dan spesifikasi',
-        ]);
+        $nominalBaru = (float) $validated['anggaran_diajukan'];
+        $nominalLama = (float) ($induk->anggaran_diajukan ?? $induk->estimasi_total_pagu ?? 0);
+        $selisih = $nominalBaru - $nominalLama;
+        $revisiKe = ($induk->revisi_ke ?? 0) + 1;
+
+        // Cek dan kelola saldo MAK agar tidak terjadi pemotongan ganda
+        $mak = $induk->kode_mak ? AnggaranMAK::find($induk->kode_mak) : null;
+        $alokasiLama = $induk->kode_mak
+            ? AlokasiMAK::where('nomor_surat', $oldNomorSurat)->where('kode_mak', $induk->kode_mak)->first()
+            : null;
+
+        if ($mak && $alokasiLama) {
+            if ($selisih > 0) {
+                if ((float) $mak->sisa_pagu_mak < $selisih) {
+                    return back()->with('error', "Penyesuaian anggaran melebihi sisa pagu MAK {$mak->kode_mak} yang tersedia (tersisa Rp ".number_format($mak->sisa_pagu_mak, 0, ',', '.').').')->withInput();
+                }
+                $mak->sisa_pagu_mak = max(0, (float) $mak->sisa_pagu_mak - $selisih);
+                $mak->save();
+            } elseif ($selisih < 0) {
+                $mak->sisa_pagu_mak = (float) $mak->sisa_pagu_mak + abs($selisih);
+                $mak->save();
+            }
+        }
+
+        if ($isSameSurat) {
+            // ==========================================
+            // KASUS 1: In-Place Update pada Surat Sama
+            // ==========================================
+            DB::transaction(function () use ($induk, $validated, $nominalBaru, $fileKakPath, $revisiKe, $alokasiLama) {
+                if ($alokasiLama) {
+                    $alokasiLama->update(['nominal_alokasi' => $nominalBaru]);
+                }
+
+                $induk->update([
+                    'judul_pengadaan' => $validated['perihal'],
+                    'perihal' => $validated['perihal'],
+                    'tujuan_pengadaan_ringkas' => $validated['tujuan_pengadaan_ringkas'] ?? $induk->tujuan_pengadaan_ringkas ?? $validated['perihal'],
+                    'anggaran_diajukan' => $nominalBaru,
+                    'estimasi_total_pagu' => $nominalBaru,
+                    'file_kak' => $fileKakPath,
+                    'status_permohonan' => PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
+                    'status' => PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
+                    'revisi_ke' => $revisiKe,
+                    'tanggal_revisi' => now(),
+                    'alasan_revisi' => $validated['keterangan_revisi'] ?? 'Perbaikan dokumen KAK dan spesifikasi',
+                ]);
+            });
+
+            $activePermohonan = $induk;
+        } else {
+            // ==========================================
+            // KASUS 2: Surat Baru dengan Pewarisan MAK
+            // ==========================================
+            $activePermohonan = DB::transaction(function () use ($induk, $targetNomorSurat, $validated, $nominalBaru, $fileKakPath, $revisiKe, $user, $alokasiLama) {
+                $revisi = PermohonanPengadaan::create([
+                    'nomor_surat' => $targetNomorSurat,
+                    'judul_pengadaan' => $validated['perihal'],
+                    'tujuan_pengadaan_ringkas' => $validated['tujuan_pengadaan_ringkas'] ?? $induk->tujuan_pengadaan_ringkas ?? $validated['perihal'],
+                    'estimasi_total_pagu' => $nominalBaru,
+                    'perihal' => $validated['perihal'],
+                    'anggaran_diajukan' => $nominalBaru,
+                    'kode_unit' => $induk->kode_unit,
+                    'id_user' => $user->id_user,
+                    'tanggal_pengajuan' => now(),
+                    'file_permohonan' => $induk->file_permohonan ?? 'permohonan/dummy.pdf',
+                    'file_surat_permohonan' => $induk->file_surat_permohonan ?? $induk->file_permohonan ?? 'permohonan/dummy.pdf',
+                    'file_kak' => $fileKakPath,
+                    'status_permohonan' => PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
+                    'status' => PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
+                    'revisi_ke' => $revisiKe,
+                    'nomor_surat_revisi' => $induk->nomor_surat,
+                    'tanggal_revisi' => now(),
+                    'alasan_revisi' => $validated['keterangan_revisi'] ?? 'Perbaikan dokumen KAK dan spesifikasi',
+                    'kode_mak' => $induk->kode_mak,
+                    'status_anggaran' => $induk->status_anggaran ?? 'pending',
+                    'id_user_ppk_awal' => $induk->id_user_ppk_awal,
+                    'nomor_memo_ketersediaan_mak' => $induk->nomor_memo_ketersediaan_mak,
+                    'catatan_memo_ketersediaan_mak' => $induk->catatan_memo_ketersediaan_mak,
+                ]);
+
+                // Transfer alokasi MAK dari surat lama ke surat baru
+                if ($alokasiLama) {
+                    AlokasiMAK::create([
+                        'nomor_surat' => $revisi->nomor_surat,
+                        'kode_mak' => $alokasiLama->kode_mak,
+                        'nominal_alokasi' => $nominalBaru,
+                        'tanggal_alokasi' => now(),
+                    ]);
+                    $alokasiLama->delete();
+                }
+
+                // Tandai surat lama sebagai telah digantikan oleh revisi baru
+                $induk->update([
+                    'status_permohonan' => 'digantikan_oleh_revisi',
+                    'status' => 'digantikan_oleh_revisi',
+                    'kode_mak' => null,
+                ]);
+
+                return $revisi;
+            });
+        }
 
         // Inisialisasi antrean awal kembali di Staf Bidang 2
-        VerifikasiParalel::create([
-            'id_user' => $user->id_user,
-            'nomor_surat' => $revisi->nomor_surat,
-            'role_verifikator' => VerifikasiParalel::ROLE_STAFF_BIDANG_2,
-            'status_keputusan' => 'menunggu',
-        ]);
+        VerifikasiParalel::updateOrCreate(
+            ['nomor_surat' => $activePermohonan->nomor_surat, 'role_verifikator' => VerifikasiParalel::ROLE_STAFF_BIDANG_2],
+            [
+                'id_user' => $user->id_user,
+                'status_keputusan' => 'menunggu',
+                'catatan_alasan' => null,
+                'tanggal_keputusan' => null,
+            ]
+        );
+
+        // Reset keputusan Wadir 2 dan PPK
+        VerifikasiParalel::where('nomor_surat', $activePermohonan->nomor_surat)
+            ->whereIn('role_verifikator', [VerifikasiParalel::ROLE_WADIR_2, VerifikasiParalel::ROLE_PPK])
+            ->update([
+                'status_keputusan' => 'menunggu',
+                'catatan_alasan' => null,
+                'tanggal_keputusan' => null,
+            ]);
+
+        // Catat jejak audit revisi
+        AuditLog::catat(
+            $user->id_user,
+            'REVISI_PERMOHONAN',
+            'permohonan_pengadaan',
+            $activePermohonan->nomor_surat,
+            $oldNomorSurat !== $activePermohonan->nomor_surat ? $oldNomorSurat : null,
+            PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
+            "Revisi usulan permohonan ke-{$revisiKe} ({$activePermohonan->nomor_surat}) oleh {$user->nama}"
+        );
 
         // Memicu notifikasi siklus revisi berkas usulan ke Bidang 2
-        $this->notificationService->notifyPengajuanRevisi($revisi);
+        $this->notificationService->notifyPengajuanRevisi($activePermohonan);
 
         return redirect()->route('permohonan.index')->with(
             'success',
-            "Surat revisi berhasil diterbitkan dengan nomor {$revisi->nomor_surat} (Revisi ke-{$revisi->revisi_ke}) dan masuk ke antrean Bidang II."
+            "Usulan permohonan nomor {$activePermohonan->nomor_surat} berhasil direvisi (Revisi ke-{$activePermohonan->revisi_ke}) dan diajukan kembali ke antrean Bidang II."
         );
     }
 
@@ -1075,8 +1191,15 @@ class HomeController extends Controller
 
         $nominalAlokasi = (float) $validated['nominal_alokasi'];
 
+        // Cek alokasi yang sudah ada untuk usulan ini pada kode_mak terkait (cegah double deduction jika alokasi ulang)
+        $existingAlokasi = AlokasiMAK::where('nomor_surat', $permohonan->nomor_surat)
+            ->where('kode_mak', $mak->kode_mak)
+            ->first();
+        $nominalLamaAlokasi = $existingAlokasi ? (float) $existingAlokasi->nominal_alokasi : 0;
+        $netDeduction = $nominalAlokasi - $nominalLamaAlokasi;
+
         // Validasi ketersediaan saldo sisa pagu MAK sebelum alokasi
-        if ($nominalAlokasi > (float) $mak->sisa_pagu_mak) {
+        if ($netDeduction > (float) $mak->sisa_pagu_mak) {
             return redirect()->back()
                 ->with('error', 'Nominal alokasi melebihi sisa pagu MAK yang tersedia.');
         }
@@ -1087,9 +1210,11 @@ class HomeController extends Controller
             ['nominal_alokasi' => $nominalAlokasi]
         );
 
-        // Kurangi sisa pagu MAK
-        $mak->sisa_pagu_mak = max(0, (float) $mak->sisa_pagu_mak - $nominalAlokasi);
-        $mak->save();
+        // Sesuaikan sisa pagu MAK jika terdapat perubahan bersih (net deduction)
+        if ($netDeduction != 0) {
+            $mak->sisa_pagu_mak = max(0, (float) $mak->sisa_pagu_mak - $netDeduction);
+            $mak->save();
+        }
 
         // Perbarui kode_mak dan status anggaran usulan
         $permohonan->kode_mak = $mak->kode_mak;

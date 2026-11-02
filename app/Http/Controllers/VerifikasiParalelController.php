@@ -318,13 +318,19 @@ class VerifikasiParalelController extends Controller
         $nominalAlokasi = (float) ($validated['nominal_alokasi'] ?? $permohonan->estimasi_total_pagu ?? 0);
 
         if ($nominalAlokasi > 0) {
+            $existingAlokasi = AlokasiMAK::where('nomor_surat', $permohonan->nomor_surat)
+                ->where('kode_mak', $mak->kode_mak)
+                ->first();
+            $nominalLamaAlokasi = $existingAlokasi ? (float) $existingAlokasi->nominal_alokasi : 0;
+            $netDeduction = $nominalAlokasi - $nominalLamaAlokasi;
+
             AlokasiMAK::updateOrCreate(
                 ['nomor_surat' => $permohonan->nomor_surat, 'kode_mak' => $mak->kode_mak],
                 ['nominal_alokasi' => $nominalAlokasi]
             );
 
-            if ((float) $mak->sisa_pagu_mak >= $nominalAlokasi) {
-                $mak->sisa_pagu_mak = (float) $mak->sisa_pagu_mak - $nominalAlokasi;
+            if ($netDeduction != 0 && (float) $mak->sisa_pagu_mak >= $netDeduction) {
+                $mak->sisa_pagu_mak = max(0, (float) $mak->sisa_pagu_mak - $netDeduction);
                 $mak->save();
             }
         }
