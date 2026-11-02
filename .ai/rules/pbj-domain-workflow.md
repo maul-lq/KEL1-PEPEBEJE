@@ -31,4 +31,20 @@ paths:
      b. **Daftar Antrean & Kartu KPI Dashboard**: Tampil di `resources/views/dashboard/roles/{role}.blade.php` lengkap dengan tombol aksi langsung menuju halaman verifikasi, disuplai datanya melalui `HomeController::getRoleDashboardData()`.
 7. **Integritas Sinkronisasi Skema Database**:
    - Setelah setiap penggabungan kode (merge git) atau penambahan migrasi baru, wajib memverifikasi `php artisan migrate:status` dan menjalankan `php artisan migrate --no-interaction` sebelum memulai pengujian alur bisnis.
+8. **Penyederhanaan Entitas Vendor & Input Rekanan Secara Inline**:
+   - **Struktur Minimalis Vendor**: Rekanan vendor hanya memerlukan nama vendor (`nama_vendor`), dokumen legalitas digital (`file_dokumen_legalitas`), dan status keaktifan (`is_active`). Atribut NPWP, NIB, rekening bank, PIC, dsb., tidak lagi wajib disimpan di entitas vendor.
+   - **Peniadaan Modul Master `/vendors`**: Rute, controller, dan antarmuka master CRUD rekanan ditiadakan dari sidebar navigasi dan sistem.
+   - **Penetapan Rekanan di Tahap Perikatan/Belanja (Bukan di Registrasi Paket)**: Pada saat pendaftaran awal paket pengadaan oleh PPBJ, vendor belum ditentukan. Rekanan baru diinput dan dokumen legalitasnya diunggah secara *inline* pada tahap penerbitan dokumen perikatan (Kwitansi Belanja Langsung pada `<= 50jt`, SPK/Surat Pesanan pada `50-200jt`, atau Kontrak pada `> 200jt`).
+9. **Auto-Routing HPS, Filter Metode Pengadaan, & Sinkronisasi Saldo MAK**:
+   - **Reaktivitas Registrasi Paket**: Saat permohonan disetujui dipilih pada `paket/create.blade.php`, sistem otomatis mengisi nominal HPS dari pagu permohonan dan menyusun nama paket default.
+   - **Auto-Locking & Filtering Dropdown Metode**:
+     - **`<= Rp50.000.000` (Belanja Langsung)**: Dropdown metode otomatis terkunci ke `Belanja Langsung` (`disabled` di UI dan dikirim via hidden input). Penugasan PP dan PPK dikosongkan.
+     - **`> Rp50.000.000` s.d. `Rp200.000.000` (Jalur PP)**: Dropdown metode memfilter opsi perikatan: `SPK`, `Surat Pesanan (E-Purchasing / E-Katalog)`, atau `Surat Kontrak`.
+     - **`> Rp200.000.000` (Jalur PPK)**: Dropdown metode memfilter opsi: `Tender Terbuka (SPSE)`, `Non-Tender (E-Purchasing / E-Katalog)`, atau `Seleksi Konsultansi`. Nomor memo PPBJ otomatis dikosongkan.
+   - **Sinkronisasi Saldo MAK saat Penyesuaian Nilai HPS**:
+     - Jika PPBJ mengubah nilai HPS berbeda dari estimasi pagu awal permohonan:
+       - **Kenaikan Nilai HPS (`HPS > Pagu Awal`)**: Sistem memverifikasi ketersediaan saldo MAK (`sisa_pagu_mak >= selisih`). Jika mencukupi, `sisa_pagu_mak` dikurangi sebesar selisih. Jika tidak mencukupi, form registrasi ditolak dengan pesan kesalahan saldo tidak mencukupi.
+       - **Efisiensi / Penurunan Nilai HPS (`HPS < Pagu Awal`)**: Selisih efisiensi anggaran otomatis dikembalikan ke `sisa_pagu_mak` pada rekening MAK terkait (`sisa_pagu_mak += abs(selisih)`).
+       - Nilai pagu permohonan (`estimasi_total_pagu`) dan nominal pada `AlokasiMAK` disinkronkan ke nilai HPS baru.
+
 

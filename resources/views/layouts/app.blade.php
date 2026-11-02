@@ -421,15 +421,6 @@
                         <span x-show="sidebarExpanded" x-cloak class="text-sm font-medium whitespace-nowrap">Paket Pengadaan</span>
                     </a>
 
-                    <a href="{{ route('vendors.index') }}" 
-                       title="Direktori Rekanan & Vendor" 
-                       class="relative flex items-center gap-3 rounded-[10px] p-2.5 transition-colors w-full {{ request()->routeIs('vendors.*') ? 'bg-[#0969da]/80 text-white font-semibold' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
-                        <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                        </svg>
-                        <span x-show="sidebarExpanded" x-cloak class="text-sm font-medium whitespace-nowrap">Direktori Rekanan</span>
-                    </a>
-
                     <a href="{{ route('kontrak.index') }}" 
                        title="Kontrak SPK" 
                        class="relative flex items-center gap-3 rounded-[10px] p-2.5 transition-colors w-full {{ request()->routeIs('kontrak.*') ? 'bg-[#0969da]/80 text-white font-semibold' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">

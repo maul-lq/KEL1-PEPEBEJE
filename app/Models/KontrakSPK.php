@@ -215,9 +215,9 @@ class KontrakSPK extends Model
             Vendor::class,
             PaketPengadaan::class,
             'nomor_paket',
-            'npwp',
+            'id',
             'nomor_paket',
-            'npwp_vendor'
+            'id_vendor'
         );
     }
 

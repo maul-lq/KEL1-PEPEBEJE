@@ -144,6 +144,7 @@ class PaketPengadaan extends Model
         'nilai_hasil_negosiasi',
         'nominal_harga_akhir',
         'catatan_verifikasi_pp',
+        'id_vendor',
         'npwp_vendor',
         'tanggal_penunjukan_vendor',
         'dieksekusi_belanja_oleh',
@@ -346,7 +347,55 @@ class PaketPengadaan extends Model
      */
     public function vendor(): BelongsTo
     {
-        return $this->belongsTo(Vendor::class, 'npwp_vendor', 'npwp');
+        return $this->belongsTo(Vendor::class, 'id_vendor', 'id');
+    }
+
+    /**
+     * Mutator npwp_vendor yang otomatis menyelaraskan id_vendor.
+     */
+    public function setNpwpVendorAttribute($value): void
+    {
+        $this->attributes['npwp_vendor'] = $value;
+        if (! empty($value) && empty($this->attributes['id_vendor'])) {
+            $vendor = Vendor::where('npwp', $value)->first();
+            if ($vendor) {
+                $this->attributes['id_vendor'] = $vendor->id;
+            }
+        }
+    }
+
+    /**
+     * Mutator id_vendor yang otomatis menyelaraskan npwp_vendor legacy jika ada.
+     */
+    public function setIdVendorAttribute($value): void
+    {
+        $this->attributes['id_vendor'] = $value;
+        if (! empty($value) && empty($this->attributes['npwp_vendor'])) {
+            $vendor = Vendor::find($value);
+            if ($vendor && ! empty($vendor->npwp)) {
+                $this->attributes['npwp_vendor'] = $vendor->npwp;
+            }
+        }
+    }
+
+    /**
+     * Accessor id_vendor untuk fallback lookup jika hanya npwp_vendor yang terisi.
+     */
+    public function getIdVendorAttribute(): ?int
+    {
+        if (isset($this->attributes['id_vendor'])) {
+            return (int) $this->attributes['id_vendor'];
+        }
+        if (! empty($this->attributes['npwp_vendor'])) {
+            $vendor = Vendor::where('npwp', $this->attributes['npwp_vendor'])->first();
+            if ($vendor) {
+                $this->attributes['id_vendor'] = $vendor->id;
+
+                return (int) $vendor->id;
+            }
+        }
+
+        return null;
     }
 
     /**

@@ -377,8 +377,6 @@ class RoleBasedNavigationTest extends TestCase
         $respPpbj = $this->get(route('dashboard'));
         $respPpbj->assertSee(route('paket.index'));
         $respPpbj->assertSee('Paket Pengadaan');
-        $respPpbj->assertSee(route('vendors.index'));
-        $respPpbj->assertSee('Direktori Rekanan');
         $respPpbj->assertSee(route('kontrak.index'));
         $respPpbj->assertSee('Kontrak SPK');
         $respPpbj->assertSee(route('pembayaran.index'));
@@ -395,7 +393,6 @@ class RoleBasedNavigationTest extends TestCase
         $respPp->assertSee(route('monitoring.index'));
         $respPp->assertDontSee(route('laporan.rekapitulasi'));
         $respPp->assertDontSee(route('paket.index'));
-        $respPp->assertDontSee(route('vendors.index'));
         $respPp->assertDontSee(route('verifikasi.ppk'));
 
         // F. PPK (Pejabat Pembuat Komitmen)

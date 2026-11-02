@@ -269,19 +269,35 @@
                                     </div>
 
                                     <div>
-                                        <label for="npwp_vendor_pp" class="block text-xs font-bold text-amber-900 mb-1">
+                                        <label for="nama_vendor_pp" class="block text-xs font-bold text-amber-900 mb-1">
                                             Penyedia / Vendor Hasil Negosiasi <span class="text-rose-500">*</span>
                                         </label>
-                                        <select
-                                            id="npwp_vendor_pp"
-                                            name="npwp_vendor"
-                                            class="w-full h-10 rounded-xl border border-amber-300 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20"
-                                        >
-                                            <option value="">-- Pilih Rekanan / Vendor --</option>
-                                            @foreach($vendors as $v)
-                                                <option value="{{ $v->npwp }}">{{ $v->nama_vendor }} ({{ $v->npwp }})</option>
-                                            @endforeach
-                                        </select>
+                                        <div class="space-y-2">
+                                            <input
+                                                type="text"
+                                                id="nama_vendor_pp"
+                                                name="nama_vendor"
+                                                list="list-vendor-pp"
+                                                placeholder="Ketik nama rekanan vendor..."
+                                                class="w-full h-10 rounded-xl border border-amber-300 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20"
+                                            />
+                                            <datalist id="list-vendor-pp">
+                                                @foreach($vendors as $v)
+                                                    <option value="{{ $v->nama_vendor }}">{{ $v->nama_vendor }}</option>
+                                                @endforeach
+                                            </datalist>
+
+                                            <select
+                                                id="npwp_vendor_pp"
+                                                name="npwp_vendor"
+                                                class="w-full h-10 rounded-xl border border-amber-300 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20"
+                                            >
+                                                <option value="">-- Atau Pilih Rekanan Terdaftar --</option>
+                                                @foreach($vendors as $v)
+                                                    <option value="{{ $v->npwp }}">{{ $v->nama_vendor }} ({{ $v->npwp }})</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
                                     </div>
                                 </div>
                             @elseif(Auth::user()->role === 'ppk')
@@ -452,24 +468,67 @@
                         </select>
                     </div>
 
-                    {{-- Rekanan Vendor --}}
-                    <div>
-                        <label for="id_vendor" class="block text-xs font-bold text-slate-700 mb-1">
-                            Pilih Rekanan / Vendor Pemenang <span class="text-rose-500">*</span>
-                        </label>
-                        <select
-                            id="id_vendor"
-                            name="id_vendor"
-                            required
-                            class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20"
-                        >
-                            <option value="">-- Pilih Penyedia Barang/Jasa --</option>
-                            @foreach($vendors as $v)
-                                <option value="{{ $v->npwp }}">
-                                    {{ $v->nama_vendor }} &bull; NPWP: {{ $v->npwp }}
-                                </option>
-                            @endforeach
-                        </select>
+                    {{-- Rekanan Vendor (Inline Input & Dokumen Legalitas) --}}
+                    <div class="space-y-4 rounded-xl p-4 bg-slate-50 border border-slate-200/80">
+                        <div class="flex items-center gap-2">
+                            <span class="size-6 rounded-lg bg-blue-100 text-[#0969da] flex items-center justify-center font-bold text-xs">V</span>
+                            <span class="text-xs font-bold text-slate-800">Penetapan Rekanan / Vendor Pemenang &amp; Dokumen Legalitas</span>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="modal_nama_vendor" class="block text-xs font-bold text-slate-700 mb-1">
+                                    Nama Rekanan / Vendor <span class="text-rose-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    id="modal_nama_vendor"
+                                    name="nama_vendor"
+                                    list="vendor-datalist"
+                                    placeholder="Contoh: PT Tri Mandiri Solusindo"
+                                    class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20"
+                                />
+                                <datalist id="vendor-datalist">
+                                    @foreach($vendors as $v)
+                                        <option value="{{ $v->nama_vendor }}">{{ $v->nama_vendor }}</option>
+                                    @endforeach
+                                </datalist>
+                            </div>
+
+                            <div>
+                                <label for="id_vendor" class="block text-xs font-bold text-slate-700 mb-1">
+                                    Atau Pilih Vendor Tersimpan
+                                </label>
+                                <select
+                                    id="id_vendor"
+                                    name="id_vendor"
+                                    class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20"
+                                >
+                                    <option value="">-- Pilih Rekanan Penyedia --</option>
+                                    @foreach($vendors as $v)
+                                        <option value="{{ $v->id ?? $v->npwp }}">
+                                            {{ $v->nama_vendor }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="file_dokumen_legalitas" class="block text-xs font-bold text-slate-700 mb-1">
+                                Unggah Dokumen Legalitas Rekanan (PDF/Gambar &bull; Izin Usaha / NIB / Sertifikasi)
+                            </label>
+                            <input
+                                type="file"
+                                id="file_dokumen_legalitas"
+                                name="file_dokumen_legalitas"
+                                accept=".pdf,image/*"
+                                class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da]"
+                            />
+                            <p class="text-[11px] text-slate-400 mt-1">
+                                Format file: PDF atau Gambar (maksimal 10 MB). Tidak memerlukan input NPWP / NIB manual.
+                            </p>
+                        </div>
                     </div>
 
                     {{-- Nomor Resmi SPK --}}
@@ -705,7 +764,13 @@
 
                                     <td class="px-5 py-4 text-slate-700">
                                         <span class="font-semibold block">{{ $k->paket->vendor->nama_vendor ?? '-' }}</span>
-                                        <span class="text-[10px] text-slate-400 font-mono block mt-0.5">NPWP: {{ $k->paket->npwp_vendor ?? '-' }}</span>
+                                        @if($k->paket->vendor?->file_dokumen_legalitas)
+                                            <a href="{{ asset('storage/' . $k->paket->vendor->file_dokumen_legalitas) }}" target="_blank" class="text-[10px] text-[#0969da] hover:underline font-medium block mt-0.5">
+                                                Lihat Dokumen Legalitas &rarr;
+                                            </a>
+                                        @elseif($k->paket->npwp_vendor)
+                                            <span class="text-[10px] text-slate-400 font-mono block mt-0.5">NPWP: {{ $k->paket->npwp_vendor }}</span>
+                                        @endif
                                     </td>
 
                                     <td class="px-5 py-4 font-mono font-bold text-emerald-600">

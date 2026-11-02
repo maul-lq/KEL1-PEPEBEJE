@@ -1612,20 +1612,23 @@ class HomeController extends Controller
      */
     public function paketCreate(): View
     {
-        $permohonanDisetujui = PermohonanPengadaan::with('ppkAwal')
-            ->where('status_permohonan', PermohonanPengadaan::STATUS_DISETUJUI)
+        $permohonanDisetujui = PermohonanPengadaan::with(['unit', 'ppkAwal', 'anggaranMak'])
+            ->whereIn('status_permohonan', [
+                PermohonanPengadaan::STATUS_DISETUJUI,
+                PermohonanPengadaan::STATUS_DIPROSES_PPBJ,
+            ])
             ->get();
 
-        $ppkUsers = User::where('role', 'ppk')->where('status_aktif', true)->get();
+        $ppkUsers = User::where('role', 'ppk')->where('status_aktif', true)->take(4)->get();
         $ppUsers = User::where('role', 'pp')->where('status_aktif', true)->get();
-        $vendors = Vendor::all();
+        $vendors = Vendor::where('is_active', true)->orderBy('nama_vendor')->get();
 
         return view('paket.create', compact('permohonanDisetujui', 'ppkUsers', 'ppUsers', 'vendors'));
     }
 
     /**
      * Memproses penyimpanan paket pengadaan baru, penentuan metode pengadaan (Belanja Langsung / Non-Tender / Tender SPSE),
-     * dan auto-routing 3 jalur (<= 50jt, > 50jt s.d. 200jt, > 200jt).
+     * auto-routing 3 jalur (<= 50jt, > 50jt s.d. 200jt, > 200jt), serta sinkronisasi saldo sisa pagu MAK jika HPS disesuaikan.
      */
     public function storePaket(Request $request): RedirectResponse
     {
@@ -1640,14 +1643,49 @@ class HomeController extends Controller
             'nilai_hps' => ['required', 'numeric', 'gt:0'],
             'nominal_harga_perkiraan' => ['nullable', 'numeric', 'min:0'],
             'nominal_harga_akhir' => ['nullable', 'numeric', 'min:0'],
-            'npwp_vendor' => ['nullable', 'exists:vendors,npwp'],
+            'nama_vendor' => ['nullable', 'string', 'max:255'],
+            'id_vendor' => ['nullable'],
+            'npwp_vendor' => ['nullable'],
             'nomor_memo_ppbj' => ['nullable', 'string', 'max:100'],
             'id_user_ppk' => ['nullable', 'exists:users,id_user'],
             'id_user_pp' => ['nullable', 'exists:users,id_user'],
         ]);
 
-        $permohonan = PermohonanPengadaan::findOrFail($validated['nomor_surat']);
+        $permohonan = PermohonanPengadaan::with('anggaranMak')->findOrFail($validated['nomor_surat']);
         $hps = (float) $validated['nilai_hps'];
+        $paguAwal = (float) ($permohonan->estimasi_total_pagu ?? 0);
+        $selisih = $hps - $paguAwal;
+        $mak = $permohonan->kode_mak ? AnggaranMAK::find($permohonan->kode_mak) : null;
+
+        // Sinkronisasi sisa pagu MAK terhadap selisih HPS yang ditetapkan PPBJ
+        if ($mak) {
+            if ($selisih > 0) {
+                if ((float) $mak->sisa_pagu_mak < $selisih) {
+                    return back()->withErrors([
+                        'nilai_hps' => 'Penetapan HPS (Rp '.number_format($hps, 0, ',', '.').') melebihi pagu awal permohonan (Rp '.number_format($paguAwal, 0, ',', '.').') dan sisa pagu MAK '.$mak->kode_mak.' tidak mencukupi (tersisa Rp '.number_format($mak->sisa_pagu_mak, 0, ',', '.').').',
+                    ])->withInput();
+                }
+                $mak->sisa_pagu_mak = max(0, (float) $mak->sisa_pagu_mak - $selisih);
+                $mak->save();
+            } elseif ($selisih < 0) {
+                // Efisiensi anggaran dikembalikan ke rekening sisa pagu MAK
+                $mak->sisa_pagu_mak = (float) $mak->sisa_pagu_mak + abs($selisih);
+                $mak->save();
+            }
+
+            $alokasi = AlokasiMAK::where('nomor_surat', $permohonan->nomor_surat)
+                ->where('kode_mak', $mak->kode_mak)
+                ->first();
+            if ($alokasi) {
+                $alokasi->nominal_alokasi = $hps;
+                $alokasi->save();
+            }
+        }
+
+        // Sinkronkan pagu tercatat pada permohonan ke HPS baru
+        $permohonan->estimasi_total_pagu = $hps;
+        $permohonan->save();
+
         $jalur = PaketPengadaan::tentukanRouting($hps);
 
         // Warisi otomatis PPK dari persetujuan awal Perencanaan jika PPBJ tidak mengubahnya
@@ -1665,26 +1703,37 @@ class HomeController extends Controller
 
         // Penentuan pejabat PP dan PPK sesuai jalur nominal Notulensi PPBJ
         $idUserPp = null;
-        $idUserPpk = $inheritedPpk;
+        $idUserPpk = null;
 
-        if ($jalur === PaketPengadaan::ROUTING_PP) {
+        if ($jalur === PaketPengadaan::ROUTING_LANGSUNG) {
+            $metodePengadaan = PaketPengadaan::METODE_BELANJA_LANGSUNG;
+        } elseif ($jalur === PaketPengadaan::ROUTING_PP) {
             $idUserPp = $validated['id_user_pp'] ?? User::where('role', 'pp')->where('status_aktif', true)->first()?->id_user;
             $idUserPpk = $inheritedPpk ?? User::where('role', 'ppk')->where('status_aktif', true)->first()?->id_user;
+            $metodePengadaan = $validated['metode_pengadaan'];
+        } else { // ROUTING_PPK
+            $idUserPpk = $inheritedPpk;
+            $metodePengadaan = $validated['metode_pengadaan'];
         }
 
-        $metodePengadaan = ($jalur === PaketPengadaan::ROUTING_LANGSUNG)
-            ? PaketPengadaan::METODE_BELANJA_LANGSUNG
-            : $validated['metode_pengadaan'];
-
         $platform = match ($metodePengadaan) {
-            PaketPengadaan::METODE_E_KATALOG, PaketPengadaan::METODE_NON_TENDER => 'Inaproc / E-Katalog',
-            PaketPengadaan::METODE_SPSE, PaketPengadaan::METODE_TENDER => 'SPSE',
-            PaketPengadaan::METODE_BELANJA_LANGSUNG => 'Belanja Langsung',
+            PaketPengadaan::METODE_E_KATALOG, PaketPengadaan::METODE_NON_TENDER, 'E-Purchasing', 'Surat Pesanan' => 'Inaproc / E-Katalog',
+            PaketPengadaan::METODE_SPSE, PaketPengadaan::METODE_TENDER, 'Tender' => 'SPSE',
+            PaketPengadaan::METODE_BELANJA_LANGSUNG, 'Pengadaan Langsung' => 'Belanja Langsung',
             default => 'SPSE/Inaproc',
         };
 
         $hargaPerkiraan = isset($validated['nominal_harga_perkiraan']) ? (float) $validated['nominal_harga_perkiraan'] : $hps;
         $hargaAkhir = isset($validated['nominal_harga_akhir']) ? (float) $validated['nominal_harga_akhir'] : null;
+
+        // Tangani rekanan vendor jika diinput di awal (misal test case / API payload)
+        $idVendor = $validated['id_vendor'] ?? null;
+        $npwpVendor = $validated['npwp_vendor'] ?? null;
+        if (! empty($validated['nama_vendor'])) {
+            $v = Vendor::firstOrCreate(['nama_vendor' => trim($validated['nama_vendor'])], ['is_active' => true]);
+            $idVendor = $v->id;
+            $npwpVendor = $v->npwp;
+        }
 
         $paket = PaketPengadaan::create([
             'kode_paket' => $validated['kode_paket'],
@@ -1700,7 +1749,8 @@ class HomeController extends Controller
             'nominal_harga_perkiraan' => $hargaPerkiraan,
             'nominal_harga_akhir' => $hargaAkhir,
             'nilai_hasil_negosiasi' => $hargaAkhir,
-            'npwp_vendor' => $validated['npwp_vendor'] ?? null,
+            'id_vendor' => $idVendor,
+            'npwp_vendor' => $npwpVendor,
             'jalur_routing' => $jalur,
             'nomor_memo_ppbj' => $nomorMemoPpbj,
             'id_user_ppbj' => $user->id_user,
@@ -1741,7 +1791,10 @@ class HomeController extends Controller
             'nomor_paket' => ['required', 'exists:paket_pengadaan,nomor_paket'],
             'nomor_kwitansi_belanja' => ['required', 'string', 'max:100'],
             'nominal_harga_akhir' => ['nullable', 'numeric', 'gt:0'],
-            'npwp_vendor' => ['nullable', 'exists:vendors,npwp'],
+            'nama_vendor' => ['nullable', 'string', 'max:255'],
+            'file_dokumen_legalitas' => ['nullable', DokumenUploadRule::pdfOrImage()],
+            'id_vendor' => ['nullable'],
+            'npwp_vendor' => ['nullable'],
             'jadwal_pengiriman' => ['nullable', 'date'],
             'file_kwitansi_belanja' => ['nullable', DokumenUploadRule::pdfOrImage()],
         ]);
@@ -1762,14 +1815,36 @@ class HomeController extends Controller
             ? (float) $validated['nominal_harga_akhir']
             : (float) ($paket->nominal_harga_akhir ?: $paket->nilai_hps);
 
+        // Rekanan vendor diinput secara inline saat belanja langsung
+        if (! empty($validated['nama_vendor'])) {
+            $legalitasPath = $request->hasFile('file_dokumen_legalitas')
+                ? $request->file('file_dokumen_legalitas')->store('vendor_legalitas', 'public')
+                : null;
+
+            $vendor = Vendor::firstOrCreate(
+                ['nama_vendor' => trim($validated['nama_vendor'])],
+                [
+                    'file_dokumen_legalitas' => $legalitasPath,
+                    'is_active' => true,
+                ]
+            );
+            if ($legalitasPath && empty($vendor->file_dokumen_legalitas)) {
+                $vendor->file_dokumen_legalitas = $legalitasPath;
+                $vendor->save();
+            }
+            $paket->id_vendor = $vendor->id;
+            $paket->npwp_vendor = $vendor->npwp;
+        } elseif (! empty($validated['id_vendor'])) {
+            $paket->id_vendor = $validated['id_vendor'];
+        } elseif (! empty($validated['npwp_vendor'])) {
+            $paket->npwp_vendor = $validated['npwp_vendor'];
+        }
+
         $statusLama = $paket->status_paket;
         $paket->nomor_kwitansi_belanja = $validated['nomor_kwitansi_belanja'];
         $paket->file_kwitansi_belanja = $kwitansiPath;
         $paket->nominal_harga_akhir = $hargaAkhir;
         $paket->nilai_hasil_negosiasi = $hargaAkhir;
-        if (! empty($validated['npwp_vendor'])) {
-            $paket->npwp_vendor = $validated['npwp_vendor'];
-        }
         $paket->dieksekusi_belanja_oleh = $user->id_user;
         $paket->tanggal_eksekusi_belanja = now();
         $paket->status_paket = PaketPengadaan::STATUS_BELANJA_LANGSUNG_SELESAI;
@@ -1978,7 +2053,10 @@ class HomeController extends Controller
 
         $validated = $request->validate([
             'kode_paket' => ['required'],
-            'id_vendor' => ['nullable', 'exists:vendors,npwp'],
+            'nama_vendor' => ['nullable', 'string', 'max:255'],
+            'file_dokumen_legalitas' => ['nullable', DokumenUploadRule::pdfOrImage()],
+            'id_vendor' => ['nullable'],
+            'npwp_vendor' => ['nullable'],
             'tipe_dokumen' => ['nullable', 'string', 'in:spk,surat_pesanan,surat_kontrak,SPK,Kontrak,Surat Pesanan,Surat Kontrak'],
             'nomor_kontrak_spk' => ['required', 'string', 'max:100', 'unique:kontrak_spk,nomor_spk'],
             'nilai_kontrak' => ['required', 'numeric', 'min:1'],
@@ -1986,7 +2064,6 @@ class HomeController extends Controller
             'tanggal_selesai' => ['required', 'date', 'after_or_equal:tanggal_mulai'],
             'catatan_spk' => ['nullable', 'string'],
             'file_spk' => ['nullable', DokumenUploadRule::pdfOnly()],
-            'tipe_dokumen' => ['nullable', 'string'],
             'sifat_kontrak' => ['nullable', 'string'],
             'jadwal_pengiriman' => ['nullable', 'date'],
         ]);
@@ -2009,9 +2086,33 @@ class HomeController extends Controller
             ])->withInput();
         }
 
-        $npwpVendor = $validated['id_vendor'] ?? $paket->npwp_vendor;
-        if (empty($npwpVendor)) {
-            return back()->withErrors(['id_vendor' => 'Penyedia/Vendor pemenang wajib dipilih sebelum mengunggah dokumen perikatan.'])->withInput();
+        // Rekanan vendor: bisa diinput secara inline (nama_vendor + file_dokumen_legalitas) atau dipilih
+        if (! empty($validated['nama_vendor'])) {
+            $legalitasPath = $request->hasFile('file_dokumen_legalitas')
+                ? $request->file('file_dokumen_legalitas')->store('vendor_legalitas', 'public')
+                : null;
+
+            $vendor = Vendor::firstOrCreate(
+                ['nama_vendor' => trim($validated['nama_vendor'])],
+                [
+                    'file_dokumen_legalitas' => $legalitasPath,
+                    'is_active' => true,
+                ]
+            );
+            if ($legalitasPath && empty($vendor->file_dokumen_legalitas)) {
+                $vendor->file_dokumen_legalitas = $legalitasPath;
+                $vendor->save();
+            }
+            $paket->id_vendor = $vendor->id;
+            $paket->npwp_vendor = $vendor->npwp;
+        } elseif (! empty($validated['id_vendor'])) {
+            $paket->id_vendor = $validated['id_vendor'];
+        } elseif (! empty($validated['npwp_vendor'])) {
+            $paket->npwp_vendor = $validated['npwp_vendor'];
+        }
+
+        if (empty($paket->id_vendor) && empty($paket->npwp_vendor)) {
+            return back()->withErrors(['nama_vendor' => 'Penyedia/Vendor pemenang wajib diisi atau dipilih sebelum mengunggah dokumen perikatan.'])->withInput();
         }
 
         $tipeInput = Str::lower(str_replace(' ', '_', $validated['tipe_dokumen'] ?? 'spk'));
@@ -2020,8 +2121,6 @@ class HomeController extends Controller
             'kontrak', 'surat_kontrak' => KontrakSPK::DOKUMEN_SURAT_KONTRAK,
             default => KontrakSPK::DOKUMEN_SPK,
         };
-
-        $paket->npwp_vendor = $npwpVendor;
 
         $fileSpkPath = 'spk/'.str_replace(['/', '\\'], '_', $validated['nomor_kontrak_spk']).'.pdf';
         if ($request->hasFile('file_spk')) {
@@ -2082,7 +2181,10 @@ class HomeController extends Controller
             'nominal_harga_perkiraan' => ['nullable', 'numeric', 'gt:0'],
             'nominal_harga_akhir' => ['nullable', 'numeric', 'gt:0'],
             'nilai_hasil_negosiasi' => ['nullable', 'numeric', 'min:0'],
-            'npwp_vendor' => ['nullable', 'exists:vendors,npwp'],
+            'nama_vendor' => ['nullable', 'string', 'max:255'],
+            'file_dokumen_legalitas' => ['nullable', DokumenUploadRule::pdfOrImage()],
+            'id_vendor' => ['nullable'],
+            'npwp_vendor' => ['nullable'],
             'eksekusi_belanja_sekaligus' => ['nullable', 'boolean'],
         ], [
             'catatan_perbaikan.required_if' => 'Catatan perbaikan wajib diisi saat meminta perbaikan dokumen pengadaan (FR 9.3).',
@@ -2106,18 +2208,39 @@ class HomeController extends Controller
         if ($user->role === 'pp' && $validated['status_reviu'] === 'terverifikasi_pp') {
             $hargaPerkiraan = $validated['nominal_harga_perkiraan'] ?? null;
             $hargaAkhir = $validated['nominal_harga_akhir'] ?? $validated['nilai_hasil_negosiasi'] ?? null;
-            $npwpVendor = $validated['npwp_vendor'] ?? $paket->npwp_vendor;
 
-            if (empty($hargaPerkiraan) || empty($hargaAkhir) || empty($npwpVendor)) {
+            if (! empty($validated['nama_vendor'])) {
+                $legalitasPath = $request->hasFile('file_dokumen_legalitas')
+                    ? $request->file('file_dokumen_legalitas')->store('vendor_legalitas', 'public')
+                    : null;
+                $vendor = Vendor::firstOrCreate(
+                    ['nama_vendor' => trim($validated['nama_vendor'])],
+                    [
+                        'file_dokumen_legalitas' => $legalitasPath,
+                        'is_active' => true,
+                    ]
+                );
+                if ($legalitasPath && empty($vendor->file_dokumen_legalitas)) {
+                    $vendor->file_dokumen_legalitas = $legalitasPath;
+                    $vendor->save();
+                }
+                $paket->id_vendor = $vendor->id;
+                $paket->npwp_vendor = $vendor->npwp;
+            } elseif (! empty($validated['id_vendor'])) {
+                $paket->id_vendor = $validated['id_vendor'];
+            } elseif (! empty($validated['npwp_vendor'])) {
+                $paket->npwp_vendor = $validated['npwp_vendor'];
+            }
+
+            if (empty($hargaPerkiraan) || empty($hargaAkhir) || (empty($paket->id_vendor) && empty($paket->npwp_vendor))) {
                 return back()->withErrors([
-                    'nominal_harga_akhir' => 'Setelah review kelengkapan, PP wajib menginput Nominal Harga Perkiraan, Nominal Harga Akhir, dan Vendor/Pemenang.',
+                    'nominal_harga_akhir' => 'Setelah review kelengkapan, PP wajib menginput Nominal Harga Perkiraan, Nominal Harga Akhir, dan Rekanan/Vendor.',
                 ])->withInput();
             }
 
             $paket->nominal_harga_perkiraan = (float) $hargaPerkiraan;
             $paket->nominal_harga_akhir = (float) $hargaAkhir;
             $paket->nilai_hasil_negosiasi = (float) $hargaAkhir;
-            $paket->npwp_vendor = $npwpVendor;
             $paket->catatan_verifikasi_pp = $validated['catatan_perbaikan'] ?? 'Dokumen lengkap diverifikasi PP; menunggu Approval PPK.';
         }
 

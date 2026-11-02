@@ -511,16 +511,38 @@
                 <input type="number" id="modal_nominal_harga_akhir" name="nominal_harga_akhir" step="0.01" min="1" placeholder="Kosongkan jika sama dengan pagu HPS" class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 font-mono focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20">
             </div>
 
-            <div>
-                <label for="modal_npwp_vendor_bl" class="block text-xs font-bold text-slate-700 mb-1">
-                    Penyedia / Toko Rekanan
-                </label>
-                <select id="modal_npwp_vendor_bl" name="npwp_vendor" class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20">
-                    <option value="">-- Pilih Toko / Rekanan Penyedia --</option>
-                    @foreach($vendors as $v)
-                        <option value="{{ $v->npwp }}">{{ $v->nama_vendor }} ({{ $v->npwp }})</option>
-                    @endforeach
-                </select>
+            <div class="space-y-3 p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                <div>
+                    <label for="modal_nama_vendor_bl" class="block text-xs font-bold text-slate-700 mb-1">
+                        Nama Toko / Rekanan Penyedia Belanja Langsung
+                    </label>
+                    <input
+                        type="text"
+                        id="modal_nama_vendor_bl"
+                        name="nama_vendor"
+                        list="bl-vendor-list"
+                        placeholder="Contoh: Toko Buku &amp; ATK Mitra Kampus"
+                        class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
+                    />
+                    <datalist id="bl-vendor-list">
+                        @foreach($vendors as $v)
+                            <option value="{{ $v->nama_vendor }}">{{ $v->nama_vendor }}</option>
+                        @endforeach
+                    </datalist>
+                </div>
+
+                <div>
+                    <label for="modal_file_legalitas_bl" class="block text-xs font-bold text-slate-700 mb-1">
+                        Unggah Dokumen Legalitas Rekanan (Opsional)
+                    </label>
+                    <input
+                        type="file"
+                        id="modal_file_legalitas_bl"
+                        name="file_dokumen_legalitas"
+                        accept=".pdf,image/*"
+                        class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-teal-50 file:text-teal-700"
+                    />
+                </div>
             </div>
 
             <div>

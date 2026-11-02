@@ -2,13 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Models\AnggaranMAK;
+use App\Models\KontrakSPK;
 use App\Models\PaketPengadaan;
 use App\Models\PermohonanPengadaan;
 use App\Models\Role;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\Vendor;
-use App\Models\VendorFileLegalitas;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -20,29 +21,51 @@ class VendorManagementPpbjTest extends TestCase
 
     protected User $ppbjUser;
 
+    protected User $ppUser;
+
+    protected User $ppkUser;
+
     protected User $regularUser;
 
-    protected User $adminUser;
-
     protected Unit $unit;
+
+    protected AnggaranMAK $anggaranMak;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        // Siapkan unit & role
+        Storage::fake('public');
+
         $this->unit = Unit::firstOrCreate(
             ['kode_unit' => 'TIK'],
             ['nama_unit' => 'Teknik Informatika dan Komputer', 'jenis_unit' => 'jurusan', 'is_active' => true]
         );
 
         $rolePpbj = Role::firstOrCreate(['nama_role' => 'ppbj'], ['label' => 'PPBJ', 'deskripsi' => 'Pengadaan Barang & Jasa']);
+        $rolePp = Role::firstOrCreate(['nama_role' => 'pp'], ['label' => 'PP', 'deskripsi' => 'Pejabat Pengadaan']);
+        $rolePpk = Role::firstOrCreate(['nama_role' => 'ppk'], ['label' => 'PPK', 'deskripsi' => 'Pejabat Pembuat Komitmen']);
         $roleUser = Role::firstOrCreate(['nama_role' => 'user'], ['label' => 'Pengusul', 'deskripsi' => 'Pengusul']);
-        $roleAdmin = Role::firstOrCreate(['nama_role' => 'admin'], ['label' => 'Administrator', 'deskripsi' => 'Administrator']);
 
         $this->ppbjUser = User::factory()->create([
             'role' => 'ppbj',
             'id_role' => $rolePpbj->id,
+            'kode_unit' => $this->unit->kode_unit,
+            'status_aktif' => true,
+            'status_registrasi' => 'disetujui',
+        ]);
+
+        $this->ppUser = User::factory()->create([
+            'role' => 'pp',
+            'id_role' => $rolePp->id,
+            'kode_unit' => $this->unit->kode_unit,
+            'status_aktif' => true,
+            'status_registrasi' => 'disetujui',
+        ]);
+
+        $this->ppkUser = User::factory()->create([
+            'role' => 'ppk',
+            'id_role' => $rolePpk->id,
             'kode_unit' => $this->unit->kode_unit,
             'status_aktif' => true,
             'status_registrasi' => 'disetujui',
@@ -56,300 +79,290 @@ class VendorManagementPpbjTest extends TestCase
             'status_registrasi' => 'disetujui',
         ]);
 
-        $this->adminUser = User::factory()->create([
-            'role' => 'admin',
-            'id_role' => $roleAdmin->id,
-            'kode_unit' => $this->unit->kode_unit,
-            'status_aktif' => true,
-            'status_registrasi' => 'disetujui',
+        $this->anggaranMak = AnggaranMAK::create([
+            'kode_mak' => 'MAK-2026-TIK-001',
+            'uraian_mak' => 'Pengadaan Lab Komputer & Server AI 2026',
+            'pagu_anggaran' => 100000000.00,
+            'sisa_pagu_mak' => 80000000.00,
+            'tahun_anggaran' => 2026,
+            'sumber_dana' => 'RM',
+            'is_locked' => false,
         ]);
     }
 
-    public function test_ppbj_can_view_vendor_index_page(): void
+    /**
+     * Memastikan route CRUD master /vendors telah dihapus sesuai instruksi penyederhanaan arsitektur.
+     */
+    public function test_vendor_master_crud_route_is_removed(): void
+    {
+        $response = $this->actingAs($this->ppbjUser)->get('/vendors');
+        $response->assertStatus(404);
+    }
+
+    /**
+     * Memastikan entitas Vendor baru bersifat minimalis (hanya butuh nama_vendor dan opsional dokumen legalitas, tanpa NPWP/NIB/bank).
+     */
+    public function test_vendor_model_can_be_created_with_minimal_attributes(): void
     {
         $vendor = Vendor::create([
-            'npwp' => '01.234.567.8-001.000',
-            'nib' => '1234567890001',
-            'nama_perusahaan' => 'PT Mitra Solusi Digital PNJ',
-            'alamat' => 'Jl. Prof. G.A. Siwabessy Kampus UI Depok',
+            'nama_vendor' => 'CV Minimalis Sukses Perkasa',
+            'file_dokumen_legalitas' => 'vendor_legalitas/sample_izin.pdf',
             'is_active' => true,
-            'nama_pic' => 'Ahmad Fauzi',
-            'telepon_pic' => '081234567890',
-            'email_pic' => 'fauzi@mitrasolusi.com',
-            'nama_bank' => 'Bank Mandiri',
-            'nomor_rekening' => '1570001234567',
-            'atas_nama' => 'PT Mitra Solusi Digital PNJ',
         ]);
-
-        $response = $this->actingAs($this->ppbjUser)->get(route('vendors.index'));
-
-        $response->assertOk();
-        $response->assertSee('Direktori Rekanan &amp; Vendor Penyedia', false);
-        $response->assertSee('PT Mitra Solusi Digital PNJ');
-        $response->assertSee('01.234.567.8-001.000');
-    }
-
-    public function test_non_ppbj_cannot_access_vendor_management(): void
-    {
-        // User biasa tidak berwenang
-        $responseUser = $this->actingAs($this->regularUser)->get(route('vendors.index'));
-        $responseUser->assertForbidden();
-
-        // Admin juga dibatasi (admin hanya RBAC, user CRUD, hapus pengajuan)
-        $responseAdmin = $this->actingAs($this->adminUser)->get(route('vendors.index'));
-        $responseAdmin->assertForbidden();
-    }
-
-    public function test_ppbj_can_store_new_vendor_with_legalitas_file(): void
-    {
-        Storage::fake('public');
-
-        $file = UploadedFile::fake()->create('dokumen_nib.pdf', 500, 'application/pdf');
-
-        $payload = [
-            'npwp' => '02.345.678.9-002.000',
-            'nib' => '9876543210002',
-            'nama_perusahaan' => 'CV Multi Karya Rekatama',
-            'alamat' => 'Jl. Margonda Raya No. 100 Depok',
-            'is_active' => '1',
-            'nama_pic' => 'Budi Santoso',
-            'telepon_pic' => '081398765432',
-            'email_pic' => 'budi@multikarya.co.id',
-            'nama_bank' => 'Bank BNI',
-            'nomor_rekening' => '0234567891',
-            'atas_nama' => 'CV Multi Karya Rekatama',
-            'file_legalitas' => $file,
-            'nama_dokumen' => 'NIB & SIUP 2026',
-        ];
-
-        $response = $this->actingAs($this->ppbjUser)->post(route('vendors.store'), $payload);
-
-        $response->assertRedirect(route('vendors.index'));
-        $response->assertSessionHas('success');
 
         $this->assertDatabaseHas('vendors', [
-            'npwp' => '02.345.678.9-002.000',
-            'nib' => '9876543210002',
-            'nama_perusahaan' => 'CV Multi Karya Rekatama',
+            'id' => $vendor->id,
+            'nama_vendor' => 'CV Minimalis Sukses Perkasa',
+            'file_dokumen_legalitas' => 'vendor_legalitas/sample_izin.pdf',
         ]);
-
-        $this->assertDatabaseHas('vendor_file_legalitas', [
-            'npwp' => '02.345.678.9-002.000',
-            'nama_dokumen' => 'NIB & SIUP 2026',
-        ]);
+        $this->assertNull($vendor->npwp);
+        $this->assertNull($vendor->nib);
+        $this->assertNull($vendor->nomor_rekening);
     }
 
-    public function test_store_vendor_validation_enforces_unique_npwp_and_nib(): void
+    /**
+     * Menguji input inline rekanan vendor saat eksekusi Belanja Langsung (<= 50 Juta) oleh PPBJ.
+     */
+    public function test_ppbj_can_execute_belanja_langsung_with_inline_vendor(): void
     {
-        Vendor::create([
-            'npwp' => '01.111.111.1-111.000',
-            'nib' => '1111111111111',
-            'nama_perusahaan' => 'PT Pertama',
-            'alamat' => 'Alamat A',
-            'is_active' => true,
-            'nama_pic' => 'PIC A',
-            'telepon_pic' => '0811111111',
-            'email_pic' => 'pica@mail.com',
-            'nama_bank' => 'Bank BCA',
-            'nomor_rekening' => '111111',
-            'atas_nama' => 'PT Pertama',
-        ]);
-
-        $payloadDuplicateNpwp = [
-            'npwp' => '01.111.111.1-111.000', // DUPLIKAT
-            'nib' => '2222222222222',
-            'nama_perusahaan' => 'PT Kedua',
-            'alamat' => 'Alamat B',
-            'nama_pic' => 'PIC B',
-            'telepon_pic' => '0822222222',
-            'email_pic' => 'picb@mail.com',
-            'nama_bank' => 'Bank Mandiri',
-            'nomor_rekening' => '222222',
-            'atas_nama' => 'PT Kedua',
-        ];
-
-        $response = $this->actingAs($this->ppbjUser)->post(route('vendors.store'), $payloadDuplicateNpwp);
-        $response->assertSessionHasErrors(['npwp']);
-    }
-
-    public function test_ppbj_can_update_vendor(): void
-    {
-        $vendor = Vendor::create([
-            'npwp' => '03.333.333.3-333.000',
-            'nib' => '3333333333333',
-            'nama_perusahaan' => 'PT Tri Daya Teknologi',
-            'alamat' => 'Jl. Lenteng Agung',
-            'is_active' => true,
-            'nama_pic' => 'Citra Dewi',
-            'telepon_pic' => '081333333333',
-            'email_pic' => 'citra@tridaya.com',
-            'nama_bank' => 'Bank BRI',
-            'nomor_rekening' => '333300003333',
-            'atas_nama' => 'PT Tri Daya Teknologi',
-        ]);
-
-        $updatePayload = [
-            'nib' => '3333333333333',
-            'nama_perusahaan' => 'PT Tri Daya Solusindo Nusantara',
-            'alamat' => 'Jl. Lenteng Agung No. 50 Jakarta Selatan',
-            'is_active' => '1',
-            'nama_pic' => 'Citra Dewi Lestari',
-            'telepon_pic' => '081333333334',
-            'email_pic' => 'citra.lestari@tridaya.com',
-            'nama_bank' => 'Bank Mandiri',
-            'nomor_rekening' => '1570003333333',
-            'atas_nama' => 'PT Tri Daya Solusindo Nusantara',
-        ];
-
-        $response = $this->actingAs($this->ppbjUser)->put(route('vendors.update', $vendor->npwp), $updatePayload);
-
-        $response->assertRedirect(route('vendors.index'));
-        $this->assertDatabaseHas('vendors', [
-            'npwp' => '03.333.333.3-333.000',
-            'nama_perusahaan' => 'PT Tri Daya Solusindo Nusantara',
-            'telepon_pic' => '081333333334',
-        ]);
-    }
-
-    public function test_ppbj_can_toggle_vendor_status(): void
-    {
-        $vendor = Vendor::create([
-            'npwp' => '04.444.444.4-444.000',
-            'nib' => '4444444444444',
-            'nama_perusahaan' => 'CV Empat Pilar',
-            'alamat' => 'Alamat D',
-            'is_active' => true,
-            'nama_pic' => 'Doni',
-            'telepon_pic' => '081444444444',
-            'email_pic' => 'doni@empatpilar.com',
-            'nama_bank' => 'Bank BNI',
-            'nomor_rekening' => '444444',
-            'atas_nama' => 'CV Empat Pilar',
-        ]);
-
-        // Toggle pertama: aktif -> nonaktif
-        $response = $this->actingAs($this->ppbjUser)->post(route('vendors.toggle-status', $vendor->npwp));
-        $response->assertRedirect(route('vendors.index'));
-
-        $vendor->refresh();
-        $this->assertFalse($vendor->is_active);
-
-        // Toggle kedua: nonaktif -> aktif
-        $this->actingAs($this->ppbjUser)->post(route('vendors.toggle-status', $vendor->npwp));
-        $vendor->refresh();
-        $this->assertTrue($vendor->is_active);
-    }
-
-    public function test_ppbj_can_upload_and_delete_additional_legalitas_doc(): void
-    {
-        Storage::fake('public');
-
-        $vendor = Vendor::create([
-            'npwp' => '05.555.555.5-555.000',
-            'nib' => '5555555555555',
-            'nama_perusahaan' => 'PT Lima Berkah',
-            'alamat' => 'Alamat E',
-            'is_active' => true,
-            'nama_pic' => 'Eko',
-            'telepon_pic' => '081555555555',
-            'email_pic' => 'eko@limaberkah.com',
-            'nama_bank' => 'Bank Mandiri',
-            'nomor_rekening' => '555555',
-            'atas_nama' => 'PT Lima Berkah',
-        ]);
-
-        $file = UploadedFile::fake()->create('akta_perubahan.pdf', 300, 'application/pdf');
-
-        $responseUpload = $this->actingAs($this->ppbjUser)->post(route('vendors.upload-legalitas', $vendor->npwp), [
-            'nama_dokumen' => 'Akta Perubahan Notaris 2026',
-            'file_legalitas' => $file,
-        ]);
-
-        $responseUpload->assertRedirect(route('vendors.index'));
-        $this->assertDatabaseHas('vendor_file_legalitas', [
-            'npwp' => '05.555.555.5-555.000',
-            'nama_dokumen' => 'Akta Perubahan Notaris 2026',
-        ]);
-
-        $fileRecord = VendorFileLegalitas::where('nama_dokumen', 'Akta Perubahan Notaris 2026')->first();
-
-        // Hapus dokumen
-        $responseDelete = $this->actingAs($this->ppbjUser)->delete(route('vendors.legalitas.destroy', $fileRecord->id));
-        $responseDelete->assertRedirect(route('vendors.index'));
-        $this->assertDatabaseMissing('vendor_file_legalitas', ['id' => $fileRecord->id]);
-    }
-
-    public function test_ppbj_can_delete_unbound_vendor(): void
-    {
-        $vendor = Vendor::create([
-            'npwp' => '06.666.666.6-666.000',
-            'nib' => '6666666666666',
-            'nama_perusahaan' => 'CV Enam Bersaudara',
-            'alamat' => 'Alamat F',
-            'is_active' => true,
-            'nama_pic' => 'Fajar',
-            'telepon_pic' => '081666666666',
-            'email_pic' => 'fajar@enam.com',
-            'nama_bank' => 'Bank BRI',
-            'nomor_rekening' => '666666',
-            'atas_nama' => 'CV Enam Bersaudara',
-        ]);
-
-        $response = $this->actingAs($this->ppbjUser)->delete(route('vendors.destroy', $vendor->npwp));
-
-        $response->assertRedirect(route('vendors.index'));
-        $response->assertSessionHas('success');
-        $this->assertDatabaseMissing('vendors', ['npwp' => '06.666.666.6-666.000']);
-    }
-
-    public function test_ppbj_cannot_delete_vendor_tied_to_existing_package(): void
-    {
-        $vendor = Vendor::create([
-            'npwp' => '07.777.777.7-777.000',
-            'nib' => '7777777777777',
-            'nama_perusahaan' => 'PT Tujuh Pilar Niaga',
-            'alamat' => 'Alamat G',
-            'is_active' => true,
-            'nama_pic' => 'Gilang',
-            'telepon_pic' => '081777777777',
-            'email_pic' => 'gilang@tujuh.com',
-            'nama_bank' => 'Bank Mandiri',
-            'nomor_rekening' => '777777',
-            'atas_nama' => 'PT Tujuh Pilar Niaga',
-        ]);
-
         $permohonan = PermohonanPengadaan::create([
-            'nomor_surat' => 'B/TEST/VENDOR/001',
-            'judul_pengadaan' => 'Pengadaan Uji Vendor',
-            'tujuan_pengadaan_ringkas' => 'Uji pengadaan',
-            'estimasi_total_pagu' => 45000000,
+            'nomor_surat' => 'B/TEST/BL/001',
+            'judul_pengadaan' => 'Pengadaan ATK & Kertas Kantor TIK',
+            'tujuan_pengadaan_ringkas' => 'Kebutuhan ATK',
+            'estimasi_total_pagu' => 25000000.00,
+            'status_permohonan' => PermohonanPengadaan::STATUS_DISETUJUI,
+            'status_anggaran' => 'tersedia',
             'kode_unit' => $this->unit->kode_unit,
+            'kode_mak' => $this->anggaranMak->kode_mak,
             'id_user' => $this->regularUser->id_user,
-            'tanggal_pengajuan' => now(),
-            'status_permohonan' => 'disetujui',
-            'status_anggaran' => 'disetujui',
         ]);
 
-        PaketPengadaan::create([
-            'nomor_paket' => 'PKT-TEST-001',
+        $paket = PaketPengadaan::create([
+            'kode_paket' => 'PKT-BL-2026-001',
+            'nomor_paket' => 'PKT-BL-2026-001',
+            'nama_paket' => 'Pengadaan ATK & Kertas Kantor TIK',
             'nomor_surat' => $permohonan->nomor_surat,
-            'nama_paket' => 'Paket Uji Vendor',
-            'alokasi_pagu_paket' => 45000000,
-            'nilai_hps' => 45000000,
             'jenis_pengadaan' => 'barang',
-            'metode_pengadaan' => 'belanja_langsung',
-            'jalur_routing' => 'langsung_sd_50jt',
+            'platform_pengadaan' => 'Belanja Langsung',
+            'mekanisme_pengadaan' => 'pengadaan_langsung',
+            'jalur_routing' => PaketPengadaan::ROUTING_LANGSUNG,
+            'nilai_hps' => 25000000.00,
+            'alokasi_pagu_paket' => 25000000.00,
+            'id_user_ppbj' => $this->ppbjUser->id_user,
             'status_paket' => 'terdaftar',
-            'tanggal_registrasi_paket' => now(),
-            'npwp_vendor' => $vendor->npwp,
         ]);
 
-        // Coba hapus vendor
-        $response = $this->actingAs($this->ppbjUser)->delete(route('vendors.destroy', $vendor->npwp));
+        $dokumenLegalitas = UploadedFile::fake()->create('dokumen_legalitas_toko.pdf', 500, 'application/pdf');
+        $kwitansiFile = UploadedFile::fake()->create('kwitansi_pembelian.pdf', 300, 'application/pdf');
 
-        $response->assertRedirect(route('vendors.index'));
-        $response->assertSessionHas('error');
-        // Vendor masih ada
-        $this->assertDatabaseHas('vendors', ['npwp' => '07.777.777.7-777.000']);
+        $response = $this->actingAs($this->ppbjUser)->post(route('paket.belanja-langsung'), [
+            'nomor_paket' => $paket->nomor_paket,
+            'nomor_kwitansi_belanja' => 'KWT/TIK/2026/001',
+            'nominal_harga_akhir' => 24500000.00,
+            'nama_vendor' => 'Toko Buku & ATK Mitra Kampus',
+            'file_dokumen_legalitas' => $dokumenLegalitas,
+            'file_kwitansi_belanja' => $kwitansiFile,
+            'jadwal_pengiriman' => now()->addDays(3)->toDateString(),
+        ]);
+
+        $response->assertRedirect(route('paket.index'));
+        $response->assertSessionHas('success');
+
+        $this->assertDatabaseHas('vendors', [
+            'nama_vendor' => 'Toko Buku & ATK Mitra Kampus',
+        ]);
+
+        $createdVendor = Vendor::where('nama_vendor', 'Toko Buku & ATK Mitra Kampus')->first();
+        $this->assertNotNull($createdVendor);
+        $this->assertNotNull($createdVendor->file_dokumen_legalitas);
+
+        $paket->refresh();
+        $this->assertEquals($createdVendor->id, $paket->id_vendor);
+        $this->assertEquals(PaketPengadaan::STATUS_BELANJA_LANGSUNG_SELESAI, $paket->status_paket);
+    }
+
+    /**
+     * Menguji input inline rekanan vendor saat PP mereview paket 50-200 Juta.
+     */
+    public function test_pp_can_input_vendor_inline_during_package_review(): void
+    {
+        $permohonan = PermohonanPengadaan::create([
+            'nomor_surat' => 'B/TEST/PP/001',
+            'judul_pengadaan' => 'Pengadaan Jaringan Switch Gigabit',
+            'tujuan_pengadaan_ringkas' => 'Upgrade Jaringan Lab',
+            'estimasi_total_pagu' => 90000000.00,
+            'status_permohonan' => PermohonanPengadaan::STATUS_DISETUJUI,
+            'status_anggaran' => 'tersedia',
+            'kode_unit' => $this->unit->kode_unit,
+            'kode_mak' => $this->anggaranMak->kode_mak,
+            'id_user' => $this->regularUser->id_user,
+        ]);
+
+        $paket = PaketPengadaan::create([
+            'kode_paket' => 'PKT-PP-2026-001',
+            'nomor_paket' => 'PKT-PP-2026-001',
+            'nama_paket' => 'Pengadaan Jaringan Switch Gigabit',
+            'nomor_surat' => $permohonan->nomor_surat,
+            'jenis_pengadaan' => 'barang',
+            'platform_pengadaan' => 'SPSE',
+            'mekanisme_pengadaan' => 'SPK',
+            'jalur_routing' => PaketPengadaan::ROUTING_PP,
+            'nilai_hps' => 90000000.00,
+            'alokasi_pagu_paket' => 90000000.00,
+            'id_user_ppbj' => $this->ppbjUser->id_user,
+            'id_user_pp' => $this->ppUser->id_user,
+            'id_user_ppk' => $this->ppkUser->id_user,
+            'status_paket' => 'reviu_dokumen',
+        ]);
+
+        $dokumenLegalitas = UploadedFile::fake()->create('legalitas_pt_jaringan.pdf', 600, 'application/pdf');
+
+        $response = $this->actingAs($this->ppUser)->post(route('kontrak.reviu'), [
+            'nomor_paket' => $paket->nomor_paket,
+            'status_reviu' => 'terverifikasi_pp',
+            'nominal_harga_perkiraan' => 88000000.00,
+            'nominal_harga_akhir' => 85000000.00,
+            'nama_vendor' => 'PT Solusi Network Indonesia',
+            'file_dokumen_legalitas' => $dokumenLegalitas,
+            'catatan_perbaikan' => 'Dokumen lengkap dan negosiasi disetujui.',
+        ]);
+
+        $response->assertRedirect(route('kontrak.index'));
+
+        $this->assertDatabaseHas('vendors', [
+            'nama_vendor' => 'PT Solusi Network Indonesia',
+        ]);
+
+        $vendor = Vendor::where('nama_vendor', 'PT Solusi Network Indonesia')->first();
+        $paket->refresh();
+        $this->assertEquals($vendor->id, $paket->id_vendor);
+        $this->assertEquals(85000000.00, (float) $paket->nominal_harga_akhir);
+    }
+
+    /**
+     * Menguji input inline rekanan vendor saat PPBJ mengunggah dokumen perikatan kontrak SPK (> 50 Juta).
+     */
+    public function test_ppbj_can_publish_kontrak_with_inline_vendor(): void
+    {
+        $permohonan = PermohonanPengadaan::create([
+            'nomor_surat' => 'B/TEST/KONTRAK/001',
+            'judul_pengadaan' => 'Pengadaan Server AI GPU H100',
+            'tujuan_pengadaan_ringkas' => 'Server Riset AI',
+            'estimasi_total_pagu' => 250000000.00,
+            'status_permohonan' => PermohonanPengadaan::STATUS_DISETUJUI,
+            'status_anggaran' => 'tersedia',
+            'kode_unit' => $this->unit->kode_unit,
+            'kode_mak' => $this->anggaranMak->kode_mak,
+            'id_user' => $this->regularUser->id_user,
+        ]);
+
+        $paket = PaketPengadaan::create([
+            'kode_paket' => 'PKT-AI-2026-001',
+            'nomor_paket' => 'PKT-AI-2026-001',
+            'nama_paket' => 'Pengadaan Server AI GPU H100',
+            'nomor_surat' => $permohonan->nomor_surat,
+            'jenis_pengadaan' => 'barang',
+            'platform_pengadaan' => 'SPSE',
+            'mekanisme_pengadaan' => 'Tender',
+            'jalur_routing' => PaketPengadaan::ROUTING_PPK,
+            'nilai_hps' => 250000000.00,
+            'alokasi_pagu_paket' => 250000000.00,
+            'id_user_ppbj' => $this->ppbjUser->id_user,
+            'id_user_ppk' => $this->ppkUser->id_user,
+            'status_paket' => PaketPengadaan::STATUS_SIAP_UPLOAD_DOKUMEN_PPBJ,
+        ]);
+
+        $dokumenLegalitas = UploadedFile::fake()->create('akta_dan_nib_server.pdf', 1000, 'application/pdf');
+        $spkFile = UploadedFile::fake()->create('kontrak_spk_server.pdf', 1200, 'application/pdf');
+
+        $response = $this->actingAs($this->ppbjUser)->post(route('kontrak.store'), [
+            'kode_paket' => $paket->nomor_paket,
+            'nama_vendor' => 'PT Graha Komputasi Cerdas',
+            'file_dokumen_legalitas' => $dokumenLegalitas,
+            'tipe_dokumen' => 'surat_kontrak',
+            'nomor_kontrak_spk' => 'KTR/PNJ/AI/2026/001',
+            'nilai_kontrak' => 245000000.00,
+            'tanggal_mulai' => now()->toDateString(),
+            'tanggal_selesai' => now()->addDays(30)->toDateString(),
+            'jadwal_pengiriman' => now()->addDays(20)->toDateString(),
+            'file_spk' => $spkFile,
+        ]);
+
+        $response->assertRedirect(route('kontrak.index'));
+
+        $this->assertDatabaseHas('vendors', [
+            'nama_vendor' => 'PT Graha Komputasi Cerdas',
+        ]);
+
+        $vendor = Vendor::where('nama_vendor', 'PT Graha Komputasi Cerdas')->first();
+        $paket->refresh();
+        $this->assertEquals($vendor->id, $paket->id_vendor);
+        $this->assertEquals('spk_terbit', $paket->status_paket);
+
+        $this->assertDatabaseHas('kontrak_spk', [
+            'nomor_spk' => 'KTR/PNJ/AI/2026/001',
+            'nomor_paket' => $paket->nomor_paket,
+            'tipe_dokumen' => KontrakSPK::DOKUMEN_SURAT_KONTRAK,
+        ]);
+    }
+
+    /**
+     * Menguji sinkronisasi sisa pagu MAK saat PPBJ mengubah nilai HPS berbeda dari alokasi awal permohonan.
+     */
+    public function test_mak_is_synchronized_when_ppbj_changes_hps_during_registration(): void
+    {
+        // 1. Kasus Efisiensi: Awal 50.000.000 menjadi 40.000.000 -> sisa pagu MAK bertambah 10.000.000
+        $permohonanEfisiensi = PermohonanPengadaan::create([
+            'nomor_surat' => 'B/TEST/MAK/EFISIENSI/001',
+            'judul_pengadaan' => 'Pengadaan Fasilitas Audio Lab',
+            'tujuan_pengadaan_ringkas' => 'Audio Lab',
+            'estimasi_total_pagu' => 50000000.00,
+            'status_permohonan' => PermohonanPengadaan::STATUS_DISETUJUI,
+            'status_anggaran' => 'tersedia',
+            'kode_unit' => $this->unit->kode_unit,
+            'kode_mak' => $this->anggaranMak->kode_mak,
+            'id_user' => $this->regularUser->id_user,
+        ]);
+
+        $saldoAwal = (float) $this->anggaranMak->sisa_pagu_mak; // 80.000.000
+
+        $responseEfisiensi = $this->actingAs($this->ppbjUser)->post(route('paket.store'), [
+            'kode_paket' => 'PKT-AUDIO-2026-001',
+            'nama_paket' => 'Pengadaan Fasilitas Audio Lab',
+            'nomor_surat' => $permohonanEfisiensi->nomor_surat,
+            'jenis_pengadaan' => 'Barang',
+            'metode_pengadaan' => 'Pengadaan Langsung',
+            'nilai_hps' => 40000000.00, // Turun 10 jt
+        ]);
+
+        $responseEfisiensi->assertRedirect(route('paket.index'));
+
+        $this->anggaranMak->refresh();
+        $this->assertEquals($saldoAwal + 10000000.00, (float) $this->anggaranMak->sisa_pagu_mak);
+
+        // 2. Kasus Kenaikan Melebihi Saldo: Permohonan pagu 10jt, HPS diubah jadi 150jt saat saldo hanya 90jt -> Ditolak
+        $permohonanDefisit = PermohonanPengadaan::create([
+            'nomor_surat' => 'B/TEST/MAK/DEFISIT/002',
+            'judul_pengadaan' => 'Pengadaan Drone Mapping',
+            'tujuan_pengadaan_ringkas' => 'Drone TIK',
+            'estimasi_total_pagu' => 10000000.00,
+            'status_permohonan' => PermohonanPengadaan::STATUS_DISETUJUI,
+            'status_anggaran' => 'tersedia',
+            'kode_unit' => $this->unit->kode_unit,
+            'kode_mak' => $this->anggaranMak->kode_mak,
+            'id_user' => $this->regularUser->id_user,
+        ]);
+
+        $responseDefisit = $this->actingAs($this->ppbjUser)->post(route('paket.store'), [
+            'kode_paket' => 'PKT-DRONE-2026-001',
+            'nama_paket' => 'Pengadaan Drone Mapping',
+            'nomor_surat' => $permohonanDefisit->nomor_surat,
+            'jenis_pengadaan' => 'Barang',
+            'metode_pengadaan' => 'Tender',
+            'nilai_hps' => 200000000.00, // Selisih 190jt padahal sisa saldo 90jt
+            'id_user_ppk' => $this->ppkUser->id_user,
+        ]);
+
+        $responseDefisit->assertSessionHasErrors('nilai_hps');
     }
 }
