@@ -4,7 +4,9 @@
 
 @section('content')
 @php
-    $canCreate = in_array(auth()->user()->role ?? '', ['perencanaan', 'user']);
+   $canCreate = in_array(auth()->user()->role ?? '', ['perencanaan', 'user']);
+$isAdmin   = strtolower(auth()->user()->role ?? '') === 'admin';
+$canDelete = $isAdmin || $canCreate;
 
     // Susun data pengajuan + riwayat di server, lalu kirim ke Alpine lewat @json
     // (aman dari tanda kutip / baris baru, tidak perlu addslashes lagi).
@@ -98,22 +100,21 @@
         </div>
 
         <div class="flex items-center gap-2 shrink-0">
-            @if($canCreate)
-                <a x-show="viewMode === 'split'" href="{{ route('permohonan.create') }}"
-                   class="inline-flex items-center justify-center h-10 px-5 rounded-lg bg-[#0969da] hover:bg-blue-700 text-white font-semibold text-sm transition-colors shadow-sm gap-2">
-                    <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
-                    Permohonan Baru
-                </a>
+    @if($canCreate)
+        <a x-show="viewMode === 'split'" href="{{ route('permohonan.create') }}"
+           class="inline-flex items-center justify-center h-10 px-5 rounded-lg bg-[#0969da] hover:bg-blue-700 text-white font-semibold text-sm transition-colors shadow-sm gap-2">
+            <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+            Permohonan Baru
+        </a>
+    @endif
 
-                @if(Route::has('permohonan.destroy'))
-                    <button x-show="viewMode === 'fullscreen'" x-cloak @click="hapusPengajuan()" type="button"
-                            class="inline-flex items-center justify-center h-10 px-5 rounded-lg border border-rose-200 bg-white hover:bg-rose-50 text-rose-600 font-semibold text-sm transition-colors gap-2">
-                        <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                        Hapus Pengajuan
-                    </button>
-                @endif
-            @endif
-        </div>
+    @if($canDelete && Route::has('permohonan.destroy'))
+        <button x-show="viewMode === 'fullscreen'" x-cloak @click="hapusPengajuan()" type="button"
+                class="inline-flex h-10 items-center justify-center rounded-lg bg-red-600 px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-700">
+            Hapus Pengajuan
+        </button>
+    @endif
+</div>
     </div>
 
     {{-- Form tersembunyi untuk hapus pengajuan (aksi dibuat dinamis oleh Alpine) --}}

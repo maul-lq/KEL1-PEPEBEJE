@@ -2108,5 +2108,36 @@ public function permohonanIndex(Request $request)
     return redirect()->back()->with('success', 'Semua notifikasi berhasil ditandai dibaca.');
 }
 
+public function destroyPermohonan(Request $request, string $id)
+{
+    $user       = auth()->user();
+    $permohonan = PermohonanPengadaan::where('nomor_surat', $id)->firstOrFail();
+    $isAdmin    = strtolower($user->role ?? '') === 'admin';
+
+    // Admin boleh menghapus semua; pengaju hanya miliknya sendiri
+    abort_unless($isAdmin || $permohonan->id_user === $user->id_user, 403);
+
+    // Pengaju hanya boleh menghapus sebelum diproses lebih lanjut
+    $status = strtolower((string) ($permohonan->status_permohonan ?? ''));
+    if (!$isAdmin && !in_array($status, ['diajukan', 'ditolak', 'revisi'])) {
+        return back()->with('error', 'Pengajuan yang sedang diproses tidak dapat dihapus.');
+    }
+
+    // Lindungi data turunan agar tidak ada data yatim
+    if ($permohonan->paket) {
+        return back()->with('error', 'Pengajuan sudah memiliki paket pengadaan. Hapus paketnya terlebih dahulu.');
+    }
+
+    try {
+        \DB::transaction(function () use ($permohonan) {
+            $permohonan->verifikasiParalel()->delete();   // catatan verifikasi ikut dihapus
+            $permohonan->delete();
+        });
+    } catch (\Illuminate\Database\QueryException $e) {
+        return back()->with('error', 'Pengajuan tidak dapat dihapus karena masih terhubung dengan data lain.');
+    }
+
+    return redirect()->route('permohonan.index')->with('success', 'Pengajuan berhasil dihapus.');
+}
 
 }

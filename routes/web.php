@@ -245,3 +245,7 @@ Route::prefix('api')->group(function () {
 // Health Checks
 Route::get('/health', [HomeController::class, 'healthCheck'])->name('health');
 Route::get('/health-check', [HomeController::class, 'healthCheck']);
+
+Route::delete('/permohonan/{id}', [HomeController::class, 'destroyPermohonan'])
+    ->where('id', '.*')                 // nomor surat mengandung "/"
+    ->name('permohonan.destroy');
