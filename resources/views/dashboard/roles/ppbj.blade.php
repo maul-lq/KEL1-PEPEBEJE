@@ -3,8 +3,8 @@
 
 <div class="space-y-8">
 
-    {{-- 1. 4-COLUMN KPI STAT CARDS --}}
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+    {{-- 1. 5-COLUMN KPI STAT CARDS --}}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <x-stat-card
             title="Total Paket Terdaftar"
             :value="$stats['total_paket'] ?? 0"
@@ -37,6 +37,16 @@
             icon="users"
             badge="Tender"
             subtitle="Ditugaskan ke 4 akun PPK"
+        />
+
+        <x-stat-card
+            title="Direktori Rekanan"
+            :value="$stats['total_vendor'] ?? 0"
+            color="emerald"
+            icon="document"
+            badge="Master Data"
+            subtitle="Penyedia & toko terdaftar"
+            :href="route('vendors.index')"
         />
     </div>
 

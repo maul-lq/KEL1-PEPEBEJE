@@ -137,11 +137,10 @@
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div class="space-y-1">
-                                <label class="text-xs font-bold text-slate-700">Nomor Surat Revisi Baru Srikandi <span class="text-rose-500">*</span></label>
+                                <label class="text-xs font-bold text-slate-700">Nomor Surat Usulan Srikandi <span class="text-slate-400 font-normal text-[11px]">(Tetap atau sesuaikan)</span></label>
                                 <input type="text" 
                                        name="nomor_surat_baru" 
-                                       value="{{ $permohonan->nomor_surat }}-REV" 
-                                       required
+                                       value="{{ $permohonan->nomor_surat }}" 
                                        class="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-mono font-medium focus:border-[#0969da] focus:outline-none focus:ring-2 focus:ring-[#0969da]/20">
                             </div>
 

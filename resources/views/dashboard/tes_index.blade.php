@@ -488,7 +488,7 @@
             <p>
                 @if($user->hasRole('admin') || $user->hasPermission('admin.approval_registrasi'))
                     <a href="{{ route('admin.persetujuan-registrasi.index') }}">
-                        <button type="button"><strong>Antrean Persetujuan Registrasi Akun</strong></button>
+                        <button type="button"><strong>Antrean Persetujuan Registrasi Akun ({{ $roleData['stats']['pending_registrations'] ?? 0 }})</strong></button>
                     </a>
                     &nbsp;
                 @endif
@@ -498,6 +498,35 @@
                     </a>
                 @endif
             </p>
+            @if(!empty($roleData['pending_users']) && $roleData['pending_users']->isNotEmpty())
+                <h4>Daftar Pendaftar Menunggu Persetujuan:</h4>
+                <table border="1" cellpadding="6" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>NIP</th>
+                            <th>Nama</th>
+                            <th>Email</th>
+                            <th>Unit Kerja</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($roleData['pending_users'] as $pendingUser)
+                            <tr>
+                                <td>{{ $pendingUser->nip ?? '-' }}</td>
+                                <td>{{ $pendingUser->nama }}</td>
+                                <td>{{ $pendingUser->email }}</td>
+                                <td>{{ $pendingUser->unit->nama_unit ?? $pendingUser->kode_unit ?? '-' }}</td>
+                                <td>
+                                    <a href="{{ route('admin.persetujuan-registrasi.index') }}">
+                                        <button type="button">Tinjau &amp; ACC</button>
+                                    </a>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            @endif
         </fieldset>
     </section>
 @endif

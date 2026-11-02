@@ -30,6 +30,39 @@
         </div>
     </div>
 
+    {{-- NOTIFIKASI SUKSES / ERROR FLASH --}}
+    @if(session('success'))
+        <div class="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center justify-between shadow-sm">
+            <div class="flex items-center gap-2">
+                <svg class="size-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                <span>{{ session('success') }}</span>
+            </div>
+        </div>
+    @endif
+
+    @if(session('error'))
+        <div class="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center justify-between shadow-sm">
+            <div class="flex items-center gap-2">
+                <svg class="size-4 text-rose-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                <span>{{ session('error') }}</span>
+            </div>
+        </div>
+    @endif
+
+    @if($errors->any())
+        <div class="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs space-y-1 shadow-sm">
+            <div class="font-bold flex items-center gap-1.5">
+                <svg class="size-4 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                Terjadi kesalahan:
+            </div>
+            <ul class="list-disc list-inside space-y-0.5 pl-5">
+                @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
     {{-- STAT CARDS (4 Cards) --}}
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <x-stat-card
@@ -109,7 +142,10 @@
                                 <td class="px-5 py-4 align-top text-xs space-y-0.5">
                                     <div><span class="font-semibold text-slate-500">Email:</span> {{ $user->email }}</div>
                                     <div><span class="font-semibold text-slate-500">Username:</span> {{ $user->username }}</div>
-                                    <div class="text-slate-400">HP: {{ $user->no_hp }}</div>
+                                    <div class="text-slate-600 font-mono">HP: {{ $user->no_hp }}</div>
+                                    @if($user->no_telp_kantor)
+                                        <div class="text-slate-400 font-mono text-[11px]">Telp: {{ $user->no_telp_kantor }}</div>
+                                    @endif
                                 </td>
                                 <td class="px-5 py-4 align-top text-xs">
                                     <div class="font-bold text-[#213153]">{{ $user->unit->nama_unit ?? $user->kode_unit }}</div>
@@ -137,7 +173,7 @@
                                 <td class="px-5 py-4 align-top max-w-xs">
                                     <form action="{{ route('admin.persetujuan-registrasi.tolak', $user->id_user) }}" method="POST" class="space-y-2">
                                         @csrf
-                                        <input type="text" name="alasan_penolakan" required placeholder="Alasan penolakan..." class="w-full h-9 rounded-lg border border-slate-200 px-2.5 text-xs bg-white text-slate-800 focus:border-rose-500 focus:ring-1 focus:ring-rose-500">
+                                        <textarea name="alasan_penolakan" rows="2" required placeholder="Tuliskan alasan penolakan..." class="w-full rounded-lg border border-slate-200 p-2 text-xs bg-white text-slate-800 focus:border-rose-500 focus:ring-1 focus:ring-rose-500"></textarea>
                                         <button type="submit" class="w-full h-8 rounded-lg bg-rose-600 px-3 text-xs font-bold text-white shadow-xs hover:bg-rose-700 transition">
                                             Tolak Pendaftaran
                                         </button>

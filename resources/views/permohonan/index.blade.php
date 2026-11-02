@@ -402,14 +402,13 @@
                    x-text="revisiTarget?.alasan_revisi || revisiTarget?.catatan || 'Diperlukan penyesuaian berkas KAK atau estimasi pagu anggaran usulan.'"></p>
             </div>
 
-            <!-- Nomor Surat Baru -->
+            <!-- Nomor Surat Usulan -->
             <div class="space-y-1">
-                <label class="block text-xs font-bold text-slate-700">Nomor Surat Revisi Baru Srikandi <span class="text-rose-500">*</span></label>
+                <label class="block text-xs font-bold text-slate-700">Nomor Surat Usulan Srikandi <span class="text-slate-400 font-normal text-[11px]">(Tetap atau sesuaikan jika ada nomor agenda baru)</span></label>
                 <input type="text" 
                        name="nomor_surat_baru" 
-                       :value="(revisiTarget?.nomor_surat ? revisiTarget.nomor_surat + '-REV' : '')"
-                       required 
-                       placeholder="Contoh: B/123-REV/PL3/TIK/2026"
+                       :value="revisiTarget?.nomor_surat || ''"
+                       placeholder="Contoh: B/123/PL3/TIK/2026"
                        class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2 text-xs font-mono font-medium focus:border-[#0969da] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0969da]/20">
             </div>
 

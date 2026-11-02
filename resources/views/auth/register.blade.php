@@ -72,6 +72,20 @@
                 >
                     @csrf
 
+                    @if($errors->any())
+                        <div class="sm:col-span-2 rounded-[8px] border border-red-300 bg-red-50 p-4 text-sm text-red-800 shadow-sm">
+                            <div class="flex items-center gap-2 font-bold mb-1.5 text-red-900">
+                                <svg class="size-4 shrink-0 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                <span>Pendaftaran gagal, mohon periksa isian formulir:</span>
+                            </div>
+                            <ul class="list-disc pl-5 space-y-0.5 text-xs text-red-700">
+                                @foreach($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
+
                     <!-- NIP Pegawai -->
                     <label class="flex flex-col gap-[13px]">
                         <span class="text-lg font-medium text-black">
@@ -81,7 +95,7 @@
                             type="text"
                             name="nip"
                             value="{{ old('nip') }}"
-                            placeholder="Masukkan NIP"
+                            placeholder="Contoh: 199001012020011001"
                             required
                             class="h-[60px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] px-[22px] text-lg text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6]"
                         />
@@ -90,13 +104,13 @@
                     <!-- Username -->
                     <label class="flex flex-col gap-[13px]">
                         <span class="text-lg font-medium text-black">
-                            Username <span class="text-red-600">*</span>
+                            Username Sistem <span class="text-red-600">*</span>
                         </span>
                         <input
                             type="text"
                             name="username"
                             value="{{ old('username') }}"
-                            placeholder="Buat username unik"
+                            placeholder="Contoh: budi_santoso"
                             required
                             class="h-[60px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] px-[22px] text-lg text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6]"
                         />
@@ -105,12 +119,12 @@
                     <!-- Nama Lengkap & Gelar -->
                     <label class="flex flex-col gap-[13px] sm:col-span-2">
                         <span class="text-lg font-medium text-black">
-                            Nama Lengkap & Gelar <span class="text-red-600">*</span>
+                            Nama Lengkap &amp; Gelar <span class="text-red-600">*</span>
                         </span>
                         <input
                             type="text"
-                            name="name"
-                            value="{{ old('name') }}"
+                            name="nama"
+                            value="{{ old('nama', old('name')) }}"
                             placeholder="Contoh: Dr. Budi Santoso, M.T."
                             required
                             class="h-[60px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] px-[22px] text-lg text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6]"
@@ -120,42 +134,47 @@
                     <!-- Email Kampus / Resmi -->
                     <label class="flex flex-col gap-[13px] sm:col-span-2">
                         <span class="text-lg font-medium text-black">
-                            Email Kampus / Resmi
+                            Email Resmi Institusi <span class="text-red-600">*</span>
                         </span>
                         <input
                             type="email"
                             name="email"
                             value="{{ old('email') }}"
-                            placeholder="nama@instansi.ac.id"
-                            class="h-[60px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] px-[22px] text-lg text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6]"
-                        />
-                    </label>
-
-                    <!-- Unit Kerja / Jurusan -->
-                    <label class="flex flex-col gap-[13px]">
-                        <span class="text-lg font-medium text-black">
-                            Unit Kerja / Jurusan <span class="text-red-600">*</span>
-                        </span>
-                        <input
-                            type="text"
-                            name="unit_kerja"
-                            value="{{ old('unit_kerja') }}"
-                            placeholder="Pilih unit kerja"
+                            placeholder="Contoh: budi@pnj.ac.id"
                             required
                             class="h-[60px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] px-[22px] text-lg text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6]"
                         />
                     </label>
 
+                    <!-- Unit Kerja / Jurusan Asal -->
+                    <label class="flex flex-col gap-[13px]">
+                        <span class="text-lg font-medium text-black">
+                            Unit Kerja / Jurusan Asal <span class="text-red-600">*</span>
+                        </span>
+                        <select
+                            name="kode_unit"
+                            required
+                            class="h-[60px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] px-[22px] text-lg text-black outline-none focus:border-[#3B82F6]"
+                        >
+                            <option value="">-- Pilih Unit Kerja / Jurusan --</option>
+                            @foreach($units as $unit)
+                                <option value="{{ $unit->kode_unit }}" {{ old('kode_unit', old('unit_kerja')) === $unit->kode_unit ? 'selected' : '' }}>
+                                    [{{ $unit->kode_unit }}] {{ $unit->nama_unit }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </label>
+
                     <!-- Jabatan Kedinasan -->
                     <label class="flex flex-col gap-[13px]">
                         <span class="text-lg font-medium text-black">
-                            Jabatan Kedinasan <span class="text-red-600">*</span>
+                            Jabatan Struktural / Akademik <span class="text-red-600">*</span>
                         </span>
                         <input
                             type="text"
                             name="jabatan"
                             value="{{ old('jabatan') }}"
-                            placeholder="Pilih jabatan"
+                            placeholder="Contoh: Dosen Pengajar / Kepala Lab"
                             required
                             class="h-[60px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] px-[22px] text-lg text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6]"
                         />
@@ -164,13 +183,13 @@
                     <!-- Nomor HP / WhatsApp -->
                     <label class="flex flex-col gap-[13px]">
                         <span class="text-lg font-medium text-black">
-                            Nomor HP / WhatsApp <span class="text-red-600">*</span>
+                            Nomor Handphone / WhatsApp Aktif <span class="text-red-600">*</span>
                         </span>
                         <input
                             type="tel"
-                            name="phone"
-                            value="{{ old('phone') }}"
-                            placeholder="08xxxxxxxxxxx"
+                            name="no_hp"
+                            value="{{ old('no_hp', old('phone')) }}"
+                            placeholder="Contoh: 081234567890"
                             required
                             class="h-[60px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] px-[22px] text-lg text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6]"
                         />
@@ -179,13 +198,13 @@
                     <!-- Telepon Kantor -->
                     <label class="flex flex-col gap-[13px]">
                         <span class="text-lg font-medium text-black">
-                            Telepon Kantor <span class="text-[15px] text-gray-500">(Opsional)</span>
+                            Nomor Telepon Kantor / Ruangan <span class="text-[15px] text-gray-500">(Opsional)</span>
                         </span>
                         <input
                             type="tel"
-                            name="office_phone"
-                            value="{{ old('office_phone') }}"
-                            placeholder="021-xxxxxxxxx"
+                            name="no_telp_kantor"
+                            value="{{ old('no_telp_kantor', old('office_phone')) }}"
+                            placeholder="Contoh: 0217270001 (Opsional)"
                             class="h-[60px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] px-[22px] text-lg text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6]"
                         />
                     </label>

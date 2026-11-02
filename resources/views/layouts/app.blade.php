@@ -292,13 +292,23 @@
 
                 <!-- 2. ADMIN ONLY: RBAC, User CRUD & Master Management -->
                 @if(Auth::user()->hasRole('admin'))
+                    @php
+                        $pendingRegistrasiCount = \App\Models\User::where('status_registrasi', \App\Models\User::STATUS_REGISTRASI_MENUNGGU)->count();
+                    @endphp
                     <a href="{{ route('admin.persetujuan-registrasi.index') }}" 
                        title="Persetujuan Registrasi" 
-                       class="relative flex items-center gap-3 rounded-[10px] p-2.5 transition-colors w-full {{ request()->routeIs('admin.persetujuan-registrasi.*') ? 'bg-[#0969da]/80 text-white font-semibold' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
-                        <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                        </svg>
-                        <span x-show="sidebarExpanded" x-cloak class="text-sm font-medium whitespace-nowrap">Persetujuan Registrasi</span>
+                       class="relative flex items-center justify-between rounded-[10px] p-2.5 transition-colors w-full {{ request()->routeIs('admin.persetujuan-registrasi.*') ? 'bg-[#0969da]/80 text-white font-semibold' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                            </svg>
+                            <span x-show="sidebarExpanded" x-cloak class="text-sm font-medium whitespace-nowrap">Persetujuan Registrasi</span>
+                        </div>
+                        @if($pendingRegistrasiCount > 0)
+                            <span x-show="sidebarExpanded" x-cloak class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white">
+                                {{ $pendingRegistrasiCount }}
+                            </span>
+                        @endif
                     </a>
 
                     <a href="{{ route('admin.users.index') }}" 
@@ -395,6 +405,15 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                         </svg>
                         <span x-show="sidebarExpanded" x-cloak class="text-sm font-medium whitespace-nowrap">Paket Pengadaan</span>
+                    </a>
+
+                    <a href="{{ route('vendors.index') }}" 
+                       title="Direktori Rekanan & Vendor" 
+                       class="relative flex items-center gap-3 rounded-[10px] p-2.5 transition-colors w-full {{ request()->routeIs('vendors.*') ? 'bg-[#0969da]/80 text-white font-semibold' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
+                        <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        </svg>
+                        <span x-show="sidebarExpanded" x-cloak class="text-sm font-medium whitespace-nowrap">Direktori Rekanan</span>
                     </a>
 
                     <a href="{{ route('kontrak.index') }}" 
