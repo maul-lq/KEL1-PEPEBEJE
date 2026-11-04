@@ -102,24 +102,31 @@ $canDelete = $isAdmin || $canCreate;
                     : 'Pantau status pengajuan pengadaan secara real-time. Pilih salah satu pengajuan untuk melihat detailnya.'"></p>
         </div>
 
-        <div class="flex items-center gap-2 shrink-0">
-  <!-- Tombol Tambah Pengajuan Baru (Role Perencanaan / User) -->
-@if(in_array(strtolower(auth()->user()->role ?? ''), ['perencanaan', 'user']))
-    <button @click="showCreateModal = true" type="button" 
-            class="inline-flex items-center justify-center h-10 px-5 rounded-xl bg-[#0969da] hover:bg-blue-700 text-white font-bold text-xs transition-all shadow-sm gap-2 cursor-pointer">
-        <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
-        </svg>
-        <span>Permohonan Baru</span>
-    </button>
-@endif
+        <!-- AREA TOMBOL KANAN ATAS -->
+<div class="flex items-center gap-3">
 
-    @if($canDelete && Route::has('permohonan.destroy'))
-        <button x-show="viewMode === 'fullscreen'" x-cloak @click="hapusPengajuan()" type="button"
-                class="inline-flex h-10 items-center justify-center rounded-lg bg-red-600 px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-700">
-            Hapus Pengajuan
+    <!-- 1. Tombol Permohonan Baru (Hanya tampil jika BUKAN mode Fullscreen Detail) -->
+    @if(in_array(strtolower(auth()->user()->role ?? ''), ['perencanaan', 'user']))
+        <button x-show="viewMode !== 'fullscreen'" 
+                @click="showCreateModal = true" 
+                type="button" 
+                class="inline-flex items-center justify-center h-10 px-5 rounded-xl bg-[#0969da] hover:bg-blue-700 text-white font-bold text-xs transition-all shadow-sm gap-2 cursor-pointer">
+            <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+            <span>Permohonan Baru</span>
         </button>
     @endif
+
+    <!-- 2. Tombol Hapus Pengajuan (Hanya tampil saat mode Fullscreen Detail) -->
+    @if(in_array(strtolower(auth()->user()->role ?? ''), ['perencanaan', 'user']))
+        <button x-show="viewMode === 'fullscreen'" 
+                @click="showDeleteModal = true" 
+                type="button" 
+                class="inline-flex items-center justify-center h-10 px-5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition-all shadow-sm gap-2 cursor-pointer">
+            <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            <span>Hapus Pengajuan</span>
+        </button>
+    @endif
+
 </div>
     </div>
 
@@ -544,6 +551,7 @@ $canDelete = $isAdmin || $canCreate;
 
     <!-- INCLUDE OVERLAY MODAL CREATE PERMOHONAN -->
 @include('permohonan.partials.create-modal')
+@include('permohonan.partials.delete-modal')
 </div>
 
 <script>
@@ -552,6 +560,7 @@ $canDelete = $isAdmin || $canCreate;
             viewMode: 'split',
             selectedItem: null,            // null = tampilkan empty state (Figma frame 1)
             showCreateModal: false,
+            showDeleteModal: false,
             searchQuery: '',
             appliedQuery: '',              // diterapkan saat klik Cari / Enter
             filterStatus: 'Semua',
