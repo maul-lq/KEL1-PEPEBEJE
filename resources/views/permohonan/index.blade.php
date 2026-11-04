@@ -103,13 +103,16 @@ $canDelete = $isAdmin || $canCreate;
         </div>
 
         <div class="flex items-center gap-2 shrink-0">
-    @if($canCreate)
-        <a x-show="viewMode === 'split'" href="{{ route('permohonan.create') }}"
-           class="inline-flex items-center justify-center h-10 px-5 rounded-lg bg-[#0969da] hover:bg-blue-700 text-white font-semibold text-sm transition-colors shadow-sm gap-2">
-            <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
-            Permohonan Baru
-        </a>
-    @endif
+  <!-- Tombol Tambah Pengajuan Baru (Role Perencanaan / User) -->
+@if(in_array(strtolower(auth()->user()->role ?? ''), ['perencanaan', 'user']))
+    <button @click="showCreateModal = true" type="button" 
+            class="inline-flex items-center justify-center h-10 px-5 rounded-xl bg-[#0969da] hover:bg-blue-700 text-white font-bold text-xs transition-all shadow-sm gap-2 cursor-pointer">
+        <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+        </svg>
+        <span>Permohonan Baru</span>
+    </button>
+@endif
 
     @if($canDelete && Route::has('permohonan.destroy'))
         <button x-show="viewMode === 'fullscreen'" x-cloak @click="hapusPengajuan()" type="button"
@@ -539,6 +542,8 @@ $canDelete = $isAdmin || $canCreate;
         </div>
     </div>
 
+    <!-- INCLUDE OVERLAY MODAL CREATE PERMOHONAN -->
+@include('permohonan.partials.create-modal')
 </div>
 
 <script>
@@ -546,6 +551,7 @@ $canDelete = $isAdmin || $canCreate;
         return {
             viewMode: 'split',
             selectedItem: null,            // null = tampilkan empty state (Figma frame 1)
+            showCreateModal: false,
             searchQuery: '',
             appliedQuery: '',              // diterapkan saat klik Cari / Enter
             filterStatus: 'Semua',
@@ -668,4 +674,5 @@ $canDelete = $isAdmin || $canCreate;
         };
     }
 </script>
+
 @endsection
