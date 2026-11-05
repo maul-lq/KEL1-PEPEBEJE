@@ -291,20 +291,24 @@
     $menuOff = 'text-slate-300 hover:bg-white/10 hover:text-white';
 @endphp
 
-<aside class="flex flex-col bg-[#213153] py-5 shadow-xl transition-all duration-300 z-20 shrink-0 min-h-screen md:min-h-[calc(100vh-70px)]"
+<aside class="flex flex-col overflow-hidden bg-[#213153] py-4 shadow-xl transition-all duration-300 z-20 shrink-0 min-h-screen md:min-h-[calc(100vh-70px)]"
        :class="{
-           'w-64 px-4': sidebarExpanded,
-           'w-16 items-center px-2': !sidebarExpanded,
+           'w-80 px-1': sidebarExpanded,
+           'w-16 items-center px-1': !sidebarExpanded,
            'fixed inset-y-0 left-0 pt-[80px] md:pt-5 md:static md:translate-x-0': true,
            'translate-x-0': mobileSidebarOpen,
            '-translate-x-full md:translate-x-0': !mobileSidebarOpen
        }">
 
-    <!-- Tombol Toggle Hamburger Menu Internal (Gaya Frontend-pemula) -->
-    <div class="w-full px-1 mb-4 flex items-center justify-between">
+    <!-- Header Sidebar -->
+    <div class="mb-4 flex h-12 w-full items-center justify-between px-3">
+        <a href="{{ route('dashboard') }}" x-show="sidebarExpanded" x-cloak class="flex shrink-0 items-center gap-2">
+            <img src="{{ asset('favicon.ico') }}" alt="Logo SIM-PBJ" class="size-9 object-contain">
+        </a>
         <button @click="sidebarExpanded = !sidebarExpanded" 
                 type="button" 
                 title="Buka/Tutup Sidebar" 
+                :class="{ 'ml-auto': sidebarExpanded, 'mx-auto': !sidebarExpanded }"
                 class="flex size-9 items-center justify-center rounded-xl text-slate-200 hover:bg-white/10 transition-colors">
             <svg class="size-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
@@ -313,16 +317,16 @@
     </div>
 
     <!-- Garis Pembatas Atas -->
-    <div class="mx-1 mb-4 h-px bg-white/15 w-full"></div>
+    <div class="mx-3 mb-4 h-px w-[calc(100%-1.5rem)] bg-white/15"></div>
 
     <!-- Menu Navigation Stack (Scrollable jika menu banyak) -->
-    <nav class="flex flex-col gap-2.5 w-full flex-1 overflow-y-auto overflow-x-hidden pr-0.5">
+    <nav class="flex w-full flex-1 flex-col gap-3 overflow-y-auto overflow-x-hidden px-1">
 
         <!-- 1. DASHBOARD (All Roles) -->
         @php $aDash = request()->routeIs('dashboard'); @endphp
         <a href="{{ route('dashboard') }}" 
            title="Dashboard" 
-           class="flex h-11 items-center gap-3.5 rounded-xl px-3 transition-all w-full {{ $aDash ? $menuOn : $menuOff }}">
+           class="flex h-[49px] w-full items-center gap-4 rounded-[10px] px-4 transition-all {{ $aDash ? $menuOn : $menuOff }}">
             <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M4 10.2 12 3.8l8 6.4V19a1.5 1.5 0 0 1-1.5 1.5H15v-4.5a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v4.5H5.5A1.5 1.5 0 0 1 4 19z" fill="{{ $aDash ? 'currentColor' : 'none' }}"/>
             </svg>
@@ -338,8 +342,8 @@
                 @endphp
                 <a href="{{ route('admin.persetujuan-registrasi.index') }}" 
                    title="Persetujuan Registrasi" 
-                   class="relative flex h-11 items-center justify-between rounded-xl px-3 transition-all w-full {{ $aReg ? $menuOn : $menuOff }}">
-                    <div class="flex items-center gap-3.5 min-w-0">
+                   class="relative flex h-[49px] w-full items-center justify-between rounded-[10px] px-4 transition-all {{ $aReg ? $menuOn : $menuOff }}">
+                    <div class="flex min-w-0 items-center gap-4">
                         <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                         </svg>
@@ -361,7 +365,7 @@
                 @php $aUsr = request()->routeIs('admin.users.*'); @endphp
                 <a href="{{ route('admin.users.index') }}" 
                    title="Manajemen Pengguna" 
-                   class="flex h-11 items-center gap-3.5 rounded-xl px-3 transition-all w-full {{ $aUsr ? $menuOn : $menuOff }}">
+                   class="flex h-[49px] w-full items-center gap-4 rounded-[10px] px-4 transition-all {{ $aUsr ? $menuOn : $menuOff }}">
                     <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
@@ -373,7 +377,7 @@
                 @php $aRole = request()->routeIs('admin.roles.*'); @endphp
                 <a href="{{ route('admin.roles.index') }}" 
                    title="Master Role & Hak Akses" 
-                   class="flex h-11 items-center gap-3.5 rounded-xl px-3 transition-all w-full {{ $aRole ? $menuOn : $menuOff }}">
+                   class="flex h-[49px] w-full items-center gap-4 rounded-[10px] px-4 transition-all {{ $aRole ? $menuOn : $menuOff }}">
                     <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
                     </svg>
@@ -385,7 +389,7 @@
                 @php $aAdminPerm = request()->routeIs('permohonan.*'); @endphp
                 <a href="{{ route('permohonan.index') }}" 
                    title="Kelola / Hapus Pengajuan" 
-                   class="flex h-11 items-center gap-3.5 rounded-xl px-3 transition-all w-full {{ $aAdminPerm ? $menuOn : $menuOff }}">
+                   class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aAdminPerm ? $menuOn : $menuOff }}">
                     <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
@@ -399,7 +403,7 @@
             @php $aUserPerm = request()->routeIs('permohonan.*'); @endphp
             <a href="{{ route('permohonan.index') }}" 
                title="Permohonan Saya" 
-               class="flex h-11 items-center gap-3.5 rounded-xl px-3 transition-all w-full {{ $aUserPerm ? $menuOn : $menuOff }}">
+               class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aUserPerm ? $menuOn : $menuOff }}">
                 <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
@@ -412,7 +416,7 @@
             @php $aBidang2 = request()->routeIs('verifikasi.bidang-2*'); @endphp
             <a href="{{ route('verifikasi.bidang-2') }}" 
                title="Telaah Berkas Bidang II" 
-               class="flex h-11 items-center gap-3.5 rounded-xl px-3 transition-all w-full {{ $aBidang2 ? $menuOn : $menuOff }}">
+               class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aBidang2 ? $menuOn : $menuOff }}">
                 <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
@@ -429,7 +433,7 @@
             @endphp
             <a href="{{ route('verifikasi.wadir-2') }}" 
                title="Persetujuan Eksekutif" 
-               class="flex h-11 items-center gap-3.5 rounded-xl px-3 transition-all w-full {{ $aWadir2 ? $menuOn : $menuOff }}">
+               class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aWadir2 ? $menuOn : $menuOff }}">
                 <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                 </svg>
@@ -438,7 +442,7 @@
 
             <a href="{{ route('pembayaran.index') }}" 
                title="Tagihan & Pembayaran SP2D" 
-               class="flex h-11 items-center gap-3.5 rounded-xl px-3 transition-all w-full {{ $aWadirBayar ? $menuOn : $menuOff }}">
+               class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aWadirBayar ? $menuOn : $menuOff }}">
                 <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
@@ -451,7 +455,7 @@
             @php $aPerencanaan = request()->routeIs('verifikasi.perencanaan*'); @endphp
             <a href="{{ route('verifikasi.perencanaan') }}" 
                title="Verifikasi MAK & Pagu" 
-               class="flex h-11 items-center gap-3.5 rounded-xl px-3 transition-all w-full {{ $aPerencanaan ? $menuOn : $menuOff }}">
+               class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aPerencanaan ? $menuOn : $menuOff }}">
                 <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
@@ -468,7 +472,7 @@
             @endphp
             <a href="{{ route('paket.index') }}" 
                title="Paket Pengadaan" 
-               class="flex h-11 items-center gap-3.5 rounded-xl px-3 transition-all w-full {{ $aPaket ? $menuOn : $menuOff }}">
+               class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aPaket ? $menuOn : $menuOff }}">
                 <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                 </svg>
@@ -477,7 +481,7 @@
 
             <a href="{{ route('kontrak.index') }}" 
                title="Kontrak SPK" 
-               class="flex h-11 items-center gap-3.5 rounded-xl px-3 transition-all w-full {{ $aKontrakPPBJ ? $menuOn : $menuOff }}">
+               class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aKontrakPPBJ ? $menuOn : $menuOff }}">
                 <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
@@ -486,7 +490,7 @@
 
             <a href="{{ route('pembayaran.index') }}" 
                title="Perintah Bayar" 
-               class="flex h-11 items-center gap-3.5 rounded-xl px-3 transition-all w-full {{ $aBayarPPBJ ? $menuOn : $menuOff }}">
+               class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aBayarPPBJ ? $menuOn : $menuOff }}">
                 <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
@@ -499,7 +503,7 @@
             @php $aPPKontrak = request()->routeIs('kontrak.*'); @endphp
             <a href="{{ route('kontrak.index') }}" 
                title="Reviu & Negosiasi Harga" 
-               class="flex h-11 items-center gap-3.5 rounded-xl px-3 transition-all w-full {{ $aPPKontrak ? $menuOn : $menuOff }}">
+               class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aPPKontrak ? $menuOn : $menuOff }}">
                 <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
@@ -524,7 +528,7 @@
             @endphp
             <a href="{{ route('verifikasi.ppk') }}" 
                title="Persetujuan Awal Usulan PPK" 
-               class="relative flex h-11 items-center gap-3.5 rounded-xl px-3 transition-all w-full {{ $aPPKVerif ? $menuOn : $menuOff }}">
+               class="relative flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aPPKVerif ? $menuOn : $menuOff }}">
                 <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                 </svg>
@@ -542,7 +546,7 @@
 
             <a href="{{ route('kontrak.index') }}" 
                title="Approval Paket Komitmen" 
-               class="flex h-11 items-center gap-3.5 rounded-xl px-3 transition-all w-full {{ $aPPKKomitmen ? $menuOn : $menuOff }}">
+               class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aPPKKomitmen ? $menuOn : $menuOff }}">
                 <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
@@ -551,7 +555,7 @@
 
             <a href="{{ route('pembayaran.index') }}" 
                title="Memo Bayar Level 1" 
-               class="flex h-11 items-center gap-3.5 rounded-xl px-3 transition-all w-full {{ $aPPKBayar ? $menuOn : $menuOff }}">
+               class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aPPKBayar ? $menuOn : $menuOff }}">
                 <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
@@ -564,7 +568,7 @@
             @php $aPerlengkapan = request()->routeIs('penerimaan.*'); @endphp
             <a href="{{ route('penerimaan.index') }}" 
                title="Penerimaan Barang & BAST" 
-               class="flex h-11 items-center gap-3.5 rounded-xl px-3 transition-all w-full {{ $aPerlengkapan ? $menuOn : $menuOff }}">
+               class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aPerlengkapan ? $menuOn : $menuOff }}">
                 <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
                 </svg>
@@ -577,7 +581,7 @@
             @php $aKeuangan = request()->routeIs('pembayaran.*'); @endphp
             <a href="{{ route('pembayaran.index') }}" 
                title="Tagihan & Pembayaran SP2D" 
-               class="flex h-11 items-center gap-3.5 rounded-xl px-3 transition-all w-full {{ $aKeuangan ? $menuOn : $menuOff }}">
+               class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aKeuangan ? $menuOn : $menuOff }}">
                 <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
@@ -590,7 +594,7 @@
             @php $aMonitoring = request()->routeIs('monitoring.*'); @endphp
             <a href="{{ route('monitoring.index') }}" 
                title="Monitoring 8 Siklus" 
-               class="flex h-11 items-center gap-3.5 rounded-xl px-3 transition-all w-full {{ $aMonitoring ? $menuOn : $menuOff }}">
+               class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aMonitoring ? $menuOn : $menuOff }}">
                 <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M3 8h8M17 8h4M3 16h2M11 16h10"/>
                     <circle cx="14" cy="8" r="2.5" fill="{{ $aMonitoring ? 'currentColor' : 'none' }}"/>
@@ -605,7 +609,7 @@
             @php $aLaporan = request()->routeIs('laporan.*'); @endphp
             <a href="{{ route('laporan.rekapitulasi') }}" 
                title="Laporan Rekapitulasi" 
-               class="flex h-11 items-center gap-3.5 rounded-xl px-3 transition-all w-full {{ $aLaporan ? $menuOn : $menuOff }}">
+               class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aLaporan ? $menuOn : $menuOff }}">
                 <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
                     <rect x="3.5" y="3.5" width="17" height="17" rx="3" fill="{{ $aLaporan ? 'currentColor' : 'none' }}"/>
                     <rect x="7" y="7.5" width="3.5" height="3.5" rx="0.8" stroke="{{ $aLaporan ? '#0969da' : 'currentColor' }}" fill="{{ $aLaporan ? '#0969da' : 'none' }}"/>
@@ -622,7 +626,7 @@
         @endphp
         <a href="{{ route('notifikasi.index') }}" 
            title="Notifikasi & Reminder" 
-           class="relative flex h-11 items-center gap-3.5 rounded-xl px-3 transition-all w-full {{ $aNotif ? $menuOn : $menuOff }}">
+           class="relative flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aNotif ? $menuOn : $menuOff }}">
             <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M6 10a6 6 0 1 1 12 0c0 3.2 1 4.7 2 5.8a.6.6 0 0 1-.45 1H4.45a.6.6 0 0 1-.45-1C5 14.7 6 13.2 6 10z" fill="{{ $aNotif ? 'currentColor' : 'none' }}"/>
                 <path d="M10 20a2 2 0 0 0 4 0"/>
@@ -638,26 +642,24 @@
                 </span>
             @endif
         </a>
-
+        
+        <!-- Garis Pembatas Bawah -->
+        <div class="mx-1 my-1 h-px bg-white/15 w-full"></div>
+    
+        <!-- 15. PROFIL SAYA (All Roles) -->
+        @php $aProf = request()->routeIs('profile.*'); @endphp
+        <div class="w-full">
+            <a href="{{ route('profile.index') }}" 
+               title="Profil" 
+               class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aProf ? $menuOn : $menuOff }}">
+                <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="8" r="3.5" fill="{{ $aProf ? 'currentColor' : 'none' }}"/>
+                    <path d="M5 20v-.5c0-2.6 3.1-4.5 7-4.5s7 1.9 7 4.5v.5z" fill="{{ $aProf ? 'currentColor' : 'none' }}"/>
+                </svg>
+                <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Profil</span>
+            </a>
+        </div>
     </nav>
-
-    <!-- Garis Pembatas Bawah -->
-    <div class="mx-1 my-3 h-px bg-white/15 w-full"></div>
-
-    <!-- 15. PROFIL SAYA (All Roles) -->
-    @php $aProf = request()->routeIs('profile.*'); @endphp
-    <div class="w-full">
-        <a href="{{ route('profile.index') }}" 
-           title="Profil" 
-           class="flex h-11 items-center gap-3.5 rounded-xl px-3 transition-all w-full {{ $aProf ? $menuOn : $menuOff }}">
-            <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="8" r="3.5" fill="{{ $aProf ? 'currentColor' : 'none' }}"/>
-                <path d="M5 20v-.5c0-2.6 3.1-4.5 7-4.5s7 1.9 7 4.5v.5z" fill="{{ $aProf ? 'currentColor' : 'none' }}"/>
-            </svg>
-            <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Profil</span>
-        </a>
-    </div>
-
 </aside>
 
         </aside>
