@@ -58,9 +58,9 @@ class PaketPengadaanPolicy
                 : Response::deny('Akses Ditolak: Anda bukan pemohon pengadaan ini.');
         }
 
-        // 4. Peran Manajemen, Pimpinan, dan Pengawasan Kampus
-        // PPBJ, Perencanaan, Wadir 2, Staff Bidang 2, Perlengkapan, dan Keuangan memiliki wewenang lintas paket.
-        if (in_array($user->role, ['ppbj', 'perencanaan', 'wadir_2', 'staff_bidang_2', 'perlengkapan', 'keuangan'], true)) {
+        // 4. Peran Manajemen, Pimpinan, Administrator, dan Pengawasan Kampus
+        // Admin, PPBJ, Perencanaan, Wadir 2, Staff Bidang 2, Perlengkapan, dan Keuangan memiliki wewenang lintas paket.
+        if (in_array($user->role, ['admin', 'ppbj', 'perencanaan', 'wadir_2', 'staff_bidang_2', 'perlengkapan', 'keuangan'], true)) {
             return Response::allow();
         }
 

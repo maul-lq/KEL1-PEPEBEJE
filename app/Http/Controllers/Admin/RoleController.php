@@ -43,7 +43,7 @@ class RoleController extends Controller
             ]);
         }
 
-        return view('admin.tes_roles', compact('roles', 'permissionsByModule'));
+        return view('admin.roles', compact('roles', 'permissionsByModule'));
     }
 
     /**

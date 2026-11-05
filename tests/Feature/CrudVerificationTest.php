@@ -286,9 +286,9 @@ class CrudVerificationTest extends TestCase
             'nama_paket' => 'Pengadaan AC 2 PK',
             'jenis_pengadaan' => PaketPengadaan::JENIS_BARANG,
             'metode_pengadaan' => PaketPengadaan::METODE_PENGADAAN_LANGSUNG,
-            'nilai_hps' => 45000000.00,
+            'nilai_hps' => 75000000.00,
             'status_paket' => PaketPengadaan::STATUS_SPK_TERBIT,
-            'jalur_routing' => PaketPengadaan::JALUR_LANGSUNG,
+            'jalur_routing' => PaketPengadaan::ROUTING_PP,
             'nomor_surat' => $permohonan->nomor_surat,
             'kode_mak' => $mak->kode_mak,
             'ppbj_user_id' => $user->id_user,
@@ -300,7 +300,7 @@ class CrudVerificationTest extends TestCase
             'tipe_kontrak' => KontrakSPK::TIPE_SEKALI_SELESAI,
             'tanggal_spk' => '2026-10-01',
             'jadwal_pengiriman' => '2026-10-15',
-            'nilai_kontrak' => 44000000.00,
+            'nilai_kontrak' => 74000000.00,
             'file_spk' => 'spk_ac_001.pdf',
         ]);
 

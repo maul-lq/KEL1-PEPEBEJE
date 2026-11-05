@@ -444,37 +444,53 @@ class FrNfrPrioritySixElevenTest extends TestCase
         ]);
 
         $paket = PaketPengadaan::create([
-            'kode_paket' => 'PKT-PRINTER-45JT',
-            'nomor_paket' => 'PKT-PRINTER-45JT',
+            'kode_paket' => 'PKT-PRINTER-85JT',
+            'nomor_paket' => 'PKT-PRINTER-85JT',
             'nama_paket' => 'Pengadaan Printer Laserjet Lab',
             'nomor_surat' => $permohonan->nomor_surat,
             'jenis_pengadaan' => 'pengadaan_barang',
             'platform_pengadaan' => 'E-Katalog',
             'mekanisme_pengadaan' => 'pengadaan_langsung',
-            'metode_pengadaan' => 'pengadaan_langsung',
-            'nilai_hps' => 45000000,
-            'alokasi_pagu_paket' => 45000000,
-            'jalur_routing' => 'pejabat_pengadaan_sd_200jt',
+            'metode_pengadaan' => 'non_tender',
+            'nilai_hps' => 85000000,
+            'alokasi_pagu_paket' => 85000000,
+            'jalur_routing' => PaketPengadaan::ROUTING_PP,
             'id_user_ppbj' => $this->userPbj->id_user,
             'id_user_pp' => $this->userPp->id_user,
+            'id_user_ppk' => $this->userPpk1->id_user,
             'tanggal_registrasi_paket' => now(),
             'status_paket' => 'terdaftar',
         ]);
 
-        // Pejabat Pengadaan mereviu dan menyetujui dokumen melalui API ReviuDokumenController
+        // 1. PP mereview kelengkapan + input Harga Perkiraan, Harga Akhir, & Vendor (PP tidak bisa klik Approval final)
+        $resPp = $this->postJson('/api/reviu-dokumen', [
+            'nomor_paket' => $paket->nomor_paket,
+            'status_reviu' => 'terverifikasi_pp',
+            'nominal_harga_perkiraan' => 85000000,
+            'nominal_harga_akhir' => 83500000,
+            'npwp_vendor' => $this->vendorCv->npwp,
+            'catatan_perbaikan' => 'Spesifikasi printer dan HPS resmi distributor telah diverifikasi PP.',
+        ]);
+
+        $resPp->assertStatus(201)
+            ->assertJsonPath('data.status_reviu', 'terverifikasi_pp')
+            ->assertJsonPath('data.putaran_ke', 1);
+
+        // 2. PPK memberikan Approval final atas paket hasil koordinasi PP
+        $this->actingAs($this->userPpk1);
         $response = $this->postJson('/api/reviu-dokumen', [
             'nomor_paket' => $paket->nomor_paket,
             'status_reviu' => 'disetujui',
-            'catatan_perbaikan' => 'Spesifikasi printer dan HPS resmi dari distributor telah lengkap dan siap SPK.',
+            'catatan_perbaikan' => 'Disetujui PPK untuk dieksekusi belanja oleh PP.',
         ]);
 
         $response->assertStatus(201)
             ->assertJsonPath('data.status_reviu', 'disetujui')
-            ->assertJsonPath('data.putaran_ke', 1);
+            ->assertJsonPath('data.putaran_ke', 2);
 
         $this->assertDatabaseHas('paket_pengadaan', [
             'nomor_paket' => $paket->nomor_paket,
-            'status_paket' => 'reviu_dokumen_disetujui',
+            'status_paket' => PaketPengadaan::STATUS_DISETUJUI_PPK_SIAP_BELANJA_PP,
         ]);
 
         $this->assertDatabaseHas('audit_log', [
@@ -694,9 +710,11 @@ class FrNfrPrioritySixElevenTest extends TestCase
             'status_paket' => 'reviu_dokumen_disetujui',
         ]);
 
-        // Terbitkan SPK
+        // Unggah 1 dokumen perikatan terpilih oleh PPBJ
+        $this->actingAs($this->userPbj);
         $response = $this->post('/kontrak-spk', [
             'kode_paket' => $paket->kode_paket,
+            'tipe_dokumen' => 'spk',
             'id_vendor' => $this->vendorCv->id_vendor,
             'nomor_kontrak_spk' => 'SPK/PNJ/2026/060',
             'nilai_kontrak' => 248000000,
@@ -708,15 +726,22 @@ class FrNfrPrioritySixElevenTest extends TestCase
         $response->assertRedirect('/kontrak-spk')
             ->assertSessionHas('success');
 
-        // Pastikan MAK terpicu terkunci otomatis (is_locked = true)
+        // Sesuai Notulensi PPBJ: SPK tidak mengunci MAK secara sepihak; wewenang tunggal lock/unlock ada di Perencanaan
         $mak->refresh();
-        $this->assertTrue((bool) $mak->is_locked, 'MAK wajib terkunci otomatis (is_locked = true) setelah SPK terbit.');
+        $this->assertFalse((bool) $mak->is_locked, 'MAK tidak boleh dikunci sepihak oleh penerbitan SPK.');
 
-        // Pastikan audit trail merekam penguncian MAK dan penerbitan SPK
+        // Perencanaan mengunci MAK secara resmi
+        $this->actingAs($this->userPerencanaan);
+        $lockRes = $this->post(route('verifikasi.perencanaan.mak.lock', $mak->kode_mak));
+        $lockRes->assertRedirect();
+        $mak->refresh();
+        $this->assertTrue((bool) $mak->is_locked, 'MAK wajib terkunci setelah Bagian Perencanaan mengeksekusi penguncian.');
+
+        // Pastikan audit trail merekam unggah dokumen perikatan tunggal dan penguncian MAK oleh Perencanaan
         $this->assertDatabaseHas('audit_log', [
             'nama_entitas' => 'kontrak_spk',
             'id_entitas' => 'SPK/PNJ/2026/060',
-            'jenis_aksi' => 'TERBITKAN_SPK',
+            'jenis_aksi' => 'UPLOAD_DOKUMEN_PERIKATAN_TUNGGAL',
         ]);
     }
 
@@ -816,11 +841,7 @@ class FrNfrPrioritySixElevenTest extends TestCase
     }
 
     /**
-     * Memverifikasi render dan konten semantik halaman Kontrak SPK (/kontrak-spk).
-     *
-     * Catatan: Kebijakan Zero CSS dan ketiadaan script inline secara menyeluruh
-     * pada view tes_* kini ditegakkan secara global oleh test arsitektur terpisah
-     * (Tests\Feature\ViewArchitecturePolicyTest).
+     * Memverifikasi render dan konten halaman Kontrak SPK (/kontrak-spk).
      */
     public function test_halaman_kontrak_spk_merender_konten_semantik_dengan_benar(): void
     {
@@ -828,17 +849,13 @@ class FrNfrPrioritySixElevenTest extends TestCase
 
         $resKontrak = $this->get('/kontrak-spk');
         $resKontrak->assertStatus(200)
-            ->assertSee('Manajemen Penelaahan (Reviu) Dokumen', false)
-            ->assertSee('Penelaahan (Reviu) Dokumen Teknis', false)
-            ->assertSee('Penerbitan Kontrak / Surat Perintah Kerja (SPK)', false);
+            ->assertSee('Penelaahan Dokumen', false)
+            ->assertSee('Siklus 4 &amp; 5: Reviu &amp; Kontrak SPK', false)
+            ->assertSee('PPK:', false);
     }
 
     /**
-     * Memverifikasi render dan konten semantik halaman Monitoring Pengadaan (/monitoring).
-     *
-     * Catatan: Kebijakan Zero CSS dan ketiadaan script inline secara menyeluruh
-     * pada view tes_* kini ditegakkan secara global oleh test arsitektur terpisah
-     * (Tests\Feature\ViewArchitecturePolicyTest).
+     * Memverifikasi render dan konten halaman Monitoring Pengadaan (/monitoring).
      */
     public function test_halaman_monitoring_merender_konten_semantik_dengan_benar(): void
     {
@@ -846,8 +863,8 @@ class FrNfrPrioritySixElevenTest extends TestCase
 
         $resMonitoring = $this->get('/monitoring');
         $resMonitoring->assertStatus(200)
-            ->assertSee('Pemantauan Real-Time 8 Siklus Pengadaan', false)
-            ->assertSee('Pencarian Multi-Filter Siklus Pengadaan', false)
-            ->assertSee('Jejak Audit Transaksi', false);
+            ->assertSee('Monitoring Siklus Pengadaan Institusi', false)
+            ->assertSee('Monitoring Agregat 8 Siklus', false)
+            ->assertSee('Refresh Data', false);
     }
 }

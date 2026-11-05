@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Model Permohonan Pengadaan (Usulan Surat Pengadaan Barang/Jasa)
@@ -52,9 +54,21 @@ class PermohonanPengadaan extends Model
     protected $keyType = 'string';
 
     /**
+     * Penanda bahwa proses pembersihan cascade telah dilakukan untuk menghindari eksekusi ganda.
+     */
+    protected bool $cascadeCleaned = false;
+
+    /**
      * Konstanta status siklus hidup surat permohonan pengadaan.
+     * Mencakup alur berantai terbaru: menunggu_bidang_2 -> cek_mak_perencanaan -> menunggu_acc_wadir_ppk -> disetujui -> diproses_ppbj -> selesai.
      */
     const STATUS_DIAJUKAN = 'diajukan';
+
+    const STATUS_MENUNGGU_BIDANG_2 = 'menunggu_bidang_2';
+
+    const STATUS_CEK_MAK_PERENCANAAN = 'cek_mak_perencanaan';
+
+    const STATUS_MENUNGGU_ACC_WADIR_PPK = 'menunggu_acc_wadir_ppk';
 
     const STATUS_REVIU_PARALEL = 'reviu_paralel';
 
@@ -98,12 +112,12 @@ class PermohonanPengadaan extends Model
         'tanggal_revisi',
         'alasan_revisi',
         'kode_mak',
+        'nomor_memo_cek_mak',
+        'catatan_memo_cek_mak',
+        'nomor_memo_ketersediaan_mak',
+        'catatan_memo_ketersediaan_mak',
+        'id_user_ppk_awal',
         'jenis_pengadaan_split',
-        // Alias pendukung mass-assignment dari formulir web
-        'perihal',
-        'anggaran_diajukan',
-        'file_surat_permohonan',
-        'status',
     ];
 
     /**
@@ -144,6 +158,10 @@ class PermohonanPengadaan extends Model
                 );
                 $model->kode_unit = $unit->kode_unit;
             }
+        });
+
+        static::deleting(function (PermohonanPengadaan $model) {
+            $model->cleanupCascadeRelationsAndFiles();
         });
     }
 
@@ -266,6 +284,17 @@ class PermohonanPengadaan extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'id_user', 'id_user');
+    }
+
+    /**
+     * Relasi many-to-one ke akun PPK (1 dari 4 akun PPK) yang dipilih oleh Perencanaan
+     * untuk memberikan persetujuan awal usulan berdampingan dengan Wadir 2.
+     *
+     * @return BelongsTo Relasi ke model User (role ppk)
+     */
+    public function ppkAwal(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'id_user_ppk_awal', 'id_user');
     }
 
     /**
@@ -423,5 +452,149 @@ class PermohonanPengadaan extends Model
         }
 
         return $query;
+    }
+
+    /**
+     * Menghapus seluruh relasi dan berkas terkait secara kaskade (cascade deletion) tuntas dalam transaksi database.
+     */
+    public function cascadeDelete(): void
+    {
+        DB::transaction(function () {
+            $this->cleanupCascadeRelationsAndFiles();
+            $this->delete();
+        });
+    }
+
+    /**
+     * Membersihkan seluruh relasi anak dan berkas fisik pada storage public sebelum permohonan dihapus.
+     */
+    public function cleanupCascadeRelationsAndFiles(): void
+    {
+        if ($this->cascadeCleaned) {
+            return;
+        }
+        $this->cascadeCleaned = true;
+
+        $nomorSurat = $this->nomor_surat;
+
+        // 1. Ambil seluruh paket pengadaan yang terhubung dengan permohonan ini
+        $paketList = PaketPengadaan::where('nomor_surat', $nomorSurat)->get();
+
+        foreach ($paketList as $paket) {
+            $nomorPaket = $paket->nomor_paket;
+
+            // a. Hapus Pembayaran dan relasi anaknya (MemoBayar, TransaksiPencairan, berkas)
+            $pembayaranList = Pembayaran::where('nomor_paket', $nomorPaket)->get();
+            foreach ($pembayaranList as $pembayaran) {
+                $nomorPembayaran = $pembayaran->nomor_pembayaran;
+
+                MemoBayar::where('nomor_pembayaran', $nomorPembayaran)->delete();
+
+                $pencairan = TransaksiPencairan::where('nomor_pembayaran', $nomorPembayaran)->first();
+                if ($pencairan) {
+                    if (! empty($pencairan->file_bukti_transfer) && Storage::disk('public')->exists($pencairan->file_bukti_transfer)) {
+                        Storage::disk('public')->delete($pencairan->file_bukti_transfer);
+                    }
+                    $pencairan->delete();
+                }
+
+                $pembayaranFiles = [
+                    $pembayaran->file_tagihan_vendor,
+                    $pembayaran->file_dokumen_penunjang,
+                    $pembayaran->file_memo,
+                    $pembayaran->file_kwitansi,
+                    $pembayaran->file_invoice,
+                ];
+                foreach ($pembayaranFiles as $filePath) {
+                    if (! empty($filePath) && Storage::disk('public')->exists($filePath)) {
+                        Storage::disk('public')->delete($filePath);
+                    }
+                }
+
+                $pembayaran->delete();
+            }
+
+            // b. Hapus PenerimaanBarang dan dokumentasi foto
+            $penerimaanList = PenerimaanBarang::where('nomor_paket', $nomorPaket)->get();
+            foreach ($penerimaanList as $penerimaan) {
+                $fotoList = DokumentasiPenerimaanBarang::where('id_penerimaan', $penerimaan->id_penerimaan)->get();
+                foreach ($fotoList as $foto) {
+                    if (! empty($foto->foto_dokumentasi) && Storage::disk('public')->exists($foto->foto_dokumentasi)) {
+                        Storage::disk('public')->delete($foto->foto_dokumentasi);
+                    }
+                    $foto->delete();
+                }
+
+                if (! empty($penerimaan->file_bast_signed) && Storage::disk('public')->exists($penerimaan->file_bast_signed)) {
+                    Storage::disk('public')->delete($penerimaan->file_bast_signed);
+                }
+                if (! empty($penerimaan->file_penerimaan_pihak3) && Storage::disk('public')->exists($penerimaan->file_penerimaan_pihak3)) {
+                    Storage::disk('public')->delete($penerimaan->file_penerimaan_pihak3);
+                }
+
+                $penerimaan->delete();
+            }
+
+            // c. Hapus KontrakSPK dan berkas
+            $kontrak = KontrakSPK::where('nomor_paket', $nomorPaket)->first();
+            if ($kontrak) {
+                if (! empty($kontrak->file_spk) && Storage::disk('public')->exists($kontrak->file_spk)) {
+                    Storage::disk('public')->delete($kontrak->file_spk);
+                }
+                $kontrak->delete();
+            }
+
+            // d. Hapus ReviuDokumen
+            ReviuDokumen::where('nomor_paket', $nomorPaket)->delete();
+
+            // e. Hapus RiwayatPenugasanPPK
+            RiwayatPenugasanPPK::where('nomor_paket', $nomorPaket)->delete();
+
+            // f. Hapus Reminder dan NotifikasiUser
+            $reminderList = Reminder::where('nomor_paket', $nomorPaket)->get();
+            foreach ($reminderList as $reminder) {
+                NotifikasiUser::where('id_reminder', $reminder->id_reminder)->delete();
+                $reminder->delete();
+            }
+
+            // g. Bersihkan berkas paket dan hapus paket
+            if (! empty($paket->file_dokumen_pengadaan) && Storage::disk('public')->exists($paket->file_dokumen_pengadaan)) {
+                Storage::disk('public')->delete($paket->file_dokumen_pengadaan);
+            }
+            if (! empty($paket->file_kwitansi_belanja) && Storage::disk('public')->exists($paket->file_kwitansi_belanja)) {
+                Storage::disk('public')->delete($paket->file_kwitansi_belanja);
+            }
+
+            $paket->delete();
+        }
+
+        // 2. Unlink permohonan anak hasil split / revisi
+        self::where('nomor_surat_induk_split', $nomorSurat)->update(['nomor_surat_induk_split' => null]);
+        self::where('nomor_surat_revisi', $nomorSurat)->update(['nomor_surat_revisi' => null]);
+
+        // 3. Hapus VerifikasiParalel
+        VerifikasiParalel::where('nomor_surat', $nomorSurat)->delete();
+
+        // 4. Hapus AlokasiMAK dan kembalikan sisa pagu ke anggaran_mak
+        $alokasiList = AlokasiMAK::where('nomor_surat', $nomorSurat)->get();
+        foreach ($alokasiList as $alokasi) {
+            if ($mak = AnggaranMAK::find($alokasi->kode_mak)) {
+                $mak->sisa_pagu_mak = (float) $mak->sisa_pagu_mak + (float) $alokasi->nominal_alokasi;
+                $mak->save();
+            }
+            $alokasi->delete();
+        }
+
+        // 5. Bersihkan berkas permohonan
+        $permohonanFiles = [
+            $this->file_permohonan,
+            $this->file_kak,
+            $this->file_spesifikasi_teknis,
+        ];
+        foreach ($permohonanFiles as $filePath) {
+            if (! empty($filePath) && Storage::disk('public')->exists($filePath)) {
+                Storage::disk('public')->delete($filePath);
+            }
+        }
     }
 }

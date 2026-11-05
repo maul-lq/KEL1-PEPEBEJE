@@ -11,8 +11,7 @@
     <!-- Vite Assets -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     
-    <!-- CDN Tailwind & Alpine.js -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Alpine.js Core (Defer) -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 <body class="bg-white">
@@ -250,7 +249,7 @@
             <!-- Panel Akses Cepat untuk Pengujian Manual -->
             <section class="rounded-[10px] border border-slate-200 bg-white/95 p-6 shadow-md backdrop-blur-sm">
                 <h3 class="text-xl font-bold text-slate-800">
-                    Panel Bantuan Pengujian Manual
+                    Direktori Akun Dinas Pengguna Resmi Politeknik Negeri Jakarta
                 </h3>
                 <p class="mt-1 text-sm text-slate-600 mb-4">
                     <em>Klik tombol <strong>"Gunakan Akun Ini"</strong> untuk otomatis mengisi data login di atas.</em>

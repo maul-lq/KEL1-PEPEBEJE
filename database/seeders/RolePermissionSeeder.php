@@ -110,10 +110,9 @@ class RolePermissionSeeder extends Seeder
             ['nama_permission' => 'permohonan.split_jenis', 'label' => 'Memecah Berkas Berdasarkan Jenis Pengadaan (FR 7.2)', 'kategori_modul' => 'Permohonan'],
 
             // Modul Verifikasi & Anggaran
-            ['nama_permission' => 'verifikasi.bidang_2_view', 'label' => 'Melihat Antrean Telaah Berkas Masuk (Staf B2)', 'kategori_modul' => 'Verifikasi'],
-            ['nama_permission' => 'verifikasi.bidang_2_teruskan', 'label' => 'Meneruskan Hasil Telaah Berkas ke Wadir 2', 'kategori_modul' => 'Verifikasi'],
-            ['nama_permission' => 'verifikasi.wadir_2_view', 'label' => 'Melihat Antrean Verifikasi Eksekutif Wadir 2', 'kategori_modul' => 'Verifikasi'],
-            ['nama_permission' => 'verifikasi.wadir_2_decide', 'label' => 'Memberikan Keputusan ACC / Tolak Usulan', 'kategori_modul' => 'Verifikasi'],
+            ['nama_permission' => 'verifikasi.bidang_2_view', 'label' => 'Melihat Antrean & Dokumen Usulan Masuk (Staf B2 Read-Only)', 'kategori_modul' => 'Verifikasi'],
+            ['nama_permission' => 'verifikasi.wadir_2_view', 'label' => 'Melihat Antrean & Telaah Kelengkapan Dokumen Wadir 2', 'kategori_modul' => 'Verifikasi'],
+            ['nama_permission' => 'verifikasi.wadir_2_decide', 'label' => 'Memberikan Keputusan ACC / Tolak / Revisi Usulan', 'kategori_modul' => 'Verifikasi'],
             ['nama_permission' => 'anggaran.mak_view', 'label' => 'Melihat Daftar Rekening MAK dan Pagu DIPA', 'kategori_modul' => 'Anggaran'],
             ['nama_permission' => 'anggaran.mak_manage', 'label' => 'Mengelola Master MAK DIPA', 'kategori_modul' => 'Anggaran'],
             ['nama_permission' => 'anggaran.mak_alokasi', 'label' => 'Mengalokasikan Pagu MAK atau Menetapkan Hold', 'kategori_modul' => 'Anggaran'],
@@ -176,7 +175,6 @@ class RolePermissionSeeder extends Seeder
             'staff_bidang_2' => [
                 'permohonan.view_all',
                 'verifikasi.bidang_2_view',
-                'verifikasi.bidang_2_teruskan',
                 'monitoring.view',
                 'dokumen.unduh_pdf',
             ],

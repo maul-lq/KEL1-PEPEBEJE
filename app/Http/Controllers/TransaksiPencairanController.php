@@ -56,6 +56,9 @@ class TransaksiPencairanController extends Controller
         if (empty($request->file_bukti_transfer) && ! $request->hasFile('file_bukti_transfer')) {
             $request->merge(['file_bukti_transfer' => 'transfer/slip_'.time().'.pdf']);
         }
+        if (! $request->filled('nominal_transfer') && $request->filled('nominal_cair')) {
+            $request->merge(['nominal_transfer' => $request->input('nominal_cair')]);
+        }
 
         $validated = $request->validate([
             'nomor_transaksi_bank' => 'required|string|max:100|unique:transaksi_pencairan,nomor_transaksi_bank',

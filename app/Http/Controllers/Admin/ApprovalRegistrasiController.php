@@ -57,7 +57,7 @@ class ApprovalRegistrasiController extends Controller
             ]);
         }
 
-        return view('admin.tes_approval_registrasi', compact('pendingUsers', 'historyUsers', 'availableRoles'));
+        return view('admin.approval_registrasi', compact('pendingUsers', 'historyUsers', 'availableRoles'));
     }
 
     /**

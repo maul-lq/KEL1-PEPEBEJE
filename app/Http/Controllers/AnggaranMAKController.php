@@ -166,7 +166,7 @@ class AnggaranMAKController extends Controller
     }
 
     /**
-     * Mengunci pagu anggaran MAK secara manual oleh Bagian Perencanaan.
+     * Mengunci pagu anggaran MAK oleh Bagian Perencanaan (pemegang wewenang eksklusif kunci MAK).
      */
     public function lock(AnggaranMAK $anggaran_mak): JsonResponse
     {
@@ -180,12 +180,37 @@ class AnggaranMAKController extends Controller
             $anggaran_mak->kode_mak,
             'unlocked',
             'locked',
-            'Penguncian permanen anggaran MAK (NFR 6 & FR 11.2)'
+            'Penguncian anggaran MAK oleh Bagian Perencanaan (NFR Integritas Data MAK)'
         );
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Anggaran MAK berhasil dikunci permanen',
+            'message' => 'Anggaran MAK berhasil dikunci oleh Bagian Perencanaan',
+            'data' => $anggaran_mak,
+        ]);
+    }
+
+    /**
+     * Membuka kembali kunci pagu anggaran MAK oleh Bagian Perencanaan (pemegang wewenang eksklusif buka kunci MAK).
+     */
+    public function unlock(AnggaranMAK $anggaran_mak): JsonResponse
+    {
+        $anggaran_mak->unlock();
+
+        // Rekam aksi pembukaan kunci MAK ke audit log
+        AuditLog::catat(
+            request()->user()?->id_user ?? $anggaran_mak->id_user ?? 1,
+            'BUKA_KUNCI_MAK',
+            'anggaran_mak',
+            $anggaran_mak->kode_mak,
+            'locked',
+            'unlocked',
+            'Pembukaan kunci anggaran MAK oleh Bagian Perencanaan'
+        );
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Kunci anggaran MAK berhasil dibuka oleh Bagian Perencanaan',
             'data' => $anggaran_mak,
         ]);
     }

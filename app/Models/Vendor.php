@@ -10,9 +10,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * Model Rekanan / Penyedia (Vendor)
  *
  * Merepresentasikan perusahaan atau penyedia barang/jasa yang bermitra dengan institusi.
- * Menyimpan data pokok legalitas (NPWP sebagai primary key, NIB), nama perusahaan, alamat,
- * status keaktifan bermitra (is_active), data kontak PIC (nama, telepon, email),
- * serta identitas rekening bank untuk penyaluran pembayaran non-tunai.
+ * Diselaraskan ke struktur minimalis: id (primary key auto-increment), nama_vendor,
+ * file_dokumen_legalitas, dan status keaktifan bermitra (is_active).
+ * Tetap mempertahankan kompatibilitas atribut legacy (npwp, nib, dsb).
  */
 class Vendor extends Model
 {
@@ -26,25 +26,25 @@ class Vendor extends Model
     protected $table = 'vendors';
 
     /**
-     * Primary key berupa nomor NPWP perusahaan.
+     * Primary key model.
      *
      * @var string
      */
-    protected $primaryKey = 'npwp';
+    protected $primaryKey = 'id';
 
     /**
-     * Kunci utama tidak bersifat auto-increment.
+     * Kunci utama bersifat auto-increment.
      *
      * @var bool
      */
-    public $incrementing = false;
+    public $incrementing = true;
 
     /**
-     * Tipe data primary key adalah string.
+     * Tipe data primary key adalah integer.
      *
      * @var string
      */
-    protected $keyType = 'string';
+    protected $keyType = 'int';
 
     /**
      * Kolom-kolom yang dapat diisi melalui mass assignment.
@@ -52,11 +52,13 @@ class Vendor extends Model
      * @var array<int, string>
      */
     protected $fillable = [
+        'nama_vendor',
+        'file_dokumen_legalitas',
+        'is_active',
+        'nama_perusahaan',
         'npwp',
         'nib',
-        'nama_perusahaan',
         'alamat',
-        'is_active',
         'nama_pic',
         'telepon_pic',
         'email_pic',
@@ -78,19 +80,49 @@ class Vendor extends Model
     }
 
     /**
-     * Accessor alias id_vendor untuk primary key npwp.
+     * Accessor alias id_vendor untuk primary key id atau npwp legacy.
      */
-    public function getIdVendorAttribute(): ?string
+    public function getIdVendorAttribute(): int|string|null
     {
-        return $this->npwp;
+        return $this->id ?: ($this->attributes['npwp'] ?? null);
     }
 
     /**
-     * Accessor alias nama_vendor untuk nama_perusahaan.
+     * Accessor alias nama_vendor untuk nama_vendor atau nama_perusahaan.
      */
     public function getNamaVendorAttribute(): ?string
     {
-        return $this->nama_perusahaan;
+        return $this->attributes['nama_vendor'] ?? $this->attributes['nama_perusahaan'] ?? null;
+    }
+
+    /**
+     * Mutator untuk nama_vendor yang menyelaraskan ke nama_perusahaan.
+     */
+    public function setNamaVendorAttribute(?string $value): void
+    {
+        $this->attributes['nama_vendor'] = $value;
+        if (empty($this->attributes['nama_perusahaan'])) {
+            $this->attributes['nama_perusahaan'] = $value;
+        }
+    }
+
+    /**
+     * Accessor alias nama_perusahaan untuk nama_perusahaan atau nama_vendor.
+     */
+    public function getNamaPerusahaanAttribute(): ?string
+    {
+        return $this->attributes['nama_perusahaan'] ?? $this->attributes['nama_vendor'] ?? null;
+    }
+
+    /**
+     * Mutator untuk nama_perusahaan yang menyelaraskan ke nama_vendor.
+     */
+    public function setNamaPerusahaanAttribute(?string $value): void
+    {
+        $this->attributes['nama_perusahaan'] = $value;
+        if (empty($this->attributes['nama_vendor'])) {
+            $this->attributes['nama_vendor'] = $value;
+        }
     }
 
     /**
@@ -110,6 +142,6 @@ class Vendor extends Model
      */
     public function paketPengadaan(): HasMany
     {
-        return $this->hasMany(PaketPengadaan::class, 'npwp_vendor', 'npwp');
+        return $this->hasMany(PaketPengadaan::class, 'id_vendor', 'id');
     }
 }

@@ -188,9 +188,9 @@ class RoleViewsAndAuthTest extends TestCase
         $response = $this->actingAs($user)->get('/dashboard');
 
         $response->assertStatus(200)
-            ->assertSee('Ruang Kerja Pemohon (Unit / Jurusan)')
-            ->assertSee('Ajukan Permohonan Pengadaan Baru')
-            ->assertSee('Daftar & Riwayat Permohonan Saya', false);
+            ->assertSee('Daftar Usulan Permohonan Pengadaan Unit Anda')
+            ->assertSee('Ajukan Permohonan Baru')
+            ->assertSee('Total Usulan Pengadaan');
     }
 
     /**
@@ -214,8 +214,9 @@ class RoleViewsAndAuthTest extends TestCase
         $response = $this->actingAs($wadir)->get('/dashboard');
 
         $response->assertStatus(200)
-            ->assertSee('Ruang Kerja Wakil Direktur II (Otoritas Mutlak Persetujuan / ACC)')
-            ->assertSee('Buka Antrean Verifikasi Eksekutif Wadir 2');
+            ->assertSee('Antrean Disposisi Eksekutif Pengadaan')
+            ->assertSee('Buka Panel Keputusan')
+            ->assertSee('Menunggu Disposisi / ACC');
     }
 
     /**

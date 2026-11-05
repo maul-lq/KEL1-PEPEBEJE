@@ -11,8 +11,7 @@
     <!-- Vite Assets -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
-    <!-- CDN Tailwind & Alpine.js -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Alpine.js Core (Defer) -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 <body class="bg-white">
@@ -57,7 +56,7 @@
             <!-- Main Form Content -->
             <main class="flex-1 bg-white/[0.92] p-6 sm:p-10 lg:px-[67px] lg:py-[42px]">
                 <div class="flex flex-col justify-between gap-2 sm:flex-row sm:items-start">
-                    <h1 class="text-4xl font-semibold text-black">Buat Akun Baru</h1>
+                    <h1 class="text-3xl lg:text-4xl font-semibold text-black">Pendaftaran Akun Pegawai / Pengusul Baru</h1>
                     <p class="text-lg font-medium text-[#AAA] sm:pt-1 sm:text-right">
                         Sudah punya akun? <a href="{{ route('login') }}" class="text-[#3B82F6] hover:underline">Masuk</a>
                     </p>
@@ -85,6 +84,20 @@
                 >
                     @csrf
 
+                    @if($errors->any())
+                        <div class="sm:col-span-2 rounded-[8px] border border-red-300 bg-red-50 p-4 text-sm text-red-800 shadow-sm">
+                            <div class="flex items-center gap-2 font-bold mb-1.5 text-red-900">
+                                <svg class="size-4 shrink-0 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                <span>Pendaftaran gagal, mohon periksa isian formulir:</span>
+                            </div>
+                            <ul class="list-disc pl-5 space-y-0.5 text-xs text-red-700">
+                                @foreach($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
+
                     <!-- NIP Pegawai -->
                     <label class="flex flex-col gap-[8px]">
                         <span class="text-base font-medium text-black">
@@ -94,7 +107,7 @@
                             type="text"
                             name="nip"
                             value="{{ old('nip') }}"
-                            placeholder="Masukkan NIP"
+                            placeholder="Contoh: 199001012020011001"
                             required
                             class="h-[55px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] px-[22px] text-base text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6]"
                         />
@@ -112,7 +125,7 @@
                             type="text"
                             name="username"
                             value="{{ old('username') }}"
-                            placeholder="Buat username unik"
+                            placeholder="Contoh: budi_santoso"
                             required
                             class="h-[55px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] px-[22px] text-base text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6]"
                         />
@@ -243,7 +256,7 @@
                     <!-- Jabatan Kedinasan -->
                     <label class="flex flex-col gap-[8px]">
                         <span class="text-base font-medium text-black">
-                            Jabatan Kedinasan <span class="text-red-600">*</span>
+                            Jabatan Struktural / Akademik <span class="text-red-600">*</span>
                         </span>
                         <input
                             type="text"
@@ -266,7 +279,7 @@
                         <input
                             type="tel"
                             name="no_hp"
-                            value="{{ old('no_hp') }}"
+                            value="{{ old('no_hp', old('phone')) }}"
                             placeholder="08xxxxxxxxxxx"
                             required
                             class="h-[55px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] px-[22px] text-base text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6]"
@@ -284,7 +297,7 @@
                         <input
                             type="tel"
                             name="no_telp_kantor"
-                            value="{{ old('no_telp_kantor') }}"
+                            value="{{ old('no_telp_kantor', old('office_phone')) }}"
                             placeholder="021-xxxxxxxxx"
                             class="h-[55px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] px-[22px] text-base text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6]"
                         />

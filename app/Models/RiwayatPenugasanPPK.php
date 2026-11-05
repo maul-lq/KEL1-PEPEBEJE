@@ -104,4 +104,14 @@ class RiwayatPenugasanPPK extends Model
     {
         return $this->belongsTo(User::class, 'diubah_oleh_user_id', 'id_user');
     }
+
+    /**
+     * Relasi alias many-to-one ke User penetap / pengubah penugasan.
+     *
+     * @return BelongsTo Relasi ke model User
+     */
+    public function userPenetap(): BelongsTo
+    {
+        return $this->diubahOleh();
+    }
 }

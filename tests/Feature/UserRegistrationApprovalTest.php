@@ -131,8 +131,8 @@ class UserRegistrationApprovalTest extends TestCase
         $this->actingAs($this->admin);
         $allowedResponse = $this->get(route('admin.persetujuan-registrasi.index'));
         $allowedResponse->assertOk();
-        $allowedResponse->assertViewIs('admin.tes_approval_registrasi');
-        $allowedResponse->assertSee('Antrean Pendaftar Akun Menunggu Persetujuan');
+        $allowedResponse->assertViewIs('admin.approval_registrasi');
+        $allowedResponse->assertSee('Persetujuan Registrasi Pengguna Baru');
     }
 
     /**
@@ -273,5 +273,95 @@ class UserRegistrationApprovalTest extends TestCase
         $pendingUser->refresh();
         $this->assertTrue($pendingUser->status_aktif);
         $this->assertSame(User::STATUS_REGISTRASI_DISETUJUI, $pendingUser->status_registrasi);
+    }
+
+    /**
+     * Memastikan form registrasi frontend memiliki field yang sesuai dan mendukung fallback alias.
+     */
+    public function test_registration_form_renders_proper_fields_and_supports_alias_mapping(): void
+    {
+        $response = $this->get(route('register'));
+        $response->assertOk();
+        $response->assertSee('name="nama"', false);
+        $response->assertSee('name="kode_unit"', false);
+        $response->assertSee('name="no_hp"', false);
+
+        // Submit via alias field names
+        $aliasPayload = [
+            'nip' => '199606062026011006',
+            'username' => 'user_alias_test',
+            'name' => 'Alias User, S.T.',
+            'email' => 'alias_user@pnj.ac.id',
+            'password' => 'Password123!',
+            'password_confirmation' => 'Password123!',
+            'jabatan' => 'Staff Administrasi',
+            'unit_kerja' => $this->unit->kode_unit,
+            'phone' => '089911223344',
+            'office_phone' => '0217279999',
+        ];
+
+        $postResponse = $this->post(route('register'), $aliasPayload);
+        $postResponse->assertRedirect(route('login'));
+        $postResponse->assertSessionHas('success');
+
+        $this->assertDatabaseHas('users', [
+            'username' => 'user_alias_test',
+            'nama' => 'Alias User, S.T.',
+            'nip' => '199606062026011006',
+            'kode_unit' => $this->unit->kode_unit,
+            'no_hp' => '089911223344',
+            'status_registrasi' => User::STATUS_REGISTRASI_MENUNGGU,
+        ]);
+    }
+
+    /**
+     * Memastikan pendaftar baru langsung muncul di Dashboard Admin dan halaman Persetujuan Registrasi.
+     */
+    public function test_registered_user_appears_in_admin_dashboard_and_approval_list(): void
+    {
+        $payload = [
+            'nip' => '199707072026011007',
+            'username' => 'dosen_antrean',
+            'nama' => 'Dosen Antrean, M.Kom.',
+            'email' => 'dosen_antrean@pnj.ac.id',
+            'password' => 'Password123!',
+            'password_confirmation' => 'Password123!',
+            'jabatan' => 'Dosen Pengajar',
+            'kode_unit' => $this->unit->kode_unit,
+            'no_hp' => '081299887766',
+        ];
+
+        $this->post(route('register'), $payload);
+
+        // Login sebagai Admin
+        $this->actingAs($this->admin);
+
+        // 1. Cek di Dashboard Admin
+        $dashboardResponse = $this->get(route('dashboard'));
+        $dashboardResponse->assertOk();
+        $dashboardResponse->assertSee('Dosen Antrean, M.Kom.');
+        $dashboardResponse->assertSee('199707072026011007');
+
+        // 2. Cek di Halaman Persetujuan Registrasi
+        $approvalResponse = $this->get(route('admin.persetujuan-registrasi.index'));
+        $approvalResponse->assertOk();
+        $approvalResponse->assertSee('Dosen Antrean, M.Kom.');
+        $approvalResponse->assertSee('199707072026011007');
+
+        // 3. Admin melakukan ACC
+        $registeredUser = User::where('username', 'dosen_antrean')->firstOrFail();
+        $userRole = Role::where('nama_role', 'user')->firstOrFail();
+
+        $accResponse = $this->post(route('admin.persetujuan-registrasi.acc', $registeredUser->id_user), [
+            'id_role' => $userRole->id,
+        ]);
+
+        $accResponse->assertRedirect(route('admin.persetujuan-registrasi.index'));
+        $accResponse->assertSessionHas('success');
+
+        $registeredUser->refresh();
+        $this->assertTrue($registeredUser->status_aktif);
+        $this->assertSame(User::STATUS_REGISTRASI_DISETUJUI, $registeredUser->status_registrasi);
+        $this->assertSame('user', $registeredUser->role);
     }
 }

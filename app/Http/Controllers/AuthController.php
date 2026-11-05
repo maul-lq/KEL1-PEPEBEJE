@@ -24,12 +24,12 @@ use Illuminate\View\View;
 class AuthController extends Controller
 {
     /**
-     * Menampilkan formulir halaman login simulasi backend.
-     * Menggunakan template murni HTML semantik tanpa CSS total (AGENTS-BACKEND.md).
+     * Menampilkan formulir halaman login institusi.
+     * Menggunakan template Blade antarmuka resmi SIM-PBJ.
      */
     public function showLoginForm(): View
     {
-        return view('auth.tes_login');
+        return view('auth.login');
     }
 
     /**
@@ -41,7 +41,7 @@ class AuthController extends Controller
         // Mengambil semua data unit kerja kampus untuk pilihan dropdown registrasi
         $units = Unit::all();
 
-        return view('auth.tes_register', compact('units'));
+        return view('auth.register', compact('units'));
     }
 
     /**
@@ -50,7 +50,26 @@ class AuthController extends Controller
      */
     public function register(Request $request): RedirectResponse
     {
-        // 1. Validasi seluruh data input pendaftaran (tanpa pemilihan role oleh pendaftar, sesuai Opsi A)
+        // 1. Normalisasi nama alias field dari formulir pendaftaran
+        if ($request->filled('name') && ! $request->filled('nama')) {
+            $request->merge(['nama' => $request->name]);
+        }
+        if ($request->filled('phone') && ! $request->filled('no_hp')) {
+            $request->merge(['no_hp' => $request->phone]);
+        }
+        if ($request->filled('office_phone') && ! $request->filled('no_telp_kantor')) {
+            $request->merge(['no_telp_kantor' => $request->office_phone]);
+        }
+        if ($request->filled('unit_kerja') && ! $request->filled('kode_unit')) {
+            $unit = Unit::where('kode_unit', $request->unit_kerja)
+                ->orWhere('nama_unit', 'like', "%{$request->unit_kerja}%")
+                ->first();
+            if ($unit) {
+                $request->merge(['kode_unit' => $unit->kode_unit]);
+            }
+        }
+
+        // 2. Validasi seluruh data input pendaftaran (tanpa pemilihan role oleh pendaftar, sesuai Opsi A)
         $validated = $request->validate([
             'nip' => ['required', 'string', 'max:30', 'unique:users,nip'],
             'username' => ['required', 'string', 'max:50', 'unique:users,username'],
@@ -63,14 +82,26 @@ class AuthController extends Controller
             'no_telp_kantor' => ['nullable', 'string', 'max:20'],
         ]);
 
-        // 2. Status awal pendaftaran: Tidak aktif dan menunggu persetujuan Administrator
+        // 3. Status awal pendaftaran: Tidak aktif dan menunggu persetujuan Administrator
         // Role definitif akan dipilihkan dan ditetapkan 100% oleh Admin saat tombol Setujui (ACC) ditekan
         $validated['role'] = User::ROLE_USER; // Default sementara sebelum dipetakan Admin
         $validated['status_aktif'] = false;
         $validated['status_registrasi'] = User::STATUS_REGISTRASI_MENUNGGU;
 
-        // 3. Simpan data user baru ke database
-        User::create($validated);
+        // 4. Simpan data user baru ke database
+        $newUser = User::create($validated);
+
+        // 5. Berikan notifikasi alarm ke Administrator bahwa ada pendaftar akun baru yang menunggu verifikasi
+        try {
+            app(PengadaanNotificationService::class)->kirimKeRole(
+                'admin',
+                "Pendaftar Akun Baru: {$newUser->nama}",
+                "Pengguna baru {$newUser->nama} (NIP: {$newUser->nip}) telah mendaftar dan menunggu verifikasi serta penetapan peran (role) oleh Administrator.",
+                'verifikasi'
+            );
+        } catch (\Throwable $e) {
+            // Silently continue without failing user registration
+        }
 
         // Berikan pesan sukses dan alihkan pengguna ke formulir login
         return redirect()->route('login')->with(

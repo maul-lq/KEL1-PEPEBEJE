@@ -4,7 +4,6 @@ namespace App\Providers;
 
 use App\Models\NotifikasiUser;
 use App\Observers\NotifikasiUserObserver;
-use App\View\DevModeViewFinder;
 use Illuminate\Support\ServiceProvider;
 
 /**
@@ -21,10 +20,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        // Mendaftarkan DevModeViewFinder untuk mendukung peralihan dinamis DEV_VIEWMODE (backend vs frontend)
-        $this->app->bind('view.finder', function ($app) {
-            return new DevModeViewFinder($app['files'], $app['config']['view.paths']);
-        });
+        //
     }
 
     /**
