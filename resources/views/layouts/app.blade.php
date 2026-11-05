@@ -291,17 +291,17 @@
     $menuOff = 'text-slate-300 hover:bg-white/10 hover:text-white';
 @endphp
 
-<aside class="flex flex-col overflow-hidden bg-[#213153] py-4 shadow-xl transition-all duration-300 z-20 shrink-0 min-h-screen md:min-h-[calc(100vh-70px)]"
+<aside class="relative flex flex-col overflow-hidden bg-[#213153] py-4 shadow-xl transition-all duration-300 z-20 shrink-0 min-h-screen md:min-h-0"
        :class="{
            'w-80 px-1': sidebarExpanded,
            'w-16 items-center px-1': !sidebarExpanded,
-           'fixed inset-y-0 left-0 pt-[80px] md:pt-5 md:static md:translate-x-0': true,
+           'fixed inset-y-0 left-0 pt-[80px] md:pt-5 md:sticky md:top-[70px] md:h-[calc(100vh-70px)] md:translate-x-0': true,
            'translate-x-0': mobileSidebarOpen,
            '-translate-x-full md:translate-x-0': !mobileSidebarOpen
        }">
 
     <!-- Header Sidebar -->
-    <div class="mb-4 flex h-12 w-full items-center justify-between px-3">
+    <div class="relative z-10 mb-4 flex h-12 w-full items-center justify-between px-3">
         <a href="{{ route('dashboard') }}" x-show="sidebarExpanded" x-cloak class="flex shrink-0 items-center gap-2">
             <img src="{{ asset('favicon.ico') }}" alt="Logo SIM-PBJ" class="size-9 object-contain">
         </a>
@@ -317,10 +317,10 @@
     </div>
 
     <!-- Garis Pembatas Atas -->
-    <div class="mx-3 mb-4 h-px w-[calc(100%-1.5rem)] bg-white/15"></div>
+    <div class="relative z-10 mx-3 mb-4 h-px w-[calc(100%-1.5rem)] bg-white/15"></div>
 
     <!-- Menu Navigation Stack (Scrollable jika menu banyak) -->
-    <nav class="flex w-full flex-1 flex-col gap-3 overflow-y-auto overflow-x-hidden px-1">
+    <nav class="relative z-10 flex w-full flex-1 flex-col gap-3 overflow-y-auto overflow-x-hidden px-1">
 
         <!-- 1. DASHBOARD (All Roles) -->
         @php $aDash = request()->routeIs('dashboard'); @endphp
@@ -660,10 +660,28 @@
             </a>
         </div>
     </nav>
-</aside>
 
-        </aside>
-        @endauth
+    <!-- DEKORASI UNIK GELOMBANG NAVBAR BIRU (FIGMA ELLIPSE 4 & ELLIPSE 5 / FRAME 29) -->
+    <!-- Mode Normal: node-id 359-2268 (Frame 29) | Mode Extended: node-id 348-24 (Ellipse 4 & 5) -->
+    <div class="pointer-events-none absolute bottom-[-224px] h-[572.5px] w-[1078.4px] select-none transition-all duration-300 ease-in-out z-0"
+         :class="sidebarExpanded ? 'left-[-391px]' : 'left-[-396px]'"
+         id="sidebar-frame-29"
+         aria-hidden="true">
+        <!-- Ellipse 5 (Figma node-id: 348:1895 / 359:2271) -->
+        <div class="absolute h-[344px] left-[142px] top-[103px] w-[637px]" data-node-id="348:1895" data-name="Ellipse 5">
+            <div class="absolute" style="top: -43.6%; right: -15.7%; bottom: -14.53%; left: -15.7%;">
+                <img src="{{ asset('images/sidebar/ellipse-5.svg') }}" alt="" class="block max-w-none size-full pointer-events-none select-none">
+            </div>
+        </div>
+        <!-- Ellipse 4 (Figma node-id: 348:1896 / 359:2272) -->
+        <div class="absolute h-[450.4px] left-0 top-0 w-[1078.4px]" data-node-id="348:1896" data-name="Ellipse 4">
+            <div class="absolute" style="top: -33.31%; right: -9.27%; bottom: -11.1%; left: -9.27%;">
+                <img src="{{ asset('images/sidebar/ellipse-4.svg') }}" alt="" class="block max-w-none size-full pointer-events-none select-none">
+            </div>
+        </div>
+    </div>
+</aside>
+@endauth
 
         <!-- 3. KONTEN UTAMA HALAMAN -->
         <main class="min-w-0 flex-1 p-6 md:p-10">

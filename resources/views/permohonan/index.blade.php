@@ -37,6 +37,7 @@
             @if(! Auth::user()->hasRole('admin') && (Auth::user()->hasRole('user') || Auth::user()->hasAnyPermission(['permohonan.create'])))
                 <button x-show="viewMode !== 'fullscreen'" 
                         @click="openModalCreate()" 
+                        data-action="openCreateModal()" 
                         type="button" 
                         class="inline-flex items-center justify-center h-10 px-5 rounded-xl bg-[#0969da] hover:bg-blue-700 text-white font-bold text-xs transition-all shadow-sm gap-2 cursor-pointer">
                     <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
@@ -616,9 +617,8 @@
         </div>
     </div>
 
-    <!-- 5. MODAL FORM: BUAT USULAN BARU (Backend Logic fullstuck) -->
-    @includeIf('permohonan.partials.create-modal')
-
+    <!-- 5. MODAL FORM: BUAT USULAN BARU (Hanya untuk non-admin) -->
+    @if(! Auth::user()->hasRole('admin'))
     <x-modal id="modal-create-permohonan" title="Buat Usulan Permohonan Pengadaan" subtitle="Pendaftaran berkas naskah dinas Srikandi baru" maxWidth="3xl">
         <form action="{{ route('permohonan.store') }}" 
               method="POST" 
@@ -697,6 +697,7 @@
             </div>
         </form>
     </x-modal>
+    @endif
 
     <!-- 6. MODAL FORM: REVISI USULAN (fullstuck) -->
     <x-modal id="modal-revisi-permohonan" title="Revisi Usulan Pengadaan" subtitle="Perbaiki usulan berdasarkan catatan telaah verifikator" maxWidth="2xl">
@@ -784,8 +785,6 @@
     </x-modal>
 
     <!-- 7. MODAL KONFIRMASI HAPUS / BATALKAN (fullstuck + Frontend-pemula) -->
-    @includeIf('permohonan.partials.delete-modal')
-
     <x-modal id="modal-delete-permohonan" :title="Auth::user()->hasRole('admin') ? 'Konfirmasi Hapus Pengajuan (Admin)' : 'Konfirmasi Pembatalan Pengajuan'" maxWidth="md">
         <form :action="'{{ url('permohonan') }}/' + (hapusTarget?.nomor_surat || hapusTarget?.nomor || hapusTarget?.id || '')" 
               method="POST" 
