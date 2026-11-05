@@ -74,11 +74,11 @@
                             Aplikasi administratif Politeknik Negeri Jakarta
                         </h2>
                         <p class="mt-2 max-w-[382px] text-lg font-medium leading-[30px]">
-                            Pemantauan proses peminjaman barang yang berlangsung di sistem PNJ
+                            Pemantauan proses pengadaan barang dan jasa di lingkungan PNJ
                         </p>
                     </div>
                     <p class="text-center text-xs font-medium leading-[30px] text-white/50 lg:mt-[200px]">
-                        &copy; 2024 SIM-PBJ. All rights reserved.
+                        &copy; 2026 SIM-PBJ. All rights reserved.
                     </p>
                 </aside>
 
@@ -246,13 +246,13 @@
                 </main>
             </div>
 
-            {{-- Panel Akses Cepat Direktori Akun Dinas --}}
+            <!-- Panel Akses Cepat untuk Pengujian Manual -->
             <section class="rounded-[10px] border border-slate-200 bg-white/95 p-6 shadow-md backdrop-blur-sm">
                 <h3 class="text-xl font-bold text-slate-800">
                     Direktori Akun Dinas Pengguna Resmi Politeknik Negeri Jakarta
                 </h3>
                 <p class="mt-1 text-sm text-slate-600 mb-4">
-                    Sistem Informasi Manajemen Pengadaan Barang dan Jasa (SIM-PBJ) &mdash; <em>Klik tombol <strong>"Gunakan Akun Ini"</strong> untuk mengisi form secara instan.</em>
+                    <em>Klik tombol <strong>"Gunakan Akun Ini"</strong> untuk otomatis mengisi data login di atas.</em>
                 </p>
 
                 <div class="overflow-x-auto">
@@ -269,6 +269,18 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-200">
+                            <!-- Akun Admin System -->
+                            <tr class="bg-blue-50/50">
+                                <td class="border border-slate-200 p-2 text-center">0</td>
+                                <td class="border border-slate-200 p-2 font-semibold">Administrator System</td>
+                                <td class="border border-slate-200 p-2">Super Administrator SIM-PBJ</td>
+                                <td class="border border-slate-200 p-2">Administrator</td>
+                                <td class="border border-slate-200 p-2"><code>admin</code></td>
+                                <td class="border border-slate-200 p-2"><code>password123</code></td>
+                                <td class="border border-slate-200 p-2 text-center">
+                                    <button type="button" class="btn-autofill-login rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 transition-colors" data-username="admin" data-password="password123">Gunakan Akun Ini</button>
+                                </td>
+                            </tr>
                             <tr>
                                 <td class="border border-slate-200 p-2 text-center">1</td>
                                 <td class="border border-slate-200 p-2 font-semibold">Pemohon (User)</td>

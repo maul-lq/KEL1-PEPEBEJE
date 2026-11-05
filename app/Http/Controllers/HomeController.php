@@ -303,18 +303,38 @@ class HomeController extends Controller
     /**
      * Menampilkan riwayat usulan permohonan milik user login beserta jejak penolakan.
      */
-    public function permohonanIndex(Request $request): View
+   // app/Http/Controllers/HomeController.php
+
+public function permohonanIndex(Request $request)
     {
         $user = Auth::user();
         $query = PermohonanPengadaan::with(['unit', 'user', 'verifikasiParalel.user', 'suratAsalRevisi'])
             ->where('status_permohonan', '!=', 'digantikan_oleh_revisi');
 
-        if ($user && $user->role === 'user') {
-            $query->where('id_user', $user->id_user);
+        // 2. Query menggunakan model PermohonanPengadaan
+        $query = PermohonanPengadaan::with(['unit', 'user', 'verifikasiParalel']);
+
+        // Jika user yang login adalah peran 'perencanaan' / 'user' biasa, filter berdasarkan ID user
+        if ($user && in_array($user->role, ['perencanaan', 'user'])) {
+            $query->where('id_user',$user->id_user);
         }
 
-        $permohonanList = $query->latest('tanggal_pengajuan')->paginate(15);
-        $units = Unit::all();
+        // Terapkan Filter Pencarian (Search / Status / Jenis Pengadaan)
+        if ($request->filled('keyword')) {
+            $keyword =$request->keyword;
+            $query->where(function ($q) use ($keyword) {
+                $q->where('nomor_surat', 'like', "\%{$keyword}%")
+                  ->orWhere('judul_pengadaan', 'like', "%{$keyword}%");
+            });
+        }
+
+        if ($request->filled('status') &&$request->status !== 'all') {
+            $query->where('status_permohonan',$request->status);
+        }
+
+        if ($request->filled('type') &&$request->type !== 'all') {
+            $query->where('jenis_pengadaan_split',$request->type);
+        }
 
         return view('permohonan.index', compact('permohonanList', 'user', 'units'));
     }
