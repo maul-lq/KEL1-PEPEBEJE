@@ -24,20 +24,8 @@
     <!-- 1. HEADER UTAMA -->
     <header class="sticky top-0 z-30 flex h-[70px] w-full shrink-0 items-center justify-between border-b border-slate-200/80 bg-white px-4 sm:px-6 shadow-sm">
         
-        <!-- Logo Favicon & Teks SIM-PBJ & Toggle Sidebar -->
+        <!-- Logo Favicon & Teks SIM-PBJ -->
         <div class="flex items-center gap-3">
-            @auth
-            <!-- Hamburger Toggle Button -->
-            <button @click="sidebarExpanded = !sidebarExpanded; mobileSidebarOpen = !mobileSidebarOpen" 
-                    type="button" 
-                    title="Buka/Tutup Navigasi"
-                    class="flex size-10 items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 hover:text-[#0969da] focus:outline-none transition-colors shrink-0 cursor-pointer">
-                <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-            </button>
-            @endauth
-
             <a href="{{ route('dashboard') }}" class="flex items-center gap-2.5 group">
                 <img src="{{ asset('favicon.ico') }}" alt="Logo SIM-PBJ" class="size-8 object-contain transition-transform group-hover:scale-105">
                 <span class="font-iceland text-3xl font-bold tracking-wider text-[#213153] group-hover:text-[#0969da] transition-colors leading-none">
@@ -159,47 +147,61 @@
             <!-- Pemisah Vertikal (Figma Line 5) -->
             <div class="h-8 w-px bg-slate-200/80"></div>
 
- <!-- Mini Profil Trigger & Dropdown (Figma Node 395:318 / 395:320) -->
-                <div class="relative" x-data="{ openProfile: false }">
-                    <button @click="openProfile = !openProfile" 
-                            type="button"
-                            class="flex size-9 items-center justify-center rounded-full bg-[#0969da] text-white font-bold shadow-sm hover:brightness-110 focus:ring-2 focus:ring-[#0969da]/30 transition-all">
+            <!-- Mini Profil & Dropdown -->
+            <div class="flex items-center gap-3" x-data="{ openProfile: false }">
+                <div class="hidden text-right sm:block">
+                    <div class="text-sm font-semibold leading-tight text-[#213153]">{{ Auth::user()->nama }}</div>
+                    <div class="mt-0.5 flex items-center justify-end gap-1.5 text-xs font-medium text-slate-500">
+                        <span>{{ Auth::user()->unit->nama_unit ?? Auth::user()->jabatan ?? 'Pegawai' }}</span>
+                        <span class="text-slate-300">•</span>
+                        <span class="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#0969da]">
+                            {{ str_replace('_', ' ', Auth::user()->role) }}
+                        </span>
+                    </div>
+                </div>
+
+                <div class="relative">
+                    <button @click="openProfile = !openProfile" type="button"
+                            class="flex size-9 items-center justify-center rounded-full bg-[#0969da] font-bold text-white shadow-sm transition-all hover:brightness-110 focus:ring-2 focus:ring-[#0969da]/30">
                         @if(Auth::user()->foto_profil)
-                            <img src="{{ asset('storage/' . Auth::user()->foto_profil) }}" alt="{{ Auth::user()->nama }}" class="size-full object-cover">
+                            <img src="{{ asset('storage/' . Auth::user()->foto_profil) }}" alt="Foto Profile" class="size-full rounded-full object-cover">
                         @else
                             {{ strtoupper(substr(Auth::user()->nama ?? 'U', 0, 1)) }}
                         @endif
+                    </button>
+
+                <div x-show="openProfile" @click.away="openProfile = false" x-cloak
+                     x-transition:enter="transition ease-out duration-150"
+                     x-transition:enter-start="opacity-0 scale-95"
+                     x-transition:enter-end="opacity-100 scale-100"
+                     x-transition:leave="transition ease-in duration-100"
+                     x-transition:leave-start="opacity-100 scale-100"
+                     x-transition:leave-end="opacity-0 scale-95"
+                     class="absolute right-0 z-50 mt-3 w-60 divide-y divide-slate-100 rounded-xl border border-slate-100 bg-white p-2 shadow-xl">
+                    <div class="px-3 py-2.5">
+                        <div class="text-sm font-bold leading-snug text-[#213153]">{{ Auth::user()->nama }}</div>
+                        <div class="truncate text-xs text-slate-500">{{ Auth::user()->email }}</div>
+                        <div class="mt-1 text-[11px] font-bold uppercase text-[#0969da]">{{ str_replace('_', ' ', Auth::user()->role) }}</div>
                     </div>
-
-                    <div x-show="openProfile" 
-                         @click.away="openProfile = false" 
-                         x-cloak
-                         x-transition:enter="transition ease-out duration-150"
-                         x-transition:enter-start="opacity-0 scale-95"
-                         x-transition:enter-end="opacity-100 scale-100"
-                         x-transition:leave="transition ease-in duration-100"
-                         x-transition:leave-start="opacity-100 scale-100"
-                         x-transition:leave-end="opacity-0 scale-95"
-                         class="absolute right-0 mt-3 w-60 rounded-xl bg-white p-2 shadow-xl border border-slate-100 z-50 divide-y divide-slate-100">
-                        
-                        <div class="px-3 py-2.5">
-                            <div class="font-bold text-sm text-[#213153] leading-snug">{{ Auth::user()->nama }}</div>
-                            <div class="text-xs text-slate-500 truncate">{{ Auth::user()->email }}</div>
-                            <div class="text-[11px] font-bold text-[#0969da] mt-1 uppercase">{{ str_replace('_', ' ', Auth::user()->role) }}</div>
-                        </div>
-                        <div class="text-[11px] text-slate-500 font-medium truncate mt-0.5">
-                            {{ Auth::user()->unit->nama_unit ?? Auth::user()->jabatan ?? 'Pegawai' }}
-                        </div>
+                    <div class="py-1 text-xs font-medium text-slate-600">
+                        <a href="{{ route('profile.index') }}" class="flex items-center gap-2 rounded-lg px-3 py-2 transition-colors hover:bg-slate-50">
+                            <svg class="size-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7H5a7 7 0 0012-7z"/></svg>
+                            Profil Saya
+                        </a>
                     </div>
+                    <div class="pt-1">
+                        <form action="{{ route('logout') }}" method="POST">
+                            @csrf
+                            <button type="submit" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50">
+                                <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                                Keluar (Logout)
+                            </button>
+                        </form>
+                    </div>
+                </div>
 
-                    <!-- Chevron Kanan (w-[11px] h-[6px] text-slate-400) -->
-                    <svg class="w-[11px] h-[6px] text-slate-400 group-hover:text-slate-600 transition-transform" :class="{ 'rotate-180': openProfile }" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-                    </svg>
-                </button>
-
-                <!-- Popover Dropdown Profil (Figma Node 395:320) -->
-                <div x-show="openProfile" 
+                <!-- Legacy profile popover kept hidden for compatibility -->
+                <div x-show="false"
                      @click.away="openProfile = false" 
                      x-cloak
                      x-transition:enter="transition ease-out duration-150"
