@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\NotifikasiUser;
 use App\Models\PermohonanPengadaan;
+use App\Models\Reminder;
 use App\Models\Role;
 use App\Models\Unit;
 use App\Models\User;
@@ -267,11 +269,11 @@ class RoleBasedNavigationTest extends TestCase
         $responseDashboard = $this->get(route('dashboard'));
         $responseDashboard->assertOk();
 
-        // User melihat menu pemohon
+        // User melihat menu pemohon & Riwayat Laporan terpadu
         $responseDashboard->assertSee(route('permohonan.index'));
         $responseDashboard->assertSee('Permohonan Saya');
-        $responseDashboard->assertSee(route('monitoring.index'));
-        $responseDashboard->assertSee('Monitoring 8 Siklus');
+        $responseDashboard->assertSee(route('laporan.index'));
+        $responseDashboard->assertSee('Riwayat & Laporan');
         $responseDashboard->assertSee(route('dashboard'));
         $responseDashboard->assertSee(route('profile.index'));
 
@@ -282,7 +284,8 @@ class RoleBasedNavigationTest extends TestCase
         $responseDashboard->assertDontSee('Master Role');
         $responseDashboard->assertDontSee('Kelola / Hapus Pengajuan');
 
-        // User TIDAK melihat Laporan Rekapitulasi
+        // User TIDAK melihat rute legacy monitoring atau rekapitulasi terpisah
+        $responseDashboard->assertDontSee(route('monitoring.index'));
         $responseDashboard->assertDontSee(route('laporan.rekapitulasi'));
         $responseDashboard->assertDontSee('Laporan Rekapitulasi');
 
@@ -345,7 +348,8 @@ class RoleBasedNavigationTest extends TestCase
         $respB2 = $this->get(route('dashboard'));
         $respB2->assertSee(route('verifikasi.bidang-2'));
         $respB2->assertSee('Telaah Berkas Bidang II');
-        $respB2->assertSee(route('monitoring.index'));
+        $respB2->assertSee(route('laporan.index'));
+        $respB2->assertDontSee(route('monitoring.index'));
         $respB2->assertDontSee(route('laporan.rekapitulasi'));
         $respB2->assertDontSee(route('admin.roles.index'));
         $respB2->assertDontSee(route('verifikasi.wadir-2'));
@@ -357,8 +361,9 @@ class RoleBasedNavigationTest extends TestCase
         $respW2->assertSee('Persetujuan Eksekutif');
         $respW2->assertSee(route('pembayaran.index'));
         $respW2->assertSee('Tagihan & Pembayaran SP2D');
-        $respW2->assertSee(route('monitoring.index'));
-        $respW2->assertSee(route('laporan.rekapitulasi'));
+        $respW2->assertSee(route('laporan.index'));
+        $respW2->assertDontSee(route('monitoring.index'));
+        $respW2->assertDontSee(route('laporan.rekapitulasi'));
         $respW2->assertDontSee(route('admin.roles.index'));
         $respW2->assertDontSee(route('verifikasi.bidang-2'));
 
@@ -367,8 +372,9 @@ class RoleBasedNavigationTest extends TestCase
         $respPerenc = $this->get(route('dashboard'));
         $respPerenc->assertSee(route('verifikasi.perencanaan'));
         $respPerenc->assertSee('Verifikasi MAK & Pagu');
-        $respPerenc->assertSee(route('monitoring.index'));
-        $respPerenc->assertSee(route('laporan.rekapitulasi'));
+        $respPerenc->assertSee(route('laporan.index'));
+        $respPerenc->assertDontSee(route('monitoring.index'));
+        $respPerenc->assertDontSee(route('laporan.rekapitulasi'));
         $respPerenc->assertDontSee(route('admin.roles.index'));
         $respPerenc->assertDontSee(route('verifikasi.wadir-2'));
 
@@ -381,8 +387,9 @@ class RoleBasedNavigationTest extends TestCase
         $respPpbj->assertSee('Kontrak SPK');
         $respPpbj->assertSee(route('pembayaran.index'));
         $respPpbj->assertSee('Perintah Bayar');
-        $respPpbj->assertSee(route('monitoring.index'));
-        $respPpbj->assertSee(route('laporan.rekapitulasi'));
+        $respPpbj->assertSee(route('laporan.index'));
+        $respPpbj->assertDontSee(route('monitoring.index'));
+        $respPpbj->assertDontSee(route('laporan.rekapitulasi'));
         $respPpbj->assertDontSee(route('admin.roles.index'));
 
         // E. PP (Pejabat Pengadaan)
@@ -390,7 +397,8 @@ class RoleBasedNavigationTest extends TestCase
         $respPp = $this->get(route('dashboard'));
         $respPp->assertSee(route('kontrak.index'));
         $respPp->assertSee('Reviu & Negosiasi Harga');
-        $respPp->assertSee(route('monitoring.index'));
+        $respPp->assertSee(route('laporan.index'));
+        $respPp->assertDontSee(route('monitoring.index'));
         $respPp->assertDontSee(route('laporan.rekapitulasi'));
         $respPp->assertDontSee(route('paket.index'));
         $respPp->assertDontSee(route('verifikasi.ppk'));
@@ -404,7 +412,8 @@ class RoleBasedNavigationTest extends TestCase
         $respPpk->assertSee('Approval Paket Komitmen');
         $respPpk->assertSee(route('pembayaran.index'));
         $respPpk->assertSee('Memo Bayar Level 1');
-        $respPpk->assertSee(route('monitoring.index'));
+        $respPpk->assertSee(route('laporan.index'));
+        $respPpk->assertDontSee(route('monitoring.index'));
         $respPpk->assertDontSee(route('laporan.rekapitulasi'));
         $respPpk->assertDontSee(route('admin.roles.index'));
 
@@ -413,7 +422,8 @@ class RoleBasedNavigationTest extends TestCase
         $respPerl = $this->get(route('dashboard'));
         $respPerl->assertSee(route('penerimaan.index'));
         $respPerl->assertSee('Penerimaan Barang & BAST');
-        $respPerl->assertSee(route('monitoring.index'));
+        $respPerl->assertSee(route('laporan.index'));
+        $respPerl->assertDontSee(route('monitoring.index'));
         $respPerl->assertDontSee(route('laporan.rekapitulasi'));
         $respPerl->assertDontSee(route('admin.roles.index'));
 
@@ -422,8 +432,9 @@ class RoleBasedNavigationTest extends TestCase
         $respKeu = $this->get(route('dashboard'));
         $respKeu->assertSee(route('pembayaran.index'));
         $respKeu->assertSee('Tagihan & Pembayaran SP2D');
-        $respKeu->assertSee(route('monitoring.index'));
-        $respKeu->assertSee(route('laporan.rekapitulasi'));
+        $respKeu->assertSee(route('laporan.index'));
+        $respKeu->assertDontSee(route('monitoring.index'));
+        $respKeu->assertDontSee(route('laporan.rekapitulasi'));
         $respKeu->assertDontSee(route('admin.roles.index'));
     }
 
@@ -481,5 +492,74 @@ class RoleBasedNavigationTest extends TestCase
         $respUserDraft->assertOk();
         $respUserDraft->assertSee('Batalkan Usulan');
         $respUserDraft->assertSee(route('permohonan.destroy', $permohonanDraft->nomor_surat));
+    }
+
+    /**
+     * 7. Verifikasi hierarki tata letak Vertical Navbar di kiri penuh (484:3808) + Top Banner di kanan (484:3391),
+     * serta komponen Popup Mini Notifikasi (751:7854) dan Popup Profil Kecil (751:7823).
+     */
+    public function test_master_layout_vertical_navbar_left_hierarchy_and_figma_popovers(): void
+    {
+        $reminderUnread = Reminder::create([
+            'tipe_reminder' => Reminder::TIPE_VERIFIKASI,
+            'waktu_trigger' => now(),
+            'is_recurring' => false,
+            'judul_alert' => 'Bidang 2 menyetujui MAK',
+            'pesan_alert' => 'Berkas pengajuan telah disetujui Bidang 2.',
+        ]);
+
+        $reminderRead = Reminder::create([
+            'tipe_reminder' => Reminder::TIPE_VERIFIKASI,
+            'waktu_trigger' => now()->subHours(2),
+            'is_recurring' => false,
+            'judul_alert' => 'Perencanaan mengembalikan surat karena anggaran belum ada',
+            'pesan_alert' => 'Silakan revisi alokasi anggaran.',
+        ]);
+
+        NotifikasiUser::create([
+            'id_user' => $this->user->id_user,
+            'id_reminder' => $reminderUnread->id_reminder,
+            'is_read' => false,
+            'is_dismissed' => false,
+        ]);
+
+        NotifikasiUser::create([
+            'id_user' => $this->user->id_user,
+            'id_reminder' => $reminderRead->id_reminder,
+            'is_read' => true,
+            'is_dismissed' => false,
+            'waktu_dibaca' => now()->subHour(),
+        ]);
+
+        $this->actingAs($this->user);
+        $response = $this->get(route('dashboard'));
+        $response->assertOk();
+
+        $html = $response->getContent();
+
+        // Vertical Navbar (aside#vertical-navbar) wajib berada sebelum Top Banner (header#top-banner)
+        $posSidebar = strpos($html, 'id="vertical-navbar"');
+        $posBanner = strpos($html, 'id="top-banner"');
+        $posMain = strpos($html, '<main');
+
+        $this->assertNotFalse($posSidebar, 'Vertical navbar (id="vertical-navbar") wajib dirender.');
+        $this->assertNotFalse($posBanner, 'Top banner header (id="top-banner") wajib dirender.');
+        $this->assertNotFalse($posMain, 'Elemen <main> konten utama wajib dirender.');
+        $this->assertLessThan($posBanner, $posSidebar, 'Vertical navbar wajib berada di kolom kiri sebelum kolom kanan Top Banner.');
+        $this->assertLessThan($posMain, $posBanner, 'Top banner wajib berada di atas <main> dalam kolom kanan.');
+
+        // Verifikasi Popup Mini Notifikasi (Figma 751:7854)
+        $response->assertSee('data-node-id="751:7854"', false);
+        $response->assertSee('Belum Dibaca');
+        $response->assertSee('Lihat Semua');
+        $response->assertSee('Bidang 2 menyetujui MAK');
+        $response->assertSee('Perencanaan mengembalikan surat karena anggaran belum ada');
+
+        // Verifikasi Popup Profil Kecil (Figma 751:7823)
+        $response->assertSee('data-node-id="751:7823"', false);
+        $response->assertSee($this->user->nama);
+        $response->assertSee($this->unitTIK->nama_unit);
+        $response->assertSee('Profil Saya');
+        $response->assertSee('Logout');
     }
 }

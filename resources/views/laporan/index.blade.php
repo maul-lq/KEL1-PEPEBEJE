@@ -23,17 +23,6 @@
     {{-- ===================================================================== --}}
     <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>
-            <div class="flex items-center gap-2">
-                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#0969da]/10 text-[#0969da] border border-[#0969da]/20">
-                    <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 8v4l3 3M3 12a9 9 0 1018 0 9 9 0 00-18 0z" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                    Modul Terpadu SIM-PBJ
-                </span>
-                <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    {{ strtoupper($userRole) }}
-                </span>
-            </div>
             <h1 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#213153] tracking-tight mt-1.5">
                 Riwayat dan Laporan
             </h1>

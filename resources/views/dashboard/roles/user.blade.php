@@ -3,7 +3,7 @@
 
 <div class="space-y-8">
 
-    {{-- ALERT BANNER: REVISI BERKAS DINAS JIKA ADA USULAN DITOLAK / REVISI --}}
+    {{-- ALERT BANNER: REVISI BERKAS DINAS JIKA ADA USULAN DITOLAK / REVISI
     @if(!empty($roleData['revisi_alerts']) && $roleData['revisi_alerts']->count() > 0)
         <div class="p-5 rounded-2xl bg-rose-50 border border-rose-200/80 shadow-sm space-y-3">
             <div class="flex items-start gap-3">
@@ -40,7 +40,7 @@
                 @endforeach
             </div>
         </div>
-    @endif
+    @endif --}}
 
     {{-- 1. 4-COLUMN KPI STAT CARDS (Figma Node 484:3385) --}}
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

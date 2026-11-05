@@ -19,305 +19,72 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Iceland&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
-<body x-data="{ sidebarExpanded: false, mobileSidebarOpen: false }" class="min-h-screen bg-[#F4F8FA] text-gray-800 flex flex-col antialiased">
+<body x-data="{ sidebarExpanded: false, mobileSidebarOpen: false }" class="min-h-screen bg-[#F4F8FA] text-gray-800 flex antialiased">
 
-    <!-- 1. HEADER UTAMA -->
-    <header class="sticky top-0 z-30 flex h-[70px] w-full shrink-0 items-center justify-between border-b border-slate-200/80 bg-white px-4 sm:px-6 shadow-sm">
-        
-        <!-- Logo Favicon & Teks SIM-PBJ -->
-        <div class="flex items-center gap-3">
-            <a href="{{ route('dashboard') }}" class="flex items-center gap-2.5 group">
-                <img src="{{ asset('favicon.ico') }}" alt="Logo SIM-PBJ" class="size-8 object-contain transition-transform group-hover:scale-105">
-                <span class="font-iceland text-3xl font-bold tracking-wider text-[#213153] group-hover:text-[#0969da] transition-colors leading-none">
-                    SIM-PBJ
-                </span>
-            </a>
-        </div>
+    @auth
+    @php
+        $allHeaderNotifs = \App\Models\NotifikasiUser::with(['reminder.paket.permohonan'])
+            ->where('id_user', Auth::id())
+            ->where('is_dismissed', false)
+            ->latest()
+            ->take(8)
+            ->get();
+        $unreadHeaderNotifs = \App\Models\NotifikasiUser::with(['reminder.paket.permohonan'])
+            ->where('id_user', Auth::id())
+            ->where('is_dismissed', false)
+            ->where('is_read', false)
+            ->latest()
+            ->take(8)
+            ->get();
+        $unreadHeaderCount = \App\Models\NotifikasiUser::where('id_user', Auth::id())
+            ->where('is_dismissed', false)
+            ->where('is_read', false)
+            ->count();
+        $menuOn  = 'bg-[#0969da] text-white shadow-lg shadow-[#0969da]/40 font-semibold';
+        $menuOff = 'text-slate-300 hover:bg-white/10 hover:text-white';
+    @endphp
 
-        <!-- HEADER KANAN: Lonceng Notifikasi Dropdown + Mini Profil -->
-        @auth
-        @php
-            $headerNotifs = \App\Models\NotifikasiUser::with('reminder')
-                ->where('id_user', Auth::id())
-                ->where('is_read', false)
-                ->latest()
-                ->take(5)
-                ->get();
-            $unreadHeaderCount = \App\Models\NotifikasiUser::where('id_user', Auth::id())->where('is_read', false)->count();
-        @endphp
-        <div class="flex items-center gap-3 sm:gap-4">
+    <!-- Mobile Sidebar Backdrop Overlay -->
+    <div x-show="mobileSidebarOpen"
+         @click="mobileSidebarOpen = false"
+         x-cloak
+         x-transition:enter="transition-opacity ease-linear duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition-opacity ease-linear duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 z-30 bg-slate-900/50 backdrop-blur-xs md:hidden"></div>
 
-            <!-- ICON NOTIFIKASI LONCENG DROPDOWN (REAL-TIME UPDATED) -->
-            <div class="relative" 
-                 x-data="{ 
-                     openNotif: false, 
-                     unreadCount: {{ $unreadHeaderCount }},
-                     async fetchTerbaru() {
-                         try {
-                             const res = await fetch('/api/notifikasi-terbaru');
-                             const data = await res.json();
-                             if(data.status === 'success') {
-                                 this.unreadCount = data.unread_count || (this.unreadCount + 1);
-                             } else {
-                                 this.unreadCount++;
-                             }
-                         } catch(e) {
-                             this.unreadCount++;
-                         }
-                     }
-                 }"
-                 @notification-updated.window="fetchTerbaru()">
+    <!-- 1. KOLOM KIRI: VERTICAL NAVBAR PENUH DARI ATAS KE BAWAH (FIGMA 484:3808) -->
+    <aside id="vertical-navbar"
+           data-node-id="484:3808"
+           class="fixed inset-y-0 left-0 z-40 flex h-screen shrink-0 flex-col overflow-hidden bg-[#213153] pb-5 shadow-xl transition-all duration-300 md:sticky md:top-0 md:h-screen"
+           :class="{
+               'w-80 px-1': sidebarExpanded,
+               'w-16 items-center px-1': !sidebarExpanded,
+               'translate-x-0': mobileSidebarOpen,
+               '-translate-x-full md:translate-x-0': !mobileSidebarOpen
+           }">
 
-                <button @click="openNotif = !openNotif" 
-                        type="button" 
-                        title="Notifikasi" 
-                        class="relative flex size-10 items-center justify-center rounded-full text-slate-600 bg-slate-50 border border-slate-200/60 hover:bg-slate-100 hover:text-[#0969da] focus:outline-none transition-all shadow-sm shrink-0">
-                    <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                    </svg>
-                    
-                    <!-- Titik Merah Unread Badge Dinamis -->
-                    <template x-if="unreadCount > 0">
-                        <span class="absolute top-0 right-0 flex size-3">
-                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-75"></span>
-                            <span class="relative inline-flex rounded-full size-3 bg-rose-500 border-2 border-white"></span>
-                        </span>
-                    </template>
-                </button>
-
-                <!-- POPOVER DROPDOWN NOTIFIKASI -->
-                <div x-show="openNotif" 
-                     @click.away="openNotif = false" 
-                     x-cloak
-                     x-transition:enter="transition ease-out duration-150"
-                     x-transition:enter-start="opacity-0 scale-95"
-                     x-transition:enter-end="opacity-100 scale-100"
-                     x-transition:leave="transition ease-in duration-100"
-                     x-transition:leave-start="opacity-100 scale-100"
-                     x-transition:leave-end="opacity-0 scale-95"
-                     class="absolute right-0 mt-3 w-80 sm:w-96 rounded-2xl bg-white shadow-2xl border border-slate-100 z-50 overflow-hidden divide-y divide-slate-100">
-                    
-                    <div class="px-4 py-3 bg-slate-50/80 flex items-center justify-between">
-                        <div class="flex items-center gap-2">
-                            <h3 class="font-bold text-sm text-[#213153]">Notifikasi</h3>
-                            @if($unreadHeaderCount > 0)
-                                <span class="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-600">
-                                    {{ $unreadHeaderCount }} Baru
-                                </span>
-                            @endif
-                        </div>
-                        <a href="{{ route('notifikasi.index') }}" class="text-xs font-semibold text-[#0969da] hover:underline">
-                            Tandai Dibaca
-                        </a>
-                    </div>
-
-                    <div class="max-h-80 overflow-y-auto divide-y divide-slate-100">
-                        @forelse($headerNotifs as $notif)
-                            <a href="{{ route('notifikasi.index') }}" class="flex items-start gap-3 p-3.5 hover:bg-slate-50 transition-colors {{ !$notif->is_read ? 'bg-blue-50/40' : '' }}">
-                                <div class="flex size-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-[#0969da] mt-0.5">
-                                    <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                </div>
-                                <div class="min-w-0 flex-1">
-                                    <p class="text-xs font-bold text-[#213153] leading-tight truncate">
-                                        {{ $notif->reminder->judul_alert ?? 'Pemberitahuan Sistem' }}
-                                    </p>
-                                    <p class="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">
-                                        {{ $notif->reminder->pesan_alert ?? 'Ada pembaruan status pengadaan barang.' }}
-                                    </p>
-                                    <span class="text-[10px] text-slate-400 mt-1 block">
-                                        {{ $notif->created_at ? $notif->created_at->diffForHumans() : 'Baru saja' }}
-                                    </span>
-                                </div>
-                            </a>
-                        @empty
-                            <div class="p-6 text-center text-xs text-slate-400">
-                                Tidak ada notifikasi terbaru.
-                            </div>
-                        @endforelse
-                    </div>
-
-                    <div class="p-2.5 bg-slate-50/50 text-center">
-                        <a href="{{ route('notifikasi.index') }}" class="block w-full py-1.5 text-xs font-bold text-[#0969da] rounded-lg hover:bg-slate-100 transition-colors">
-                            Lihat Semua Notifikasi &rarr;
-                        </a>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Pemisah Vertikal (Figma Line 5) -->
-            <div class="h-8 w-px bg-slate-200/80"></div>
-
-            <!-- Mini Profil & Dropdown -->
-            <div class="flex items-center gap-3" x-data="{ openProfile: false }">
-                <div class="hidden text-right sm:block">
-                    <div class="text-sm font-semibold leading-tight text-[#213153]">{{ Auth::user()->nama }}</div>
-                    <div class="mt-0.5 flex items-center justify-end gap-1.5 text-xs font-medium text-slate-500">
-                        <span>{{ Auth::user()->unit->nama_unit ?? Auth::user()->jabatan ?? 'Pegawai' }}</span>
-                        <span class="text-slate-300">•</span>
-                        <span class="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#0969da]">
-                            {{ str_replace('_', ' ', Auth::user()->role) }}
-                        </span>
-                    </div>
-                </div>
-
-                <div class="relative">
-                    <button @click="openProfile = !openProfile" type="button"
-                            class="flex size-9 items-center justify-center rounded-full bg-[#0969da] font-bold text-white shadow-sm transition-all hover:brightness-110 focus:ring-2 focus:ring-[#0969da]/30">
-                        @if(Auth::user()->foto_profil)
-                            <img src="{{ asset('storage/' . Auth::user()->foto_profil) }}" alt="Foto Profile" class="size-full rounded-full object-cover">
-                        @else
-                            {{ strtoupper(substr(Auth::user()->nama ?? 'U', 0, 1)) }}
-                        @endif
-                    </button>
-
-                <div x-show="openProfile" @click.away="openProfile = false" x-cloak
-                     x-transition:enter="transition ease-out duration-150"
-                     x-transition:enter-start="opacity-0 scale-95"
-                     x-transition:enter-end="opacity-100 scale-100"
-                     x-transition:leave="transition ease-in duration-100"
-                     x-transition:leave-start="opacity-100 scale-100"
-                     x-transition:leave-end="opacity-0 scale-95"
-                     class="absolute right-0 z-50 mt-3 w-60 divide-y divide-slate-100 rounded-xl border border-slate-100 bg-white p-2 shadow-xl">
-                    <div class="px-3 py-2.5">
-                        <div class="text-sm font-bold leading-snug text-[#213153]">{{ Auth::user()->nama }}</div>
-                        <div class="truncate text-xs text-slate-500">{{ Auth::user()->email }}</div>
-                        <div class="mt-1 text-[11px] font-bold uppercase text-[#0969da]">{{ str_replace('_', ' ', Auth::user()->role) }}</div>
-                    </div>
-                    <div class="py-1 text-xs font-medium text-slate-600">
-                        <a href="{{ route('profile.index') }}" class="flex items-center gap-2 rounded-lg px-3 py-2 transition-colors hover:bg-slate-50">
-                            <svg class="size-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7H5a7 7 0 0012-7z"/></svg>
-                            Profil Saya
-                        </a>
-                    </div>
-                    <div class="pt-1">
-                        <form action="{{ route('logout') }}" method="POST">
-                            @csrf
-                            <button type="submit" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50">
-                                <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-                                Keluar (Logout)
-                            </button>
-                        </form>
-                    </div>
-                </div>
-
-                <!-- Legacy profile popover kept hidden for compatibility -->
-                <div x-show="false"
-                     @click.away="openProfile = false" 
-                     x-cloak
-                     x-transition:enter="transition ease-out duration-150"
-                     x-transition:enter-start="opacity-0 scale-95"
-                     x-transition:enter-end="opacity-100 scale-100"
-                     x-transition:leave="transition ease-in duration-100"
-                     x-transition:leave-start="opacity-100 scale-100"
-                     x-transition:leave-end="opacity-0 scale-95"
-                     class="absolute right-0 mt-3 w-72 sm:w-80 rounded-2xl bg-white p-4 shadow-2xl border border-slate-100 z-50 divide-y divide-slate-100">
-                    
-                    <!-- User Overview Card -->
-                    <div class="flex items-center justify-between gap-3 pb-3">
-                        <div class="min-w-0 flex-1">
-                            <h4 class="font-bold text-sm text-[#213153] leading-snug truncate">
-                                {{ Auth::user()->nama }}
-                            </h4>
-                            <p class="text-xs text-slate-500 truncate mt-0.5">
-                                {{ Auth::user()->unit->nama_unit ?? Auth::user()->jabatan ?? 'Pegawai Dinas' }}
-                            </p>
-                            <span class="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-[#0969da] uppercase tracking-wide mt-1.5">
-                                @if(Auth::user()->roleEntity && !Auth::user()->roleEntity->is_system)
-                                    {{ Auth::user()->roleEntity->label }} ({{ strtoupper(Auth::user()->role) }})
-                                @else
-                                    {{ str_replace('_', ' ', Auth::user()->role) }}
-                                @endif
-                            </span>
-                        <div class="py-1 text-xs text-slate-600 font-medium">
-                            <a href="{{ route('profile.index') }}" class="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 rounded-lg transition-colors">
-                                <svg class="size-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                                Profil Saya
-                            </a>
-                        </div>
-
-                        <!-- Avatar Foto Besar -->
-                        <div class="flex size-14 shrink-0 items-center justify-center rounded-full bg-[#0969da] text-white text-lg font-bold shadow-sm overflow-hidden border-2 border-slate-100">
-                            @if(Auth::user()->foto_profil)
-                                <img src="{{ asset('storage/' . Auth::user()->foto_profil) }}" alt="{{ Auth::user()->nama }}" class="size-full object-cover">
-                            @else
-                                {{ strtoupper(substr(Auth::user()->nama ?? 'U', 0, 1)) }}
-                            @endif
-                        </div>
-                    </div>
-
-                    <!-- Clean Actions: Profil Saya & Logout (NO AI SLOP) -->
-                    <div class="py-2 text-xs font-semibold text-slate-700 space-y-1">
-                        <a href="{{ route('profile.index') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-50 transition-colors">
-                            <svg class="size-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                            Profil Saya
-                        </a>
-                    </div>
-
-                    <div class="pt-2">
-                        <form action="{{ route('logout') }}" method="POST">
-                            @csrf
-                            <button type="submit" class="flex w-full items-center gap-2.5 px-3 py-2 text-xs font-semibold text-rose-600 rounded-xl hover:bg-rose-50 transition-colors cursor-pointer">
-                                <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-                                Logout
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-
-        </div>
-        @endauth
-    </header>
-
-    <!-- 2. MAIN LAYOUT WRAPPER -->
-    <div class="flex flex-1 relative">
-
-        <!-- Mobile Sidebar Backdrop Overlay -->
-        <div x-show="mobileSidebarOpen" 
-             @click="mobileSidebarOpen = false" 
-             x-cloak 
-             x-transition:enter="transition-opacity ease-linear duration-200"
-             x-transition:enter-start="opacity-0"
-             x-transition:enter-end="opacity-100"
-             x-transition:leave="transition-opacity ease-linear duration-200"
-             x-transition:leave-start="opacity-100"
-             x-transition:leave-end="opacity-0"
-             class="fixed inset-0 z-20 bg-slate-900/50 backdrop-blur-xs md:hidden"></div>
-
-        <!-- SIDEBAR UTAMA PERSIS FIGMA (#213153) DENGAN EFEK BISA MELEBAR/EXPANDABLE -->
-        @auth
-@php
-    $menuOn  = 'bg-[#0969da] text-white shadow-lg shadow-[#0969da]/40 font-semibold';
-    $menuOff = 'text-slate-300 hover:bg-white/10 hover:text-white';
-@endphp
-
-<aside class="relative flex flex-col overflow-hidden bg-[#213153] py-4 shadow-xl transition-all duration-300 z-20 shrink-0 min-h-screen md:min-h-0"
-       :class="{
-           'w-80 px-1': sidebarExpanded,
-           'w-16 items-center px-1': !sidebarExpanded,
-           'fixed inset-y-0 left-0 pt-[80px] md:pt-5 md:sticky md:top-[70px] md:h-[calc(100vh-70px)] md:translate-x-0': true,
-           'translate-x-0': mobileSidebarOpen,
-           '-translate-x-full md:translate-x-0': !mobileSidebarOpen
-       }">
-
-    <!-- Header Sidebar -->
-    <div class="relative z-10 mb-4 flex h-12 w-full items-center justify-between px-3">
-        <a href="{{ route('dashboard') }}" x-show="sidebarExpanded" x-cloak class="flex shrink-0 items-center gap-2">
-            <img src="{{ asset('favicon.ico') }}" alt="Logo SIM-PBJ" class="size-9 object-contain">
+    <!-- Header Sidebar (Tinggi presisi 73px sejajar Top Banner Figma 348:1913 & 484:3391) -->
+    <div class="relative z-10 flex h-[73px] w-full shrink-0 items-center justify-between px-3.5">
+        <a href="{{ route('dashboard') }}" x-show="sidebarExpanded" x-cloak class="flex shrink-0 items-center">
+            <img src="{{ asset('favicon.ico') }}" alt="Logo SIM-PBJ" class="size-[45px] rounded-full object-contain">
         </a>
-        <button @click="sidebarExpanded = !sidebarExpanded" 
-                type="button" 
-                title="Buka/Tutup Sidebar" 
+        <button @click="window.innerWidth < 768 ? (mobileSidebarOpen = false) : (sidebarExpanded = !sidebarExpanded)"
+                type="button"
+                title="Buka/Tutup Sidebar"
                 :class="{ 'ml-auto': sidebarExpanded, 'mx-auto': !sidebarExpanded }"
-                class="flex size-9 items-center justify-center rounded-xl text-slate-200 hover:bg-white/10 transition-colors">
+                class="flex size-9 items-center justify-center rounded-xl text-slate-100 hover:bg-white/10 transition-colors cursor-pointer">
             <svg class="size-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
         </button>
     </div>
 
-    <!-- Garis Pembatas Atas -->
-    <div class="relative z-10 mx-3 mb-4 h-px w-[calc(100%-1.5rem)] bg-white/15"></div>
+    <!-- Garis Pembatas Atas (Line 3 tepat di y=73px sejajar garis bawah Top Banner) -->
+    <div class="relative z-10 mx-3 mb-4 h-px w-[calc(100%-1.5rem)] shrink-0 bg-white/15"></div>
 
     <!-- Menu Navigation Stack (Scrollable jika menu banyak) -->
     <nav class="relative z-10 flex w-full flex-1 flex-col gap-3 overflow-y-auto overflow-x-hidden px-1">
@@ -664,19 +431,318 @@
             </div>
         </div>
     </div>
-</aside>
-@endauth
+    </aside>
+    @endauth
 
-        <!-- 3. KONTEN UTAMA HALAMAN -->
-        <main class="min-w-0 flex-1 p-6 md:p-10">
-            
+    <!-- 2. KOLOM KANAN: TOP BANNER (FIGMA 484:3391) + KONTEN UTAMA + FOOTER -->
+    <div class="flex min-h-screen min-w-0 flex-1 flex-col">
+
+        <!-- TOP BANNER HEADER (FIGMA NODE 484:3391 - FRAME 133) -->
+        <header id="top-banner"
+                data-node-id="484:3391"
+                class="sticky top-0 z-30 flex h-[73px] w-full shrink-0 items-center justify-between border-b border-slate-200/80 bg-white pl-[15px] pr-0 shadow-[0px_2px_2px_rgba(0,0,0,0.08)]">
+
+            <!-- Kiri: Hamburger Mobile + Logo & Teks SIM-PBJ (Figma 484:3392) -->
+            <div class="flex items-center gap-3">
+                @auth
+                <button @click="mobileSidebarOpen = !mobileSidebarOpen"
+                        type="button"
+                        title="Buka Menu Navigasi"
+                        class="flex size-9 items-center justify-center rounded-lg text-[#213153] hover:bg-slate-100 transition-colors md:hidden cursor-pointer">
+                    <svg class="size-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                </button>
+                @endauth
+
+                <a href="{{ route('dashboard') }}" class="flex items-center gap-3.5 group" data-node-id="484:3392">
+                    <img src="{{ asset('favicon.ico') }}" alt="Logo SIM-PBJ" class="size-[44px] sm:size-[53px] rounded-full object-contain transition-transform group-hover:scale-105">
+                    <span class="font-iceland text-[32px] sm:text-[40px] font-normal tracking-normal text-black group-hover:text-[#213153] transition-colors leading-none">
+                        SIM-PBJ
+                    </span>
+                </a>
+            </div>
+
+            <!-- Kanan: Unit - Profil dan Notif (Figma 751:7821 & Popups 751:7822) -->
+            @auth
+            <div class="relative flex h-full items-center gap-[18px] sm:gap-[26px]"
+                 data-node-id="751:7821"
+                 x-data="{
+                     openNotif: false,
+                     openProfile: false,
+                     notifTab: 'semua',
+                     unreadCount: {{ $unreadHeaderCount }},
+                     toggleNotif() {
+                         this.openNotif = !this.openNotif;
+                         if (this.openNotif) {
+                             this.openProfile = false;
+                         }
+                     },
+                     toggleProfile() {
+                         this.openProfile = !this.openProfile;
+                         if (this.openProfile) {
+                             this.openNotif = false;
+                         }
+                     },
+                     async fetchTerbaru() {
+                         try {
+                             const res = await fetch('/api/notifikasi-terbaru');
+                             const data = await res.json();
+                             if (data.status === 'success') {
+                                 this.unreadCount = data.unread_count || (this.unreadCount + 1);
+                             } else {
+                                 this.unreadCount++;
+                             }
+                         } catch (e) {
+                             this.unreadCount++;
+                         }
+                     }
+                 }"
+                 @notification-updated.window="fetchTerbaru()"
+                 @click.outside="openNotif = false; openProfile = false"
+                 @keydown.escape.window="openNotif = false; openProfile = false">
+
+                <!-- Tombol Lonceng Notifikasi (Figma 751:7798) -->
+                <button @click="toggleNotif()"
+                        type="button"
+                        title="Notifikasi"
+                        data-node-id="751:7798"
+                        class="relative flex size-9 items-center justify-center rounded-full transition-colors hover:bg-slate-100 focus:outline-none cursor-pointer">
+                    <!-- State Aktif (Solid Biru #3B82F6 seperti Variant3/Variant4 Figma) -->
+                    <svg x-show="openNotif" x-cloak class="size-[22px] text-[#3b82f6]" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2a2 2 0 0 0-2 2v.34A7.002 7.002 0 0 0 5 11v3.586l-1.707 1.707A1 1 0 0 0 4 18h16a1 1 0 0 0 .707-1.707L19 14.586V11a7.002 7.002 0 0 0-5-6.66V4a2 2 0 0 0-2-2zm-2.5 17a2.5 2.5 0 0 0 5 0h-5z"/>
+                    </svg>
+                    <!-- State Default (Outline Hitam seperti Default/Variant2 Figma) -->
+                    <svg x-show="!openNotif" class="size-[22px] text-black" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+
+                    <!-- Titik Unread Badge Dinamis -->
+                    <template x-if="unreadCount > 0 && !openNotif">
+                        <span class="absolute top-1 right-1 flex size-2.5">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#3b82f6] opacity-75"></span>
+                            <span class="relative inline-flex size-2.5 rounded-full bg-[#3b82f6] ring-2 ring-white"></span>
+                        </span>
+                    </template>
+                </button>
+
+                <!-- Tombol Mini Profil + Garis Pemisah Vertikal (Figma 751:7814) -->
+                <button @click="toggleProfile()"
+                        type="button"
+                        data-node-id="751:7814"
+                        class="relative flex h-[73px] sm:w-[265px] items-center gap-3.5 bg-white px-4 hover:bg-slate-50/80 transition-colors focus:outline-none cursor-pointer">
+                    <!-- Garis Pemisah Vertikal Kiri (Figma Line 5 - 751:7820) -->
+                    <span class="absolute left-0 top-[14px] bottom-[14px] w-px bg-[#C4C4C4]" aria-hidden="true"></span>
+
+                    <!-- Avatar Mini 45x45 (Figma Ellipse 6 - 751:7816) -->
+                    <span class="flex size-[42px] sm:size-[45px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#213153] text-sm font-bold text-white shadow-xs">
+                        @if(Auth::user()->foto_profil)
+                            <img src="{{ asset('storage/' . Auth::user()->foto_profil) }}" alt="{{ Auth::user()->nama }}" class="size-full object-cover">
+                        @else
+                            {{ strtoupper(substr(Auth::user()->nama ?? 'U', 0, 1)) }}
+                        @endif
+                    </span>
+
+                    <!-- Nama & Unit/Bidang (Figma 751:7817 & 751:7818) -->
+                    <span class="hidden min-w-0 flex-1 text-left sm:block">
+                        <span class="block truncate text-[15px] font-semibold leading-tight text-black">
+                            {{ Auth::user()->nama }}
+                        </span>
+                        <span class="mt-0.5 block truncate text-[12px] font-normal leading-tight text-black">
+                            {{ Auth::user()->unit->nama_unit ?? Auth::user()->jabatan ?? 'Pegawai' }}
+                        </span>
+                    </span>
+
+                    <!-- Chevron Down (Figma Vector - 751:7819) -->
+                    <svg class="size-4 shrink-0 text-black transition-transform duration-200"
+                         :class="openProfile ? 'rotate-180' : ''"
+                         fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+
+                <!-- ================================================================ -->
+                <!-- POPUP 1: MINI NOTIFIKASI (FIGMA NODE 751:7854 & 753:7964)        -->
+                <!-- ================================================================ -->
+                <div x-show="openNotif"
+                     x-cloak
+                     data-node-id="751:7854"
+                     x-transition:enter="transition ease-out duration-150"
+                     x-transition:enter-start="opacity-0 scale-95 -translate-y-1"
+                     x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+                     x-transition:leave="transition ease-in duration-100"
+                     x-transition:leave-start="opacity-100 scale-100 translate-y-0"
+                     x-transition:leave-end="opacity-0 scale-95 -translate-y-1"
+                     class="absolute right-2 sm:right-3 top-[76px] z-50 w-[calc(100vw-1.5rem)] max-w-[400px] sm:w-[400px] rounded-[10px] border border-[#AAAAAA]/80 bg-white pt-[22px] pb-[12px] shadow-[0px_4px_12px_rgba(0,0,0,0.22)]">
+
+                    <!-- Judul Notifikasi (Figma 751:7886) -->
+                    <h3 class="px-[28px] text-[24px] font-semibold leading-tight text-black">
+                        Notifikasi
+                    </h3>
+
+                    <!-- Baris Filter Tab ("Semua", "Belum Dibaca") & "Lihat Semua ->" -->
+                    <div class="mt-2.5 flex items-center justify-between px-[28px]">
+                        <div class="flex items-center gap-2">
+                            <button type="button"
+                                    @click="notifTab = 'semua'"
+                                    :class="notifTab === 'semua' ? 'border-b-2 border-[#3b82f6] text-[#3b82f6] font-medium' : 'border-b-2 border-transparent text-black hover:text-[#3b82f6]'"
+                                    class="px-[13px] py-[4px] text-[11px] transition-colors cursor-pointer">
+                                Semua
+                            </button>
+                            <button type="button"
+                                    @click="notifTab = 'belum_dibaca'"
+                                    :class="notifTab === 'belum_dibaca' ? 'border-b-2 border-[#3b82f6] text-[#3b82f6] font-medium' : 'border-b-2 border-transparent text-black hover:text-[#3b82f6]'"
+                                    class="px-[13px] py-[4px] text-[11px] transition-colors cursor-pointer">
+                                Belum Dibaca
+                            </button>
+                        </div>
+
+                        <a href="{{ route('notifikasi.index') }}"
+                           class="rounded-full px-[10px] py-[4px] text-[11px] font-normal text-black hover:text-[#3b82f6] transition-colors whitespace-nowrap">
+                            Lihat Semua &rarr;
+                        </a>
+                    </div>
+
+                    <!-- Daftar Item Notifikasi (Figma 753:7923) -->
+                    @foreach(['semua' => $allHeaderNotifs, 'belum_dibaca' => $unreadHeaderNotifs] as $tabKey => $notifList)
+                        <div x-show="notifTab === '{{ $tabKey }}'"
+                             class="mt-2 max-h-[420px] overflow-y-auto px-[10px] space-y-0.5">
+                            @forelse($notifList as $notif)
+                                @php
+                                    $teksGabung = strtolower($notif->judul . ' ' . $notif->pesan);
+                                    $isRevisiNotif = str_contains($teksGabung, 'revisi') || str_contains($teksGabung, 'kembalikan') || str_contains($teksGabung, 'mengembalikan') || str_contains($teksGabung, 'tolak');
+                                    $isSelesaiNotif = str_contains($teksGabung, 'selesai') || str_contains($teksGabung, 'lunas') || str_contains($teksGabung, 'cair');
+                                @endphp
+                                <a href="{{ $notif->action_url }}"
+                                   class="flex min-h-[82px] items-center gap-[15px] rounded-[6px] bg-white px-[14px] py-[12px] hover:bg-slate-50 transition-colors">
+                                    <!-- Ikon Lingkaran Berwarna Sesuai Status (50x50px Figma) -->
+                                    @if($isRevisiNotif)
+                                        <span class="flex size-[48px] shrink-0 items-center justify-center rounded-full bg-[#F3C635] text-white shadow-2xs">
+                                            <svg class="size-6" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a5 5 0 015 5v2M3 10l4-4m-4 4l4 4" />
+                                            </svg>
+                                        </span>
+                                    @elseif($isSelesaiNotif)
+                                        <span class="flex size-[48px] shrink-0 items-center justify-center rounded-full bg-[#1CD000] text-white shadow-2xs">
+                                            <svg class="size-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        </span>
+                                    @else
+                                        <span class="flex size-[48px] shrink-0 items-center justify-center rounded-full bg-[#087AE6] text-white shadow-2xs">
+                                            <svg class="size-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                            </svg>
+                                        </span>
+                                    @endif
+
+                                    <!-- Teks Judul & Waktu -->
+                                    <div class="min-w-0 flex-1">
+                                        <p class="line-clamp-2 text-[14px] sm:text-[15px] font-medium leading-snug {{ !$notif->is_read ? 'text-black' : 'text-[#6e6e6e]' }}">
+                                            {{ $notif->judul }}
+                                        </p>
+                                        <span class="mt-1 block text-[11px] font-semibold text-[#aaaaaa]">
+                                            {{ $notif->created_at ? $notif->created_at->translatedFormat('d M Y, H:i') : 'Baru saja' }}
+                                        </span>
+                                    </div>
+
+                                    <!-- Titik Biru Belum Dibaca (Figma 753:7912) -->
+                                    @if(!$notif->is_read)
+                                        <span class="size-[10px] shrink-0 rounded-full bg-[#3b82f6]" title="Belum dibaca"></span>
+                                    @endif
+                                </a>
+                            @empty
+                                <div class="py-10 text-center text-xs text-slate-400">
+                                    {{ $tabKey === 'belum_dibaca' ? 'Tidak ada notifikasi yang belum dibaca.' : 'Belum ada notifikasi terbaru.' }}
+                                </div>
+                            @endforelse
+                        </div>
+                    @endforeach
+                </div>
+
+                <!-- ================================================================ -->
+                <!-- POPUP 2: PROFIL KECIL (FIGMA NODE 751:7823)                      -->
+                <!-- ================================================================ -->
+                <div x-show="openProfile"
+                     x-cloak
+                     data-node-id="751:7823"
+                     x-transition:enter="transition ease-out duration-150"
+                     x-transition:enter-start="opacity-0 scale-95 -translate-y-1"
+                     x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+                     x-transition:leave="transition ease-in duration-100"
+                     x-transition:leave-start="opacity-100 scale-100 translate-y-0"
+                     x-transition:leave-end="opacity-0 scale-95 -translate-y-1"
+                     class="absolute right-2 sm:right-3 top-[76px] z-50 w-[calc(100vw-1.5rem)] max-w-[400px] sm:w-[400px] rounded-[10px] border border-[#AAAAAA]/80 bg-white px-[28px] py-[22px] shadow-[0px_4px_12px_rgba(0,0,0,0.22)]">
+
+                    <!-- Informasi Pengguna & Avatar Besar 90x90 (Figma 751:7853) -->
+                    <div class="flex items-center justify-between gap-4">
+                        <div class="min-w-0 flex-1">
+                            <h4 class="truncate text-[22px] sm:text-[24px] font-semibold leading-tight text-black">
+                                {{ Auth::user()->nama }}
+                            </h4>
+                            <p class="mt-1 truncate text-[16px] font-normal leading-snug text-black">
+                                {{ Auth::user()->unit->nama_unit ?? Auth::user()->jabatan ?? 'Pegawai' }}
+                            </p>
+                            <span class="mt-2 inline-flex items-center justify-center rounded-full bg-[#5EB7EE]/50 px-[13px] py-[4px] text-[10px] font-normal text-black">
+                                @if(Auth::user()->roleEntity && !Auth::user()->roleEntity->is_system)
+                                    {{ Auth::user()->roleEntity->label }}
+                                @else
+                                    {{ ucwords(str_replace('_', ' ', Auth::user()->role)) }}
+                                @endif
+                            </span>
+                        </div>
+
+                        <!-- Avatar Foto Besar (Figma Ellipse 7 - 751:7838) -->
+                        <div class="flex size-[80px] sm:size-[90px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#213153] text-2xl font-bold text-white shadow-xs">
+                            @if(Auth::user()->foto_profil)
+                                <img src="{{ asset('storage/' . Auth::user()->foto_profil) }}" alt="{{ Auth::user()->nama }}" class="size-full object-cover">
+                            @else
+                                {{ strtoupper(substr(Auth::user()->nama ?? 'U', 0, 1)) }}
+                            @endif
+                        </div>
+                    </div>
+
+                    <!-- Garis Pembatas Horizontal (Figma Line 27 - 751:7839) -->
+                    <div class="my-[18px] h-px w-full bg-[#CCCCCC]"></div>
+
+                    <!-- Menu Aksi: Profil Saya & Logout (Figma 751:7840 & 751:7845) -->
+                    <div class="space-y-2">
+                        <a href="{{ route('profile.index') }}"
+                           class="flex items-center gap-[26px] rounded-lg px-[14px] py-2.5 text-[16px] font-normal text-black hover:bg-slate-50 transition-colors">
+                            <svg class="size-[20px] shrink-0 text-black" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                                <circle cx="12" cy="8" r="4" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 20c0-3.3 3.1-6 7-6s7 2.7 7 6" />
+                            </svg>
+                            <span>Profil Saya</span>
+                        </a>
+
+                        <form action="{{ route('logout') }}" method="POST">
+                            @csrf
+                            <button type="submit"
+                                    class="flex w-full items-center gap-[26px] rounded-lg px-[14px] py-2.5 text-[16px] font-normal text-[#FF0000] hover:bg-rose-50/70 transition-colors cursor-pointer">
+                                <svg class="size-[20px] shrink-0 text-[#FF0000]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M10 17l-5-5m0 0l5-5m-5 5h11m-3 7h4a2 2 0 002-2V7a2 2 0 00-2-2h-4" />
+                                </svg>
+                                <span>Logout</span>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+            </div>
+            @endauth
+        </header>
+
+        <!-- KONTEN UTAMA HALAMAN -->
+        <main class="min-w-0 flex-1 p-6 md:p-8">
+
             {{-- Banner Notifikasi OS Desktop --}}
             @auth
-            <div x-data="desktopNotificationManager()" 
-                 x-init="init()" 
-                 x-show="showBanner" 
+            <div x-data="desktopNotificationManager()"
+                 x-init="init()"
+                 x-show="showBanner"
                  x-cloak
-                 x-transition 
+                 x-transition
                  class="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl bg-gradient-to-r from-[#213153] to-[#0969da] p-4 text-white shadow-md">
                 <div class="flex items-center gap-3">
                     <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-white/15 backdrop-blur-sm">
@@ -690,14 +756,14 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
-                    <button @click="requestPermission()" 
-                            type="button" 
-                            class="rounded-lg bg-white px-4 py-2 text-xs font-bold text-[#213153] shadow-sm hover:bg-blue-50 transition-colors">
+                    <button @click="requestPermission()"
+                            type="button"
+                            class="rounded-lg bg-white px-4 py-2 text-xs font-bold text-[#213153] shadow-sm hover:bg-blue-50 transition-colors cursor-pointer">
                         Izinkan Notifikasi OS
                     </button>
-                    <button @click="dismissBanner()" 
-                            type="button" 
-                            class="rounded-lg p-2 text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+                    <button @click="dismissBanner()"
+                            type="button"
+                            class="rounded-lg p-2 text-white/80 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
                             title="Tutup banner">
                         <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                     </button>
@@ -724,14 +790,13 @@
             @yield('content')
 
         </main>
+
+        <!-- FOOTER -->
+        <footer class="py-4 px-6 text-center text-xs text-slate-500 border-t border-slate-200/60 bg-white">
+            &copy; {{ date('Y') }} <strong>SIM-PBJ Politeknik Negeri Jakarta</strong>. Jl. Prof. Dr. G.A. Siwabessy, Kampus UI Depok 16425.
+        </footer>
+
     </div>
-
-    <!-- FOOTER -->
-    <footer class="py-4 px-6 text-center text-xs text-slate-500 border-t border-slate-200/60 bg-white">
-        &copy; {{ date('Y') }} <strong>SIM-PBJ Politeknik Negeri Jakarta</strong>. Jl. Prof. Dr. G.A. Siwabessy, Kampus UI Depok 16425.
-    </footer>
-
-
 
 </body>
 </html>
