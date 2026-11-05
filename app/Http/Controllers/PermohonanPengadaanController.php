@@ -814,14 +814,14 @@ class PermohonanPengadaanController extends Controller
     {
         // Standarisasi nama file unduhan PDF
         $filename = 'Permohonan_'.str_replace(['/', '\\'], '_', $permohonan_pengadaan->nomor_surat).'.pdf';
+        $disposition = request()->boolean('download') ? 'attachment' : 'inline';
 
         // 1. Jika berkas fisik sudah tersimpan di storage, langsung stream file tersebut
         if (! empty($permohonan_pengadaan->file_permohonan) && Storage::disk('public')->exists($permohonan_pengadaan->file_permohonan)) {
-            return Storage::disk('public')->download(
-                $permohonan_pengadaan->file_permohonan,
-                $filename,
-                ['Content-Type' => 'application/pdf']
-            );
+            return response(Storage::disk('public')->get($permohonan_pengadaan->file_permohonan), 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => $disposition.'; filename="'.$filename.'"',
+            ]);
         }
 
         // 2. Jika berkas fisik belum diunggah / mode prototipe, stream PDF standar ISO %PDF-1.4 secara instan (<500ms)
@@ -829,7 +829,7 @@ class PermohonanPengadaanController extends Controller
 
         return response($pdfStream, 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            'Content-Disposition' => $disposition.'; filename="'.$filename.'"',
         ]);
     }
 

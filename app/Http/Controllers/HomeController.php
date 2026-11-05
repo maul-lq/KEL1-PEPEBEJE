@@ -28,6 +28,7 @@ use App\Services\PengadaanRoutingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -134,16 +135,25 @@ class HomeController extends Controller
             'user' => [
                 'stats' => [
                     'total_usulan' => PermohonanPengadaan::where('id_user', $user->id_user)->count(),
-                    'usulan_proses' => PermohonanPengadaan::where('id_user', $user->id_user)->whereIn('status_permohonan', ['diajukan', 'reviu_paralel', 'pending_anggaran'])->count(),
+                    'usulan_proses' => PermohonanPengadaan::where('id_user', $user->id_user)->whereIn('status_permohonan', ['diajukan', 'menunggu_bidang_2', 'reviu_paralel', 'cek_mak_perencanaan', 'menunggu_acc_wadir_ppk', 'pending_anggaran'])->count(),
                     'usulan_disetujui' => PermohonanPengadaan::where('id_user', $user->id_user)->where('status_permohonan', 'disetujui')->count(),
-                    'usulan_revisi' => PermohonanPengadaan::where('id_user', $user->id_user)->where('status_permohonan', 'ditolak')->count(),
+                    'usulan_revisi' => PermohonanPengadaan::where('id_user', $user->id_user)->whereIn('status_permohonan', ['ditolak', 'revisi'])->count(),
                     'usulan_selesai' => PermohonanPengadaan::where('id_user', $user->id_user)->where('status_permohonan', 'selesai')->count(),
+                    'pengajuan_aktif' => PermohonanPengadaan::where('id_user', $user->id_user)->whereNotIn('status_permohonan', ['selesai', 'ditolak', 'digantikan_oleh_revisi'])->count(),
+                    'menunggu_tindakan' => PermohonanPengadaan::where('id_user', $user->id_user)->whereIn('status_permohonan', ['ditolak', 'revisi'])->count(),
+                    'notifikasi_belum_dibaca' => NotifikasiUser::where('id_user', $user->id_user)->where('is_read', false)->where('is_dismissed', false)->count(),
                 ],
                 'revisi_alerts' => PermohonanPengadaan::where('id_user', $user->id_user)
-                    ->where('status_permohonan', 'ditolak')
+                    ->whereIn('status_permohonan', ['ditolak', 'revisi'])
                     ->latest('updated_at')
-                    ->take(3)
+                    ->take(5)
                     ->get(),
+                'perlu_tindakan' => PermohonanPengadaan::where('id_user', $user->id_user)
+                    ->whereIn('status_permohonan', ['ditolak', 'revisi'])
+                    ->latest('updated_at')
+                    ->take(5)
+                    ->get(),
+                'aktivitas_terbaru' => $this->getUserRecentActivities($user),
             ],
             'staff_bidang_2' => [
                 'stats' => [
@@ -296,6 +306,113 @@ class HomeController extends Controller
         };
     }
 
+    /**
+     * Mengambil daftar aktivitas pengadaan terbaru yang terkait dengan akun pemohon (role user).
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    protected function getUserRecentActivities(User $user)
+    {
+        $activities = collect();
+
+        // 1. Ambil dari AuditLog terkait user atau nomor surat usulan user
+        $userSuratList = PermohonanPengadaan::where('id_user', $user->id_user)->pluck('nomor_surat')->filter()->all();
+
+        $permohonanMap = PermohonanPengadaan::where('id_user', $user->id_user)
+            ->get()
+            ->keyBy('nomor_surat');
+
+        if (! empty($userSuratList)) {
+            $logs = AuditLog::whereIn('id_entitas', $userSuratList)
+                ->orWhere(function ($q) use ($user) {
+                    $q->where('nama_entitas', 'permohonan_pengadaan')
+                        ->where('id_user', $user->id_user);
+                })
+                ->latest('waktu_log')
+                ->take(15)
+                ->get();
+
+            foreach ($logs as $log) {
+                $permohonan = $permohonanMap->get($log->id_entitas)
+                    ?? PermohonanPengadaan::where('nomor_surat', $log->id_entitas)->first();
+
+                $aktivitasText = match ($log->jenis_aksi) {
+                    'PERMOHONAN_CREATED' => 'Form diajukan',
+                    'MEMO_CEK_MAK_B2_KE_PERENCANAAN', 'STATUS_UPDATED' => 'Form diperiksa',
+                    'REVISI_PERMOHONAN', 'PERMOHONAN_DITOLAK' => 'Form ditolak',
+                    'MEMO_KETERSEDIAAN_MAK_KE_WADIR2_PPK', 'PERMOHONAN_DISETUJUI' => 'Form disetujui',
+                    'PAKET_CREATED' => 'Penyusunan dokumen',
+                    'PENETAPAN_MAK' => 'Penetapan level anggaran',
+                    'KONTRAK_CREATED', 'KONTRAK_UPLOADED' => 'Pembuatan surat kontrak',
+                    'PENERIMAAN_BARANG', 'PENERIMAAN_VERIFIKASI' => 'Penyerahan barang',
+                    'PEMBAYARAN_SP2D', 'MEMO_BAYAR_CREATED' => 'Pembayaran',
+                    default => ucwords(strtolower(str_replace('_', ' ', $log->jenis_aksi ?? 'Aktivitas'))),
+                };
+
+                $rawStatus = strtolower((string) ($log->nilai_baru ?? $permohonan?->status_permohonan ?? 'diajukan'));
+                $statusLabel = match ($rawStatus) {
+                    'disetujui' => 'Disetujui',
+                    'ditolak' => 'Ditolak',
+                    'revisi' => 'Perlu Revisi',
+                    'selesai' => 'Selesai',
+                    'dibayar' => 'Dibayar',
+                    'menunggu_bidang_2', 'cek_mak_perencanaan', 'reviu_paralel', 'diajukan' => 'Dalam Proses',
+                    default => $permohonan ? ucwords(str_replace('_', ' ', $permohonan->status_permohonan)) : 'Dalam Proses',
+                };
+
+                $activities->push([
+                    'waktu' => $log->waktu_log ? date('d M Y, H:i', strtotime($log->waktu_log)) : date('d M Y, H:i'),
+                    'aktivitas' => $aktivitasText,
+                    'nama_pengadaan' => $permohonan?->judul_pengadaan ?? $log->alasan ?? 'Pengadaan Unit',
+                    'status' => $statusLabel,
+                    'nomor_surat' => $log->id_entitas ?? $permohonan?->nomor_surat ?? '',
+                ]);
+            }
+        }
+
+        // 2. Jika aktivitas dari AuditLog masih kurang, tambahkan dari snapshot PermohonanPengadaan milik user
+        if ($activities->count() < 10) {
+            $userPermohonans = PermohonanPengadaan::with(['paket.kontrak.penerimaan', 'paket.kontrak.pembayaran'])
+                ->where('id_user', $user->id_user)
+                ->latest('updated_at')
+                ->take(10)
+                ->get();
+
+            foreach ($userPermohonans as $p) {
+                $statusMap = match ($p->status_permohonan) {
+                    'disetujui' => ['aktivitas' => 'Form disetujui', 'status' => 'Disetujui'],
+                    'ditolak' => ['aktivitas' => 'Form ditolak', 'status' => 'Ditolak'],
+                    'revisi' => ['aktivitas' => 'Perlu perbaikan berkas', 'status' => 'Perlu Revisi'],
+                    'selesai' => ['aktivitas' => 'Pengadaan selesai', 'status' => 'Selesai'],
+                    'menunggu_bidang_2' => ['aktivitas' => 'Form diperiksa', 'status' => 'Dalam Proses'],
+                    'cek_mak_perencanaan' => ['aktivitas' => 'Pemeriksaan MAK', 'status' => 'Dalam Proses'],
+                    'reviu_paralel' => ['aktivitas' => 'Reviu Paralel', 'status' => 'Dalam Proses'],
+                    default => ['aktivitas' => 'Form diajukan', 'status' => 'Dalam Proses'],
+                };
+
+                $activities->push([
+                    'waktu' => $p->updated_at ? $p->updated_at->format('d M Y, H:i') : ($p->tanggal_pengajuan ? date('d M Y, H:i', strtotime($p->tanggal_pengajuan)) : '-'),
+                    'aktivitas' => $statusMap['aktivitas'],
+                    'nama_pengadaan' => $p->judul_pengadaan,
+                    'status' => $statusMap['status'],
+                    'nomor_surat' => $p->nomor_surat,
+                ]);
+
+                if ($p->paket && $p->paket->kontrak) {
+                    $activities->push([
+                        'waktu' => $p->paket->kontrak->created_at ? $p->paket->kontrak->created_at->format('d M Y, H:i') : '-',
+                        'aktivitas' => 'Pembuatan surat kontrak',
+                        'nama_pengadaan' => $p->judul_pengadaan,
+                        'status' => 'Berhasil',
+                        'nomor_surat' => $p->nomor_surat,
+                    ]);
+                }
+            }
+        }
+
+        return $activities->unique(fn ($item) => $item['waktu'].$item['aktivitas'].$item['nama_pengadaan'])->take(11)->values();
+    }
+
     // =========================================================================
     // MODUL 1: PERMOHONAN PENGADAAN (USER / PEMOHON JURUSAN)
     // =========================================================================
@@ -308,10 +425,21 @@ class HomeController extends Controller
     public function permohonanIndex(Request $request): View
     {
         $user = Auth::user();
-        $query = PermohonanPengadaan::with(['unit', 'user', 'verifikasiParalel.user', 'suratAsalRevisi'])
+        $query = PermohonanPengadaan::with([
+            'unit',
+            'user',
+            'verifikasiParalel.user',
+            'suratAsalRevisi',
+            'alokasiMak.anggaranMak',
+            'paketPengadaan.reviuDokumen',
+            'paketPengadaan.kontrakSpk',
+            'paketPengadaan.penerimaanBarang',
+            'paketPengadaan.pembayaran.transaksiPencairan',
+            'paketPengadaan.reminders',
+        ])
             ->where('status_permohonan', '!=', 'digantikan_oleh_revisi');
 
-        // Jika user yang login adalah peran 'perencanaan' / 'user' biasa, filter berdasarkan ID user
+        // Jika user yang login adalah peran 'user' biasa atau 'perencanaan' personal, filter berdasarkan ID user
         if ($user && in_array($user->role, ['perencanaan', 'user'])) {
             $query->where('id_user', $user->id_user);
         }
@@ -3305,7 +3433,11 @@ class HomeController extends Controller
     public function unduhDokumenPdf(Request $request, string $jenis, string $id): Response
     {
         return match ($jenis) {
-            'permohonan' => app(PermohonanPengadaanController::class)->unduhPdf(PermohonanPengadaan::findOrFail($id)),
+            'permohonan' => app(PermohonanPengadaanController::class)->unduhPdf(
+                PermohonanPengadaan::where('nomor_surat', $id)
+                    ->when(is_numeric($id), fn ($q) => $q->orWhere('id', $id))
+                    ->firstOrFail()
+            ),
             'spk' => app(KontrakSPKController::class)->unduhPdf(KontrakSPK::findOrFail($id)),
             'bast' => app(PenerimaanBarangController::class)->unduhPdf(PenerimaanBarang::where('nomor_bast', $id)->firstOrFail()),
             'transfer', 'sp2d' => app(TransaksiPencairanController::class)->unduhPdf(TransaksiPencairan::where('nomor_transaksi_bank', $id)->firstOrFail()),

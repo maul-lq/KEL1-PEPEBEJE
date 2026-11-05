@@ -133,7 +133,6 @@ Route::middleware('auth')->group(function () {
         ->name('paket.show')
         ->where(['id' => '.*']);
 
-
     // -------------------------------------------------------------------------
     // Modul 5: Review PP, Approval PPK, Eksekusi Belanja, & Upload 1 Dokumen Perikatan PPBJ
     // -------------------------------------------------------------------------
@@ -217,9 +216,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile/google/link', [GoogleAuthController::class, 'redirectToGoogleForLinking'])->name('profile.google.link');
     Route::get('/profile/google/callback', [GoogleAuthController::class, 'handleGoogleLinkingCallback'])->name('profile.google.callback');
     Route::post('/profile/google/unlink', [GoogleAuthController::class, 'unlinkGoogle'])->name('profile.google.unlink');
-
-    // Unduh Dokumen PDF
-    Route::get('/dokumen-pdf/{jenis}/{id}', [HomeController::class, 'unduhDokumenPdf'])->name('dokumen.pdf')->where(['id' => '.*']);
 });
 
 /*

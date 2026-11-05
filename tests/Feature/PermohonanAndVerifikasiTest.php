@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\AnggaranMAK;
+use App\Models\PaketPengadaan;
 use App\Models\PermohonanPengadaan;
 use App\Models\Unit;
 use App\Models\User;
@@ -129,6 +130,37 @@ class PermohonanAndVerifikasiTest extends TestCase
         $respFrontend->assertStatus(200);
         $respFrontend->assertSee('Ajukan Usulan Pengadaan Baru');
         $respFrontend->assertSee('Nomor Registrasi Surat Srikandi');
+    }
+
+    /**
+     * 1b. Halaman permohonan index menampilkan seluruh komponen Figma 12 desain (split view, stepper, dan 4 modal).
+     */
+    public function test_permohonan_index_renders_all_figma_components_and_modals(): void
+    {
+        $this->actingAs($this->userPemohon);
+
+        $resp = $this->get(route('permohonan.index'));
+        $resp->assertStatus(200);
+
+        // Header & Filter Bar (Figma 462:7620)
+        $resp->assertSee('Tracking Pengajuan');
+        $resp->assertSee('Pencarian');
+        $resp->assertSee('Status Tracking');
+        $resp->assertSee('Jenis Pengadaan');
+        $resp->assertSee('Tanggal');
+        $resp->assertSee('Reset');
+        $resp->assertSee('Permohonan Baru');
+
+        // Split view left & right panel
+        $resp->assertSee('Daftar Pengajuan');
+        $resp->assertSee('Riwayat Kronologis dan Revisi');
+
+        // 4 Modals
+        $resp->assertSee('Pratinjau Dokumen'); // Modal 1 (715:6528 & 744:7446)
+        $resp->assertSee('modal-create-permohonan'); // Modal 2 (737:7343 & 737:7339)
+        $resp->assertSee('modal-revisi-permohonan'); // Modal 3 (744:7706 & 744:7705)
+        $resp->assertSee('modal-delete-permohonan'); // Modal 4 (744:7604)
+        $resp->assertSee('Konfirmasi Password');
     }
 
     /**
@@ -667,5 +699,95 @@ class PermohonanAndVerifikasiTest extends TestCase
                 "Pelanggaran Kebijakan: Berkas {$path} masih memuat inline <script> tag."
             );
         }
+    }
+
+    /**
+     * 15. Validasi bahwa tahap siklus pengadaan terhubung langsung ke database dan dihitung secara akurat.
+     */
+    public function test_hitung_tahap_siklus_permohonan_terhubung_database_dan_akurat(): void
+    {
+        // Tahap 1: Pengajuan baru
+        $p1 = PermohonanPengadaan::create([
+            'nomor_surat' => 'TEST/SIKLUS/01/2026',
+            'judul_pengadaan' => 'Usulan Baru Siklus 1',
+            'estimasi_total_pagu' => 30000000,
+            'status_permohonan' => PermohonanPengadaan::STATUS_DIAJUKAN,
+            'id_user' => $this->userPemohon->id_user,
+            'kode_unit' => $this->unit->kode_unit,
+        ]);
+        $this->assertEquals(1, $p1->hitungTahapSiklus());
+        $this->assertEquals(1, $p1->current_tahap);
+
+        // Tahap 2: Sedang dalam verifikasi berantai / penelaahan
+        $p1->status_permohonan = PermohonanPengadaan::STATUS_REVIU_PARALEL;
+        $this->assertEquals(2, $p1->hitungTahapSiklus());
+
+        // Tahap 2: Minta revisi
+        $p1->status_permohonan = 'perlu_revisi';
+        $this->assertEquals(2, $p1->hitungTahapSiklus());
+
+        // Tahap 3: Disetujui / MAK dialokasikan
+        $p1->status_permohonan = PermohonanPengadaan::STATUS_DISETUJUI;
+        $p1->kode_mak = $this->mak1->kode_mak;
+        $this->assertEquals(3, $p1->hitungTahapSiklus());
+
+        // Tahap 3: Terbentuk paket pengadaan di PPBJ
+        $paket = PaketPengadaan::create([
+            'nomor_paket' => 'PKT-TEST-001',
+            'nama_paket' => 'Paket Pengadaan Siklus 3',
+            'jenis_pengadaan' => 'barang',
+            'nomor_surat' => $p1->nomor_surat,
+            'nilai_hps' => 30000000,
+            'status_paket' => PaketPengadaan::STATUS_TERDAFTAR,
+            'id_user_ppbj' => $this->userPemohon->id_user,
+        ]);
+        $p1->unsetRelation('paketPengadaan');
+        $this->assertEquals(3, $p1->hitungTahapSiklus());
+
+        // Tahap 5: Belanja langsung selesai ber-kwitansi
+        $paket->nomor_kwitansi_belanja = 'KWT/2026/001';
+        $paket->status_paket = 'belanja_langsung_selesai';
+        $paket->save();
+        $p1->unsetRelation('paketPengadaan');
+        $this->assertEquals(5, $p1->hitungTahapSiklus());
+
+        // Tahap 8: Status selesai
+        $p1->status_permohonan = PermohonanPengadaan::STATUS_SELESAI;
+        $this->assertEquals(8, $p1->hitungTahapSiklus());
+    }
+
+    /**
+     * 16. Validasi bahwa stepper 8 siklus di-render sesuai database untuk masing-masing role.
+     */
+    public function test_tahap_siklus_stepper_rendered_sesuai_database_dan_role(): void
+    {
+        $p2 = PermohonanPengadaan::create([
+            'nomor_surat' => 'TEST/SIKLUS/02/2026',
+            'judul_pengadaan' => 'Usulan Siklus 3 untuk User Pemohon',
+            'estimasi_total_pagu' => 75000000,
+            'status_permohonan' => PermohonanPengadaan::STATUS_DISETUJUI,
+            'kode_mak' => $this->mak1->kode_mak,
+            'id_user' => $this->userPemohon->id_user,
+            'kode_unit' => $this->unit->kode_unit,
+        ]);
+
+        // Login sebagai User Pemohon
+        $respUser = $this->actingAs($this->userPemohon)->get(route('permohonan.index'));
+        $respUser->assertStatus(200);
+        $respUser->assertSee('Tahap Siklus');
+        $respUser->assertSee('TEST/SIKLUS/02/2026');
+        $respUser->assertSee('&quot;currentTahap&quot;:3', false);
+
+        // Login sebagai Admin (melihat seluruh permohonan)
+        $admin = User::where('role', 'admin')->first() ?? User::factory()->create([
+            'role' => 'admin',
+            'status_aktif' => true,
+            'status_registrasi' => 'disetujui',
+        ]);
+        $respAdmin = $this->actingAs($admin)->get(route('permohonan.index'));
+        $respAdmin->assertStatus(200);
+        $respAdmin->assertSee('Tahap Siklus');
+        $respAdmin->assertSee('TEST/SIKLUS/02/2026');
+        $respAdmin->assertSee('&quot;currentTahap&quot;:3', false);
     }
 }

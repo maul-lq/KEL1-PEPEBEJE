@@ -120,10 +120,12 @@ test('user dashboard renders successfully with permohonan stats and action queue
 
     $response->assertOk();
     $response->assertSee('Dashboard USER');
-    $response->assertSee('Total Usulan Pengadaan');
-    $response->assertSee('Sedang Diproses');
-    $response->assertSee('Usulan Disetujui');
-    $response->assertSee('Perlu Revisi / Ditolak');
+    $response->assertSee('Pengajuan Aktif');
+    $response->assertSee('Menunggu Tindakan');
+    $response->assertSee('Selesai');
+    $response->assertSee('Notifikasi Belum Dibaca');
+    $response->assertSee('Perlu Tindakan Anda');
+    $response->assertSee('Aktivitas Terbaru');
     $response->assertSee('Daftar Usulan Permohonan Pengadaan Unit Anda');
     $response->assertSee('001/TIK/PG/2026');
     $response->assertSee('Pengadaan Laboratorium Jaringan');

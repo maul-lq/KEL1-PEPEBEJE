@@ -3,7 +3,7 @@
 @section('title', 'Ajukan Permohonan Pengadaan Baru - SIM-PBJ PNJ')
 
 @section('content')
-<div class="min-h-screen bg-[#F5F7FC] p-4 sm:p-6 lg:p-8" x-data="typeof formPermohonanManager === 'function' ? formPermohonanManager() : {}">
+<div class="min-h-screen bg-[#F5F7FC] p-4 sm:p-6 lg:p-8" x-data="{ nominal: '{{ old('anggaran_diajukan', '') }}', fileNameSurat: '', fileNameKak: '', fileNameSpek: '' }">
     <div class="mx-auto max-w-5xl space-y-6">
 
         <!-- 1. HEADER HALAMAN, TOMBOL KEMBALI & BADGE STATUS -->
@@ -19,7 +19,7 @@
                 </a>
                 <div>
                     <h1 class="text-xl sm:text-2xl md:text-3xl font-extrabold text-[#213153] tracking-tight">
-                        Pengajuan Usulan Permohonan Pengadaan
+                        Ajukan Usulan Pengadaan Baru
                     </h1>
                     <p class="text-xs sm:text-sm text-slate-500 mt-1">
                         Formulir pendaftaran naskah dinas resmi Srikandi PNJ dengan lampiran Kerangka Acuan Kerja (KAK) dan Spesifikasi Teknis.
@@ -68,7 +68,7 @@
         </div>
     @endif
 
-<div class="min-h-screen bg-[#F5F7FC] p-4 sm:p-6 lg:p-8" x-data="typeof formPermohonanManager === 'function' ? formPermohonanManager() : {}">
+<div class="min-h-screen bg-[#F5F7FC] p-4 sm:p-6 lg:p-8" x-data="{ nominal: '{{ old('anggaran_diajukan', '') }}', fileNameSurat: '', fileNameKak: '', fileNameSpek: '' }">
     <div class="mx-auto max-w-5xl space-y-6">
 
         <!-- 1. HEADER HALAMAN, TOMBOL KEMBALI & BADGE STATUS -->
@@ -84,7 +84,7 @@
                 </a>
                 <div>
                     <h1 class="text-xl sm:text-2xl md:text-3xl font-extrabold text-[#213153] tracking-tight">
-                        Pengajuan Usulan Permohonan Pengadaan
+                        Ajukan Usulan Pengadaan Baru
                     </h1>
                     <p class="text-xs sm:text-sm text-slate-500 mt-1">
                         Formulir pendaftaran naskah dinas resmi Srikandi PNJ dengan lampiran Kerangka Acuan Kerja (KAK) dan Spesifikasi Teknis.
@@ -375,14 +375,4 @@
     </div>
 </div>
 
-<script>
-    function formPermohonanManager() {
-        return {
-            nominal: '{{ old('anggaran_diajukan', '') }}',
-            fileNameSurat: '',
-            fileNameKak: '',
-            fileNameSpek: ''
-        };
-    }
-</script>
 @endsection

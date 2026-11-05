@@ -35,21 +35,32 @@ class User extends Authenticatable
      * Definisi konstanta peran/role resmi dalam sistem SIM-PBJ.
      */
     public const ROLE_ADMIN = 'admin';
+
     public const ROLE_USER = 'user';
+
     public const ROLE_STAFF_BIDANG_2 = 'staff_bidang_2';
+
     public const ROLE_WADIR_2 = 'wadir_2';
+
     public const ROLE_PERENCANAAN = 'perencanaan';
+
     public const ROLE_PPBJ = 'ppbj';
+
     public const ROLE_PP = 'pp';
+
     public const ROLE_PPK = 'ppk';
+
     public const ROLE_PERLENGKAPAN = 'perlengkapan';
+
     public const ROLE_KEUANGAN = 'keuangan';
 
     /**
      * Definisi status verifikasi registrasi pengguna baru oleh Administrator.
      */
     public const STATUS_REGISTRASI_MENUNGGU = 'menunggu_persetujuan';
+
     public const STATUS_REGISTRASI_DISETUJUI = 'disetujui';
+
     public const STATUS_REGISTRASI_DITOLAK = 'ditolak';
 
     public const ROLE_USER_PENGAJU = 'user';
@@ -119,22 +130,26 @@ class User extends Authenticatable
             if (empty($user->username)) {
                 $user->username = ! empty($user->email)
                     ? explode('@', $user->email)[0]
-                    : (! empty($user->nip) ?$user->nip : 'user_'.uniqid());
+                    : (! empty($user->nip) ? $user->nip : 'user_'.uniqid());
             }
 
             // Generasi fallback Nama jika kosong
-            if (empty($user->nama)) {$user->nama = $user->name ?? $user->username ?? 'Pengguna Sistem';
+            if (empty($user->nama)) {
+                $user->nama = $user->name ?? $user->username ?? 'Pengguna Sistem';
             }
 
             // Role Default
-            if (empty($user->role)) {$user->role = self::ROLE_USER;
+            if (empty($user->role)) {
+                $user->role = self::ROLE_USER;
             }
 
             // Default Status Aktif & Registrasi
-            if ($user->status_aktif === null) {$user->status_aktif = true;
+            if ($user->status_aktif === null) {
+                $user->status_aktif = true;
             }
 
-            if (empty($user->status_registrasi)) {$user->status_registrasi = self::STATUS_REGISTRASI_DISETUJUI;
+            if (empty($user->status_registrasi)) {
+                $user->status_registrasi = self::STATUS_REGISTRASI_DISETUJUI;
             }
         });
     }
@@ -152,7 +167,7 @@ class User extends Authenticatable
      */
     public function setNameAttribute(?string $value): void
     {
-        $this->attributes['nama'] =$value;
+        $this->attributes['nama'] = $value;
     }
 
     /**
@@ -232,17 +247,17 @@ class User extends Authenticatable
     {
         $roleList = is_array($roles) ? $roles : [$roles];
 
-        return in_array($this->role,$roleList, true) ||
-            ($this->roleEntity && in_array($this->roleEntity->nama_role,$roleList, true));
+        return in_array($this->role, $roleList, true) ||
+            ($this->roleEntity && in_array($this->roleEntity->nama_role, $roleList, true));
     }
 
     public function hasPermission(string $permissionSlug): bool
     {
-        if ($this->role === self::ROLE_ADMIN || ($this->roleEntity &&$this->roleEntity->nama_role === self::ROLE_ADMIN)) {
+        if ($this->role === self::ROLE_ADMIN || ($this->roleEntity && $this->roleEntity->nama_role === self::ROLE_ADMIN)) {
             return true;
         }
 
-        if ($this->relationLoaded('roleEntity') &&$this->roleEntity) {
+        if ($this->relationLoaded('roleEntity') && $this->roleEntity) {
             return $this->roleEntity->hasPermission($permissionSlug);
         }
 
@@ -253,11 +268,11 @@ class User extends Authenticatable
 
     public function hasAnyPermission(array $permissions): bool
     {
-        if ($this->role === self::ROLE_ADMIN || ($this->roleEntity &&$this->roleEntity->nama_role === self::ROLE_ADMIN)) {
+        if ($this->role === self::ROLE_ADMIN || ($this->roleEntity && $this->roleEntity->nama_role === self::ROLE_ADMIN)) {
             return true;
         }
 
-        foreach ($permissions as$perm) {
+        foreach ($permissions as $perm) {
             if ($this->hasPermission($perm)) {
                 return true;
             }

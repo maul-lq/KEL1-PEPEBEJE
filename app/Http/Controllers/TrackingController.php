@@ -10,7 +10,7 @@ class TrackingController extends Controller
     public function index(Request $request)
     {
         $user = auth()->user();
-        
+
         // Query data berdasarkan role user
         $query = Procurement::with('histories');
 
@@ -21,7 +21,7 @@ class TrackingController extends Controller
 
         // Filter pencarian
         if ($request->filled('keyword')) {
-            $query->where('title', 'like', '%' . $request->keyword . '%');
+            $query->where('title', 'like', '%'.$request->keyword.'%');
         }
         if ($request->filled('status') && $request->status !== 'all') {
             $query->where('status', $request->status);
@@ -31,10 +31,10 @@ class TrackingController extends Controller
         }
 
         $applications = $query->latest()->get();
-        
+
         // Ambil item terpilih berdasarkan ID atau panggil item pertama
-        $selectedApplication = $request->filled('id') 
-            ? $applications->firstWhere('id', $request->id) 
+        $selectedApplication = $request->filled('id')
+            ? $applications->firstWhere('id', $request->id)
             : $applications->first();
 
         // Panggil view di folder permohonan/index.blade.php
@@ -44,7 +44,7 @@ class TrackingController extends Controller
     public function show($id)
     {
         $selectedApplication = Procurement::with(['histories', 'documents'])->findOrFail($id);
-        
+
         // Panggil view di folder permohonan/show.blade.php
         return view('permohonan.show', compact('selectedApplication'));
     }

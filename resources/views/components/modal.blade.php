@@ -5,6 +5,7 @@
     'maxWidth' => 'lg',
     'show' => false,
     'focusable' => true,
+    'borderTop' => null,
 ])
 
 @php
@@ -13,6 +14,7 @@
         'md' => 'sm:max-w-md',
         'lg' => 'sm:max-w-lg',
         'xl' => 'sm:max-w-xl',
+        '596' => 'sm:max-w-[596px]',
         '2xl' => 'sm:max-w-2xl',
         '3xl' => 'sm:max-w-3xl',
         '4xl' => 'sm:max-w-4xl',
@@ -84,7 +86,7 @@
         x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
         x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
         @click.stop
-        class="relative w-full {{ $widthClass }} my-8 overflow-hidden rounded-2xl bg-white shadow-2xl border border-slate-200/80 transition-all flex flex-col max-h-[90vh]"
+        class="relative w-full {{ $widthClass }} {{ $borderTop ?? '' }} my-8 overflow-hidden rounded-2xl bg-white shadow-2xl border border-slate-200/80 transition-all flex flex-col max-h-[90vh]"
     >
         <!-- Modal Header -->
         @if(isset($header))

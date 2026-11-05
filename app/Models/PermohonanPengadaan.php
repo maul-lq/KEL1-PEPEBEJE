@@ -438,6 +438,140 @@ class PermohonanPengadaan extends Model
     }
 
     /**
+     * Menghitung posisi tahap siklus pengadaan (1 s.d. 8) secara akurat berdasarkan
+     * relasi database dan status progres operasional yang tercatat.
+     *
+     * 1: Pengajuan Usulan Srikandi (Unit Pemohon)
+     * 2: Persetujuan 1 (Verifikasi Berantai: Bidang 2, Perencanaan, Wadir 2 & PPK)
+     * 3: Penyusunan Dokumen & Level Anggaran (Alokasi MAK & Registrasi Paket PPBJ)
+     * 4: Persetujuan 2 (Kondisional: Reviu Dokumen & HPS oleh PP/PPK)
+     * 5: Pembelian & Pembuatan Surat Kontrak (SPK / Kontrak / Kwitansi Belanja Langsung)
+     * 6: Penerimaan Barang/Jasa (Pengiriman & Pemeriksaan Fisik di Gudang)
+     * 7: Pembayaran (Penerbitan BAST & Pengajuan SPP)
+     * 8: Selesai (Pencairan Dana SP2D Lunas)
+     *
+     * @return int Nomor tahap siklus aktif (1 - 8)
+     */
+    public function hitungTahapSiklus(): int
+    {
+        $statusPermohonan = strtolower((string) ($this->status_permohonan ?? $this->status ?? 'diajukan'));
+
+        // Jika status permohonan sudah final selesai
+        if (in_array($statusPermohonan, ['selesai', 'sp2d_lunas', 'cair'], true)) {
+            return 8;
+        }
+
+        // Cek paket pengadaan terkait
+        $paket = $this->relationLoaded('paketPengadaan')
+            ? ($this->paketPengadaan->first() ?? $this->paket)
+            : ($this->paket ?? $this->paketPengadaan()->first());
+
+        if ($paket) {
+            // Tahap 8: Cek Pembayaran Selesai / Pencairan SP2D Lunas
+            $pembayaran = $paket->relationLoaded('pembayaran')
+                ? $paket->pembayaran->first()
+                : $paket->pembayaran()->first();
+
+            if ($pembayaran) {
+                $cair = $pembayaran->relationLoaded('transaksiPencairan')
+                    ? $pembayaran->transaksiPencairan
+                    : $pembayaran->transaksiPencairan()->first();
+
+                if ($cair || in_array(strtolower((string) $pembayaran->status_pembayaran), ['lunas', 'selesai', 'cair'], true)) {
+                    return 8;
+                }
+
+                // Tahap 7: Berkas pembayaran diajukan ke Keuangan
+                return 7;
+            }
+
+            // Tahap 7: BAST resmi sudah terbit dari Bagian Perlengkapan
+            $penerimaan = $paket->relationLoaded('penerimaanBarang')
+                ? $paket->penerimaanBarang->first()
+                : $paket->penerimaanBarang()->first();
+
+            if ($penerimaan && (! empty($penerimaan->nomor_bast) || ! empty($penerimaan->ttd_digital_bast))) {
+                return 7;
+            }
+
+            // Tahap 6: Pemeriksaan fisik barang di gudang / pengiriman / pengingat rekanan
+            $hasReminders = $paket->relationLoaded('reminders')
+                ? $paket->reminders->isNotEmpty()
+                : $paket->reminders()->exists();
+
+            if ($penerimaan || $hasReminders || in_array(strtolower((string) $paket->status_paket), ['pengiriman', 'pemeriksaan_fisik', 'proses_penerimaan'], true)) {
+                return 6;
+            }
+
+            // Tahap 5: Dokumen perikatan terbit (Kontrak / SPK / Surat Pesanan) atau Kwitansi Belanja Langsung (<= 50jt)
+            $spk = $paket->relationLoaded('kontrakSpk')
+                ? $paket->kontrakSpk
+                : $paket->kontrakSpk()->first();
+
+            $isBelanjaLangsungSelesai = ($paket->jalur_routing === PaketPengadaan::ROUTING_LANGSUNG || (float) ($paket->nilai_hps ?? 0) <= 50000000)
+                && ! empty($paket->nomor_kwitansi_belanja);
+
+            if ($spk || $isBelanjaLangsungSelesai || in_array(strtolower((string) $paket->status_paket), ['spk_terbit', 'belanja_langsung_selesai', 'kontrak', 'surat_pesanan_terbit', 'surat_kontrak_terbit'], true)) {
+                return 5;
+            }
+
+            // Tahap 4: Reviu dokumen teknis & evaluasi HPS oleh PP (50-200jt) atau PPK (> 200jt)
+            $reviu = $paket->relationLoaded('reviuDokumen')
+                ? $paket->reviuDokumen->first()
+                : $paket->reviuDokumen()->first();
+
+            if ($reviu || in_array(strtolower((string) $paket->status_paket), ['menunggu_approval_ppk', 'disetujui_ppk_siap_belanja_pp', 'siap_upload_dokumen_ppbj', 'reviu_dokumen', 'menunggu_reviu_pp', 'menunggu_reviu_ppk'], true)) {
+                return 4;
+            }
+
+            // Tahap 3: Paket pengadaan sudah terdaftar di PPBJ
+            return 3;
+        }
+
+        // Jika belum terbentuk paket pengadaan:
+        // Cek Tahap 3: Permohonan sudah disetujui / MAK dialokasikan / siap diproses PPBJ
+        $hasAlokasi = $this->relationLoaded('alokasiMak')
+            ? $this->alokasiMak->isNotEmpty()
+            : $this->alokasiMak()->exists();
+
+        if (in_array($statusPermohonan, ['disetujui', 'diproses_ppbj', 'paket_terdaftar', 'disetujui_wadir2_dan_ppk'], true)
+            || ! empty($this->kode_mak)
+            || $hasAlokasi) {
+            return 3;
+        }
+
+        // Cek Tahap 2: Sedang dalam telaah / verifikasi berantai / penelaahan MAK / minta revisi / ditolak
+        $hasVerifikasi = $this->relationLoaded('verifikasiParalel')
+            ? $this->verifikasiParalel->isNotEmpty()
+            : $this->verifikasiParalel()->exists();
+
+        if (in_array($statusPermohonan, [
+            'reviu_paralel',
+            'menunggu_bidang_2',
+            'cek_mak_perencanaan',
+            'menunggu_acc_wadir_ppk',
+            'pending_anggaran',
+            'hold',
+            'perlu_revisi',
+            'revisi',
+            'ditolak',
+        ], true) || $hasVerifikasi) {
+            return 2;
+        }
+
+        // Default: Tahap 1 (Pengajuan baru oleh Unit Pemohon)
+        return 1;
+    }
+
+    /**
+     * Accessor atribut current_tahap yang secara reaktif menghitung nomor tahap siklus aktif.
+     */
+    public function getCurrentTahapAttribute(): int
+    {
+        return $this->hitungTahapSiklus();
+    }
+
+    /**
      * Scope query sesuai hak akses peran pengguna.
      * Pengusul biasa (role 'user') hanya diizinkan melihat usulan permohonan yang diajukannya sendiri.
      *
