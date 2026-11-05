@@ -156,12 +156,15 @@ Route::middleware('auth')->group(function () {
     Route::post('/pembayaran/terbitkan-spp', [HomeController::class, 'terbitkanSppWeb'])->name('pembayaran.terbitkan-spp')->middleware('role:ppbj');
     Route::post('/pembayaran', [HomeController::class, 'storePembayaran'])->name('pembayaran.store')->middleware('role:keuangan');
 
-    // Modul 8: Monitoring Status
-    Route::get('/monitoring', [HomeController::class, 'monitoringIndex'])->name('monitoring.index');
+    // Modul Riwayat & Laporan (Menggantikan Modul Monitoring & Rekapitulasi Terpisah)
+    Route::get('/laporan', [HomeController::class, 'laporanIndex'])->name('laporan.index');
+    Route::get('/laporan/unduh-laporan-pdf', [HomeController::class, 'unduhLaporanRingkasanPdf'])->name('laporan.unduh.ringkasan');
+    Route::get('/laporan/unduh-detail-pdf', [HomeController::class, 'unduhLaporanDetailPdf'])->name('laporan.unduh.detail');
 
-    // Modul 9: Laporan & PDF
-    Route::get('/laporan/rekapitulasi-anggaran', [HomeController::class, 'laporanRekapitulasiIndex'])->name('laporan.rekapitulasi');
-    Route::get('/laporan/rekapitulasi-anggaran/pdf', [HomeController::class, 'unduhRekapitulasiPdf'])->name('laporan.rekapitulasi.pdf');
+    // Rute kompatibilitas legacy untuk pengalihan navigasi dan pengujian terdahulu
+    Route::get('/laporan/rekapitulasi-anggaran', [HomeController::class, 'laporanIndex'])->name('laporan.rekapitulasi');
+    Route::get('/laporan/rekapitulasi-anggaran/pdf', [HomeController::class, 'unduhLaporanRingkasanPdf'])->name('laporan.rekapitulasi.pdf');
+    Route::get('/monitoring', fn () => redirect()->route('laporan.index'))->name('monitoring.index');
 
     // Modul Notifikasi & Reminder
     Route::get('/notifikasi', [HomeController::class, 'notifikasiIndex'])->name('notifikasi.index');

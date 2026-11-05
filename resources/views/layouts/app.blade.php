@@ -589,35 +589,19 @@
             </a>
         @endif
 
-        <!-- 12. MONITORING 8 SIKLUS (Non-Admin Roles) -->
-        @if(!Auth::user()->hasRole('admin'))
-            @php $aMonitoring = request()->routeIs('monitoring.*'); @endphp
-            <a href="{{ route('monitoring.index') }}" 
-               title="Monitoring 8 Siklus" 
-               class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aMonitoring ? $menuOn : $menuOff }}">
-                <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M3 8h8M17 8h4M3 16h2M11 16h10"/>
-                    <circle cx="14" cy="8" r="2.5" fill="{{ $aMonitoring ? 'currentColor' : 'none' }}"/>
-                    <circle cx="8" cy="16" r="2.5" fill="{{ $aMonitoring ? 'currentColor' : 'none' }}"/>
-                </svg>
-                <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Monitoring 8 Siklus</span>
-            </a>
-        @endif
-
-        <!-- 13. LAPORAN REKAPITULASI (Wadir 2, Perencanaan, PPBJ, Keuangan) -->
-        @if(Auth::user()->hasRole(['wadir_2', 'perencanaan', 'ppbj', 'keuangan']))
-            @php $aLaporan = request()->routeIs('laporan.*'); @endphp
-            <a href="{{ route('laporan.rekapitulasi') }}" 
-               title="Laporan Rekapitulasi" 
-               class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aLaporan ? $menuOn : $menuOff }}">
-                <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="3.5" y="3.5" width="17" height="17" rx="3" fill="{{ $aLaporan ? 'currentColor' : 'none' }}"/>
-                    <rect x="7" y="7.5" width="3.5" height="3.5" rx="0.8" stroke="{{ $aLaporan ? '#0969da' : 'currentColor' }}" fill="{{ $aLaporan ? '#0969da' : 'none' }}"/>
-                    <path d="M13.5 8.5h3M13.5 11h3M7 15.5h10" stroke="{{ $aLaporan ? '#0969da' : 'currentColor' }}"/>
-                </svg>
-                <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Laporan Rekapitulasi</span>
-            </a>
-        @endif
+        <!-- 12. RIWAYAT & LAPORAN (All Roles - Menggantikan Monitoring & Rekapitulasi Lama) -->
+        @php $aLaporan = request()->routeIs('laporan.*'); @endphp
+        <a href="{{ route('laporan.index') }}" 
+           title="Riwayat & Laporan" 
+           class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aLaporan ? $menuOn : $menuOff }}">
+            <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 3v18h18"/>
+                <path d="M18 17V9"/>
+                <path d="M13 17V5"/>
+                <path d="M8 17v-3"/>
+            </svg>
+            <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Riwayat &amp; Laporan</span>
+        </a>
 
         <!-- 14. NOTIFIKASI & REMINDER (All Roles) -->
         @php 

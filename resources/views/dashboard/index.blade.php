@@ -14,16 +14,6 @@
                     <h1 class="text-3xl md:text-[40px] font-semibold text-black tracking-tight leading-none">
                         Dashboard
                     </h1>
-                    <span class="inline-flex items-center gap-1.5 rounded-full bg-[#0969da]/10 px-2.5 py-0.5 text-xs font-semibold text-[#0969da] mt-2">
-                        <span class="size-2 rounded-full bg-[#0969da] animate-pulse"></span>
-                        Dashboard {{ strtoupper($user->role ?? Auth::user()?->role ?? 'user') }} &bull; {{ date('d F Y') }}
-                    </span>
-                </div>
-                <div class="shrink-0">
-                    <a href="{{ route('permohonan.create') }}" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#3b82f6] text-sm font-semibold text-white hover:bg-blue-600 shadow-sm transition-all">
-                        <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
-                        Ajukan Permohonan Baru
-                    </a>
                 </div>
             </div>
 

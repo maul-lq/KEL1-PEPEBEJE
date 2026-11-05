@@ -13,17 +13,20 @@
 import { desktopNotificationManager } from './modules/desktop_notification.js';
 import { trackingManager } from './modules/tracking.js';
 import { splitMakManager } from './modules/split_mak.js';
+import { laporanApp } from './modules/laporan.js';
 
 // Bind globally for Alpine.js and inline evaluations
 window.desktopNotificationManager = desktopNotificationManager;
 window.trackingManager = trackingManager;
 window.splitMakManager = splitMakManager;
+window.laporanApp = laporanApp;
 
 document.addEventListener('alpine:init', () => {
     if (window.Alpine) {
         window.Alpine.data('desktopNotificationManager', desktopNotificationManager);
         window.Alpine.data('trackingManager', trackingManager);
         window.Alpine.data('splitMakManager', splitMakManager);
+        window.Alpine.data('laporanApp', laporanApp);
     }
 });
 

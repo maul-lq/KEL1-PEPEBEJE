@@ -25,6 +25,7 @@ use App\Models\VerifikasiParalel;
 use App\Rules\DokumenUploadRule;
 use App\Services\PengadaanNotificationService;
 use App\Services\PengadaanRoutingService;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -3013,133 +3014,428 @@ class HomeController extends Controller
     // MODUL 8: LAPORAN REKAPITULASI TOTAL ANGGARAN & MONITORING (FR 20 & NFR 10)
     // =========================================================================
 
+    // =========================================================================
+    // MODUL 8: RIWAYAT DAN LAPORAN (FIGMA 515:863 & FIGMA 526:3083)
+    // =========================================================================
+
     /**
-     * Menampilkan Laporan Rekapitulasi Total Anggaran dengan filter (bulan, tahun, jurusan/unit) (FR 20.2).
+     * Menampilkan antarmuka terpadu Riwayat dan Laporan (Tab Riwayat Aktivitas & Tab Laporan).
+     * Menggantikan modul monitoring terpisah dan mendukung isolasi peran (Role-Based Scoping).
      */
-    public function laporanRekapitulasiIndex(Request $request): View|JsonResponse
+    public function laporanIndex(Request $request): View|JsonResponse
     {
-        $tahun = $request->input('tahun', date('Y'));
+        $user = Auth::user();
+        $userRole = $user ? $user->role : 'user';
+
+        $tahun = (int) $request->input('tahun', date('Y'));
         $bulan = $request->input('bulan');
         $kodeUnit = $request->input('unit');
+        $activeTab = $request->input('tab', 'riwayat');
 
-        // Query Pagu MAK
-        $makQuery = AnggaranMAK::query();
-        if ($tahun) {
-            $makQuery->where('tahun_anggaran', $tahun);
-        }
-        $totalPaguDipa = (float) $makQuery->sum('pagu_anggaran');
+        // =====================================================================
+        // TAB 1: RIWAYAT AKTIVITAS (Figma 515:863)
+        // =====================================================================
+        $auditQuery = AuditLog::with('user')->latest('waktu_log');
 
-        // Query Permohonan Usulan
-        $permohonanQuery = PermohonanPengadaan::with('unit');
-        if ($tahun) {
-            $permohonanQuery->whereYear('tanggal_pengajuan', $tahun);
-        }
-        if ($bulan) {
-            $permohonanQuery->whereMonth('tanggal_pengajuan', $bulan);
-        }
-        if ($kodeUnit) {
-            $permohonanQuery->where('kode_unit', $kodeUnit);
-        }
-        $totalUsulan = (float) $permohonanQuery->sum('estimasi_total_pagu');
+        // Isolasi jejak audit untuk role 'user' (khusus unit kerja pengusul)
+        if ($user && $userRole === 'user') {
+            $userPermohonanNomor = PermohonanPengadaan::where('id_user', $user->id_user)
+                ->orWhere('kode_unit', $user->kode_unit)
+                ->pluck('nomor_surat');
+            $userPaketNomor = PaketPengadaan::whereIn('nomor_surat', $userPermohonanNomor)->pluck('nomor_paket');
 
-        // Query Kontrak SPK
-        $spkQuery = KontrakSPK::query();
-        if ($tahun) {
-            $spkQuery->whereYear('tanggal_spk', $tahun);
+            $auditQuery->where(function ($q) use ($user, $userPermohonanNomor, $userPaketNomor) {
+                $q->where('id_user', $user->id_user)
+                    ->orWhere(function ($sub) use ($userPermohonanNomor) {
+                        $sub->where('nama_entitas', 'permohonan_pengadaan')
+                            ->whereIn('id_entitas', $userPermohonanNomor);
+                    })
+                    ->orWhere(function ($sub) use ($userPaketNomor) {
+                        $sub->where('nama_entitas', 'paket_pengadaan')
+                            ->whereIn('id_entitas', $userPaketNomor);
+                    });
+            });
         }
-        if ($bulan) {
-            $spkQuery->whereMonth('tanggal_spk', $bulan);
-        }
-        $totalKontrak = (float) $spkQuery->sum('nilai_kontrak');
 
-        // Query Realisasi Pencairan SP2D
-        $cairQuery = TransaksiPencairan::query();
-        if ($tahun) {
-            $cairQuery->whereYear('tanggal_transfer', $tahun);
-        }
-        if ($bulan) {
-            $cairQuery->whereMonth('tanggal_transfer', $bulan);
-        }
-        $totalRealisasi = (float) $cairQuery->sum('nominal_transfer');
+        $auditLogsRaw = $auditQuery->take(60)->get();
+        $permohonanLookup = PermohonanPengadaan::with('unit')->get()->keyBy('nomor_surat');
 
-        $sisaAnggaran = max(0, $totalPaguDipa - $totalRealisasi);
-        $persentaseSerapan = $totalPaguDipa > 0 ? round(($totalRealisasi / $totalPaguDipa) * 100, 2) : 0;
+        $riwayatList = [];
+        foreach ($auditLogsRaw as $log) {
+            $nomorSurat = ($log->nama_entitas === 'permohonan_pengadaan') ? $log->id_entitas : null;
+            $permohonan = $nomorSurat ? ($permohonanLookup[$nomorSurat] ?? null) : null;
 
-        // Rincian Per Jurusan / Unit Kerja
-        $units = Unit::all();
-        $unitBreakdown = [];
-        foreach ($units as $u) {
-            if ($kodeUnit && $u->kode_unit !== $kodeUnit) {
-                continue;
+            $namaPengadaan = $permohonan ? $permohonan->judul_pengadaan : ($log->alasan ?? $log->jenis_aksi);
+            $revisiStr = 'Revisi ke-0';
+            if ($permohonan && ! empty($permohonan->id_surat_asal_revisi)) {
+                $revisiStr = 'Revisi ke-1';
             }
-            $pQuery = PermohonanPengadaan::where('kode_unit', $u->kode_unit);
+
+            $statusText = 'Dalam Proses';
+            $statusColor = 'blue';
+            if (stripos($log->jenis_aksi, 'ACC') !== false || stripos($log->alasan ?? '', 'disetujui') !== false) {
+                $statusText = 'Disetujui';
+                $statusColor = 'emerald';
+            } elseif (stripos($log->jenis_aksi, 'TOLAK') !== false || stripos($log->alasan ?? '', 'ditolak') !== false) {
+                $statusText = 'Ditolak';
+                $statusColor = 'rose';
+            } elseif ($permohonan && in_array($permohonan->status_permohonan, ['disetujui', 'selesai'])) {
+                $statusText = 'Disetujui';
+                $statusColor = 'emerald';
+            }
+
+            $waktuCarbon = $log->waktu_log ?? now();
+
+            $riwayatList[] = [
+                'id' => 'log_'.$log->id_log,
+                'waktu' => $waktuCarbon->translatedFormat('d M Y, H:i'),
+                'waktu_raw' => $waktuCarbon->toIso8601String(),
+                'tahun' => (int) $waktuCarbon->format('Y'),
+                'bulan' => (int) $waktuCarbon->format('m'),
+                'nama_pengadaan' => $namaPengadaan,
+                'nomor_surat' => $nomorSurat ?? ($permohonan ? $permohonan->nomor_surat : ''),
+                'kode_unit' => $permohonan ? $permohonan->kode_unit : '',
+                'revisi' => $revisiStr,
+                'aktivitas' => $log->alasan ?: ($log->jenis_aksi.' pada '.$log->nama_entitas),
+                'jenis_aktivitas' => $this->resolveJenisAktivitas($log->jenis_aksi),
+                'status' => $statusText,
+                'status_color' => $statusColor,
+                'link' => $nomorSurat ? route('permohonan.index', ['selected' => $nomorSurat]) : route('permohonan.index'),
+            ];
+        }
+
+        // Sintesiskan milestone pengadaan jika baris audit log masih kosong agar data selalu terisi
+        $allPermohonan = PermohonanPengadaan::with(['unit', 'user'])
+            ->when($user && $userRole === 'user', fn ($q) => $q->where('id_user', $user->id_user)->orWhere('kode_unit', $user->kode_unit))
+            ->latest('tanggal_pengajuan')
+            ->get();
+
+        foreach ($allPermohonan as $p) {
+            $hasLog = collect($riwayatList)->contains('nomor_surat', $p->nomor_surat);
+            if (! $hasLog) {
+                $pWaktu = $p->tanggal_pengajuan ? Carbon::parse($p->tanggal_pengajuan) : now();
+                $st = ($p->status_permohonan === 'ditolak') ? 'Ditolak' : (($p->status_permohonan === 'disetujui' || $p->status_permohonan === 'selesai') ? 'Disetujui' : 'Dalam Proses');
+                $col = ($st === 'Disetujui') ? 'emerald' : (($st === 'Ditolak') ? 'rose' : 'blue');
+
+                $riwayatList[] = [
+                    'id' => 'permohonan_'.md5($p->nomor_surat),
+                    'waktu' => $pWaktu->translatedFormat('d M Y, H:i'),
+                    'waktu_raw' => $pWaktu->toIso8601String(),
+                    'tahun' => (int) $pWaktu->format('Y'),
+                    'bulan' => (int) $pWaktu->format('m'),
+                    'nama_pengadaan' => $p->judul_pengadaan,
+                    'nomor_surat' => $p->nomor_surat,
+                    'kode_unit' => $p->kode_unit,
+                    'revisi' => ! empty($p->id_surat_asal_revisi) ? 'Revisi ke-1' : 'Revisi ke-0',
+                    'aktivitas' => 'Pemeriksaan pengajuan oleh bagian '.($p->status_permohonan === 'ditolak' ? 'Perencanaan (Ditolak)' : 'Perencanaan & Wadir 2'),
+                    'jenis_aktivitas' => 'Verifikasi',
+                    'status' => $st,
+                    'status_color' => $col,
+                    'link' => route('permohonan.index', ['selected' => $p->nomor_surat]),
+                ];
+            }
+        }
+
+        // =====================================================================
+        // TAB 2: LAPORAN SESUAI PERAN (Figma 526:3083)
+        // =====================================================================
+        $units = Unit::all();
+        $laporanCards = [];
+        $laporanTable = [];
+        $tableTitle = 'Distribusi Anggaran per Jurusan dan Unit Kerja';
+        $tableColumns = [];
+
+        // 1. Role: USER (Mode Spesifik Unit)
+        if ($userRole === 'user') {
+            $unitNama = $user->unit->nama_unit ?? $user->kode_unit ?? 'Unit Kerja';
+            $tableTitle = 'Daftar Rekapitulasi Usulan Pengadaan Unit ('.$unitNama.')';
+
+            $unitPermohonan = PermohonanPengadaan::where('kode_unit', $user->kode_unit)
+                ->when($tahun, fn ($q) => $q->whereYear('tanggal_pengajuan', $tahun))
+                ->when($bulan, fn ($q) => $q->whereMonth('tanggal_pengajuan', $bulan))
+                ->latest('tanggal_pengajuan')
+                ->get();
+
+            $totalUsulanUnit = (float) $unitPermohonan->sum('estimasi_total_pagu');
+            $disetujuiCount = $unitPermohonan->whereIn('status_permohonan', ['disetujui', 'selesai'])->count();
+            $prosesCount = $unitPermohonan->whereNotIn('status_permohonan', ['disetujui', 'selesai', 'ditolak', 'batal'])->count();
+
+            $userPermohonanNomor = $unitPermohonan->pluck('nomor_surat');
+            $userPaketNomor = PaketPengadaan::whereIn('nomor_surat', $userPermohonanNomor)->pluck('nomor_paket');
+            $totalKontrakUnit = (float) KontrakSPK::whereIn('nomor_paket', $userPaketNomor)->sum('nilai_kontrak');
+            $userPembayaranNomor = Pembayaran::whereIn('nomor_paket', $userPaketNomor)->pluck('nomor_pembayaran');
+            $totalRealisasiUnit = (float) TransaksiPencairan::whereIn('nomor_pembayaran', $userPembayaranNomor)->sum('nominal_transfer');
+
+            $serapanUnitPct = $totalUsulanUnit > 0 ? round(($totalRealisasiUnit / $totalUsulanUnit) * 100, 1) : 0;
+
+            $laporanCards = [
+                ['label' => 'Total Estimasi Usulan Unit', 'val' => 'Rp '.number_format($totalUsulanUnit, 0, ',', '.'), 'icon' => 'banknotes', 'sub' => 'Total pagu usulan unit'],
+                ['label' => 'Total Realisasi Pencairan SP2D', 'val' => 'Rp '.number_format($totalRealisasiUnit, 0, ',', '.'), 'icon' => 'check-circle', 'sub' => 'Dana belanja telah cair'],
+                ['label' => 'Total Nilai Kontrak / SPK', 'val' => 'Rp '.number_format($totalKontrakUnit, 0, ',', '.'), 'icon' => 'document-check', 'sub' => 'Perikatan resmi aktif'],
+                ['label' => 'Usulan Telah Disetujui', 'val' => $disetujuiCount.' Berkas', 'icon' => 'check-badge', 'sub' => 'Disetujui Wadir 2 & PPK'],
+                ['label' => 'Usulan Sedang Diproses', 'val' => $prosesCount.' Berkas', 'icon' => 'clock', 'sub' => 'Tahap verifikasi & pengadaan'],
+                ['label' => 'Persentase Serapan Unit', 'val' => $serapanUnitPct.'%', 'icon' => 'chart-pie', 'sub' => 'Rasio realisasi belanja unit'],
+            ];
+
+            $tableColumns = ['No.', 'Nomor Surat', 'Nama Pengadaan', 'Tanggal Pengajuan', 'Estimasi Pagu', 'Status Pengadaan'];
+            foreach ($unitPermohonan as $idx => $item) {
+                $laporanTable[] = [
+                    'no' => $idx + 1,
+                    'col1' => $item->nomor_surat,
+                    'col2' => $item->judul_pengadaan,
+                    'col3' => $item->tanggal_pengajuan ? Carbon::parse($item->tanggal_pengajuan)->translatedFormat('d M Y') : '-',
+                    'col4' => 'Rp '.number_format($item->estimasi_total_pagu, 0, ',', '.'),
+                    'col5' => ucfirst(str_replace('_', ' ', $item->status_permohonan)),
+                    'link' => route('permohonan.index', ['selected' => $item->nomor_surat]),
+                    'nomor_surat' => $item->nomor_surat,
+                    'judul' => $item->judul_pengadaan,
+                ];
+            }
+        }
+        // 2. Role: ADMIN (Manajemen Sistem & Pengguna)
+        elseif ($userRole === 'admin') {
+            $tableTitle = 'Distribusi dan Status Pengguna Institusi PNJ';
+            $allUsers = User::with('unit')->latest()->get();
+            $totalUsers = $allUsers->count();
+            $activeUsers = $allUsers->where('status_aktif', true)->count();
+            $pendingUsers = $allUsers->where('status_registrasi', 'menunggu_persetujuan')->count();
+            $rejectedUsers = $allUsers->where('status_registrasi', 'ditolak')->count();
+            $totalRoles = $allUsers->pluck('role')->unique()->count();
+            $pctAktif = $totalUsers > 0 ? round(($activeUsers / $totalUsers) * 100, 1) : 0;
+
+            $laporanCards = [
+                ['label' => 'Total Pengguna Terdaftar', 'val' => $totalUsers.' Akun', 'icon' => 'users', 'sub' => 'Sivitas terdaftar di sistem'],
+                ['label' => 'Pengguna Aktif Terverifikasi', 'val' => $activeUsers.' Akun', 'icon' => 'check-circle', 'sub' => 'Dapat mengakses sistem'],
+                ['label' => 'Registrasi Menunggu Persetujuan', 'val' => $pendingUsers.' Pendaftar', 'icon' => 'clock', 'sub' => 'Memerlukan ACC admin'],
+                ['label' => 'Registrasi Ditolak', 'val' => $rejectedUsers.' Akun', 'icon' => 'x-circle', 'sub' => 'Permohonan akun ditolak'],
+                ['label' => 'Total Peran / Role Aktif', 'val' => $totalRoles.' Peran', 'icon' => 'shield-check', 'sub' => 'Matriks hak akses RBAC'],
+                ['label' => 'Persentase Akun Aktif', 'val' => $pctAktif.'%', 'icon' => 'chart-pie', 'sub' => 'Rasio akun terverifikasi'],
+            ];
+
+            $tableColumns = ['No.', 'Nama Pengguna', 'NIP / Username', 'Unit Kerja / Jurusan', 'Role Akses', 'Status Akun'];
+            foreach ($allUsers as $idx => $u) {
+                $laporanTable[] = [
+                    'no' => $idx + 1,
+                    'col1' => $u->nama,
+                    'col2' => $u->nip ?? $u->username ?? '-',
+                    'col3' => $u->unit->nama_unit ?? $u->kode_unit ?? 'Pusat',
+                    'col4' => strtoupper($u->role),
+                    'col5' => $u->status_aktif ? 'Aktif' : ($u->status_registrasi === 'menunggu_persetujuan' ? 'Menunggu ACC' : 'Nonaktif'),
+                    'link' => route('admin.persetujuan-registrasi.index'),
+                    'nomor_surat' => $u->nip ?? $u->username ?? '',
+                    'judul' => $u->nama,
+                ];
+            }
+        }
+        // 3. Role: EKSEKUTIF & PENGELOLA INSTITUSI (Figma 526:3083)
+        else {
+            $tableTitle = 'Distribusi Anggaran per Jurusan dan Unit Kerja';
+
+            // Pagu MAK DIPA
+            $makQuery = AnggaranMAK::query();
             if ($tahun) {
-                $pQuery->whereYear('tanggal_pengajuan', $tahun);
+                $makQuery->where('tahun_anggaran', $tahun);
+            }
+            $totalPaguDipa = (float) $makQuery->sum('pagu_anggaran');
+
+            // Usulan Permohonan
+            $permohonanQuery = PermohonanPengadaan::query();
+            if ($tahun) {
+                $permohonanQuery->whereYear('tanggal_pengajuan', $tahun);
             }
             if ($bulan) {
-                $pQuery->whereMonth('tanggal_pengajuan', $bulan);
+                $permohonanQuery->whereMonth('tanggal_pengajuan', $bulan);
             }
+            if ($kodeUnit) {
+                $permohonanQuery->where('kode_unit', $kodeUnit);
+            }
+            $totalUsulan = (float) $permohonanQuery->sum('estimasi_total_pagu');
 
-            $countPermohonan = $pQuery->count();
-            $nilaiPaguUnit = (float) $pQuery->sum('estimasi_total_pagu');
+            // Kontrak SPK
+            $spkQuery = KontrakSPK::query();
+            if ($tahun) {
+                $spkQuery->whereYear('tanggal_spk', $tahun);
+            }
+            if ($bulan) {
+                $spkQuery->whereMonth('tanggal_spk', $bulan);
+            }
+            $totalKontrak = (float) $spkQuery->sum('nilai_kontrak');
 
-            $unitBreakdown[] = [
-                'kode_unit' => $u->kode_unit,
-                'nama_unit' => $u->nama_unit,
-                'jumlah_usulan' => $countPermohonan,
-                'total_pagu' => $nilaiPaguUnit,
-                'persentase' => $totalUsulan > 0 ? round(($nilaiPaguUnit / $totalUsulan) * 100, 1) : 0,
+            // Realisasi Pencairan SP2D
+            $cairQuery = TransaksiPencairan::query();
+            if ($tahun) {
+                $cairQuery->whereYear('tanggal_transfer', $tahun);
+            }
+            if ($bulan) {
+                $cairQuery->whereMonth('tanggal_transfer', $bulan);
+            }
+            $totalRealisasi = (float) $cairQuery->sum('nominal_transfer');
+
+            $sisaAnggaran = max(0, $totalPaguDipa - $totalRealisasi);
+            $persentaseSerapan = $totalPaguDipa > 0 ? round(($totalRealisasi / $totalPaguDipa) * 100, 1) : 0;
+
+            $laporanCards = [
+                ['label' => 'Total Pagu Anggaran DIPA', 'val' => 'Rp '.number_format($totalPaguDipa, 0, ',', '.'), 'icon' => 'banknotes', 'sub' => 'Pagu DIPA tahun '.$tahun],
+                ['label' => 'Total Realisasi Pencairan SP2D', 'val' => 'Rp '.number_format($totalRealisasi, 0, ',', '.'), 'icon' => 'check-circle', 'sub' => 'Pencairan SP2D terbit'],
+                ['label' => 'Total Estimasi Usulan Permohonan', 'val' => 'Rp '.number_format($totalUsulan, 0, ',', '.'), 'icon' => 'document-text', 'sub' => 'Akumulasi seluruh usulan'],
+                ['label' => 'Sisa Anggaran Belum Terserap', 'val' => 'Rp '.number_format($sisaAnggaran, 0, ',', '.'), 'icon' => 'calculator', 'sub' => 'Sisa saldo alokasi DIPA'],
+                ['label' => 'Total Nilai Kontrak / SPK', 'val' => 'Rp '.number_format($totalKontrak, 0, ',', '.'), 'icon' => 'document-check', 'sub' => 'Kontrak & perikatan sah'],
+                ['label' => 'Persentase Serapan Anggaran', 'val' => $persentaseSerapan.'%', 'icon' => 'chart-pie', 'sub' => 'Realisasi terhadap DIPA'],
             ];
+
+            $tableColumns = ['No.', 'Kode Unit', 'Nama Jurusan / Unit Kerja', 'Jumlah Usulan', 'Total Nilai Usulan', 'Pangsa Usulan (%)'];
+            foreach ($units as $idx => $u) {
+                if ($kodeUnit && $u->kode_unit !== $kodeUnit) {
+                    continue;
+                }
+                $pQ = PermohonanPengadaan::where('kode_unit', $u->kode_unit);
+                if ($tahun) {
+                    $pQ->whereYear('tanggal_pengajuan', $tahun);
+                }
+                if ($bulan) {
+                    $pQ->whereMonth('tanggal_pengajuan', $bulan);
+                }
+                $countP = $pQ->count();
+                $nilaiP = (float) $pQ->sum('estimasi_total_pagu');
+                $sharePct = $totalUsulan > 0 ? round(($nilaiP / $totalUsulan) * 100, 1) : 0;
+
+                $laporanTable[] = [
+                    'no' => $idx + 1,
+                    'col1' => $u->kode_unit,
+                    'col2' => $u->nama_unit,
+                    'col3' => $countP.' Berkas',
+                    'col4' => 'Rp '.number_format($nilaiP, 0, ',', '.'),
+                    'col5' => $sharePct.'%',
+                    'link' => route('permohonan.index', ['unit' => $u->kode_unit]),
+                    'nomor_surat' => $u->kode_unit,
+                    'judul' => $u->nama_unit,
+                ];
+            }
         }
 
         if ($request->wantsJson()) {
             return response()->json([
                 'status' => 'success',
-                'tahun' => (int) $tahun,
-                'bulan' => $bulan ? (int) $bulan : null,
-                'summary' => [
-                    'total_pagu' => $totalPaguDipa,
-                    'total_realisasi' => $totalRealisasi,
-                    'sisa_anggaran' => $sisaAnggaran,
-                    'persentase_realisasi' => $persentaseSerapan,
+                'active_tab' => $activeTab,
+                'riwayat' => $riwayatList,
+                'laporan' => [
+                    'cards' => $laporanCards,
+                    'table_title' => $tableTitle,
+                    'columns' => $tableColumns,
+                    'rows' => $laporanTable,
                 ],
-                'data_mak' => $makQuery->get(),
-                'unit_breakdown' => $unitBreakdown,
             ]);
         }
 
-        return view('laporan.rekapitulasi', compact(
+        return view('laporan.index', compact(
+            'riwayatList',
+            'laporanCards',
+            'laporanTable',
+            'tableTitle',
+            'tableColumns',
             'tahun',
             'bulan',
             'kodeUnit',
             'units',
-            'totalPaguDipa',
-            'totalUsulan',
-            'totalKontrak',
-            'totalRealisasi',
-            'sisaAnggaran',
-            'persentaseSerapan',
-            'unitBreakdown'
+            'activeTab',
+            'userRole'
         ));
     }
 
     /**
-     * Mengunduh Laporan Rekapitulasi Total Anggaran dalam format PDF (< 3 Detik) (FR 20.1 & NFR 12).
+     * Resolusi label jenis aktivitas ramah pengguna dari string kode aksi audit log.
      */
-    public function unduhRekapitulasiPdf(Request $request): Response
+    private function resolveJenisAktivitas(string $jenisAksi): string
     {
+        $upper = strtoupper($jenisAksi);
+        if (str_contains($upper, 'AJUKAN') || str_contains($upper, 'PERMOHONAN')) {
+            return 'Pengajuan';
+        }
+        if (str_contains($upper, 'ACC') || str_contains($upper, 'SETUJU') || str_contains($upper, 'VERIFIKASI') || str_contains($upper, 'TELAAH')) {
+            return 'Persetujuan';
+        }
+        if (str_contains($upper, 'TOLAK')) {
+            return 'Penolakan';
+        }
+        if (str_contains($upper, 'REVISI')) {
+            return 'Revisi';
+        }
+        if (str_contains($upper, 'MAK') || str_contains($upper, 'ANGGARAN')) {
+            return 'Anggaran';
+        }
+        if (str_contains($upper, 'KONTRAK') || str_contains($upper, 'SPK') || str_contains($upper, 'BELANJA')) {
+            return 'Kontrak';
+        }
+        if (str_contains($upper, 'BAST') || str_contains($upper, 'PENERIMAAN')) {
+            return 'Penerimaan';
+        }
+        if (str_contains($upper, 'CAIR') || str_contains($upper, 'BAYAR') || str_contains($upper, 'SP2D')) {
+            return 'Pembayaran';
+        }
+
+        return 'Sistem';
+    }
+
+    /**
+     * Mengunduh Laporan Ringkasan Eksekutif dalam format PDF (< 3 Detik - NFR 12).
+     */
+    public function unduhLaporanRingkasanPdf(Request $request): Response
+    {
+        $user = Auth::user();
+        $userRole = $user ? $user->role : 'user';
         $tahun = $request->input('tahun', date('Y'));
-        $bulan = $request->input('bulan', 'Semua');
-        $unit = $request->input('unit', 'Semua Unit');
 
-        $filename = "Rekapitulasi_Anggaran_PNJ_{$tahun}.pdf";
+        $filename = "Laporan_Ringkasan_PBJ_PNJ_{$tahun}.pdf";
 
-        $pdfStream = "%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/MediaBox[0 0 595 842]/Parent 2 0 R/Contents 4 0 R>>endobj\n4 0 obj<</Length 120>>stream\nBT /F1 12 Tf 50 800 Td (LAPORAN REKAPITULASI ANGGARAN PENGADAAN POLITEKNIK NEGERI JAKARTA TAHUN {$tahun}) Tj ET\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f\n0000000009 00000 n\n0000000056 00000 n\n0000000111 00000 n\n0000000212 00000 n\ntrailer<</Size 5/Root 1 0 R>>\nstartxref\n370\n%%EOF";
+        $title = 'LAPORAN RINGKASAN REKAPITULASI REALISASI PENGADAAN';
+        $subtitle = "POLITEKNIK NEGERI JAKARTA - TAHUN ANGGARAN {$tahun}";
+        $meta = 'Diunduh oleh: '.($user->nama ?? 'Pengguna').' ('.strtoupper($userRole).') pada '.now()->format('d/m/Y H:i:s');
+
+        $pdfStream = "%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/MediaBox[0 0 595 842]/Parent 2 0 R/Contents 4 0 R>>endobj\n4 0 obj<</Length 180>>stream\nBT /F1 12 Tf 50 800 Td (".addslashes($title).') Tj /F1 10 Tf 50 780 Td ('.addslashes($subtitle).') Tj /F1 8 Tf 50 760 Td ('.addslashes($meta).") Tj ET\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f\n0000000009 00000 n\n0000000056 00000 n\n0000000111 00000 n\n0000000212 00000 n\ntrailer<</Size 5/Root 1 0 R>>\nstartxref\n430\n%%EOF";
 
         return response($pdfStream, 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'attachment; filename="'.$filename.'"',
         ]);
+    }
+
+    /**
+     * Mengunduh Laporan Rincian Detail dalam format PDF (< 3 Detik - NFR 12).
+     */
+    public function unduhLaporanDetailPdf(Request $request): Response
+    {
+        $user = Auth::user();
+        $userRole = $user ? $user->role : 'user';
+        $tahun = $request->input('tahun', date('Y'));
+
+        $filename = "Laporan_Detail_Pengadaan_PNJ_{$tahun}.pdf";
+
+        $title = 'LAPORAN RINCIAN DETAIL PENGADAAN BARANG DAN JASA';
+        $subtitle = "POLITEKNIK NEGERI JAKARTA - TAHUN ANGGARAN {$tahun}";
+        $meta = 'Scope: '.strtoupper($userRole).' | Tanggal Cetak: '.now()->format('d/m/Y H:i:s');
+
+        $pdfStream = "%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/MediaBox[0 0 595 842]/Parent 2 0 R/Contents 4 0 R>>endobj\n4 0 obj<</Length 180>>stream\nBT /F1 12 Tf 50 800 Td (".addslashes($title).') Tj /F1 10 Tf 50 780 Td ('.addslashes($subtitle).') Tj /F1 8 Tf 50 760 Td ('.addslashes($meta).") Tj ET\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f\n0000000009 00000 n\n0000000056 00000 n\n0000000111 00000 n\n0000000212 00000 n\ntrailer<</Size 5/Root 1 0 R>>\nstartxref\n430\n%%EOF";
+
+        return response($pdfStream, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+        ]);
+    }
+
+    /**
+     * Wrapper kompatibilitas laporan rekapitulasi terdahulu.
+     */
+    public function laporanRekapitulasiIndex(Request $request): View|JsonResponse
+    {
+        return $this->laporanIndex($request);
+    }
+
+    /**
+     * Wrapper kompatibilitas unduh rekapitulasi terdahulu.
+     */
+    public function unduhRekapitulasiPdf(Request $request): Response
+    {
+        return $this->unduhLaporanRingkasanPdf($request);
     }
 
     /**
@@ -3360,67 +3656,11 @@ class HomeController extends Controller
     }
 
     /**
-     * Menampilkan agregat monitoring siklus pengadaan dan tabel jejak audit (Audit Trail).
+     * Pengalihan rute monitoring lama ke rute laporan terpadu (Modul Riwayat & Laporan).
      */
-    public function monitoringIndex(Request $request): View
+    public function monitoringIndex(Request $request): RedirectResponse
     {
-        $user = Auth::user();
-        $query = PermohonanPengadaan::with(['unit', 'paket.kontrak.penerimaan']);
-
-        if ($user && $user->role === 'user') {
-            $query->where('id_user', $user->id_user);
-        }
-
-        $searchKey = $request->input('q') ?? $request->input('nomor_surat');
-        if (! empty($searchKey)) {
-            $query->where(function ($q) use ($searchKey) {
-                $q->where('nomor_surat', 'like', '%'.$searchKey.'%')
-                    ->orWhere('judul_pengadaan', 'like', '%'.$searchKey.'%');
-            });
-        }
-
-        if ($request->filled('unit')) {
-            $query->where('kode_unit', $request->unit);
-        }
-
-        if ($request->filled('status')) {
-            $query->where('status_permohonan', $request->status);
-        }
-
-        if ($request->filled('tahun')) {
-            $query->whereYear('tanggal_pengajuan', $request->tahun);
-        }
-
-        if ($request->filled('bulan')) {
-            $query->whereMonth('tanggal_pengajuan', $request->bulan);
-        }
-
-        $permohonanList = $query->latest('tanggal_pengajuan')->paginate(20);
-
-        $auditQuery = AuditLog::with('user');
-        if ($user && $user->role === 'user') {
-            $userPermohonanNomor = PermohonanPengadaan::where('id_user', $user->id_user)->pluck('nomor_surat');
-            $userPaketNomor = PaketPengadaan::whereIn('nomor_surat', $userPermohonanNomor)->pluck('nomor_paket');
-
-            $auditQuery->where(function ($q) use ($user, $userPermohonanNomor, $userPaketNomor) {
-                $q->where('id_user', $user->id_user)
-                    ->orWhere(function ($sub) use ($userPermohonanNomor) {
-                        $sub->where('nama_entitas', 'permohonan_pengadaan')
-                            ->whereIn('id_entitas', $userPermohonanNomor);
-                    })
-                    ->orWhere(function ($sub) use ($userPaketNomor) {
-                        $sub->where('nama_entitas', 'paket_pengadaan')
-                            ->whereIn('id_entitas', $userPaketNomor);
-                    });
-            });
-        }
-        $auditLogs = $auditQuery->latest('waktu_log')->take(25)->get();
-
-        $units = ($user && $user->role === 'user')
-            ? Unit::where('kode_unit', $user->kode_unit)->get()
-            : Unit::all();
-
-        return view('monitoring.index', compact('permohonanList', 'auditLogs', 'units'));
+        return redirect()->route('laporan.index', $request->query());
     }
 
     // =========================================================================
