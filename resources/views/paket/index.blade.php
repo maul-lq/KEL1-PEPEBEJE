@@ -227,16 +227,46 @@
                                     </td>
 
                                     <td class="px-5 py-4">
-                                        <div class="text-[11px] font-medium text-slate-700">
-                                            Memo: <strong class="font-mono text-slate-900">{{ $p->nomor_memo_ketersediaan_mak ?? $p->nomor_memo_cek_mak ?? 'Sudah Terbit' }}</strong>
+                                        @php
+                                            $vpWadir = $p->verifikasiParalel->firstWhere('role_verifikator', 'wadir_2');
+                                            $vpPpk = $p->verifikasiParalel->firstWhere('role_verifikator', 'ppk');
+                                            $fileWadir = $vpWadir?->file_memo ?? $p->file_memo_ketersediaan_mak;
+                                            $filePpk = $vpPpk?->file_memo ?? $p->file_memo_cek_mak;
+                                        @endphp
+                                        <div class="space-y-1.5">
+                                            {{-- Memo Wadir 2 --}}
+                                            <div class="text-[11px] text-slate-700">
+                                                <span class="text-slate-400 font-bold text-[10px]">Wadir II:</span>
+                                                <strong class="font-mono text-purple-800">{{ $vpWadir?->nomor_memo ?? $p->nomor_memo_ketersediaan_mak ?? 'Terbit Resmi' }}</strong>
+                                                @if($fileWadir)
+                                                    <a href="{{ asset('storage/' . $fileWadir) }}" target="_blank" class="inline-flex items-center gap-0.5 text-[10px] font-bold text-[#0969da] hover:underline ml-1">
+                                                        <svg class="size-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                                        <span>Fisik</span>
+                                                    </a>
+                                                @endif
+                                            </div>
+
+                                            {{-- Memo PPK --}}
+                                            <div class="text-[11px] text-slate-700">
+                                                <span class="text-slate-400 font-bold text-[10px]">PPK:</span>
+                                                <strong class="font-mono text-blue-800">{{ $vpPpk?->nomor_memo ?? $p->nomor_memo_cek_mak ?? 'Terbit Resmi' }}</strong>
+                                                @if($filePpk)
+                                                    <a href="{{ asset('storage/' . $filePpk) }}" target="_blank" class="inline-flex items-center gap-0.5 text-[10px] font-bold text-[#0969da] hover:underline ml-1">
+                                                        <svg class="size-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                                        <span>Fisik</span>
+                                                    </a>
+                                                @endif
+                                            </div>
+
+                                            <div class="text-[10px] text-slate-500">
+                                                PPK Ditunjuk: <strong class="text-slate-800">{{ $p->ppkAwal->nama ?? $vpPpk?->user?->nama ?? 'Sesuai Memo' }}</strong>
+                                            </div>
+
+                                            <span class="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full">
+                                                <svg class="size-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                                                ACC Wadir 2 &amp; PPK
+                                            </span>
                                         </div>
-                                        <div class="text-[11px] text-slate-500 mt-0.5">
-                                            PPK Ditunjuk: <strong class="text-slate-800">{{ $p->ppkAwal->nama ?? 'Sesuai Memo' }}</strong>
-                                        </div>
-                                        <span class="inline-flex items-center gap-1 mt-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full">
-                                            <svg class="size-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                                            ACC Wadir 2 &amp; PPK
-                                        </span>
                                     </td>
 
                                     <td class="px-5 py-4">

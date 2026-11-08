@@ -144,12 +144,51 @@
                         </div>
                     </div>
 
-                    @if($permohonan->alasan_revisi)
-                        <div class="rounded-xl bg-white/80 p-3.5 border border-amber-200 text-xs text-amber-900">
-                            <strong>Catatan Telaah Terakhir:</strong>
-                            <p class="mt-0.5 text-slate-700">{{ $permohonan->alasan_revisi }}</p>
+                    {{-- Detail Alasan Penolakan / Catatan Telaah dari KEDUA Pihak (Wadir II & PPK) --}}
+                    @php
+                        $vpWadir = $permohonan->verifikasiParalel->firstWhere('role_verifikator', 'wadir_2');
+                        $vpPpk = $permohonan->verifikasiParalel->firstWhere('role_verifikator', 'ppk');
+                    @endphp
+                    <div class="rounded-xl bg-white/90 p-4 border border-amber-300 shadow-xs space-y-3">
+                        <div class="font-bold text-xs text-amber-950 uppercase tracking-wider flex items-center gap-1.5">
+                            <svg class="size-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                            Alasan Penolakan / Catatan Perbaikan dari Penelaah (Wadir II &amp; PPK)
                         </div>
-                    @endif
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                            {{-- Catatan Wadir 2 --}}
+                            <div class="p-3 rounded-lg bg-purple-50/70 border border-purple-200 space-y-1">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-bold text-purple-900">1. Disposisi Wakil Direktur II:</span>
+                                    <span class="font-bold text-[10px] px-2 py-0.5 rounded-full {{ in_array($vpWadir?->status_keputusan, ['ditolak', 'perlu_revisi']) ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-700' }}">
+                                        {{ $vpWadir ? ucwords(str_replace('_', ' ', $vpWadir->status_keputusan)) : 'Menunggu / Belum Ada' }}
+                                    </span>
+                                </div>
+                                <p class="text-slate-700 italic mt-1 bg-white p-2 rounded border border-purple-100">
+                                    "{{ $vpWadir?->catatan_alasan ?: ($vpWadir?->catatan ?: 'Tidak ada catatan khusus dari Wadir II.') }}"
+                                </p>
+                            </div>
+
+                            {{-- Catatan PPK --}}
+                            <div class="p-3 rounded-lg bg-blue-50/70 border border-blue-200 space-y-1">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-bold text-blue-900">2. Telaah PPK Penanggung Jawab:</span>
+                                    <span class="font-bold text-[10px] px-2 py-0.5 rounded-full {{ in_array($vpPpk?->status_keputusan, ['ditolak', 'perlu_revisi']) ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-700' }}">
+                                        {{ $vpPpk ? ucwords(str_replace('_', ' ', $vpPpk->status_keputusan)) : 'Menunggu / Belum Ada' }}
+                                    </span>
+                                </div>
+                                <p class="text-slate-700 italic mt-1 bg-white p-2 rounded border border-blue-100">
+                                    "{{ $vpPpk?->catatan_alasan ?: ($vpPpk?->catatan ?: 'Tidak ada catatan khusus dari PPK.') }}"
+                                </p>
+                            </div>
+                        </div>
+
+                        @if($permohonan->alasan_revisi)
+                            <div class="pt-2 border-t border-amber-200/60 text-[11px] text-amber-900">
+                                <strong>Catatan Revisi Sistem:</strong> {{ $permohonan->alasan_revisi }}
+                            </div>
+                        @endif
+                    </div>
 
                     <form action="{{ route('permohonan.revisi') }}" method="POST" enctype="multipart/form-data" class="space-y-4 pt-2">
                         @csrf

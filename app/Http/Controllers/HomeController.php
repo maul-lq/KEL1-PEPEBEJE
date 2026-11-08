@@ -2293,6 +2293,8 @@ class HomeController extends Controller
     {
         $paket = PaketPengadaan::with([
             'permohonan.unit',
+            'permohonan.ppkAwal',
+            'permohonan.verifikasiParalel.user',
             'ppbjUser',
             'ppkUser',
             'ppUser',
@@ -2302,7 +2304,8 @@ class HomeController extends Controller
             'riwayatPpk.diubahOleh',
             'kontrakSpk',
             'penerimaanBarang',
-            'pembayaran',
+            'pembayaran.memoBayar.user',
+            'reviuDokumen.user',
         ])->where('nomor_paket', $id)->firstOrFail();
 
         $user = Auth::user();
@@ -2553,19 +2556,19 @@ class HomeController extends Controller
         $paket = PaketPengadaan::where('nomor_paket', $validated['nomor_paket'])->firstOrFail();
 
         // Penegakan aturan PP: PP tidak bisa klik Approval final
-        if ($user->role === 'pp' && $validated['status_reviu'] === 'disetujui') {
+        if ($user->hasPermission('reviu.pp') && ! $user->hasPermission('reviu.ppk') && $validated['status_reviu'] === 'disetujui') {
             return back()->withErrors([
                 'status_reviu' => 'Pejabat Pengadaan (PP) tidak memiliki wewenang klik Approval. Persetujuan tetap dilakukan oleh PPK.',
             ])->withInput();
         }
 
         // Penegakan isolasi berkas 4 akun PPK
-        if ($user->role === 'ppk' && (int) $paket->id_user_ppk !== (int) $user->id_user) {
+        if ($user->hasPermission('reviu.ppk') && ! $user->hasRole('admin') && (int) $paket->id_user_ppk !== (int) $user->id_user) {
             abort(403, 'Akses Ditolak: Anda tidak berhak mereviu atau meng-approve paket yang ditugaskan kepada PPK lain (Isolasi Berkas PPK).');
         }
 
         // Apabila PP melakukan verifikasi kelengkapan pada paket 50-200jt, wajib input Harga Perkiraan, Harga Akhir, & Vendor
-        if ($user->role === 'pp' && $validated['status_reviu'] === 'terverifikasi_pp') {
+        if (($user->hasRole('pp') || $user->hasPermission('reviu.pp')) && $validated['status_reviu'] === 'terverifikasi_pp') {
             $hargaPerkiraan = $validated['nominal_harga_perkiraan'] ?? null;
             $hargaAkhir = $validated['nominal_harga_akhir'] ?? $validated['nilai_hasil_negosiasi'] ?? null;
 
@@ -2610,7 +2613,7 @@ class HomeController extends Controller
             'nomor_paket' => $paket->nomor_paket,
             'id_user' => $user->id_user,
             'putaran_ke' => $nextRound,
-            'role_reviewer' => $user->role === 'pp' ? 'pp' : 'ppk',
+            'role_reviewer' => ($user->hasRole('pp') || $user->hasPermission('reviu.pp')) ? 'pp' : 'ppk',
             'status_reviu' => $validated['status_reviu'],
             'catatan_perbaikan' => $validated['catatan_perbaikan'],
             'tanggal_reviu' => now(),
@@ -2905,20 +2908,42 @@ class HomeController extends Controller
             ->latest('tanggal_pengajuan')
             ->paginate(15);
 
-        // 3. Disposisi memo menunggu persetujuan (PPK dan Wadir 2 - FR 16)
+        // 3. Disposisi memo menunggu persetujuan (Wadir II Level 1 & PPK Level 2 - FR 16 & BPMN N55/N54)
         $memoMenungguReview = collect();
         if ($user) {
-            if ($user->role === 'ppk') {
-                $memoMenungguReview = MemoBayar::with(['pembayaran.paket.kontrakSpk'])
-                    ->where('role_approver', 'ppk')
-                    ->where('id_user', $user->id_user)
+            if ($user->hasRole('admin')) {
+                $memoMenungguReview = MemoBayar::with(['pembayaran.paket.kontrakSpk', 'pembayaran.memoBayar'])
                     ->where('status_memo', 'menunggu')
                     ->get();
-            } elseif ($user->role === 'wadir_2') {
-                $memoMenungguReview = MemoBayar::with(['pembayaran.paket.kontrakSpk'])
-                    ->where('role_approver', 'wadir_2')
-                    ->where('status_memo', 'menunggu')
-                    ->get();
+            } else {
+                $canWadir = $user->hasPermission('pembayaran.memo_wadir2');
+                $canPpk = $user->hasPermission('pembayaran.memo_ppk');
+
+                if ($canWadir || $canPpk) {
+                    $memoMenungguReview = MemoBayar::with(['pembayaran.paket.kontrakSpk', 'pembayaran.memoBayar'])
+                        ->where('status_memo', 'menunggu')
+                        ->where(function ($query) use ($canWadir, $canPpk, $user) {
+                            if ($canWadir) {
+                                $query->orWhere(function ($sub) {
+                                    $sub->where('role_approver', 'wadir_2')
+                                        ->where('urutan_level', 1);
+                                });
+                            }
+                            if ($canPpk) {
+                                $query->orWhere(function ($sub) use ($user) {
+                                    $sub->where('role_approver', 'ppk')
+                                        ->where('urutan_level', 2)
+                                        ->where(function ($idQ) use ($user) {
+                                            $idQ->where('id_user', $user->id_user)->orWhereNull('id_user');
+                                        })
+                                        ->whereHas('pembayaran.memoBayar', function ($parentQ) {
+                                            $parentQ->where('role_approver', 'wadir_2')->where('status_memo', 'disetujui');
+                                        });
+                                });
+                            }
+                        })
+                        ->get();
+                }
             }
         }
 
@@ -3032,27 +3057,29 @@ class HomeController extends Controller
         $paket->status_paket = 'pengajuan_pembayaran';
         $paket->save();
 
-        // Bentuk memo bertingkat: Level 1 (PPK) & Level 2 (Wadir 2) (FR 16.1)
-        $defaultPpk = User::where('role', 'ppk')->first();
-        $ppkUserId = $paket->id_user_ppk ?? $paket->permohonan?->id_user_ppk_awal ?? $defaultPpk?->id_user ?? $user->id_user;
+        // Bentuk memo bertingkat: Level 1 (Wadir II) & Level 2 (PPK) (BPMN Pembayaran)
+        $wadir = User::where('role', 'wadir_2')
+            ->orWhereHas('permissions', fn ($q) => $q->where('name', 'pembayaran.memo_wadir2'))
+            ->first();
         $memoLevel1 = MemoBayar::create([
-            'id_user' => $ppkUserId,
+            'id_user' => $wadir?->id_user,
             'nomor_pembayaran' => $pembayaran->nomor_pembayaran,
-            'role_approver' => 'ppk',
+            'role_approver' => 'wadir_2',
             'urutan_level' => 1,
             'status_memo' => 'menunggu',
         ]);
 
-        $wadir = User::where('role', 'wadir_2')->first();
-        if ($wadir) {
-            MemoBayar::create([
-                'id_user' => $wadir->id_user,
-                'nomor_pembayaran' => $pembayaran->nomor_pembayaran,
-                'role_approver' => 'wadir_2',
-                'urutan_level' => 2,
-                'status_memo' => 'menunggu',
-            ]);
-        }
+        $defaultPpk = User::where('role', 'ppk')
+            ->orWhereHas('permissions', fn ($q) => $q->where('name', 'pembayaran.memo_ppk'))
+            ->first();
+        $ppkUserId = $paket->id_user_ppk ?? $paket->permohonan?->id_user_ppk_awal ?? $defaultPpk?->id_user ?? $user->id_user;
+        MemoBayar::create([
+            'id_user' => $ppkUserId,
+            'nomor_pembayaran' => $pembayaran->nomor_pembayaran,
+            'role_approver' => 'ppk',
+            'urutan_level' => 2,
+            'status_memo' => 'menunggu',
+        ]);
 
         AuditLog::catat(
             $user->id_user,
@@ -3064,17 +3091,17 @@ class HomeController extends Controller
             "PPBJ mengajukan berkas pembayaran {$pembayaran->nomor_pembayaran} (Kwitansi: {$nomorKwitansi}, Invoice: {$nomorInvoice}) termin {$pembayaran->tahap_termin} Rp ".number_format($pembayaran->nominal_pengajuan)
         );
 
-        // Memicu notifikasi pengajuan memo bayar ke PPK penanggung jawab
+        // Memicu notifikasi pengajuan memo bayar ke Wadir II (Level 1)
         $this->notificationService->notifyPengajuanBayar($pembayaran, $memoLevel1);
 
         return redirect()->route('pembayaran.index')->with(
             'success',
-            "Berkas pembayaran {$pembayaran->nomor_pembayaran} lengkap dengan Kwitansi & Invoice berhasil diajukan ke PPK serta Wadir 2 untuk peninjauan memo bertingkat."
+            "Berkas pembayaran {$pembayaran->nomor_pembayaran} lengkap dengan Kwitansi & Invoice berhasil diajukan ke Wakil Direktur II (Level 1) serta PPK (Level 2) untuk peninjauan memo bertingkat."
         );
     }
 
     /**
-     * Memproses persetujuan/penolakan memo pembayaran oleh PPK atau Wadir 2 (FR 16).
+     * Memproses persetujuan/penolakan memo pembayaran oleh Wadir 2 atau PPK (BPMN N55/N54).
      */
     public function approveMemoBayarWeb(Request $request): RedirectResponse
     {
@@ -3097,9 +3124,28 @@ class HomeController extends Controller
 
         $memo = MemoBayar::findOrFail($validated['id_memo_bayar']);
 
-        // Verifikasi wewenang hak akses peran
-        if ($memo->role_approver === 'ppk' && $user->hasPermission('pembayaran.memo_ppk') && ! $user->hasRole('admin') && (int) $memo->id_user !== (int) $user->id_user) {
+        // Verifikasi wewenang hak akses peran via RBAC
+        if ($memo->role_approver === 'wadir_2' && ! $user->hasRole('admin') && ! $user->hasPermission('pembayaran.memo_wadir2')) {
+            abort(403, 'Akses Ditolak: Anda tidak memiliki hak akses untuk menyetujui memo Wakil Direktur II.');
+        }
+
+        if ($memo->role_approver === 'ppk' && ! $user->hasRole('admin') && ! $user->hasPermission('pembayaran.memo_ppk')) {
+            abort(403, 'Akses Ditolak: Anda tidak memiliki hak akses untuk menyetujui memo Pejabat Pembuat Komitmen.');
+        }
+
+        if ($memo->role_approver === 'ppk' && $user->hasPermission('pembayaran.memo_ppk') && ! $user->hasRole('admin') && $memo->id_user && (int) $memo->id_user !== (int) $user->id_user) {
             abort(403, 'Akses Ditolak: Anda hanya berhak menyetujui memo pada paket yang ditugaskan kepada Anda.');
+        }
+
+        // Aturan berjenjang: Level 2 (PPK) hanya bisa di-ACC jika Level 1 (Wadir 2) sudah disetujui
+        if ($memo->urutan_level === 2 && $validated['status_memo'] === 'disetujui') {
+            $level1Disetujui = MemoBayar::where('nomor_pembayaran', $memo->nomor_pembayaran)
+                ->where('urutan_level', 1)
+                ->where('status_memo', 'disetujui')
+                ->exists();
+            if (! $level1Disetujui) {
+                return back()->withErrors(['status_memo' => 'Persetujuan Level 2 (PPK) hanya dapat disahkan setelah Level 1 (Wadir II) disetujui terlebih dahulu.']);
+            }
         }
 
         $memo->status_memo = $validated['status_memo'];
@@ -3115,12 +3161,12 @@ class HomeController extends Controller
         $memo->tanggal_acc = ($validated['status_memo'] === 'disetujui') ? now() : null;
         $memo->save();
 
-        // Jika ditolak, kembalikan dokumen pembayaran ke PPBJ (BPMN N60 -> Tidak -> N52)
+        // Jika ditolak, kembalikan dokumen pembayaran ke PPBJ (BPMN N60/N61 -> Tidak -> N52)
         if ($validated['status_memo'] === 'ditolak') {
             $pembayaran = $memo->pembayaran;
             if ($pembayaran) {
                 $pembayaran->status_pembayaran = 'ditolak';
-                $pembayaran->catatan_reviu_akhir = $validated['catatan_memo'] ?? 'Dokumen pembayaran ditolak pada tahap disposisi memo bayar.';
+                $pembayaran->catatan_reviu_akhir = ($memo->role_approver === 'wadir_2' ? 'Wadir II: ' : 'PPK: ').($validated['catatan_memo'] ?? 'Dokumen pembayaran ditolak pada tahap disposisi memo bayar.');
                 $pembayaran->save();
             }
         }
@@ -3135,12 +3181,12 @@ class HomeController extends Controller
             "Persetujuan memo pembayaran tingkat {$memo->urutan_level} ({$memo->role_approver}) ditetapkan menjadi {$memo->status_memo}".($memo->nomor_memo ? " [{$memo->nomor_memo}]" : '')
         );
 
-        // Memicu notifikasi alur disposisi memo bayar (ke Wadir 2 atau PPBJ)
+        // Memicu notifikasi alur disposisi memo bayar (ke PPK, PPBJ, atau Pengaju)
         $this->notificationService->notifyApproveMemoBayar($memo);
 
         return redirect()->route('pembayaran.index')->with(
             'success',
-            "Memo pembayaran tingkat {$memo->urutan_level} berhasil di-".strtoupper($memo->status_memo).'.'
+            "Memo pembayaran tingkat {$memo->urutan_level} (".($memo->role_approver === 'wadir_2' ? 'Wadir II' : 'PPK').') berhasil di-'.strtoupper($memo->status_memo).'.'
         );
     }
 

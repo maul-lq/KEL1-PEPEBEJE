@@ -14,3 +14,6 @@ Alur proses bisnis PBJ dibangun secara bertahap per role sesuai panduan BPMN pen
 
 ## Kewajiban Unggah File Fisik untuk Semua Jenis Memo
 Semua dokumen atau proses berlabel 'Memo' (Memo Cek MAK, Memo Ketersediaan MAK, Memo Disposisi/Permohonan Wadir 2, Memo Persetujuan Pembayaran PPK/Wadir 2) WAJIB menyediakan input nomor memo dan upload file fisik dokumen memo (PDF/gambar). Dilarang hanya mengandalkan generate otomatis tanpa bukti file fisik.
+
+## Urutan Memo Pembayaran (Wadir 2 Lvl 1, PPK Lvl 2) & Visibilitas Dual Memo ke PPBJ dan User
+Urutan Memo Pembayaran Berjenjang adalah: Wadir 2 Level 1, PPK Level 2. Saat terjadi penolakan usulan/pembayaran oleh Wadir 2 atau PPK, user pengaju wajib dapat melihat catatan alasan dari kedua peninjau tersebut. Saat usulan/pembayaran disetujui, di antrean PPBJ wajib ditampilkan KEDUA memo lengkap (Nomor memo & file fisik dokumen memo) baik dari Wadir 2 maupun PPK sesuai pengadaannya.

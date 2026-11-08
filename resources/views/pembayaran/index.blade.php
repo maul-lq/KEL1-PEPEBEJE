@@ -194,7 +194,7 @@
                 <span>2. Penelaahan &amp; Persetujuan Memo Pembayaran Bertingkat</span>
                 <span class="text-xs font-normal text-slate-400 font-mono">(PPK &amp; Wadir II)</span>
             </h2>
-            <p class="text-xs text-slate-500 mt-0.5">Peninjauan bertingkat: Level 1 oleh PPK terisolasi; Level 2 oleh Wakil Direktur II.</p>
+            <p class="text-xs text-slate-500 mt-0.5">Peninjauan bertingkat: Level 1 oleh Wakil Direktur II; Level 2 oleh Pejabat Pembuat Komitmen (PPK).</p>
         </div>
 
         @if($memoMenungguReview->isEmpty())
@@ -208,8 +208,8 @@
                         <div class="space-y-1">
                             <div class="flex items-center gap-2">
                                 <span class="font-mono font-bold text-xs text-[#0969da]">{{ $memo->nomor_memo ?: 'Belum Ada No. Memo' }}</span>
-                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
-                                    Level {{ $memo->urutan_level ?? $memo->level_approver }} ({{ strtoupper($memo->role_approver) }})
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold {{ $memo->role_approver === 'wadir_2' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800' }}">
+                                    Level {{ $memo->urutan_level }} ({{ $memo->role_approver === 'wadir_2' ? 'WADIR II' : 'PPK' }})
                                 </span>
                             </div>
                             <h4 class="text-xs font-bold text-slate-800">Paket: {{ $memo->pembayaran->nomor_paket ?? '-' }}</h4>
@@ -288,16 +288,55 @@
                             <th class="px-4 py-3">Nomor SPP</th>
                             <th class="px-4 py-3">Paket Pengadaan</th>
                             <th class="px-4 py-3">Penyedia Vendor</th>
+                            <th class="px-4 py-3">Memo Disposisi (Wadir II &amp; PPK)</th>
                             <th class="px-4 py-3">Nominal Tagihan</th>
                             <th class="px-4 py-3">Pengesahan &amp; Teruskan ke Keuangan</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
                         @foreach($siapTerbitkanSpp as $s)
+                            @php
+                                $memoWadir = $s->memoBayar->firstWhere('role_approver', 'wadir_2');
+                                $memoPpk = $s->memoBayar->firstWhere('role_approver', 'ppk');
+                            @endphp
                             <tr class="hover:bg-slate-50/50">
                                 <td class="px-4 py-3 font-mono font-bold text-[#0969da]">{{ $s->nomor_pembayaran }}</td>
-                                <td class="px-4 py-3">{{ $s->nomor_paket }}</td>
-                                <td class="px-4 py-3">{{ $s->paket->kontrak->vendor->nama_vendor ?? '-' }}</td>
+                                <td class="px-4 py-3">
+                                    <div class="font-mono text-slate-800">{{ $s->nomor_paket }}</div>
+                                    <div class="text-[11px] text-slate-500 line-clamp-1">{{ $s->paket->nama_paket ?? '-' }}</div>
+                                </td>
+                                <td class="px-4 py-3">{{ $s->paket->kontrak->vendor->nama_vendor ?? ($s->paket->vendor->nama_vendor ?? '-') }}</td>
+                                <td class="px-4 py-3">
+                                    <div class="space-y-1.5">
+                                        {{-- Memo Wadir 2 (Level 1) --}}
+                                        <div class="p-1.5 rounded-lg bg-purple-50/60 border border-purple-100 text-[11px]">
+                                            <div class="flex items-center justify-between gap-1 font-bold text-purple-900">
+                                                <span>1. Wadir II:</span>
+                                                <span class="font-mono text-[10px] text-purple-700">{{ $memoWadir?->nomor_memo ?: 'Telah ACC' }}</span>
+                                            </div>
+                                            @if(!empty($memoWadir?->file_memo))
+                                                <a href="{{ asset('storage/' . $memoWadir->file_memo) }}" target="_blank" class="inline-flex items-center gap-1 font-bold text-[#0969da] hover:underline text-[10px] mt-0.5">
+                                                    <svg class="size-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                                    <span>Berkas Fisik Memo Wadir</span>
+                                                </a>
+                                            @endif
+                                        </div>
+
+                                        {{-- Memo PPK (Level 2) --}}
+                                        <div class="p-1.5 rounded-lg bg-blue-50/60 border border-blue-100 text-[11px]">
+                                            <div class="flex items-center justify-between gap-1 font-bold text-blue-900">
+                                                <span>2. PPK:</span>
+                                                <span class="font-mono text-[10px] text-blue-700">{{ $memoPpk?->nomor_memo ?: 'Telah ACC' }}</span>
+                                            </div>
+                                            @if(!empty($memoPpk?->file_memo))
+                                                <a href="{{ asset('storage/' . $memoPpk->file_memo) }}" target="_blank" class="inline-flex items-center gap-1 font-bold text-[#0969da] hover:underline text-[10px] mt-0.5">
+                                                    <svg class="size-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                                    <span>Berkas Fisik Memo PPK</span>
+                                                </a>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </td>
                                 <td class="px-4 py-3 font-mono font-bold text-emerald-600">Rp {{ number_format($s->nominal_pengajuan, 0, ',', '.') }}</td>
                                 <td class="px-4 py-3">
                                     <form action="{{ route('pembayaran.terbitkan-spp') }}" method="POST" enctype="multipart/form-data" class="flex flex-wrap items-center gap-2">

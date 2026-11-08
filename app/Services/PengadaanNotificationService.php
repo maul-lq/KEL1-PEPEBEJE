@@ -436,8 +436,8 @@ class PengadaanNotificationService
     }
 
     /**
-     * Event 11: PPBJ Membuat Pengajuan Pembayaran (Memo Bayar Level 1).
-     * Notifikasi dikirimkan ke: PPK penanggung jawab paket.
+     * Event 11: PPBJ Membuat Pengajuan Pembayaran (Memo Bayar Level 1: Wadir II).
+     * Notifikasi dikirimkan ke: Wakil Direktur II (Level 1) peninjau awal pembayaran.
      */
     public function notifyPengajuanBayar(Pembayaran $pembayaran, MemoBayar $memoLevel1): void
     {
@@ -445,20 +445,20 @@ class PengadaanNotificationService
         $nominal = number_format($pembayaran->nominal_pengajuan ?? 0, 0, ',', '.');
 
         $judul = "Pengajuan Pembayaran Termin {$pembayaran->tahap_termin}: {$pembayaran->nomor_pembayaran}";
-        $pesan = "PPBJ mengajukan pembayaran termin ke-{$pembayaran->tahap_termin} untuk paket '{$namaPaket}' sebesar Rp {$nominal}. Menunggu telaah dan persetujuan Memo Bayar Tingkat 1 (PPK).";
+        $pesan = "PPBJ mengajukan pembayaran termin ke-{$pembayaran->tahap_termin} untuk paket '{$namaPaket}' sebesar Rp {$nominal}. Menunggu telaah dan persetujuan Memo Bayar Tingkat 1 (Wadir II).";
 
         if ($memoLevel1->id_user) {
             $this->kirimKeUser($memoLevel1->id_user, $judul, $pesan, 'pembayaran', $pembayaran->nomor_paket);
         } else {
-            $this->kirimKePeran('ppk', $judul, $pesan, 'pembayaran', $pembayaran->nomor_paket);
+            $this->kirimKePeran('wadir_2', $judul, $pesan, 'pembayaran', $pembayaran->nomor_paket);
         }
     }
 
     /**
      * Event 12: Persetujuan / Disposisi Memo Bayar Bertingkat.
-     * Jika Level 1 (PPK) Setuju: Notifikasi ke Wadir 2 (Level 2).
-     * Jika Level 2 (Wadir 2) Setuju: Notifikasi ke PPBJ bahwa seluruh memo telah di-ACC dan siap terbitkan SPP.
-     * Jika Ditolak: Notifikasi ke PPBJ.
+     * Jika Level 1 (Wadir 2) Setuju: Notifikasi ke PPK (Level 2).
+     * Jika Level 2 (PPK) Setuju: Notifikasi ke PPBJ bahwa seluruh memo telah di-ACC dan siap terbitkan SPP.
+     * Jika Ditolak: Notifikasi ke PPBJ dan User Pengaju.
      */
     public function notifyApproveMemoBayar(MemoBayar $memo): void
     {
@@ -466,22 +466,33 @@ class PengadaanNotificationService
         $namaPaket = $pembayaran?->paket?->nama_paket ?? 'Pengadaan';
 
         if ($memo->status_memo === 'ditolak') {
-            $judul = "Memo Pembayaran Ditolak: {$memo->role_approver}";
-            $pesan = "Memo pembayaran untuk paket '{$namaPaket}' ditolak oleh ".strtoupper($memo->role_approver).'. Alasan: '.($memo->catatan_memo ?: 'Perlu perbaikan berkas tagihan').'.';
+            $approverLabel = $memo->role_approver === 'wadir_2' ? 'Wakil Direktur II' : 'PPK';
+            $judul = "Memo Pembayaran Ditolak: {$approverLabel}";
+            $pesan = "Memo pembayaran untuk paket '{$namaPaket}' ditolak oleh {$approverLabel}. Alasan: ".($memo->catatan_memo ?: 'Perlu perbaikan berkas tagihan').'.';
             $this->kirimKePeran('ppbj', $judul, $pesan, 'pembayaran', $pembayaran?->nomor_paket);
+
+            $idPengaju = $pembayaran?->id_user_pengaju ?? $pembayaran?->paket?->permohonan?->id_user;
+            if ($idPengaju) {
+                $this->kirimKeUser($idPengaju, $judul, $pesan, 'pembayaran', $pembayaran?->nomor_paket);
+            }
 
             return;
         }
 
         if ($memo->urutan_level === 1) {
-            // PPK telah ACC, teruskan notifikasi ke Wadir 2 (Level 2)
-            $judulWadir = "Memo Pembayaran Level 2: {$pembayaran?->nomor_pembayaran}";
-            $pesanWadir = "PPK telah menyetujui memo bayar untuk paket '{$namaPaket}'. Menunggu telaah dan persetujuan akhir (ACC Level 2) oleh Wakil Direktur II.";
-            $this->kirimKePeran('wadir_2', $judulWadir, $pesanWadir, 'pembayaran', $pembayaran?->nomor_paket);
+            // Wadir 2 telah ACC (Level 1), teruskan notifikasi ke PPK (Level 2)
+            $judulPpk = "Memo Pembayaran Level 2: {$pembayaran?->nomor_pembayaran}";
+            $pesanPpk = "Wakil Direktur II telah menyetujui memo bayar untuk paket '{$namaPaket}'. Menunggu telaah dan persetujuan akhir (ACC Level 2) oleh PPK.";
+            $ppkId = $pembayaran?->paket?->id_user_ppk ?? $pembayaran?->paket?->permohonan?->id_user_ppk_awal;
+            if ($ppkId) {
+                $this->kirimKeUser($ppkId, $judulPpk, $pesanPpk, 'pembayaran', $pembayaran?->nomor_paket);
+            } else {
+                $this->kirimKePeran('ppk', $judulPpk, $pesanPpk, 'pembayaran', $pembayaran?->nomor_paket);
+            }
         } elseif ($memo->urutan_level === 2) {
-            // Wadir 2 telah ACC, beri tahu PPBJ untuk menerbitkan Surat Perintah Pembayaran (SPP)
+            // PPK telah ACC (Level 2), beri tahu PPBJ untuk menerbitkan Surat Perintah Pembayaran (SPP)
             $judulPpbj = "Memo Bayar Disetujui Lengkap: {$pembayaran?->nomor_pembayaran}";
-            $pesanPpbj = "Persetujuan berjenjang PPK dan Wadir 2 telah lengkap untuk paket '{$namaPaket}'. Silakan terbitkan Surat Perintah Pembayaran (SPP) ke Bagian Keuangan.";
+            $pesanPpbj = "Persetujuan berjenjang Wadir II dan PPK telah lengkap untuk paket '{$namaPaket}'. Silakan terbitkan Surat Perintah Pembayaran (SPP) ke Bagian Keuangan.";
             $this->kirimKePeran('ppbj', $judulPpbj, $pesanPpbj, 'pembayaran', $pembayaran?->nomor_paket);
         }
     }

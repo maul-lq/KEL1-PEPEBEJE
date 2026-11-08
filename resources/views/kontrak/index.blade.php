@@ -420,16 +420,24 @@
                                         @endif
                                     </td>
                                     <td class="px-5 py-3.5">
+                                        @php
+                                            $reviuPpk = $pr->reviuDokumen->where('role_reviewer', 'ppk')->sortByDesc('putaran_ke')->first();
+                                        @endphp
                                         @if($pr->nilai_hasil_negosiasi)
                                             <span class="font-mono font-bold text-[#0969da]">Rp {{ number_format($pr->nilai_hasil_negosiasi, 0, ',', '.') }}</span>
                                             @if($pr->vendor)
                                                 <div class="text-[10px] font-semibold text-emerald-700 mt-0.5">&bull; {{ $pr->vendor->nama_vendor }}</div>
                                             @endif
                                             @if($pr->catatan_verifikasi_pp)
-                                                <div class="text-[10px] text-slate-500 truncate max-w-xs mt-0.5">"{{ $pr->catatan_verifikasi_pp }}"</div>
+                                                <div class="text-[10px] text-slate-500 truncate max-w-xs mt-0.5">PP: "{{ $pr->catatan_verifikasi_pp }}"</div>
                                             @endif
                                         @else
                                             <span class="text-slate-400 italic">Belum negosiasi</span>
+                                        @endif
+                                        @if($reviuPpk && $reviuPpk->catatan_perbaikan)
+                                            <div class="text-[10px] text-purple-700 font-semibold truncate max-w-xs mt-0.5" title="{{ $reviuPpk->catatan_perbaikan }}">
+                                                BA/Catatan PPK: "{{ $reviuPpk->catatan_perbaikan }}"
+                                            </div>
                                         @endif
                                     </td>
                                     <td class="px-5 py-3.5 text-slate-700">

@@ -457,14 +457,37 @@
                         <h3 class="font-bold text-[#213153] text-base">Riwayat Kronologis dan Revisi</h3>
                     </div>
 
-                    <!-- Catatan Penolakan/Revisi jika ada -->
-                    <template x-if="selectedItem.alasan_revisi">
-                        <div class="p-3.5 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-3">
-                            <div class="size-2 rounded-full bg-amber-500 mt-1.5 shrink-0"></div>
-                            <div class="text-xs space-y-0.5">
-                                <div class="font-bold text-amber-900">Catatan Revisi / Telaah:</div>
-                                <div class="text-amber-800" x-text="selectedItem.alasan_revisi"></div>
+                    <!-- Catatan Penolakan/Revisi jika ada (Wadir II & PPK) -->
+                    <template x-if="selectedItem.alasan_revisi || selectedItem.catatan_wadir || selectedItem.catatan_ppk">
+                        <div class="p-3.5 rounded-xl bg-amber-50 border border-amber-200 space-y-2">
+                            <div class="flex items-center gap-2">
+                                <div class="size-2 rounded-full bg-amber-500 shrink-0"></div>
+                                <div class="font-bold text-xs text-amber-900 uppercase tracking-wider">Catatan Telaah / Alasan Penolakan:</div>
                             </div>
+                            
+                            <template x-if="selectedItem.catatan_wadir">
+                                <div class="rounded-lg bg-white/80 p-2.5 border border-purple-100 text-xs">
+                                    <div class="font-bold text-purple-900 flex items-center justify-between">
+                                        <span>1. Wakil Direktur II:</span>
+                                        <span class="text-[10px] font-semibold text-purple-700" x-text="selectedItem.status_wadir"></span>
+                                    </div>
+                                    <div class="text-slate-700 mt-0.5" x-text="selectedItem.catatan_wadir"></div>
+                                </div>
+                            </template>
+
+                            <template x-if="selectedItem.catatan_ppk">
+                                <div class="rounded-lg bg-white/80 p-2.5 border border-blue-100 text-xs">
+                                    <div class="font-bold text-blue-900 flex items-center justify-between">
+                                        <span>2. Pejabat Pembuat Komitmen (PPK):</span>
+                                        <span class="text-[10px] font-semibold text-blue-700" x-text="selectedItem.status_ppk"></span>
+                                    </div>
+                                    <div class="text-slate-700 mt-0.5" x-text="selectedItem.catatan_ppk"></div>
+                                </div>
+                            </template>
+
+                            <template x-if="selectedItem.alasan_revisi">
+                                <div class="text-[11px] text-amber-800 pt-1 border-t border-amber-200/60" x-text="'Catatan Sistem: ' + selectedItem.alasan_revisi"></div>
+                            </template>
                         </div>
                     </template>
 
@@ -529,6 +552,10 @@
                                 'estimasi_total_pagu' => $item->estimasi_total_pagu ?? $item->anggaran_diajukan ?? 0,
                                 'anggaran_diajukan' => $item->anggaran_diajukan ?? $item->estimasi_total_pagu ?? 0,
                                 'alasan_revisi' => $item->alasan_revisi ?? null,
+                                'status_wadir' => $item->verifikasiParalel->firstWhere('role_verifikator', 'wadir_2')?->status_keputusan,
+                                'catatan_wadir' => $item->verifikasiParalel->firstWhere('role_verifikator', 'wadir_2')?->catatan_alasan,
+                                'status_ppk' => $item->verifikasiParalel->firstWhere('role_verifikator', 'ppk')?->status_keputusan,
+                                'catatan_ppk' => $item->verifikasiParalel->firstWhere('role_verifikator', 'ppk')?->catatan_alasan,
                                 'tujuan_pengadaan_ringkas' => $item->tujuan_pengadaan_ringkas ?? null,
                                 'currentTahap' => (int) ($item->current_tahap ?? $item->hitungTahapSiklus()),
                                 'current_tahap' => (int) ($item->current_tahap ?? $item->hitungTahapSiklus()),

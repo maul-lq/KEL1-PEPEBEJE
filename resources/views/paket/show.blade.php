@@ -264,19 +264,47 @@
                     </div>
                 </div>
 
-                {{-- 3. Memo Ketersediaan MAK & Persetujuan --}}
+                @php
+                    $vpWadir = $paket->permohonan?->verifikasiParalel?->firstWhere('role_verifikator', 'wadir_2');
+                    $vpPpk = $paket->permohonan?->verifikasiParalel?->firstWhere('role_verifikator', 'ppk');
+                    $fileWadir = $vpWadir?->file_memo ?? $paket->permohonan?->file_memo_ketersediaan_mak;
+                    $filePpk = $vpPpk?->file_memo ?? $paket->permohonan?->file_memo_cek_mak;
+                @endphp
+
+                {{-- 3. Memo Ketersediaan MAK & Persetujuan Paralel --}}
                 <div class="p-4 rounded-xl bg-slate-50/70 border border-slate-200/80 space-y-2">
-                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">3. Memo &amp; Persetujuan Masuk</span>
-                    <div class="space-y-1">
-                        <p class="text-[11px] text-slate-500">
-                            Memo MAK: <strong class="font-mono text-slate-800">{{ $paket->permohonan->nomor_memo_ketersediaan_mak ?? $paket->permohonan->nomor_memo_cek_mak ?? 'Terbit Resmi' }}</strong>
-                        </p>
-                        <p class="text-[11px] text-slate-500">
-                            Disposisi Wadir II: <span class="font-bold text-emerald-700">Disetujui</span>
-                        </p>
-                        <p class="text-[11px] text-slate-500">
-                            Persetujuan PPK: <strong class="text-slate-800">{{ $paket->permohonan->ppkAwal->nama ?? 'PPK Penanggung Jawab' }}</strong> (<span class="font-bold text-emerald-700">ACC</span>)
-                        </p>
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">3. Memo Masuk (Wadir II &amp; PPK)</span>
+                    <div class="space-y-2">
+                        {{-- Memo Wadir 2 --}}
+                        <div class="text-[11px] space-y-0.5">
+                            <div class="flex items-center justify-between">
+                                <span class="font-bold text-purple-900">1. Disposisi Wadir II:</span>
+                                <span class="font-bold text-emerald-700">{{ $vpWadir ? ucwords($vpWadir->status_keputusan) : 'Disetujui' }}</span>
+                            </div>
+                            <p class="font-mono text-slate-700 text-[10px]">No: {{ $vpWadir?->nomor_memo ?? $paket->permohonan->nomor_memo_ketersediaan_mak ?? 'Terbit Resmi' }}</p>
+                            @if($fileWadir)
+                                <a href="{{ asset('storage/' . $fileWadir) }}" target="_blank" class="inline-flex items-center gap-1 text-[10px] font-bold text-[#0969da] hover:underline">
+                                    <svg class="size-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                    <span>Unduh Berkas Fisik Memo Wadir</span>
+                                </a>
+                            @endif
+                        </div>
+
+                        {{-- Memo PPK --}}
+                        <div class="text-[11px] space-y-0.5 pt-1.5 border-t border-slate-200/60">
+                            <div class="flex items-center justify-between">
+                                <span class="font-bold text-blue-900">2. Persetujuan PPK:</span>
+                                <span class="font-bold text-emerald-700">{{ $vpPpk ? ucwords($vpPpk->status_keputusan) : 'Disetujui' }}</span>
+                            </div>
+                            <p class="text-slate-800 text-[10px]">Pejabat: <strong>{{ $paket->permohonan->ppkAwal->nama ?? ($vpPpk?->user?->nama ?? 'PPK Penanggung Jawab') }}</strong></p>
+                            <p class="font-mono text-slate-700 text-[10px]">No: {{ $vpPpk?->nomor_memo ?? $paket->permohonan->nomor_memo_cek_mak ?? 'Terbit Resmi' }}</p>
+                            @if($filePpk)
+                                <a href="{{ asset('storage/' . $filePpk) }}" target="_blank" class="inline-flex items-center gap-1 text-[10px] font-bold text-[#0969da] hover:underline">
+                                    <svg class="size-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                    <span>Unduh Berkas Fisik Memo PPK</span>
+                                </a>
+                            @endif
+                        </div>
                     </div>
                     <div class="pt-2 border-t border-slate-200/60">
                         <span class="text-[10px] text-slate-400 italic">Disetujui penuh sebelum registrasi paket</span>
@@ -379,7 +407,54 @@
         </div>
     </div>
 
-    {{-- 6. Riwayat Penugasan & Mutasi PPK Paket Ini --}}
+    {{-- 6. Berita Acara Telaah & Persetujuan Dokumen Pengadaan (BPMN Fase 2 - N30, N33, N35, N36) --}}
+    <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80 space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div>
+                <h3 class="text-sm font-bold text-[#213153] flex items-center gap-2">
+                    <svg class="size-4 text-[#0969da]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    <span>Berita Acara Telaah &amp; Persetujuan Dokumen Pengadaan</span>
+                    <span class="text-xs font-normal text-slate-400 font-mono">(PP &amp; PPK)</span>
+                </h3>
+                <p class="text-xs text-slate-500 mt-0.5">Keputusan persetujuan dokumen pengadaan dan catatan berita acara rekomendasi penelaahan.</p>
+            </div>
+            <span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700">
+                {{ $paket->reviuDokumen->count() }} Catatan Reviu
+            </span>
+        </div>
+
+        @if($paket->reviuDokumen->isEmpty())
+            <div class="text-center py-6 text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                Belum ada catatan reviu atau persetujuan dokumen pengadaan yang tercatat pada paket ini.
+            </div>
+        @else
+            <div class="space-y-3">
+                @foreach($paket->reviuDokumen as $rd)
+                    <div class="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="font-mono font-bold text-xs text-[#0969da]">Putaran #{{ $rd->putaran_ke }}</span>
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold {{ $rd->role_reviewer === 'ppk' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800' }}">
+                                    {{ strtoupper($rd->role_reviewer) }}
+                                </span>
+                                <span class="text-xs font-semibold text-slate-700">&bull; {{ $rd->user->nama ?? '-' }}</span>
+                            </div>
+                            <x-status-badge :status="$rd->status_reviu" size="sm" />
+                        </div>
+                        <div class="rounded-lg bg-white p-3 border border-slate-200/80 text-xs text-slate-700 leading-relaxed">
+                            <span class="font-bold text-slate-800 block mb-0.5">Catatan / Berita Acara Rekomendasi:</span>
+                            {{ $rd->catatan_perbaikan ?: 'Dokumen pengadaan disetujui tanpa catatan perbaikan tambahan.' }}
+                        </div>
+                        <div class="text-[10px] text-slate-400 text-right">
+                            {{ $rd->tanggal_reviu ? \Carbon\Carbon::parse($rd->tanggal_reviu)->format('d/m/Y H:i') : '-' }}
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        @endif
+    </div>
+
+    {{-- 7. Riwayat Penugasan & Mutasi PPK Paket Ini --}}
     @if($paket->riwayatPpk && $paket->riwayatPpk->isNotEmpty())
         <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80">
             <h3 class="text-sm font-bold text-[#213153] mb-3">Riwayat Pengalihan Tugas PPK (Paket Ini)</h3>

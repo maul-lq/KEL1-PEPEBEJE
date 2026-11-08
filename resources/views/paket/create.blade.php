@@ -40,10 +40,14 @@
                 wadirStatus: @js($verifWadir ? ucwords($verifWadir->status_keputusan) : 'Disetujui'),
                 wadirCatatan: @js($verifWadir?->catatan_alasan ?? 'Usulan pengadaan disetujui untuk diteruskan dan dibentuk paket pengadaan oleh PPBJ.'),
                 wadirTanggal: @js($verifWadir?->tanggal_keputusan ? date('d M Y H:i', strtotime($verifWadir->tanggal_keputusan)) : date('d M Y')),
-                ppkNama: @js($p->ppkAwal?->nama ?? 'Pejabat Pembuat Komitmen (PPK)'),
+                wadirNomorMemo: @js($verifWadir?->nomor_memo ?? $p->nomor_memo_ketersediaan_mak ?? ('MEMO-WADIR2/' . date('Y') . '/' . substr(md5($p->nomor_surat), 0, 6))),
+                wadirFileMemo: @js($verifWadir?->file_memo ? asset('storage/' . $verifWadir->file_memo) : ($p->file_memo_ketersediaan_mak ? asset('storage/' . $p->file_memo_ketersediaan_mak) : null)),
+                ppkNama: @js($p->ppkAwal?->nama ?? ($verifPpk?->user?->nama ?? 'Pejabat Pembuat Komitmen (PPK)')),
                 ppkStatus: @js($verifPpk ? ucwords($verifPpk->status_keputusan) : 'Disetujui'),
                 ppkCatatan: @js($verifPpk?->catatan_alasan ?? 'Usulan pengadaan disetujui untuk registrasi paket & penentuan metode belanja.'),
-                ppkTanggal: @js($verifPpk?->tanggal_keputusan ? date('d M Y H:i', strtotime($verifPpk->tanggal_keputusan)) : date('d M Y'))
+                ppkTanggal: @js($verifPpk?->tanggal_keputusan ? date('d M Y H:i', strtotime($verifPpk->tanggal_keputusan)) : date('d M Y')),
+                ppkNomorMemo: @js($verifPpk?->nomor_memo ?? $p->nomor_memo_cek_mak ?? ('MEMO-PPK/' . date('Y') . '/' . substr(md5($p->nomor_surat), 0, 6))),
+                ppkFileMemo: @js($verifPpk?->file_memo ? asset('storage/' . $verifPpk->file_memo) : ($p->file_memo_cek_mak ? asset('storage/' . $p->file_memo_cek_mak) : null))
             },
             @endforeach
         },
@@ -237,35 +241,35 @@
                                 </span>
                             </div>
 
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                 {{-- 1. Form Pengadaan & Dokumen Teknis --}}
                                 <div class="p-4 rounded-xl bg-white border border-slate-200/80 shadow-xs space-y-2.5">
                                     <div class="flex items-center gap-2">
                                         <span class="size-6 rounded-md bg-blue-100 text-[#0969da] flex items-center justify-center text-[11px] font-bold">1</span>
-                                        <h4 class="text-xs font-bold text-[#213153] uppercase tracking-wide">Form Pengadaan &amp; Teknis</h4>
+                                        <h4 class="text-xs font-bold text-[#213153] uppercase tracking-wide">Form &amp; Teknis</h4>
                                     </div>
                                     <div class="text-xs space-y-1">
-                                        <p class="text-slate-500">Nomor: <strong class="text-slate-800 font-mono" x-text="permohonanMap[selectedSurat].nomorSurat"></strong></p>
+                                        <p class="text-slate-500">Nomor: <strong class="text-slate-800 font-mono text-[11px]" x-text="permohonanMap[selectedSurat].nomorSurat"></strong></p>
                                         <p class="text-slate-500">Unit: <strong class="text-slate-800" x-text="permohonanMap[selectedSurat].unit"></strong></p>
                                         <p class="text-slate-500">Tanggal: <span class="text-slate-700" x-text="permohonanMap[selectedSurat].tanggalPengajuan"></span></p>
-                                        <p class="text-slate-500">Pagu Usulan: <strong class="text-[#0969da] font-mono" x-text="permohonanMap[selectedSurat].paguFormatted"></strong></p>
+                                        <p class="text-slate-500">Pagu: <strong class="text-[#0969da] font-mono" x-text="permohonanMap[selectedSurat].paguFormatted"></strong></p>
                                     </div>
                                     <div class="pt-2 border-t border-slate-100 flex flex-col gap-1.5">
-                                        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Lampiran Dokumen:</span>
+                                        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Lampiran Fisik:</span>
                                         <a :href="permohonanMap[selectedSurat].filePermohonan" target="_blank" class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#0969da] hover:underline">
                                             <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                                            <span>Surat Usulan Srikandi (PDF)</span>
+                                            <span>Surat Srikandi</span>
                                         </a>
                                         <template x-if="permohonanMap[selectedSurat].fileKak">
                                             <a :href="permohonanMap[selectedSurat].fileKak" target="_blank" class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#0969da] hover:underline">
                                                 <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                                                <span>Kerangka Acuan Kerja / KAK (PDF)</span>
+                                                <span>Berkas KAK</span>
                                             </a>
                                         </template>
                                         <template x-if="permohonanMap[selectedSurat].fileSpek">
                                             <a :href="permohonanMap[selectedSurat].fileSpek" target="_blank" class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#0969da] hover:underline">
                                                 <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-                                                <span>Spesifikasi Teknis (PDF)</span>
+                                                <span>Spek Teknis</span>
                                             </a>
                                         </template>
                                     </div>
@@ -275,45 +279,73 @@
                                 <div class="p-4 rounded-xl bg-white border border-slate-200/80 shadow-xs space-y-2.5">
                                     <div class="flex items-center gap-2">
                                         <span class="size-6 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center text-[11px] font-bold">2</span>
-                                        <h4 class="text-xs font-bold text-[#213153] uppercase tracking-wide">Penetapan MAK DIPA</h4>
+                                        <h4 class="text-xs font-bold text-[#213153] uppercase tracking-wide">Penetapan MAK</h4>
                                     </div>
                                     <div class="text-xs space-y-1">
-                                        <p class="text-slate-500">Kode MAK: <strong class="text-emerald-700 font-mono" x-text="permohonanMap[selectedSurat].kodeMak"></strong></p>
-                                        <p class="text-slate-500">Uraian MAK: <span class="text-slate-800 font-medium block truncate" :title="permohonanMap[selectedSurat].namaMak" x-text="permohonanMap[selectedSurat].namaMak"></span></p>
-                                        <p class="text-slate-500">Pagu MAK: <span class="text-slate-700 font-mono" x-text="permohonanMap[selectedSurat].paguMak"></span></p>
-                                        <p class="text-slate-500">Sisa Pagu Bebas: <strong class="text-emerald-600 font-mono" x-text="permohonanMap[selectedSurat].sisaMakFormatted"></strong></p>
-                                        <p class="text-slate-500">Sumber Dana: <span class="text-slate-700 font-medium" x-text="permohonanMap[selectedSurat].sumberDana"></span></p>
+                                        <p class="text-slate-500">Kode: <strong class="text-emerald-700 font-mono text-[11px]" x-text="permohonanMap[selectedSurat].kodeMak"></strong></p>
+                                        <p class="text-slate-500">Uraian: <span class="text-slate-800 font-medium block truncate text-[11px]" :title="permohonanMap[selectedSurat].namaMak" x-text="permohonanMap[selectedSurat].namaMak"></span></p>
+                                        <p class="text-slate-500">Pagu MAK: <span class="text-slate-700 font-mono text-[11px]" x-text="permohonanMap[selectedSurat].paguMak"></span></p>
+                                        <p class="text-slate-500">Sisa Pagu: <strong class="text-emerald-600 font-mono text-[11px]" x-text="permohonanMap[selectedSurat].sisaMakFormatted"></strong></p>
                                     </div>
                                     <div class="pt-2 border-t border-slate-100">
-                                        <span class="inline-flex items-center gap-1 text-[11px] text-emerald-700 font-semibold">
-                                            <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                                            <span>Mata Anggaran Valid &amp; Tersedia</span>
+                                        <span class="inline-flex items-center gap-1 text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                            <svg class="size-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                            <span>MAK Dialokasikan</span>
                                         </span>
                                     </div>
                                 </div>
 
-                                {{-- 3. Memo Ketersediaan MAK & Persetujuan --}}
+                                {{-- 3. Memo Permohonan Bidang 2 (Wadir II) --}}
                                 <div class="p-4 rounded-xl bg-white border border-slate-200/80 shadow-xs space-y-2.5">
-                                    <div class="flex items-center gap-2">
-                                        <span class="size-6 rounded-md bg-purple-100 text-purple-700 flex items-center justify-center text-[11px] font-bold">3</span>
-                                        <h4 class="text-xs font-bold text-[#213153] uppercase tracking-wide">Memo &amp; Persetujuan Masuk</h4>
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center gap-1.5">
+                                            <span class="size-6 rounded-md bg-purple-100 text-purple-700 flex items-center justify-center text-[11px] font-bold">3</span>
+                                            <h4 class="text-xs font-bold text-[#213153] uppercase tracking-wide">Memo Wadir II</h4>
+                                        </div>
+                                        <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800" x-text="permohonanMap[selectedSurat].wadirStatus"></span>
                                     </div>
-                                    <div class="text-xs space-y-1.5">
-                                        <div>
-                                            <p class="text-[11px] text-slate-400 uppercase font-bold tracking-wider">Memo Ketersediaan MAK:</p>
-                                            <p class="font-mono font-bold text-slate-800" x-text="permohonanMap[selectedSurat].nomorMemoMak"></p>
-                                            <p class="text-[11px] text-slate-600 italic truncate" :title="permohonanMap[selectedSurat].catatanMemoMak" x-text="'Catatan: ' + permohonanMap[selectedSurat].catatanMemoMak"></p>
+                                    <div class="text-xs space-y-1">
+                                        <p class="text-slate-500">No. Memo: <strong class="font-mono text-purple-900 text-[11px]" x-text="permohonanMap[selectedSurat].wadirNomorMemo"></strong></p>
+                                        <p class="text-slate-500">Tanggal: <span class="text-slate-700" x-text="permohonanMap[selectedSurat].wadirTanggal"></span></p>
+                                        <p class="text-[11px] text-slate-600 italic line-clamp-2" :title="permohonanMap[selectedSurat].wadirCatatan" x-text="'Catatan: ' + permohonanMap[selectedSurat].wadirCatatan"></p>
+                                    </div>
+                                    <div class="pt-2 border-t border-slate-100">
+                                        <template x-if="permohonanMap[selectedSurat].wadirFileMemo">
+                                            <a :href="permohonanMap[selectedSurat].wadirFileMemo" target="_blank" class="inline-flex items-center gap-1 text-[11px] font-bold text-[#0969da] hover:underline">
+                                                <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                                <span>Unduh Berkas Fisik Memo</span>
+                                            </a>
+                                        </template>
+                                        <template x-if="!permohonanMap[selectedSurat].wadirFileMemo">
+                                            <span class="text-[10px] text-slate-400 italic">Disposisi digital tercatat</span>
+                                        </template>
+                                    </div>
+                                </div>
+
+                                {{-- 4. Memo Permohonan PPK --}}
+                                <div class="p-4 rounded-xl bg-white border border-slate-200/80 shadow-xs space-y-2.5">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center gap-1.5">
+                                            <span class="size-6 rounded-md bg-blue-100 text-blue-700 flex items-center justify-center text-[11px] font-bold">4</span>
+                                            <h4 class="text-xs font-bold text-[#213153] uppercase tracking-wide">Memo PPK</h4>
                                         </div>
-                                        <div class="pt-1.5 border-t border-slate-100">
-                                            <p class="text-[11px] text-slate-400 uppercase font-bold tracking-wider">Disposisi Wadir II:</p>
-                                            <p class="text-slate-800 font-medium">Status: <strong class="text-emerald-700" x-text="permohonanMap[selectedSurat].wadirStatus"></strong> &bull; <span class="text-slate-500 text-[11px]" x-text="permohonanMap[selectedSurat].wadirTanggal"></span></p>
-                                            <p class="text-[11px] text-slate-600 italic truncate" :title="permohonanMap[selectedSurat].wadirCatatan" x-text="'Catatan: ' + permohonanMap[selectedSurat].wadirCatatan"></p>
-                                        </div>
-                                        <div class="pt-1.5 border-t border-slate-100">
-                                            <p class="text-[11px] text-slate-400 uppercase font-bold tracking-wider">Persetujuan PPK:</p>
-                                            <p class="text-slate-800 font-medium"><strong x-text="permohonanMap[selectedSurat].ppkNama"></strong> &bull; <span class="text-emerald-700 font-bold" x-text="permohonanMap[selectedSurat].ppkStatus"></span></p>
-                                            <p class="text-[11px] text-slate-600 italic truncate" :title="permohonanMap[selectedSurat].ppkCatatan" x-text="'Catatan: ' + permohonanMap[selectedSurat].ppkCatatan"></p>
-                                        </div>
+                                        <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800" x-text="permohonanMap[selectedSurat].ppkStatus"></span>
+                                    </div>
+                                    <div class="text-xs space-y-1">
+                                        <p class="text-slate-500">No. Memo: <strong class="font-mono text-blue-900 text-[11px]" x-text="permohonanMap[selectedSurat].ppkNomorMemo"></strong></p>
+                                        <p class="text-slate-500">Pejabat: <strong class="text-slate-800 text-[11px]" x-text="permohonanMap[selectedSurat].ppkNama"></strong></p>
+                                        <p class="text-[11px] text-slate-600 italic line-clamp-2" :title="permohonanMap[selectedSurat].ppkCatatan" x-text="'Catatan: ' + permohonanMap[selectedSurat].ppkCatatan"></p>
+                                    </div>
+                                    <div class="pt-2 border-t border-slate-100">
+                                        <template x-if="permohonanMap[selectedSurat].ppkFileMemo">
+                                            <a :href="permohonanMap[selectedSurat].ppkFileMemo" target="_blank" class="inline-flex items-center gap-1 text-[11px] font-bold text-[#0969da] hover:underline">
+                                                <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                                <span>Unduh Berkas Fisik Memo</span>
+                                            </a>
+                                        </template>
+                                        <template x-if="!permohonanMap[selectedSurat].ppkFileMemo">
+                                            <span class="text-[10px] text-slate-400 italic">Disposisi digital tercatat</span>
+                                        </template>
                                     </div>
                                 </div>
                             </div>
