@@ -123,7 +123,7 @@ class PengadaanRoutingService
         $spk = $spk ?? $paket->kontrakSpk;
         $nominal = (float) ($spk?->nilai_kontrak ?: $paket->nilai_hps ?: $paket->alokasi_pagu_paket);
 
-        // 1. Tembusan otomatis SPK ke Unit Perlengkapan & Bagian Keuangan (khususnya anggaran > Rp 50.000.000)
+        // 1. Tembusan otomatis SPK ke Unit Perlengkapan (N42) & Bagian Keuangan (N44)
         $reminderTembusan = Reminder::firstOrCreate(
             [
                 'nomor_paket' => $paket->nomor_paket,
@@ -138,13 +138,23 @@ class PengadaanRoutingService
             ]
         );
 
-        $targetRoles = [User::ROLE_PERLENGKAPAN, User::ROLE_KEUANGAN];
-        $users = User::whereIn('role', $targetRoles)->where('status_aktif', true)->get();
+        // BPMN N41 -> N42 (Perlengkapan) & N43 (Reminder Paralel ke N45 PPK, N44 Keuangan, N47 PPBJ)
+        $targetUserIds = collect();
+        if ($paket->id_user_ppk) {
+            $targetUserIds->push($paket->id_user_ppk);
+        }
+        if ($paket->id_user_ppbj) {
+            $targetUserIds->push($paket->id_user_ppbj);
+        }
 
-        foreach ($users as $targetUser) {
+        $targetRoles = [User::ROLE_PERLENGKAPAN, User::ROLE_KEUANGAN, User::ROLE_PPBJ, User::ROLE_PPK];
+        $roleUsers = User::whereIn('role', $targetRoles)->where('status_aktif', true)->pluck('id_user');
+        $allRecipientIds = $targetUserIds->merge($roleUsers)->unique();
+
+        foreach ($allRecipientIds as $userId) {
             NotifikasiUser::firstOrCreate(
                 [
-                    'id_user' => $targetUser->id_user,
+                    'id_user' => $userId,
                     'id_reminder' => $reminderTembusan->id_reminder,
                 ],
                 [

@@ -130,6 +130,15 @@ Route::middleware('auth')->group(function () {
         Route::post('/paket-pengadaan/reassign-ppk', [HomeController::class, 'reassignPpkWeb'])->name('paket.reassign-ppk');
         Route::post('/paket-pengadaan/split-jenis', [HomeController::class, 'splitJenisPpbj'])->name('paket.split-jenis');
     });
+    // Titik Kembali BPMN N18: Perbaikan / Penyusunan Ulang Dokumen Pengadaan yang Ditolak PP (N27) atau PPK (N35)
+    Route::get('/paket-pengadaan/{id}/edit', [HomeController::class, 'paketEdit'])
+        ->name('paket.edit')
+        ->middleware('role:ppbj,admin')
+        ->where(['id' => '.*']);
+    Route::put('/paket-pengadaan/{id}', [HomeController::class, 'paketUpdate'])
+        ->name('paket.update')
+        ->middleware('role:ppbj,admin')
+        ->where(['id' => '.*']);
     Route::get('/paket-pengadaan/{id}', [HomeController::class, 'paketShow'])
         ->name('paket.show')
         ->where(['id' => '.*']);
@@ -137,6 +146,11 @@ Route::middleware('auth')->group(function () {
     // -------------------------------------------------------------------------
     // Modul 5: Review PP, Approval PPK, Eksekusi Belanja, & Upload 1 Dokumen Perikatan PPBJ
     // -------------------------------------------------------------------------
+    // Dashboard Monitoring Aktivitas PP (BPMN N21, N27, N31) untuk PPBJ, Pengawas, & Admin
+    Route::get('/monitor-pp', [HomeController::class, 'monitorPpIndex'])
+        ->name('monitor-pp.index')
+        ->middleware('role:ppbj,admin,pp,ppk,lihat_pp,pp.monitoring_aktivitas');
+
     Route::get('/kontrak-spk', [HomeController::class, 'kontrakIndex'])->name('kontrak.index')->middleware('role:pp,ppk,ppbj,admin');
     Route::post('/kontrak-spk', [HomeController::class, 'storeKontrak'])->name('kontrak.store')->middleware('role:pp,ppbj,admin');
     Route::post('/kontrak-spk/reviu', [HomeController::class, 'storeReviuWeb'])->name('kontrak.reviu')->middleware('role:pp,ppk');
@@ -153,6 +167,11 @@ Route::middleware('auth')->group(function () {
     // Modul 7: Tagihan SPP & Pencairan Dana
     Route::get('/pembayaran', [HomeController::class, 'pembayaranIndex'])->name('pembayaran.index')->middleware('role:ppbj,ppk,wadir_2,keuangan');
     Route::post('/pembayaran/pengajuan', [HomeController::class, 'storePengajuanBayarWeb'])->name('pembayaran.pengajuan')->middleware('role:ppbj');
+    // Titik Kembali BPMN N52: Perbaikan Berkas Dokumen Pembayaran yang Ditolak Wadir II (N60) atau PPK (N61)
+    Route::put('/pembayaran/{nomor_pembayaran}', [HomeController::class, 'pembayaranUpdate'])
+        ->name('pembayaran.update')
+        ->middleware('role:ppbj,admin')
+        ->where(['nomor_pembayaran' => '.*']);
     Route::post('/pembayaran/memo/approve', [HomeController::class, 'approveMemoBayarWeb'])->name('pembayaran.memo.approve')->middleware('role:ppk,wadir_2');
     Route::post('/pembayaran/terbitkan-spp', [HomeController::class, 'terbitkanSppWeb'])->name('pembayaran.terbitkan-spp')->middleware('role:ppbj');
     Route::post('/pembayaran', [HomeController::class, 'storePembayaran'])->name('pembayaran.store')->middleware('role:keuangan');

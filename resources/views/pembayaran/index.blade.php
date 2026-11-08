@@ -186,6 +186,126 @@
     </div>
     @endif
 
+    {{-- 4.5. PANEL PERBAIKAN BERKAS PEMBAYARAN DITOLAK (BPMN N52: Titik Kembali PPBJ jika ditolak Wadir II N60 / PPK N61) --}}
+    @if(isset($pembayaranDitolakList) && $pembayaranDitolakList->isNotEmpty() && (Auth::user()->hasRole('admin') || Auth::user()->hasPermission('pembayaran.pengajuan')))
+    <div class="rounded-2xl bg-white p-6 shadow-sm border border-rose-200">
+        <div class="border-b border-rose-100 pb-4 mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-500 text-white">
+                        BPMN N52 - Titik Kembali
+                    </span>
+                    <h2 class="text-base font-bold text-rose-950">Berkas Pembayaran Ditolak (Perlu Perbaikan Dokumen)</h2>
+                </div>
+                <p class="text-xs text-rose-700/80 mt-0.5">
+                    Berkas pengajuan pembayaran dikembalikan oleh Wakil Direktur II (N60) atau PPK (N61). PPBJ wajib memperbaiki dokumen tagihan/kwitansi/invoice/perikatan dan mengajukan kembali memo (N52 &rarr; N53 &rarr; N56).
+                </p>
+            </div>
+            <span class="px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200 self-start sm:self-auto">
+                {{ $pembayaranDitolakList->count() }} Berkas Ditolak
+            </span>
+        </div>
+
+        <div class="space-y-4">
+            @foreach($pembayaranDitolakList as $pDitolak)
+                @php
+                    $mDitolak = $pDitolak->memoBayar->where('status_memo', 'ditolak')->last();
+                @endphp
+                <div x-data="{ openEdit: false }" class="p-4 rounded-xl border border-rose-200 bg-rose-50/40 space-y-3">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="font-mono font-bold text-xs text-rose-900">{{ $pDitolak->nomor_pembayaran }}</span>
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-200 text-rose-800">
+                                    Termin {{ $pDitolak->tahap_termin }}
+                                </span>
+                                <span class="font-mono text-xs text-slate-500">Paket: {{ $pDitolak->nomor_paket }}</span>
+                            </div>
+                            <div class="text-xs text-slate-700 mt-1">
+                                Nominal: <strong>Rp {{ number_format($pDitolak->nominal_pengajuan, 0, ',', '.') }}</strong> &bull; Rekanan: <strong>{{ $pDitolak->paket?->vendor?->nama_vendor ?? '-' }}</strong>
+                            </div>
+                        </div>
+
+                        <button
+                            type="button"
+                            @click="openEdit = !openEdit"
+                            class="px-3.5 py-1.5 rounded-xl bg-rose-600 text-xs font-bold text-white hover:bg-rose-700 shadow-sm transition inline-flex items-center gap-1.5 self-start md:self-auto"
+                        >
+                            <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            <span x-text="openEdit ? 'Tutup Form' : 'Perbaiki &amp; Ajukan Ulang (N52)'"></span>
+                        </button>
+                    </div>
+
+                    {{-- Alasan Penolakan dari Wadir II atau PPK --}}
+                    <div class="p-3 rounded-lg bg-white/90 border border-rose-200 text-xs">
+                        <span class="font-bold text-rose-900 block mb-0.5">
+                            Alasan Penolakan ({{ $mDitolak ? strtoupper($mDitolak->role_approver) : 'Pemeriksa' }}):
+                        </span>
+                        <p class="text-rose-800 whitespace-pre-line font-medium">
+                            {{ $mDitolak?->catatan_memo ?? ($pDitolak->catatan_reviu_akhir ?? 'Dokumen belum lengkap / terdapat ketidaksesuaian.') }}
+                        </p>
+                    </div>
+
+                    {{-- Form Perbaikan & Pengajuan Ulang --}}
+                    <div x-show="openEdit" x-cloak class="pt-3 border-t border-rose-200 mt-3">
+                        <form action="{{ route('pembayaran.update', $pDitolak->nomor_pembayaran) }}" method="POST" enctype="multipart/form-data" class="space-y-4 bg-white p-4 rounded-xl border border-rose-100">
+                            @csrf
+                            @method('PUT')
+
+                            <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                                Form Pembaruan Dokumen Tagihan &amp; Bukti Pembayaran
+                            </h4>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 mb-1">Nomor Kwitansi Baru / Revisi</label>
+                                    <input type="text" name="nomor_kwitansi" value="{{ $pDitolak->nomor_kwitansi }}" class="w-full h-10 rounded-xl border border-slate-200 px-3 text-xs font-mono text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 mb-1">Unggah Berkas Kwitansi Revisi</label>
+                                    <input type="file" name="file_kwitansi" accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da]">
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 mb-1">Nomor Invoice Baru / Revisi</label>
+                                    <input type="text" name="nomor_invoice" value="{{ $pDitolak->nomor_invoice }}" class="w-full h-10 rounded-xl border border-slate-200 px-3 text-xs font-mono text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 mb-1">Unggah Berkas Invoice Revisi</label>
+                                    <input type="file" name="file_invoice" accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da]">
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 mb-1">Unggah Dokumen Perikatan / SPK Revisi</label>
+                                    <input type="file" name="file_dokumen_perikatan" accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da]">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 mb-1">Unggah Berkas Memo Revisi (PDF)</label>
+                                    <input type="file" name="file_memo" accept=".pdf" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da]">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">Catatan Tindak Lanjut Perbaikan PPBJ</label>
+                                <textarea name="catatan_perbaikan_ppbj" rows="2" placeholder="Jelaskan bukti atau berkas yang telah diperbaiki..." class="w-full rounded-xl border border-slate-200 p-2.5 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20"></textarea>
+                            </div>
+
+                            <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                                <button type="button" @click="openEdit = false" class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">
+                                    Batal
+                                </button>
+                                <button type="submit" class="px-4 py-1.5 rounded-xl bg-[#0969da] text-xs font-bold text-white hover:bg-blue-700 shadow-sm transition">
+                                    Ajukan Ulang ke Wadir II &amp; PPK (BPMN N56) &rarr;
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    </div>
+    @endif
+
     {{-- 5. PANEL PERSETUJUAN MEMO PEMBAYARAN BERTINGKAT (PPK & WADIR II - FR 16) --}}
     @if(Auth::user()->hasRole('admin') || Auth::user()->hasAnyPermission(['pembayaran.memo_ppk', 'pembayaran.memo_wadir2']))
     <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80">

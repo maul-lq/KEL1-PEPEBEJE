@@ -1889,7 +1889,19 @@ class HomeController extends Controller
             ->get();
         $vendors = Vendor::all();
 
-        return view('paket.index', compact('paketList', 'ppkUsers', 'riwayatPenugasan', 'permohonanDisetujui', 'vendors'));
+        // Paket yang dikembalikan untuk perbaikan (BPMN N18: Titik kembali jika ditolak PP N27 atau PPK N35)
+        $paketPerluPerbaikan = PaketPengadaan::with([
+            'permohonan.unit',
+            'ppkUser',
+            'ppUser',
+            'vendor',
+            'reviuDokumen.user',
+        ])
+            ->where('status_paket', 'perlu_perbaikan')
+            ->latest()
+            ->get();
+
+        return view('paket.index', compact('paketList', 'ppkUsers', 'riwayatPenugasan', 'permohonanDisetujui', 'vendors', 'paketPerluPerbaikan'));
     }
 
     /**
@@ -2287,6 +2299,153 @@ class HomeController extends Controller
     }
 
     /**
+     * Menampilkan form revisi/perbaikan dokumen pengadaan oleh PPBJ (BPMN N18).
+     * Pemicu: Paket dikembalikan dengan catatan revisi oleh PP (N27: Tidak) atau PPK (N35: Tidak).
+     */
+    public function paketEdit(string $id): View
+    {
+        $paket = PaketPengadaan::with([
+            'permohonan.unit',
+            'permohonan.anggaranMak',
+            'permohonan.verifikasiParalel.user',
+            'reviuDokumen.user',
+            'ppkUser',
+            'ppUser',
+            'vendor',
+        ])->where('nomor_paket', $id)->firstOrFail();
+
+        $user = Auth::user();
+        if ($user && ! $user->hasRole('admin') && ! $user->hasRole('ppbj') && ! $user->hasAnyPermission(['paket.create', 'paket.view_all'])) {
+            abort(403, 'Akses Ditolak: Anda tidak memiliki hak akses untuk mengubah dokumen pengadaan.');
+        }
+
+        $ppkUsers = User::where('role', 'ppk')->where('status_aktif', true)->take(4)->get();
+        $ppUsers = User::where('role', 'pp')->where('status_aktif', true)->get();
+        $vendors = Vendor::where('is_active', true)->orderBy('nama_vendor')->get();
+
+        return view('paket.edit', compact('paket', 'ppkUsers', 'ppUsers', 'vendors'));
+    }
+
+    /**
+     * Memproses pembaruan dokumen pengadaan oleh PPBJ setelah perbaikan (BPMN N18 -> N22 -> N25 -> N28).
+     */
+    public function paketUpdate(Request $request, string $id): RedirectResponse
+    {
+        $user = Auth::user();
+        $paket = PaketPengadaan::with('permohonan.anggaranMak')->where('nomor_paket', $id)->firstOrFail();
+
+        $validated = $request->validate([
+            'nama_paket' => ['required', 'string', 'max:255'],
+            'jenis_pengadaan' => ['required', 'string'],
+            'metode_pengadaan' => ['required', 'string'],
+            'nilai_hps' => ['required', 'numeric', 'gt:0'],
+            'nominal_harga_perkiraan' => ['nullable', 'numeric', 'min:0'],
+            'nominal_harga_akhir' => ['nullable', 'numeric', 'min:0'],
+            'nama_vendor' => ['nullable', 'string', 'max:255'],
+            'id_vendor' => ['nullable'],
+            'npwp_vendor' => ['nullable'],
+            'id_user_ppk' => ['nullable', 'exists:users,id_user'],
+            'id_user_pp' => ['nullable', 'exists:users,id_user'],
+            'catatan_perbaikan_ppbj' => ['nullable', 'string'],
+        ]);
+
+        $hps = (float) $validated['nilai_hps'];
+        $hpsLama = (float) $paket->nilai_hps;
+        $selisih = $hps - $hpsLama;
+        $mak = $paket->permohonan?->kode_mak ? AnggaranMAK::find($paket->permohonan->kode_mak) : null;
+
+        if ($mak && $selisih != 0) {
+            if ($selisih > 0) {
+                if ((float) $mak->sisa_pagu_mak < $selisih) {
+                    return back()->withErrors([
+                        'nilai_hps' => 'Penyesuaian HPS melebihi sisa pagu MAK '.$mak->kode_mak.' yang tersedia (tersisa Rp '.number_format($mak->sisa_pagu_mak, 0, ',', '.').').',
+                    ])->withInput();
+                }
+                $mak->sisa_pagu_mak = max(0, (float) $mak->sisa_pagu_mak - $selisih);
+                $mak->save();
+            } else {
+                $mak->sisa_pagu_mak = (float) $mak->sisa_pagu_mak + abs($selisih);
+                $mak->save();
+            }
+
+            if ($paket->nomor_surat) {
+                $alokasi = AlokasiMAK::where('nomor_surat', $paket->nomor_surat)
+                    ->where('kode_mak', $mak->kode_mak)
+                    ->first();
+                if ($alokasi) {
+                    $alokasi->nominal_alokasi = $hps;
+                    $alokasi->save();
+                }
+            }
+        }
+
+        // Jalur routing baru berdasarkan nominal HPS (Gateway BPMN N28)
+        $jalur = PaketPengadaan::tentukanRouting($hps);
+
+        // Rekanan vendor
+        $idVendor = $validated['id_vendor'] ?? $paket->id_vendor;
+        $npwpVendor = $validated['npwp_vendor'] ?? $paket->npwp_vendor;
+        if (! empty($validated['nama_vendor'])) {
+            $v = Vendor::firstOrCreate(['nama_vendor' => trim($validated['nama_vendor'])], ['is_active' => true]);
+            $idVendor = $v->id;
+            $npwpVendor = $v->npwp;
+        }
+
+        $idUserPpk = $validated['id_user_ppk'] ?? $paket->id_user_ppk;
+        $idUserPp = ($jalur === PaketPengadaan::ROUTING_PP)
+            ? ($validated['id_user_pp'] ?? $paket->id_user_pp ?? User::where('role', 'pp')->where('status_aktif', true)->first()?->id_user)
+            : null;
+
+        $platform = match ($validated['metode_pengadaan']) {
+            PaketPengadaan::METODE_E_KATALOG, PaketPengadaan::METODE_NON_TENDER, 'E-Purchasing', 'Surat Pesanan' => 'Inaproc / E-Katalog',
+            PaketPengadaan::METODE_SPSE, PaketPengadaan::METODE_TENDER, 'Tender' => 'SPSE',
+            PaketPengadaan::METODE_BELANJA_LANGSUNG, 'Pengadaan Langsung' => 'Belanja Langsung',
+            default => 'SPSE/Inaproc',
+        };
+
+        // Reset status paket sesuai rute BPMN N28
+        $statusBaru = ($jalur === PaketPengadaan::ROUTING_PPK)
+            ? PaketPengadaan::STATUS_MENUNGGU_APPROVAL_PPK
+            : 'terdaftar';
+
+        $paket->update([
+            'nama_paket' => $validated['nama_paket'],
+            'jenis_pengadaan' => Str::lower(str_replace(' ', '_', $validated['jenis_pengadaan'])),
+            'platform_pengadaan' => $platform,
+            'mekanisme_pengadaan' => $validated['metode_pengadaan'],
+            'metode_pengadaan' => $validated['metode_pengadaan'],
+            'nilai_hps' => $hps,
+            'alokasi_pagu_paket' => $hps,
+            'nominal_harga_perkiraan' => $validated['nominal_harga_perkiraan'] ?? $hps,
+            'nominal_harga_akhir' => $validated['nominal_harga_akhir'] ?? null,
+            'id_vendor' => $idVendor,
+            'npwp_vendor' => $npwpVendor,
+            'jalur_routing' => $jalur,
+            'id_user_ppk' => $idUserPpk,
+            'id_user_pp' => $idUserPp,
+            'status_paket' => $statusBaru,
+        ]);
+
+        AuditLog::catat(
+            $user->id_user,
+            'PERBAIKAN_DOKUMEN_PENGADAAN',
+            'paket_pengadaan',
+            $paket->nomor_paket,
+            'perlu_perbaikan',
+            $statusBaru,
+            'PPBJ menyusun ulang dokumen pengadaan (BPMN N18/N22/N25) dengan HPS Rp '.number_format($hps).' menuju jalur '.strtoupper(str_replace('_', ' ', $jalur)).': '.($validated['catatan_perbaikan_ppbj'] ?? 'Dokumen telah diperbaiki')
+        );
+
+        // Notifikasi ulang
+        $this->notificationService->notifyPendaftaranPaket($paket);
+
+        return redirect()->route('paket.index')->with(
+            'success',
+            "Dokumen paket {$paket->nomor_paket} berhasil diperbaiki dan diteruskan kembali ke jalur ".strtoupper(str_replace('_', ' ', $jalur)).' (BPMN N28).'
+        );
+    }
+
+    /**
      * Menampilkan detail siklus paket pengadaan secara komprehensif (Feature 23).
      */
     public function paketShow(Request $request, string $id): View
@@ -2404,6 +2563,67 @@ class HomeController extends Controller
         ])->get();
 
         return view('kontrak.index', compact('paketList', 'kontrakList', 'vendors', 'paketReviu'));
+    }
+
+    /**
+     * Menampilkan dashboard monitoring aktivitas Pejabat Pengadaan (PP)
+     * untuk Koordinator PPBJ, Pengawas, dan Administrator (Feature: lihat_pp / pp.monitoring_aktivitas).
+     */
+    public function monitorPpIndex(Request $request): View
+    {
+        $user = Auth::user();
+
+        $query = PaketPengadaan::with([
+            'permohonan.unit',
+            'ppUser',
+            'ppkUser',
+            'vendor',
+            'reviuDokumen.user',
+            'kontrakSpk',
+        ])->where('jalur_routing', PaketPengadaan::ROUTING_PP);
+
+        if ($request->filled('keyword')) {
+            $kw = $request->keyword;
+            $query->where(function ($q) use ($kw) {
+                $q->where('nomor_paket', 'like', "%{$kw}%")
+                    ->orWhere('nama_paket', 'like', "%{$kw}%")
+                    ->orWhereHas('vendor', fn ($vq) => $vq->where('nama_vendor', 'like', "%{$kw}%"))
+                    ->orWhereHas('ppUser', fn ($pq) => $pq->where('nama', 'like', "%{$kw}%"));
+            });
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status_paket', $request->status);
+        }
+
+        $paketPpList = $query->latest('tanggal_registrasi_paket')->paginate(15);
+        $totalPaketPp = PaketPengadaan::where('jalur_routing', PaketPengadaan::ROUTING_PP)->count();
+        $paketMenungguReviu = PaketPengadaan::where('jalur_routing', PaketPengadaan::ROUTING_PP)
+            ->whereIn('status_paket', ['terdaftar', 'reviu_dokumen', 'perlu_perbaikan'])
+            ->count();
+        $paketSelesaiReviu = PaketPengadaan::where('jalur_routing', PaketPengadaan::ROUTING_PP)
+            ->whereIn('status_paket', [
+                PaketPengadaan::STATUS_MENUNGGU_APPROVAL_PPK,
+                PaketPengadaan::STATUS_DISETUJUI_PPK_SIAP_BELANJA_PP,
+                'spk_terbit',
+                'penerimaan_selesai',
+            ])->count();
+        $totalPaguPp = (float) PaketPengadaan::where('jalur_routing', PaketPengadaan::ROUTING_PP)->sum('nilai_hps');
+        $totalNegosiasiPp = (float) PaketPengadaan::where('jalur_routing', PaketPengadaan::ROUTING_PP)->whereNotNull('nilai_hasil_negosiasi')->sum('nilai_hasil_negosiasi');
+        $pejabatPpList = User::where('role', 'pp')
+            ->orWhereHas('permissions', fn ($q) => $q->where('name', 'reviu.pp'))
+            ->get();
+
+        return view('pp.monitoring', compact(
+            'paketPpList',
+            'totalPaketPp',
+            'paketMenungguReviu',
+            'paketSelesaiReviu',
+            'totalPaguPp',
+            'totalNegosiasiPp',
+            'pejabatPpList',
+            'user'
+        ));
     }
 
     /**
@@ -2963,6 +3183,12 @@ class HomeController extends Controller
         // 6. Daftar transaksi SP2D yang telah dicairkan oleh Keuangan
         $transaksiList = TransaksiPencairan::with(['pembayaran.paket', 'user'])->latest('tanggal_transfer')->paginate(15);
 
+        // 7. Berkas Pembayaran yang Ditolak (BPMN N60/N61 -> N52: Titik Kembali PPBJ untuk Penyusunan Ulang Dokumen)
+        $pembayaranDitolakList = Pembayaran::with(['paket.kontrakSpk', 'paket.kontrak.vendor', 'paket.vendor', 'memoBayar.user'])
+            ->where('status_pembayaran', 'ditolak')
+            ->latest('updated_at')
+            ->get();
+
         return view('pembayaran.index', compact(
             'bastSiapBayar',
             'pembayaranList',
@@ -2970,6 +3196,7 @@ class HomeController extends Controller
             'siapTerbitkanSpp',
             'siapCairKeuangan',
             'transaksiList',
+            'pembayaranDitolakList',
             'user'
         ));
     }
@@ -3097,6 +3324,93 @@ class HomeController extends Controller
         return redirect()->route('pembayaran.index')->with(
             'success',
             "Berkas pembayaran {$pembayaran->nomor_pembayaran} lengkap dengan Kwitansi & Invoice berhasil diajukan ke Wakil Direktur II (Level 1) serta PPK (Level 2) untuk peninjauan memo bertingkat."
+        );
+    }
+
+    /**
+     * Memproses perbaikan berkas dokumen pembayaran oleh PPBJ setelah ditolak Wadir II / PPK (BPMN N52 -> N53 -> N56).
+     */
+    public function pembayaranUpdate(Request $request, string $nomorPembayaran): RedirectResponse
+    {
+        $user = Auth::user();
+        $pembayaran = Pembayaran::with(['paket', 'memoBayar'])->where('nomor_pembayaran', $nomorPembayaran)->firstOrFail();
+
+        $validated = $request->validate([
+            'nomor_surat_pesanan' => ['nullable', 'string', 'max:100'],
+            'nomor_kwitansi' => ['nullable', 'string', 'max:100'],
+            'nomor_invoice' => ['nullable', 'string', 'max:100'],
+            'file_dokumen_perikatan' => ['nullable', DokumenUploadRule::pdfOrImage()],
+            'file_kwitansi' => ['nullable', DokumenUploadRule::pdfOrImage()],
+            'file_invoice' => ['nullable', DokumenUploadRule::pdfOrImage()],
+            'file_memo' => ['nullable', DokumenUploadRule::pdfOnly()],
+            'nomor_rekening_tujuan' => ['nullable', 'string', 'max:100'],
+            'nama_bank_tujuan' => ['nullable', 'string', 'max:100'],
+            'nama_penerima_tujuan' => ['nullable', 'string', 'max:150'],
+            'catatan_perbaikan_ppbj' => ['nullable', 'string'],
+        ]);
+
+        if ($request->hasFile('file_dokumen_perikatan')) {
+            $pembayaran->file_dokumen_perikatan = $request->file('file_dokumen_perikatan')->store('dokumen_perikatan', 'public');
+        }
+        if ($request->hasFile('file_kwitansi')) {
+            $pembayaran->file_kwitansi = $request->file('file_kwitansi')->store('kwitansi_pembayaran', 'public');
+        }
+        if ($request->hasFile('file_invoice')) {
+            $pembayaran->file_invoice = $request->file('file_invoice')->store('invoice_pembayaran', 'public');
+        }
+        if ($request->hasFile('file_memo')) {
+            $pembayaran->file_memo = $request->file('file_memo')->store('memo_pembayaran', 'public');
+        }
+
+        if ($request->filled('nomor_surat_pesanan')) {
+            $pembayaran->nomor_surat_pesanan = $validated['nomor_surat_pesanan'];
+        }
+        if ($request->filled('nomor_kwitansi')) {
+            $pembayaran->nomor_kwitansi = $validated['nomor_kwitansi'];
+        }
+        if ($request->filled('nomor_invoice')) {
+            $pembayaran->nomor_invoice = $validated['nomor_invoice'];
+        }
+        if ($request->filled('nomor_rekening_tujuan')) {
+            $pembayaran->nomor_rekening_tujuan = $validated['nomor_rekening_tujuan'];
+        }
+        if ($request->filled('nama_bank_tujuan')) {
+            $pembayaran->nama_bank_tujuan = $validated['nama_bank_tujuan'];
+        }
+        if ($request->filled('nama_penerima_tujuan')) {
+            $pembayaran->nama_penerima_tujuan = $validated['nama_penerima_tujuan'];
+        }
+
+        $pembayaran->status_pembayaran = 'reviu_memo';
+        $pembayaran->catatan_reviu_akhir = 'Diperbaiki oleh PPBJ: '.($validated['catatan_perbaikan_ppbj'] ?? 'Dokumen pembayaran dan bukti perikatan telah disesuaikan.');
+        $pembayaran->save();
+
+        // Reset Memo Bayar Wadir 2 (Level 1) & PPK (Level 2) menjadi status 'menunggu' untuk penelaahan ulang
+        foreach ($pembayaran->memoBayar as $memo) {
+            $memo->status_memo = 'menunggu';
+            $memo->tanggal_acc = null;
+            $memo->catatan_memo = null;
+            $memo->save();
+        }
+
+        AuditLog::catat(
+            $user->id_user,
+            'PERBAIKAN_DOKUMEN_PEMBAYARAN',
+            'pembayaran',
+            $pembayaran->nomor_pembayaran,
+            'ditolak',
+            'reviu_memo',
+            "PPBJ mengajukan ulang berkas pembayaran {$pembayaran->nomor_pembayaran} ke Wadir II (Level 1) & PPK (Level 2) [BPMN N52/N56]"
+        );
+
+        $memoLevel1 = $pembayaran->memoBayar->where('urutan_level', 1)->first();
+        if ($memoLevel1) {
+            $this->notificationService->notifyPengajuanBayar($pembayaran, $memoLevel1);
+        }
+
+        return redirect()->route('pembayaran.index')->with(
+            'success',
+            "Berkas pembayaran {$pembayaran->nomor_pembayaran} berhasil diperbaiki dan diteruskan kembali ke Wadir II & PPK (BPMN N56)."
         );
     }
 

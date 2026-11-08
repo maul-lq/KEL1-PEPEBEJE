@@ -310,6 +310,89 @@
         </div>
     @endif
 
+    {{-- 3.6. Antrean Paket Perlu Perbaikan (BPMN N18: Titik Kembali jika Ditolak PP N27 atau PPK N35) --}}
+    @if(isset($paketPerluPerbaikan) && $paketPerluPerbaikan->isNotEmpty() && Auth::user() && (Auth::user()->hasRole('admin') || Auth::user()->hasAnyPermission(['paket.create', 'paket.view_all'])))
+        <div class="rounded-2xl bg-white shadow-sm border border-amber-200 overflow-hidden">
+            <div class="px-6 py-4 border-b border-amber-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-amber-50/70 via-white to-amber-50/30">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500 text-white">
+                            BPMN N18 - Titik Kembali
+                        </span>
+                        <h3 class="text-sm font-bold text-amber-900">Antrean Perbaikan Dokumen Pengadaan</h3>
+                    </div>
+                    <p class="text-xs text-amber-800/80 mt-0.5">
+                        Paket yang dikembalikan oleh Pejabat Pengadaan (PP - N27) atau PPK (N35). PPBJ wajib menyusun ulang dokumen pengadaan &amp; HPS sebelum diteruskan kembali (N22 &rarr; N25 &rarr; N28).
+                    </p>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <span class="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                        {{ $paketPerluPerbaikan->count() }} Paket Perlu Tindak Lanjut
+                    </span>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs border-collapse">
+                    <thead>
+                        <tr class="bg-amber-50/40 border-b border-amber-100/70 text-[11px] font-bold text-amber-900 uppercase tracking-wider">
+                            <th class="px-5 py-3.5">Kode &amp; Nama Paket</th>
+                            <th class="px-5 py-3.5">Pagu HPS &amp; Jalur</th>
+                            <th class="px-5 py-3.5">Catatan Pengembalian (PP / PPK)</th>
+                            <th class="px-5 py-3.5 text-center">Tindakan</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-amber-100/50">
+                        @foreach($paketPerluPerbaikan as $pBpm)
+                            @php
+                                $reviuTerakhir = $pBpm->reviuDokumen->where('status_reviu', 'perlu_perbaikan')->last() ?? $pBpm->reviuDokumen->last();
+                            @endphp
+                            <tr class="hover:bg-amber-50/20 transition-colors">
+                                <td class="px-5 py-4">
+                                    <span class="font-mono font-bold text-[#0969da] block">{{ $pBpm->nomor_paket }}</span>
+                                    <span class="font-semibold text-slate-800 block mt-0.5">{{ $pBpm->nama_paket }}</span>
+                                    <span class="text-[11px] text-slate-500 mt-0.5 block">{{ $pBpm->permohonan?->unit?->nama_unit ?? 'Unit Kerja PNJ' }}</span>
+                                </td>
+                                <td class="px-5 py-4">
+                                    <div class="font-mono font-bold text-slate-800">
+                                        Rp {{ number_format($pBpm->nilai_hps, 0, ',', '.') }}
+                                    </div>
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 mt-1">
+                                        {{ strtoupper(str_replace('_', ' ', $pBpm->jalur_routing)) }}
+                                    </span>
+                                </td>
+                                <td class="px-5 py-4 max-w-md">
+                                    @if($reviuTerakhir && !empty($reviuTerakhir->catatan_perbaikan))
+                                        <div class="text-[11px] text-slate-800 bg-amber-50/80 p-2.5 rounded-xl border border-amber-200/80">
+                                            <div class="flex items-center gap-1.5 font-bold text-amber-900 text-[10px] mb-1">
+                                                <span>{{ strtoupper($reviuTerakhir->role_reviewer) }}: {{ $reviuTerakhir->user?->nama ?? 'Reviewer' }}</span>
+                                                <span>&bull;</span>
+                                                <span class="font-mono text-slate-500">{{ $reviuTerakhir->tanggal_reviu ? date('d M Y H:i', strtotime($reviuTerakhir->tanggal_reviu)) : '' }}</span>
+                                            </div>
+                                            <p class="whitespace-pre-line leading-relaxed">{{ $reviuTerakhir->catatan_perbaikan }}</p>
+                                        </div>
+                                    @else
+                                        <span class="text-slate-400 italic">Membutuhkan penyesuaian dokumen spesifikasi teknis dan HPS.</span>
+                                    @endif
+                                </td>
+                                <td class="px-5 py-4 text-center">
+                                    <a
+                                        href="{{ route('paket.edit', $pBpm->nomor_paket) }}"
+                                        class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-500 text-xs font-bold text-white hover:bg-amber-600 shadow-sm transition whitespace-nowrap"
+                                    >
+                                        <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                        <span>Perbaiki Dokumen (N18)</span>
+                                    </a>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    @endif
+
     {{-- 4. Tabel Paket Pengadaan --}}
     <div class="rounded-2xl bg-white shadow-sm border border-slate-200/80 overflow-hidden">
         <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
@@ -419,6 +502,16 @@
                                         >
                                             Detail
                                         </a>
+
+                                        @if($pkt->status_paket === 'perlu_perbaikan' && (Auth::user()->hasRole('admin') || Auth::user()->hasRole('ppbj') || Auth::user()->hasPermission('paket.create')))
+                                            <a
+                                                href="{{ route('paket.edit', $pkt->nomor_paket) }}"
+                                                class="px-2.5 py-1 rounded-lg bg-amber-500 text-xs font-semibold text-white hover:bg-amber-600 transition shadow-xs"
+                                                title="Perbaiki Dokumen Pengadaan (BPMN N18)"
+                                            >
+                                                Perbaiki
+                                            </a>
+                                        @endif
 
                                         @if(Auth::user() && (Auth::user()->hasRole('admin') || Auth::user()->hasPermission('paket.reassign_ppk')))
                                             <button

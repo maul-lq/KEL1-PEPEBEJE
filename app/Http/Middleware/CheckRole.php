@@ -120,28 +120,9 @@ class CheckRole
         if (! empty($roles)) {
             $isAdmin = $user->role === User::ROLE_ADMIN || ($user->roleEntity && $user->roleEntity->nama_role === User::ROLE_ADMIN);
 
-            // A. Pembatasan ketat Administrator: Admin HANYA boleh mengakses rute administratif
+            // Administrator memiliki wewenang superuser untuk mengelola dan memonitor seluruh modul
             if ($isAdmin) {
-                $hasAdminRole = in_array(User::ROLE_ADMIN, $roles, true) || in_array('admin', $roles, true);
-                $hasAdminPermission = ! empty(array_intersect($roles, [
-                    'admin.approval_registrasi',
-                    'admin.role_manage',
-                    'admin.user_manage',
-                ]));
-
-                if ($hasAdminRole || $hasAdminPermission) {
-                    return $next($request);
-                }
-
-                $message = 'Akses Ditolak: Role Administrator dibatasi untuk fungsi administratif dan dilarang mengakses proses verifikasi teknis pengadaan.';
-                if ($request->expectsJson() || $request->is('api/*')) {
-                    return response()->json([
-                        'status' => 'error',
-                        'message' => $message,
-                    ], 403);
-                }
-
-                abort(403, $message);
+                return $next($request);
             }
 
             $isAuthorized = false;

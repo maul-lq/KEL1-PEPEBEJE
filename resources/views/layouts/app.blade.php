@@ -170,8 +170,8 @@
             $isAdmin = $u->hasRole('admin');
         @endphp
 
-        <!-- 3. PERMOHONAN PENGAJUAN (Pengusul / Jurusan / Unit) -->
-        @if(!$isAdmin && ($u->hasRole(['user', 'pengaju']) || $u->hasAnyPermission(['permohonan.create', 'permohonan.view_own', 'permohonan.view_all'])))
+        <!-- 3. PERMOHONAN PENGAJUAN (Pengusul / Jurusan / Unit / Admin) -->
+        @if($isAdmin || $u->hasRole(['user', 'pengaju']) || $u->hasAnyPermission(['permohonan.create', 'permohonan.view_own', 'permohonan.view_all']))
             @php $aUserPerm = request()->routeIs('permohonan.*'); @endphp
             <a href="{{ route('permohonan.index') }}" 
                title="Permohonan Pengadaan" 
@@ -184,7 +184,7 @@
         @endif
 
         <!-- 4. STAFF BIDANG 2: Telaah Berkas Masuk -->
-        @if(!$isAdmin && ($u->hasRole('staff_bidang_2') || $u->hasPermission('verifikasi.bidang_2_view')))
+        @if($isAdmin || $u->hasRole('staff_bidang_2') || $u->hasPermission('verifikasi.bidang_2_view'))
             @php $aBidang2 = request()->routeIs('verifikasi.bidang-2*'); @endphp
             <a href="{{ route('verifikasi.bidang-2') }}" 
                title="Telaah Berkas Bidang II" 
@@ -198,7 +198,7 @@
         @endif
 
         <!-- 5. WADIR 2: Persetujuan Eksekutif & Disposisi -->
-        @if(!$isAdmin && ($u->hasRole('wadir_2') || $u->hasAnyPermission(['verifikasi.wadir_2_view', 'verifikasi.wadir_2_decide'])))
+        @if($isAdmin || $u->hasRole('wadir_2') || $u->hasAnyPermission(['verifikasi.wadir_2_view', 'verifikasi.wadir_2_decide']))
             @php $aWadir2 = request()->routeIs('verifikasi.wadir-2*'); @endphp
             <a href="{{ route('verifikasi.wadir-2') }}" 
                title="Persetujuan Eksekutif Wadir II" 
@@ -211,7 +211,7 @@
         @endif
 
         <!-- 6. PERENCANAAN: Alokasi & Penguncian MAK -->
-        @if(!$isAdmin && ($u->hasRole('perencanaan') || $u->hasAnyPermission(['anggaran.mak_view', 'anggaran.mak_manage', 'anggaran.mak_alokasi', 'anggaran.mak_lock', 'permohonan.split_mak'])))
+        @if($isAdmin || $u->hasRole('perencanaan') || $u->hasAnyPermission(['anggaran.mak_view', 'anggaran.mak_manage', 'anggaran.mak_alokasi', 'anggaran.mak_lock', 'permohonan.split_mak']))
             @php $aPerencanaan = request()->routeIs('verifikasi.perencanaan*'); @endphp
             <a href="{{ route('verifikasi.perencanaan') }}" 
                title="Verifikasi MAK & Pagu" 
@@ -224,7 +224,7 @@
         @endif
 
         <!-- 7. PPK: Persetujuan Awal Usulan PPK (Isolasi 4 Akun) -->
-        @if(!$isAdmin && ($u->hasRole('ppk') || $u->hasPermission('reviu.ppk')))
+        @if($isAdmin || $u->hasRole('ppk') || $u->hasPermission('reviu.ppk'))
             @php
                 $ppkAntreanCount = isset($stats['antrean_persetujuan_awal']) 
                     ? $stats['antrean_persetujuan_awal'] 
@@ -256,7 +256,7 @@
         @endif
 
         <!-- 8. PPBJ: Manajemen Paket Pengadaan -->
-        @if(!$isAdmin && ($u->hasRole('ppbj') || $u->hasAnyPermission(['paket.create', 'paket.view_all', 'paket.reassign_ppk', 'paket.split_jenis'])))
+        @if($isAdmin || $u->hasRole('ppbj') || $u->hasAnyPermission(['paket.create', 'paket.view_all', 'paket.reassign_ppk', 'paket.split_jenis']))
             @php $aPaket = request()->routeIs('paket.*'); @endphp
             <a href="{{ route('paket.index') }}" 
                title="Paket Pengadaan" 
@@ -268,10 +268,10 @@
             </a>
         @endif
 
-        <!-- 9. MONITOR AKTIVITAS PP (FR RBAC lihat_pp / pp.monitoring_aktivitas - PPBJ & Pengawas) -->
-        @if(!$isAdmin && $u->canMonitorPp())
-            @php $aMonitorPP = request()->routeIs('kontrak.*') && request('tab') === 'reviu'; @endphp
-            <a href="{{ route('kontrak.index', ['tab' => 'reviu']) }}" 
+        <!-- 9. MONITOR AKTIVITAS PP (FR RBAC lihat_pp / pp.monitoring_aktivitas - PPBJ, Pengawas & Admin) -->
+        @if($isAdmin || $u->canMonitorPp() || $u->hasAnyPermission(['lihat_pp', 'pp.monitoring_aktivitas']))
+            @php $aMonitorPP = request()->routeIs('monitor-pp.*'); @endphp
+            <a href="{{ route('monitor-pp.index') }}" 
                title="Monitor Aktivitas PP" 
                class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aMonitorPP ? $menuOn : $menuOff }}">
                 <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
@@ -283,7 +283,7 @@
         @endif
 
         <!-- 10. PP: Reviu & Negosiasi Harga -->
-        @if(!$isAdmin && ($u->hasRole('pp') || $u->hasPermission('reviu.pp')))
+        @if($isAdmin || $u->hasRole('pp') || $u->hasPermission('reviu.pp'))
             @php $aPPKontrak = request()->routeIs('kontrak.*') && request('tab') === 'reviu'; @endphp
             <a href="{{ route('kontrak.index', ['tab' => 'reviu']) }}" 
                title="Reviu & Negosiasi Harga (PP)" 
@@ -295,8 +295,8 @@
             </a>
         @endif
 
-        <!-- 11. KONTRAK SPK / DOKUMEN PERIKATAN (PPBJ / PPK / PP) -->
-        @if(!$isAdmin && ($u->hasRole(['ppbj', 'ppk']) || $u->hasAnyPermission(['spk.create', 'reviu.ppk'])))
+        <!-- 11. KONTRAK SPK / DOKUMEN PERIKATAN (PPBJ / PPK / PP / Admin) -->
+        @if($isAdmin || $u->hasRole(['ppbj', 'ppk', 'pp']) || $u->hasAnyPermission(['spk.create', 'reviu.ppk', 'reviu.pp']))
             @php $aKontrakSPK = request()->routeIs('kontrak.*') && request('tab') !== 'reviu'; @endphp
             <a href="{{ route('kontrak.index') }}" 
                title="Kontrak SPK & Dokumen Perikatan" 
@@ -309,7 +309,7 @@
         @endif
 
         <!-- 12. PERLENGKAPAN: Penerimaan Barang & BAST -->
-        @if(!$isAdmin && ($u->hasRole('perlengkapan') || $u->hasAnyPermission(['penerimaan.view', 'penerimaan.bast_create', 'penerimaan.bast_sign'])))
+        @if($isAdmin || $u->hasRole('perlengkapan') || $u->hasAnyPermission(['penerimaan.view', 'penerimaan.bast_create', 'penerimaan.bast_sign']))
             @php $aPerlengkapan = request()->routeIs('penerimaan.*'); @endphp
             <a href="{{ route('penerimaan.index') }}" 
                title="Penerimaan Barang & BAST" 
@@ -321,8 +321,8 @@
             </a>
         @endif
 
-        <!-- 13. KEUANGAN / WADIR 2 / PPK / PPBJ: Tagihan & Pembayaran SP2D -->
-        @if(!$isAdmin && ($u->hasRole(['keuangan', 'wadir_2', 'ppk', 'ppbj']) || $u->hasAnyPermission(['pembayaran.pencairan_sp2d', 'pembayaran.memo_wadir2', 'pembayaran.memo_ppk', 'pembayaran.spp_terbitkan', 'pembayaran.pengajuan'])))
+        <!-- 13. KEUANGAN / WADIR 2 / PPK / PPBJ / Admin: Tagihan & Pembayaran SP2D -->
+        @if($isAdmin || $u->hasRole(['keuangan', 'wadir_2', 'ppk', 'ppbj']) || $u->hasAnyPermission(['pembayaran.pencairan_sp2d', 'pembayaran.memo_wadir2', 'pembayaran.memo_ppk', 'pembayaran.spp_terbitkan', 'pembayaran.pengajuan']))
             @php $aKeuangan = request()->routeIs('pembayaran.*'); @endphp
             <a href="{{ route('pembayaran.index') }}" 
                title="Tagihan & Pembayaran SP2D" 

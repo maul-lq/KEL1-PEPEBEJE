@@ -173,6 +173,9 @@
                         <span class="px-3 py-1.5 rounded-xl bg-white text-xs font-bold text-slate-700 border border-slate-200 shadow-xs">
                             Paket Jalur PP (50-200 Juta): <strong class="text-[#0969da] font-mono">{{ $paketReviu->where('jalur_routing', 'pp_50_sd_200jt')->count() }}</strong>
                         </span>
+                        <a href="{{ route('monitor-pp.index') }}" class="px-3 py-1.5 rounded-xl bg-[#0969da] text-xs font-bold text-white hover:bg-blue-700 shadow-sm transition inline-flex items-center gap-1">
+                            <span>Monitor Lengkap</span> &rarr;
+                        </a>
                     </div>
                 </div>
             </div>
