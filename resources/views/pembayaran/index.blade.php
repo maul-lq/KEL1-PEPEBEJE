@@ -485,79 +485,287 @@
     </div>
     @endif
 
-    {{-- 7. PANEL PENCAIRAN SP2D OLEH KEUANGAN (FR 18) --}}
-    @if(Auth::user()->hasRole('admin') || Auth::user()->hasPermission('pembayaran.pencairan_sp2d'))
-    <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80">
-        <div class="border-b border-slate-100 pb-4 mb-5">
-            <h2 class="text-base font-bold text-[#213153] flex items-center gap-2">
-                <span>4. Eksekusi Pencairan Dana &amp; Pembayaran SP2D</span>
-                <span class="text-xs font-normal text-slate-400 font-mono">(Bagian Keuangan)</span>
-            </h2>
-            <p class="text-xs text-slate-500 mt-0.5">Bagian Keuangan mengeksekusi pencairan kas SP2D dan mengunggah slip bukti transfer resmi bank penyalur.</p>
+    {{-- 7. PANEL PENCAIRAN SP2D OLEH KEUANGAN (BPMN N59, N62, N66, N70, N72 & FR 18) --}}
+    @if(Auth::user()->hasRole(['admin', 'keuangan']) || Auth::user()->hasPermission('pembayaran.pencairan_sp2d'))
+    <div id="panel-pencairan-keuangan" class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80 space-y-6">
+        <div class="border-b border-slate-100 pb-4">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            BPMN N59 &bull; N62 &bull; N66 &bull; N70 &bull; N72 End
+                        </span>
+                        <span class="text-xs text-slate-400 font-mono">Bagian Keuangan</span>
+                    </div>
+                    <h2 class="text-base font-bold text-[#213153] mt-1 flex items-center gap-2">
+                        <span>4. Pencairan Dana SP2D &amp; Input Bukti Pembayaran</span>
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-0.5">
+                        Menerima Dokumen Pembayaran, Legalitas Vendor, dan Memo dari PPBJ (N59), mengeksekusi pencairan kas (N62), menginput bukti transfer resmi (N66), dan menerbitkan notifikasi penutup ke seluruh role (N70 &rarr; N72: End).
+                    </p>
+                </div>
+                <div class="text-xs font-semibold text-slate-500">
+                    Siklus: <span class="text-emerald-700 font-bold">Penutup Pengadaan (End)</span>
+                </div>
+            </div>
         </div>
 
         @if($siapCairKeuangan->isEmpty())
             <div class="text-center py-8 text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                Tidak ada SPP yang berstatus siap cair saat ini.
+                Tidak ada paket pembayaran dari PPBJ yang berstatus siap cair saat ini.
             </div>
         @else
-            <form action="{{ route('pembayaran.store') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
-                @csrf
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label for="nomor_pembayaran_cair" class="block text-xs font-bold text-slate-700 mb-1">Pilih Berkas SPP Siap Cair <span class="text-rose-500">*</span></label>
-                        <select id="nomor_pembayaran_cair" name="nomor_pembayaran" required class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
-                            <option value="">-- Pilih SPP Siap Cair --</option>
-                            @foreach($siapCairKeuangan as $sc)
-                                <option value="{{ $sc->nomor_pembayaran }}">
-                                    [{{ $sc->nomor_pembayaran }}] Paket: {{ $sc->nomor_paket }} &bull; Rp {{ number_format($sc->nominal_pengajuan, 0, ',', '.') }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    <div>
-                        <label for="nomor_transaksi" class="block text-xs font-bold text-slate-700 mb-1">Nomor Transaksi Bank / SP2D <span class="text-rose-500">*</span></label>
-                        <input type="text" id="nomor_transaksi" name="nomor_transaksi" value="SP2D/PNJ/{{ date('Y') }}/{{ rand(100, 999) }}" required class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 font-mono focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
-                    </div>
+            {{-- TABEL PAKET PEMBAYARAN LENGKAP YANG DITERIMA DARI PPBJ (BPMN N59) --}}
+            <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-xs font-bold text-[#213153] uppercase tracking-wider flex items-center gap-1.5">
+                        <svg class="size-4 text-[#0969da]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        Paket Diterima dari PPBJ (BPMN N59: Dokumen Pembayaran, Legalitas Vendor, dan Memo)
+                    </h3>
+                    <span class="text-[11px] text-slate-400 font-mono">{{ $siapCairKeuangan->count() }} Paket Siap Cair</span>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div>
-                        <label for="tanggal_cair" class="block text-xs font-bold text-slate-700 mb-1">Tanggal Cair Pemindahbukuan <span class="text-rose-500">*</span></label>
-                        <input type="date" id="tanggal_cair" name="tanggal_cair" value="{{ date('Y-m-d') }}" required class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
+                <div class="overflow-x-auto rounded-xl border border-slate-200/80 bg-white">
+                    <table class="w-full text-left text-xs border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                                <th class="px-4 py-3">No. SPP &amp; Paket</th>
+                                <th class="px-4 py-3">Dokumen Pembayaran (N59)</th>
+                                <th class="px-4 py-3">Legalitas Rekanan (N59 &amp; N69)</th>
+                                <th class="px-4 py-3">Memo Persetujuan (N59 &amp; N67/68)</th>
+                                <th class="px-4 py-3">Nominal Siap Cair</th>
+                                <th class="px-4 py-3 text-center">Tindakan</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            @foreach($siapCairKeuangan as $sc)
+                                @php
+                                    $scVendor = $sc->paket->kontrakSpk->vendor ?? ($sc->paket->kontrak->vendor ?? ($sc->paket->vendor ?? null));
+                                    $memoWadirSc = $sc->memoBayar->firstWhere('role_approver', 'wadir_2');
+                                    $memoPpkSc = $sc->memoBayar->firstWhere('role_approver', 'ppk');
+                                    $bastSc = $sc->paket->penerimaanBarang->first();
+                                @endphp
+                                <tr class="hover:bg-slate-50/50 transition">
+                                    <td class="px-4 py-3.5 align-top">
+                                        <div class="font-mono font-bold text-[#0969da]">{{ $sc->nomor_pembayaran }}</div>
+                                        <div class="font-mono text-slate-700 text-[11px] mt-0.5">{{ $sc->nomor_paket }}</div>
+                                        <div class="text-[11px] text-slate-500 line-clamp-1 mt-0.5">{{ $sc->paket->nama_paket ?? '-' }}</div>
+                                        <span class="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                                            SPP Terbit: {{ $sc->tanggal_perintah_bayar ? \Carbon\Carbon::parse($sc->tanggal_perintah_bayar)->format('d/m/Y') : '-' }}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3.5 align-top space-y-1">
+                                        {{-- Berkas SPP --}}
+                                        @if(!empty($sc->file_dokumen_penunjang))
+                                            <div>
+                                                <a href="{{ asset('storage/' . $sc->file_dokumen_penunjang) }}" target="_blank" class="inline-flex items-center gap-1 text-[11px] font-bold text-[#0969da] hover:underline">
+                                                    <svg class="size-3 text-rose-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/></svg>
+                                                    <span>Surat Perintah Bayar (SPP)</span>
+                                                </a>
+                                            </div>
+                                        @else
+                                            <div class="text-[11px] text-slate-600 font-medium">SPP Sistem: {{ $sc->nomor_pembayaran }}</div>
+                                        @endif
+
+                                        {{-- Kwitansi & Invoice --}}
+                                        <div class="text-[10px] text-slate-600 space-y-0.5">
+                                            <div>Kwitansi: <span class="font-mono font-semibold">{{ $sc->nomor_kwitansi ?: '-' }}</span>
+                                                @if(!empty($sc->file_kwitansi))
+                                                    <a href="{{ asset('storage/' . $sc->file_kwitansi) }}" target="_blank" class="text-[#0969da] hover:underline font-bold ml-1">(File)</a>
+                                                @endif
+                                            </div>
+                                            <div>Invoice: <span class="font-mono font-semibold">{{ $sc->nomor_invoice ?: '-' }}</span>
+                                                @if(!empty($sc->file_invoice))
+                                                    <a href="{{ asset('storage/' . $sc->file_invoice) }}" target="_blank" class="text-[#0969da] hover:underline font-bold ml-1">(File)</a>
+                                                @endif
+                                            </div>
+                                        </div>
+
+                                        {{-- Dokumen BAST --}}
+                                        @if($bastSc)
+                                            <div class="text-[10px] text-emerald-700 font-semibold pt-0.5">
+                                                BAST: {{ $bastSc->nomor_bast }}
+                                                @if(!empty($bastSc->file_bast_signed))
+                                                    <a href="{{ asset('storage/' . $bastSc->file_bast_signed) }}" target="_blank" class="text-[#0969da] hover:underline font-bold ml-1">(Fisik BAST)</a>
+                                                @endif
+                                            </div>
+                                        @endif
+                                    </td>
+                                    <td class="px-4 py-3.5 align-top space-y-1">
+                                        <div class="font-bold text-slate-800">{{ $scVendor->nama_perusahaan ?? ($scVendor->nama_vendor ?? 'Penyedia Rekanan') }}</div>
+                                        <div class="text-[10px] text-slate-500">NPWP: <span class="font-mono">{{ $scVendor->npwp ?? '-' }}</span></div>
+                                        <div class="text-[10px] text-slate-500">Bank: <span class="font-medium text-slate-700">{{ $scVendor->nama_bank ?? 'Bank Penampung' }}</span> (No: {{ $scVendor->nomor_rekening ?? '-' }})</div>
+                                        @if(!empty($scVendor?->file_dokumen_legalitas))
+                                            <div>
+                                                <a href="{{ asset('storage/' . $scVendor->file_dokumen_legalitas) }}" target="_blank" class="inline-flex items-center gap-1 text-[10px] font-bold text-[#0969da] hover:underline mt-0.5">
+                                                    <svg class="size-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                                                    <span>Berkas Legalitas Vendor (N69)</span>
+                                                </a>
+                                            </div>
+                                        @endif
+                                    </td>
+                                    <td class="px-4 py-3.5 align-top space-y-1">
+                                        {{-- Memo Wadir 2 --}}
+                                        <div class="p-1.5 rounded-lg bg-purple-50/70 border border-purple-100 text-[10px]">
+                                            <div class="font-bold text-purple-900">1. Memo Wadir II (Level 1)</div>
+                                            <div class="font-mono text-purple-700 truncate">{{ $memoWadirSc?->nomor_memo ?: 'Telah Disetujui' }}</div>
+                                            @if(!empty($memoWadirSc?->file_memo))
+                                                <a href="{{ asset('storage/' . $memoWadirSc->file_memo) }}" target="_blank" class="text-[#0969da] font-bold hover:underline inline-flex items-center gap-0.5 mt-0.5">
+                                                    <svg class="size-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                                    <span>Berkas Memo Fisik</span>
+                                                </a>
+                                            @endif
+                                        </div>
+
+                                        {{-- Memo PPK --}}
+                                        <div class="p-1.5 rounded-lg bg-blue-50/70 border border-blue-100 text-[10px]">
+                                            <div class="font-bold text-blue-900">2. Memo PPK (Level 2)</div>
+                                            <div class="font-mono text-blue-700 truncate">{{ $memoPpkSc?->nomor_memo ?: 'Telah Disetujui' }}</div>
+                                            @if(!empty($memoPpkSc?->file_memo))
+                                                <a href="{{ asset('storage/' . $memoPpkSc->file_memo) }}" target="_blank" class="text-[#0969da] font-bold hover:underline inline-flex items-center gap-0.5 mt-0.5">
+                                                    <svg class="size-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                                    <span>Berkas Memo Fisik</span>
+                                                </a>
+                                            @endif
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3.5 align-top font-mono font-bold text-emerald-600 text-sm whitespace-nowrap">
+                                        Rp {{ number_format($sc->nominal_pengajuan, 0, ',', '.') }}
+                                    </td>
+                                    <td class="px-4 py-3.5 align-top text-center">
+                                        <button
+                                            type="button"
+                                            onclick="pilihSppUntukCair('{{ $sc->nomor_pembayaran }}', '{{ $sc->nominal_pengajuan }}', '{{ addslashes($scVendor->nama_bank ?? 'Bank Mandiri KCP PNJ') }}')"
+                                            class="px-3 py-1.5 rounded-lg bg-[#0969da] text-[11px] font-bold text-white hover:bg-blue-700 shadow-sm transition whitespace-nowrap"
+                                        >
+                                            Pilih &amp; Eksekusi &darr;
+                                        </button>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {{-- FORM EKSEKUSI PEMBAYARAN & INPUT BUKTI PEMBAYARAN (BPMN N62 & N66) --}}
+            <div class="rounded-xl border border-emerald-200 bg-emerald-50/30 p-5 space-y-4">
+                <div class="border-b border-emerald-100 pb-3">
+                    <h3 class="text-xs font-bold text-emerald-950 uppercase tracking-wider flex items-center gap-1.5">
+                        <svg class="size-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                        Form Eksekusi Pencairan Dana SP2D &amp; Input Bukti Pembayaran (BPMN N62 &amp; N66)
+                    </h3>
+                    <p class="text-[11px] text-emerald-800 mt-0.5">
+                        Lakukan pemindahbukuan/transfer kas negara ke rekening penyedia, masukkan rincian nomor transaksi bank SP2D, dan unggah slip bukti transfer.
+                    </p>
+                </div>
+
+                <form id="form-pencairan-sp2d" action="{{ route('pembayaran.store') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+                    @csrf
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="nomor_pembayaran_cair" class="block text-xs font-bold text-slate-700 mb-1">Pilih Berkas SPP Siap Cair <span class="text-rose-500">*</span></label>
+                            <select id="nomor_pembayaran_cair" name="nomor_pembayaran" required class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
+                                <option value="">-- Pilih SPP Siap Cair --</option>
+                                @foreach($siapCairKeuangan as $sc)
+                                    @php
+                                        $scV = $sc->paket->kontrakSpk->vendor ?? ($sc->paket->kontrak->vendor ?? ($sc->paket->vendor ?? null));
+                                    @endphp
+                                    <option
+                                        value="{{ $sc->nomor_pembayaran }}"
+                                        data-nominal="{{ $sc->nominal_pengajuan }}"
+                                        data-bank="{{ $scV->nama_bank ?? 'Bank Mandiri KCP PNJ' }}"
+                                    >
+                                        [{{ $sc->nomor_pembayaran }}] Paket: {{ $sc->nomor_paket }} &bull; Rp {{ number_format($sc->nominal_pengajuan, 0, ',', '.') }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="nomor_transaksi" class="block text-xs font-bold text-slate-700 mb-1">Nomor Transaksi Bank / SP2D <span class="text-rose-500">*</span></label>
+                            <input type="text" id="nomor_transaksi" name="nomor_transaksi" value="SP2D/PNJ/{{ date('Y') }}/{{ rand(100, 999) }}" required class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 font-mono focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
+                        </div>
                     </div>
 
-                    <div>
-                        <label for="nominal_cair" class="block text-xs font-bold text-slate-700 mb-1">Jumlah Realisasi Kas (Rp) <span class="text-rose-500">*</span></label>
-                        <div class="relative">
-                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-xs font-bold text-slate-400 pointer-events-none">Rp</span>
-                            <input type="number" id="nominal_cair" name="nominal_cair" step="0.01" min="1" required placeholder="Contoh: 150000000" class="w-full h-11 rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-xs font-mono font-bold text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                            <label for="tanggal_cair" class="block text-xs font-bold text-slate-700 mb-1">Tanggal Cair Pemindahbukuan <span class="text-rose-500">*</span></label>
+                            <input type="date" id="tanggal_cair" name="tanggal_cair" value="{{ date('Y-m-d') }}" required class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
+                        </div>
+
+                        <div>
+                            <label for="nominal_cair" class="block text-xs font-bold text-slate-700 mb-1">Jumlah Realisasi Kas (Rp) <span class="text-rose-500">*</span></label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-xs font-bold text-slate-400 pointer-events-none">Rp</span>
+                                <input type="number" id="nominal_cair" name="nominal_cair" step="0.01" min="1" required placeholder="Contoh: 150000000" class="w-full h-11 rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-xs font-mono font-bold text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="bank_tujuan" class="block text-xs font-bold text-slate-700 mb-1">Bank Penyalur Institusi <span class="text-rose-500">*</span></label>
+                            <input type="text" id="bank_tujuan" name="bank_tujuan" value="Bank Mandiri KCP PNJ" required class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
                         </div>
                     </div>
 
                     <div>
-                        <label for="bank_tujuan" class="block text-xs font-bold text-slate-700 mb-1">Bank Penyalur Institusi <span class="text-rose-500">*</span></label>
-                        <input type="text" id="bank_tujuan" name="bank_tujuan" value="Bank Mandiri KCP PNJ" required class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
+                        <label for="file_bukti_transfer" class="block text-xs font-bold text-slate-700 mb-1">Unggah Slip Bukti Transfer Bank / SP2D (PDF/JPG, Maks 10MB) <span class="text-slate-400 font-normal">(BPMN N66: Input Bukti Pembayaran)</span></label>
+                        <input type="file" id="file_bukti_transfer" name="file_bukti_transfer" accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-100 file:text-emerald-800">
                     </div>
-                </div>
 
-                <div>
-                    <label for="file_bukti_transfer" class="block text-xs font-bold text-slate-700 mb-1">Unggah Slip Bukti Transfer Bank / SP2D (PDF/JPG, Maks 10MB)</label>
-                    <input type="file" id="file_bukti_transfer" name="file_bukti_transfer" accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da]">
-                </div>
+                    <div>
+                        <label for="keterangan_cair" class="block text-xs font-bold text-slate-700 mb-1">Catatan Realisasi Pembayaran (Opsional)</label>
+                        <textarea id="keterangan_cair" name="keterangan_cair" rows="2" placeholder="Keterangan pembayaran termin / pelunasan kas negara..." class="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20"></textarea>
+                    </div>
 
-                <div>
-                    <label for="keterangan_cair" class="block text-xs font-bold text-slate-700 mb-1">Catatan Realisasi Pembayaran (Opsional)</label>
-                    <textarea id="keterangan_cair" name="keterangan_cair" rows="2" placeholder="Keterangan pembayaran termin / pelunasan kas..." class="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20"></textarea>
-                </div>
+                    <div class="flex items-center justify-end pt-3 border-t border-emerald-100">
+                        <button type="submit" class="px-6 py-2.5 rounded-xl bg-emerald-600 text-xs font-bold text-white hover:bg-emerald-700 shadow-sm transition inline-flex items-center gap-2">
+                            <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            <span>Cairkan Dana &amp; Kirim Notifikasi Penutup ke Seluruh Role (BPMN N70 &rarr; N72 End)</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
 
-                <div class="flex items-center justify-end pt-3 border-t border-slate-100">
-                    <button type="submit" class="px-6 py-2.5 rounded-xl bg-emerald-600 text-xs font-bold text-white hover:bg-emerald-700 shadow-sm transition inline-flex items-center gap-1.5">
-                        Eksekusi Pencairan SP2D &amp; Selesaikan Siklus Pengadaan &rarr;
-                    </button>
-                </div>
-            </form>
+            <script>
+                function pilihSppUntukCair(nomorPembayaran, nominal, bank) {
+                    const sel = document.getElementById('nomor_pembayaran_cair');
+                    if (sel) {
+                        sel.value = nomorPembayaran;
+                    }
+                    const nomInput = document.getElementById('nominal_cair');
+                    if (nomInput && nominal) {
+                        nomInput.value = nominal;
+                    }
+                    const bankInput = document.getElementById('bank_tujuan');
+                    if (bankInput && bank) {
+                        bankInput.value = bank;
+                    }
+                    const formEl = document.getElementById('form-pencairan-sp2d');
+                    if (formEl) {
+                        formEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }
+
+                document.addEventListener('DOMContentLoaded', function() {
+                    const sel = document.getElementById('nomor_pembayaran_cair');
+                    if (sel) {
+                        sel.addEventListener('change', function() {
+                            const opt = sel.options[sel.selectedIndex];
+                            if (opt) {
+                                const nom = opt.getAttribute('data-nominal');
+                                const bank = opt.getAttribute('data-bank');
+                                if (nom) {
+                                    document.getElementById('nominal_cair').value = nom;
+                                }
+                                if (bank) {
+                                    document.getElementById('bank_tujuan').value = bank;
+                                }
+                            }
+                        });
+                    }
+                });
+            </script>
         @endif
     </div>
     @endif

@@ -6,7 +6,7 @@
     {{-- 1. 4-COLUMN KPI STAT CARDS --}}
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <x-stat-card
-            title="Tembusan SPK Masuk"
+            title="SPK &amp; Kwitansi Masuk (N42)"
             :value="$stats['spk_masuk'] ?? 0"
             color="navy"
             icon="document"
@@ -15,21 +15,21 @@
         />
 
         <x-stat-card
-            title="Menunggu Uji Fisik"
+            title="Menunggu Dokumentasi &amp; BAST"
             :value="$stats['belum_diperiksa'] ?? 0"
             color="amber"
             icon="bell"
             badge="Prioritas"
-            subtitle="Barang tiba belum diinspeksi"
+            subtitle="Barang tiba belum diterbitkan BAST"
         />
 
         <x-stat-card
-            title="BAST Diterbitkan"
+            title="BAST Terkirim ke PPBJ (N50)"
             :value="$stats['total_bast'] ?? 0"
             color="emerald"
             icon="check"
             badge="HMAC SHA-256"
-            subtitle="BAST bertoken digital resmi"
+            subtitle="BAST sah siap fase pembayaran"
         />
 
         <x-stat-card
@@ -44,15 +44,15 @@
     {{-- 2. MAIN OPERATION GRID --}}
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
-        {{-- KOLOM KIRI (6 Cols): Jadwal Pengiriman Barang Vendor (Alarm H-2) --}}
+        {{-- KOLOM KIRI (6 Cols): Jadwal Pengiriman Barang Vendor (BPMN N42) --}}
         <div class="lg:col-span-6 space-y-4">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
                     <span class="size-2 rounded-full bg-blue-600 animate-pulse"></span>
-                    <h2 class="text-lg font-bold text-[#213153]">Jadwal Pengiriman Rekanan Vendor</h2>
+                    <h2 class="text-lg font-bold text-[#213153]">Antrean Penerimaan Barang (BPMN N42)</h2>
                 </div>
                 <a href="{{ route('penerimaan.index') }}" class="text-xs font-bold text-[#0969da] hover:underline flex items-center gap-1">
-                    Cek Semua Jadwal
+                    Kelola Semua
                     <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                 </a>
             </div>
@@ -72,7 +72,7 @@
                                     Rekanan: {{ $spkKirim->paket->vendor->nama_perusahaan ?? 'Penyedia Resmi' }}
                                 </p>
                             </div>
-                            <x-status-badge status="pengiriman" text="In-Transit" size="xs" />
+                            <x-status-badge status="pengiriman" text="Siap BAST" size="xs" />
                         </div>
 
                         <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
@@ -80,25 +80,25 @@
                                 Batas Kirim: <span class="font-bold text-[#213153]">{{ $spkKirim->tanggal_selesai ? date('d M Y', strtotime($spkKirim->tanggal_selesai)) : ($spkKirim->tanggal_spk ? date('d M Y', strtotime($spkKirim->tanggal_spk)) : '-') }}</span>
                             </span>
                             <a href="{{ route('penerimaan.index') }}" class="px-2.5 py-1 rounded-lg text-xs font-bold text-white bg-[#0969da] hover:bg-blue-700 shadow-sm transition-colors">
-                                Input Cek Fisik &rarr;
+                                Input BAST (N48) &rarr;
                             </a>
                         </div>
                     </div>
                 @empty
                     <div class="p-8 text-center rounded-xl bg-white border border-slate-200/80 shadow-sm">
                         <svg class="size-8 text-slate-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        <p class="text-xs text-slate-500 font-medium">Tidak ada jadwal pengiriman vendor yang sedang berlangsung.</p>
+                        <p class="text-xs text-slate-500 font-medium">Tidak ada antrean pengiriman barang yang menunggu penerbitan BAST saat ini.</p>
                     </div>
                 @endforelse
             </div>
         </div>
 
-        {{-- KOLOM KANAN (6 Cols): Antrean Pemeriksaan Fisik & BAST Terkini --}}
+        {{-- KOLOM KANAN (6 Cols): Riwayat BAST Terkirim ke PPBJ (BPMN N50) --}}
         <div class="lg:col-span-6 space-y-4">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
                     <span class="size-2 rounded-full bg-emerald-500"></span>
-                    <h2 class="text-lg font-bold text-[#213153]">Riwayat BAST Diterbitkan (HMAC)</h2>
+                    <h2 class="text-lg font-bold text-[#213153]">BAST Terkirim ke PPBJ (BPMN N50)</h2>
                 </div>
                 <a href="{{ route('penerimaan.index') }}" class="text-xs font-bold text-[#0969da] hover:underline flex items-center gap-1">
                     Arsip BAST

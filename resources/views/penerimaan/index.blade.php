@@ -14,11 +14,11 @@
             <div>
                 <div class="flex items-center gap-2">
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-50 text-teal-800 border border-teal-200">
-                        Siklus 7: Penerimaan &amp; BAST Fisik
+                        Siklus 7: Penerimaan &amp; BAST Fisik (BPMN N42 - N50)
                     </span>
                     <span class="text-xs text-slate-400 font-mono">FR 14 &bull; HMAC SHA-256</span>
                 </div>
-                <h1 class="text-2xl font-bold text-[#213153] mt-1">Pemeriksaan Fisik Barang &amp; Penerbitan BAST</h1>
+                <h1 class="text-2xl font-bold text-[#213153] mt-1">Penerimaan Barang &amp; Penerbitan BAST</h1>
                 <p class="text-xs text-slate-500 mt-0.5">
                     Unit Pengelolaan Barang Milik Negara (BMN) dan Unit Perlengkapan Politeknik Negeri Jakarta
                 </p>
@@ -30,6 +30,19 @@
                     Peran: Petugas Perlengkapan / BMN
                 </span>
             </div>
+        </div>
+
+        {{-- Visual Workflow 5 Node BPMN Perlengkapan --}}
+        <div class="mt-4 pt-4 border-t border-slate-100 flex flex-wrap items-center gap-2 text-xs">
+            <span class="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-medium">N42: Terima Kwitansi/SPK/Kontrak</span>
+            <span class="text-slate-300">&rarr;</span>
+            <span class="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-medium">N46: Dokumentasi Barang</span>
+            <span class="text-slate-300">&rarr;</span>
+            <span class="px-2.5 py-1 rounded-lg bg-teal-100 text-teal-800 font-bold">N48: Menerbitkan BAST</span>
+            <span class="text-slate-300">&rarr;</span>
+            <span class="px-2.5 py-1 rounded-lg bg-teal-100 text-teal-800 font-bold">N49: Input Dokumentasi &amp; BAST</span>
+            <span class="text-slate-300">&rarr;</span>
+            <span class="px-2.5 py-1 rounded-lg bg-[#0969da] text-white font-bold">N50: Kirim ke PPBJ (N51)</span>
         </div>
     </div>
 
@@ -161,14 +174,14 @@
                 </div>
 
                 <div>
-                    <label for="status_fisik" class="block text-xs font-bold text-slate-700 mb-1">
-                        Status Keputusan Kondisi Fisik Barang <span class="text-rose-500">*</span>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">
+                        Status Verifikasi Fisik Barang (BPMN: Alur Lurus Sukses) <span class="text-emerald-600">*</span>
                     </label>
-                    <select id="status_fisik" name="status_fisik" required class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
-                        <option value="terima">Diterima Lengkap (Sesuai Spesifikasi 100%)</option>
-                        <option value="pending">Tertahan / Pending (Belum Lengkap / Perlu Pengujian)</option>
-                        <option value="tidak_sesuai">Tidak Sesuai / Rusak (Retur ke Penyedia)</option>
-                    </select>
+                    <input type="hidden" name="status_fisik" value="terima">
+                    <div class="h-11 rounded-xl border border-emerald-200 bg-emerald-50/70 px-3 flex items-center gap-2 text-xs font-semibold text-emerald-800">
+                        <svg class="size-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <span>Diterima Lengkap (Sesuai Spesifikasi 100%) &mdash; Siap Terbit BAST (BPMN N48)</span>
+                    </div>
                 </div>
 
                 <div>
@@ -183,7 +196,7 @@
 
                 <div>
                     <label for="foto_barang" class="block text-xs font-bold text-slate-700 mb-1">
-                        Unggah Foto Dokumentasi Fisik Barang <span class="text-slate-400 font-normal">(Multi-Foto / Fleksibel)</span>
+                        Unggah Foto Dokumentasi Fisik Barang (BPMN N46 &amp; N49) <span class="text-slate-400 font-normal">(Multi-Foto / Fleksibel)</span>
                     </label>
                     <input
                         type="file"
@@ -197,6 +210,20 @@
                 </div>
 
                 <div>
+                    <label for="file_bast_signed" class="block text-xs font-bold text-slate-700 mb-1">
+                        Unggah Scan Fisik BAST Bertanda Tangan <span class="text-slate-400 font-normal">(Opsional jika ada)</span>
+                    </label>
+                    <input
+                        type="file"
+                        id="file_bast_signed"
+                        name="file_bast_signed"
+                        accept=".pdf,image/*"
+                        class="w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da] hover:file:bg-blue-100"
+                    />
+                    <p class="text-[11px] text-slate-400 mt-1">Jika kosong, sistem otomatis menerbitkan format BAST resmi bertanda tangan digital kriptografis HMAC SHA-256.</p>
+                </div>
+
+                <div class="md:col-span-2">
                     <label for="file_penerimaan_pihak3" class="block text-xs font-bold text-slate-700 mb-1">
                         Dokumen Penerimaan Pihak Ketiga / Surat Jalan Ekspedisi
                     </label>
@@ -227,10 +254,10 @@
             <div class="flex items-center justify-end gap-3 pt-6 border-t border-slate-100">
                 <button
                     type="submit"
-                    class="px-6 py-2.5 rounded-xl bg-[#0969da] text-xs font-bold text-white hover:bg-blue-700 shadow-sm transition inline-flex items-center gap-1.5"
+                    class="px-6 py-2.5 rounded-xl bg-[#0969da] text-xs font-bold text-white hover:bg-blue-700 shadow-sm transition inline-flex items-center gap-2"
                 >
-                    <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    Sahkan BAST &amp; Tanda Tangan Digital (HMAC SHA-256)
+                    <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+                    <span>Sahkan BAST &amp; Kirim Dokumentasi ke PPBJ (BPMN N48 &rarr; N50 &rarr; N51)</span>
                 </button>
             </div>
         </form>
@@ -300,13 +327,14 @@
                                     @if($b->fotoDokumentasi && $b->fotoDokumentasi->isNotEmpty())
                                         <div class="flex items-center gap-1.5 flex-wrap">
                                             @foreach($b->fotoDokumentasi->take(3) as $foto)
+                                                @php $fotoPath = $foto->foto_dokumentasi ?? $foto->file_foto; @endphp
                                                 <button
                                                     type="button"
-                                                    @click="lightboxImg = '{{ asset('storage/' . $foto->file_foto) }}'"
+                                                    @click="lightboxImg = '{{ asset('storage/' . $fotoPath) }}'"
                                                     class="size-8 rounded-lg border border-slate-200 overflow-hidden hover:opacity-80 transition shrink-0"
                                                     title="Pratinjau Foto"
                                                 >
-                                                    <img src="{{ asset('storage/' . $foto->file_foto) }}" alt="Foto Barang" class="size-full object-cover">
+                                                    <img src="{{ asset('storage/' . $fotoPath) }}" alt="Foto Barang" class="size-full object-cover">
                                                 </button>
                                             @endforeach
                                             @if($b->fotoDokumentasi->count() > 3)

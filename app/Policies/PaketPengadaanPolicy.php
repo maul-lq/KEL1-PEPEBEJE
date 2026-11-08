@@ -30,9 +30,13 @@ class PaketPengadaanPolicy
      */
     public function view(User $user, PaketPengadaan $paket): Response
     {
+        if ($user->hasRole('admin')) {
+            return Response::allow();
+        }
+
         // 1. Pemeriksaan Khusus Peran PPK (Pejabat Pembuat Komitmen)
         // Menegakkan isolasi berkas 4 akun PPK: PPK hanya boleh melihat paket yang secara eksplisit ditugaskan kepada dirinya.
-        if ($user->role === 'ppk') {
+        if ($user->hasRole('ppk') || ($user->hasPermission('reviu.ppk') && ! $user->hasRole('ppbj'))) {
             return (int) $paket->id_user_ppk === (int) $user->id_user
                 ? Response::allow()
                 : Response::deny('Akses Ditolak: Berkas paket pengadaan ini ditugaskan kepada PPK lain (Isolasi Berkas PPK).');
@@ -41,9 +45,9 @@ class PaketPengadaanPolicy
         // 2. Pemeriksaan Khusus Peran PP (Pejabat Pengadaan Tunggal)
         // Pejabat Pengadaan hanya boleh melihat paket dengan jalur pengadaan langsung bernilai Rp 50jt - Rp 200jt
         // atau paket yang ditugaskan ke ID user miliknya.
-        if ($user->role === 'pp') {
+        if ($user->hasRole('pp') || ($user->hasPermission('reviu.pp') && ! $user->hasRole('ppbj'))) {
             $isAssigned = (int) $paket->id_user_pp === (int) $user->id_user;
-            $isPpRouting = $paket->jalur_routing === PaketPengadaan::ROUTING_PP;
+            $isPpRouting = in_array($paket->jalur_routing, [PaketPengadaan::ROUTING_PP, 'pp_50_sd_200jt']);
 
             return ($isAssigned || $isPpRouting)
                 ? Response::allow()
@@ -52,7 +56,7 @@ class PaketPengadaanPolicy
 
         // 3. Pemeriksaan Khusus Peran User (Unit Pemohon / Jurusan)
         // Pemohon hanya boleh melihat paket yang berasal dari surat permohonan yang diajukannya sendiri.
-        if ($user->role === 'user') {
+        if ($user->hasRole(['user', 'pengaju']) || ($user->hasPermission('permohonan.view_own') && ! $user->hasPermission('permohonan.view_all'))) {
             return (int) $paket->permohonan?->id_user === (int) $user->id_user
                 ? Response::allow()
                 : Response::deny('Akses Ditolak: Anda bukan pemohon pengadaan ini.');
@@ -60,12 +64,12 @@ class PaketPengadaanPolicy
 
         // 4. Peran Manajemen, Pimpinan, Administrator, dan Pengawasan Kampus
         // Admin, PPBJ, Perencanaan, Wadir 2, Staff Bidang 2, Perlengkapan, dan Keuangan memiliki wewenang lintas paket.
-        if (in_array($user->role, ['admin', 'ppbj', 'perencanaan', 'wadir_2', 'staff_bidang_2', 'perlengkapan', 'keuangan'], true)) {
+        if ($user->hasRole(['admin', 'ppbj', 'perencanaan', 'wadir_2', 'staff_bidang_2', 'perlengkapan', 'keuangan']) || $user->hasAnyPermission(['paket.view_all', 'penerimaan.view', 'pembayaran.pencairan_sp2d', 'verifikasi.wadir_2_view'])) {
             return Response::allow();
         }
 
         // Pengguna / Peran Kustom dengan izin 'pp.monitoring_aktivitas' atau 'lihat_pp'
-        if ($user->canMonitorPp() && ($paket->jalur_routing === PaketPengadaan::ROUTING_PP || ! empty($paket->id_user_pp))) {
+        if ($user->canMonitorPp() && (in_array($paket->jalur_routing, [PaketPengadaan::ROUTING_PP, 'pp_50_sd_200jt']) || ! empty($paket->id_user_pp))) {
             return Response::allow();
         }
 

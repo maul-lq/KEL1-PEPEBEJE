@@ -330,8 +330,8 @@ class HomeController extends Controller
             ],
             'perlengkapan' => [
                 'stats' => [
-                    'spk_masuk' => KontrakSPK::where('status_spk', 'aktif')->orWhereNotNull('nomor_spk')->count(),
-                    'belum_diperiksa' => KontrakSPK::whereDoesntHave('paket.penerimaanBarang')->count(),
+                    'spk_masuk' => KontrakSPK::count() + PaketPengadaan::where('jalur_routing', PaketPengadaan::ROUTING_LANGSUNG)->where('status_paket', PaketPengadaan::STATUS_BELANJA_LANGSUNG_SELESAI)->count(),
+                    'belum_diperiksa' => KontrakSPK::whereDoesntHave('paket.penerimaanBarang')->count() + PaketPengadaan::where('jalur_routing', PaketPengadaan::ROUTING_LANGSUNG)->where('status_paket', PaketPengadaan::STATUS_BELANJA_LANGSUNG_SELESAI)->whereDoesntHave('penerimaanBarang')->count(),
                     'total_bast' => PenerimaanBarang::count(),
                     'belanja_barang' => PenerimaanBarang::where('kategori_belanja', 'belanja_barang')->count(),
                     'belanja_modal' => PenerimaanBarang::where('kategori_belanja', 'belanja_modal')->count(),
@@ -348,20 +348,38 @@ class HomeController extends Controller
             ],
             'keuangan' => [
                 'stats' => [
+                    'reminder_masuk' => NotifikasiUser::where('id_user', $user->id_user)->count() ?: Reminder::whereIn('tipe_reminder', ['tembusan_spk', 'pembayaran', 'pengingat'])->count(),
+                    'paket_masuk_ppbj' => Pembayaran::where('status_pembayaran', 'perintah_bayar')->count(),
+                    'transaksi_lunas' => TransaksiPencairan::count(),
+                    'total_dana_cair' => (float) (TransaksiPencairan::sum('nominal_transfer') ?? 0),
                     'spp_siap_verifikasi' => Pembayaran::where('status_pembayaran', 'pengajuan')->count(),
                     'sp2d_siap_cair' => Pembayaran::where('status_pembayaran', 'perintah_bayar')->count(),
-                    'total_dana_cair' => (float) (TransaksiPencairan::sum('nominal_transfer') ?? 0),
-                    'transaksi_lunas' => TransaksiPencairan::count(),
                 ],
-                'antrean_tagihan' => Pembayaran::with(['paket.vendor', 'pengaju.unit'])
-                    ->whereIn('status_pembayaran', ['pengajuan', 'perintah_bayar'])
-                    ->latest('tanggal_pengajuan')
+                'antrean_tagihan' => Pembayaran::with(['paket.kontrakSpk.vendor', 'paket.kontrak.vendor', 'paket.vendor', 'pengaju.unit', 'memoBayar'])
+                    ->where('status_pembayaran', 'perintah_bayar')
+                    ->latest('tanggal_perintah_bayar')
                     ->take(5)
                     ->get(),
                 'transaksi_cair' => TransaksiPencairan::with(['pembayaran.paket.vendor'])
                     ->latest('tanggal_transfer')
                     ->take(5)
                     ->get(),
+                'reminders' => (function () use ($user) {
+                    $notifs = NotifikasiUser::with('reminder.paket')
+                        ->where('id_user', $user->id_user)
+                        ->latest('created_at')
+                        ->take(5)
+                        ->get();
+                    if ($notifs->isEmpty()) {
+                        return Reminder::with('paket')
+                            ->whereIn('tipe_reminder', ['tembusan_spk', 'pembayaran', 'pengingat'])
+                            ->latest('waktu_trigger')
+                            ->take(5)
+                            ->get();
+                    }
+
+                    return $notifs;
+                })(),
             ],
             default => [],
         };
@@ -2875,19 +2893,23 @@ class HomeController extends Controller
      */
     public function penerimaanIndex(): View
     {
-        $kontrakList = KontrakSPK::with(['paket.vendor'])->whereIn('status_spk', ['aktif', 'terbit'])->get();
+        $kontrakList = KontrakSPK::with(['paket.vendor'])
+            ->whereIn('status_spk', ['aktif', 'terbit'])
+            ->whereDoesntHave('paket.penerimaanBarang')
+            ->get();
         $belanjaLangsungList = PaketPengadaan::with(['vendor', 'permohonan'])
             ->where('jalur_routing', PaketPengadaan::ROUTING_LANGSUNG)
             ->where('status_paket', PaketPengadaan::STATUS_BELANJA_LANGSUNG_SELESAI)
+            ->whereDoesntHave('penerimaanBarang')
             ->get();
-        $bastList = PenerimaanBarang::with(['kontrak', 'paket'])->latest()->paginate(15);
+        $bastList = PenerimaanBarang::with(['kontrak', 'paket.vendor', 'fotoDokumentasi', 'user'])->latest()->paginate(15);
 
         return view('penerimaan.index', compact('kontrakList', 'belanjaLangsungList', 'bastList'));
     }
 
     /**
      * Memproses pemeriksaan fisik barang, penentuan Belanja Barang/Modal, upload foto fleksibel,
-     * dan penerbitan BAST bertoken HMAC oleh Unit Perlengkapan (satu-satunya penerbit BAST).
+     * dan penerbitan BAST bertoken HMAC oleh Unit Perlengkapan (BPMN N46, N48, N49, N50).
      */
     public function storePenerimaan(Request $request): RedirectResponse
     {
@@ -2908,16 +2930,17 @@ class HomeController extends Controller
             'nomor_paket' => ['required_without:nomor_kontrak_spk', 'nullable', 'exists:paket_pengadaan,nomor_paket'],
             'nomor_bast' => ['required', 'string', 'max:100', 'unique:penerimaan_barang,nomor_bast'],
             'tanggal_terima' => ['required', 'date'],
-            'kondisi_barang' => ['required_without:status_fisik', 'nullable', 'string'],
-            'status_fisik' => ['required_without:kondisi_barang', 'nullable', 'string'],
+            'kondisi_barang' => ['nullable', 'string'],
+            'status_fisik' => ['nullable', 'string'],
             'kategori_belanja' => ['nullable', 'string', 'in:belanja_barang,belanja_modal'],
             'foto_barang' => ['nullable'],
             'foto_barang.*' => ['nullable', DokumenUploadRule::pdfOrImage()],
+            'file_bast_signed' => ['nullable', DokumenUploadRule::pdfOrImage()],
             'file_penerimaan_pihak3' => ['nullable', DokumenUploadRule::pdfOrImage()],
             'catatan_pemeriksaan' => ['nullable', 'string'],
         ]);
 
-        $kondisi = $validated['status_fisik'] ?? $validated['kondisi_barang'] ?? 'sesuai';
+        $kondisi = $validated['status_fisik'] ?? $validated['kondisi_barang'] ?? 'terima';
 
         $nomorPaket = $validated['nomor_paket'] ?? null;
         if (empty($nomorPaket)) {
@@ -2931,10 +2954,16 @@ class HomeController extends Controller
             $pihak3Path = $request->file('file_penerimaan_pihak3')->store('pihak3', 'public');
         }
 
-        // 2. Buat token HMAC SHA-256 untuk verifikasi keabsahan hukum dokumen BAST
+        // 2. Simpan naskah fisik BAST jika diunggah atau generate path dokumen resmi
+        $bastSignedPath = 'bast/'.str_replace(['/', '\\'], '_', $validated['nomor_bast']).'.pdf';
+        if ($request->hasFile('file_bast_signed')) {
+            $bastSignedPath = $request->file('file_bast_signed')->store('bast', 'public');
+        }
+
+        // 3. Buat token HMAC SHA-256 untuk verifikasi keabsahan hukum dokumen BAST
         $tokenHmac = PenerimaanBarang::generateSignatureToken($validated['nomor_bast'], $user->id_user);
 
-        // 3. Simpan data BAST
+        // 4. Simpan data BAST (BPMN N48 & N49)
         $penerimaan = PenerimaanBarang::create([
             'nomor_bast' => $validated['nomor_bast'],
             'nomor_paket' => $nomorPaket,
@@ -2944,13 +2973,13 @@ class HomeController extends Controller
             'kategori_belanja' => $validated['kategori_belanja'] ?? PenerimaanBarang::KATEGORI_BELANJA_BARANG,
             'kondisi_barang' => $kondisi,
             'ttd_digital_bast' => $tokenHmac,
-            'file_bast_signed' => 'bast/'.str_replace(['/', '\\'], '_', $validated['nomor_bast']).'.pdf',
+            'file_bast_signed' => $bastSignedPath,
             'file_penerimaan_pihak3' => $pihak3Path,
             'catatan_pemeriksaan' => $validated['catatan_pemeriksaan'],
             'waktu_selesai_inspeksi' => now(),
         ]);
 
-        // 4. Simpan foto dokumentasi fisik
+        // 5. Simpan foto dokumentasi fisik barang (BPMN N46 & N49)
         if ($request->hasFile('foto_barang')) {
             $files = is_array($request->file('foto_barang')) ? $request->file('foto_barang') : [$request->file('foto_barang')];
             foreach ($files as $idx => $f) {
@@ -2969,32 +2998,32 @@ class HomeController extends Controller
             ]);
         }
 
-        // 5. Perbarui status paket
+        // 6. Perbarui status paket agar diterima di N51 PPBJ & siap dibuat dokumen pembayaran di N52
         $paket = PaketPengadaan::find($nomorPaket);
         $isTerima = in_array($kondisi, ['terima', 'diterima_lengkap', 'sesuai'], true);
         if ($paket) {
-            $paket->status_paket = $isTerima ? 'penerimaan_selesai' : 'penerimaan_pending';
+            $paket->status_paket = 'penerimaan_selesai';
             $paket->save();
         }
 
         AuditLog::catat(
             $user->id_user,
-            'TERBITKAN_BAST',
+            'TERBITKAN_BAST_KIRIM_PPBJ',
             'penerimaan_barang',
             $penerimaan->nomor_bast,
             null,
             $penerimaan->status_fisik,
-            "Unit Perlengkapan menerbitkan BAST {$penerimaan->nomor_bast} paket {$nomorPaket} token {$tokenHmac} status {$penerimaan->status_fisik}"
+            "Unit Perlengkapan menerbitkan BAST {$penerimaan->nomor_bast} paket {$nomorPaket} dan mengirimkan dokumentasi ke PPBJ (BPMN N48 - N50)."
         );
 
-        // Memicu notifikasi penerimaan barang / BAST terbit ke PPBJ dan Pengusul
+        // Memicu notifikasi pengiriman BAST & dokumentasi ke PPBJ (BPMN N50 -> N51)
         if ($isTerima) {
             $this->notificationService->notifyPenerimaanBarang($penerimaan);
         }
 
         return redirect()->route('penerimaan.index')->with(
             'success',
-            "Berita Acara Serah Terima (BAST) nomor {$penerimaan->nomor_bast} berhasil diterbitkan dengan Tanda Tangan Digital bertoken HMAC."
+            "Berita Acara Serah Terima (BAST) nomor {$penerimaan->nomor_bast} dan foto dokumentasi berhasil diterbitkan & dikirim ke PPBJ (BPMN N48 - N50)."
         );
     }
 
@@ -3009,9 +3038,10 @@ class HomeController extends Controller
     {
         $user = Auth::user();
 
-        // 1. Paket dengan BAST selesai yang siap diajukan berkas pembayaran oleh PPBJ (FR 15)
+        // 1. Paket dengan BAST selesai yang siap diajukan berkas pembayaran oleh PPBJ (BPMN N51 -> N52)
         $bastSiapBayar = PenerimaanBarang::with(['paket.kontrakSpk', 'paket.kontrak', 'fotoDokumentasi'])
             ->where('status_fisik', 'terima')
+            ->whereDoesntHave('paket.pembayaran')
             ->latest('tanggal_penerimaan')
             ->get();
 
@@ -3067,8 +3097,15 @@ class HomeController extends Controller
                 return $p->memoBayar->count() >= 2 && $p->memoBayar->where('status_memo', '!=', 'disetujui')->count() === 0;
             });
 
-        // 5. Pembayaran dengan SPP terbit yang siap dicairkan oleh Keuangan (FR 18)
-        $siapCairKeuangan = Pembayaran::with(['paket.kontrakSpk', 'paket.kontrak.vendor', 'paket.vendor'])
+        // 5. Pembayaran dengan SPP terbit yang siap dicairkan oleh Keuangan (BPMN N59 & FR 18)
+        $siapCairKeuangan = Pembayaran::with([
+            'paket.kontrakSpk.vendor',
+            'paket.kontrak.vendor',
+            'paket.vendor',
+            'paket.penerimaanBarang.fotoDokumentasi',
+            'memoBayar.user',
+            'pengaju.unit',
+        ])
             ->where('status_pembayaran', 'perintah_bayar')
             ->get();
 
