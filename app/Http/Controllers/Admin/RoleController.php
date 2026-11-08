@@ -102,7 +102,7 @@ class RoleController extends Controller
     }
 
     /**
-     * Memperbarui label, deskripsi, dan matriks hak akses permissions dari suatu role.
+     * Memperbarui label, deskripsi, status proteksi sistem, dan matriks hak akses permissions dari suatu role.
      */
     public function update(Request $request, Role $role): RedirectResponse|JsonResponse
     {
@@ -111,15 +111,23 @@ class RoleController extends Controller
         $validated = $request->validate([
             'label' => ['required', 'string', 'max:100'],
             'deskripsi' => ['nullable', 'string', 'max:500'],
+            'is_system' => ['nullable', 'boolean'],
             'permissions' => ['nullable', 'array'],
             'permissions.*' => ['exists:permissions,id'],
         ]);
 
-        // Update informasi label dan deskripsi
-        $role->update([
+        $updateData = [
             'label' => $validated['label'],
             'deskripsi' => $validated['deskripsi'] ?? null,
-        ]);
+        ];
+
+        // Role admin utama selalu diproteksi sebagai sistem, role lain dapat diatur status proteksinya oleh Admin
+        if ($role->nama_role !== 'admin') {
+            $updateData['is_system'] = $request->boolean('is_system');
+        }
+
+        // Update informasi label, deskripsi, dan status proteksi
+        $role->update($updateData);
 
         // Sinkronisasi permissions fitur
         $role->permissions()->sync($validated['permissions'] ?? []);
@@ -150,15 +158,15 @@ class RoleController extends Controller
 
     /**
      * Menghapus role kustom dari sistem.
-     * Role sistem institusi (is_system = true) diproteksi mutlak dari penghapusan lewat antarmuka web.
+     * Role administrator sistem utama diproteksi mutlak dari penghapusan.
      */
     public function destroy(Request $request, Role $role): RedirectResponse|JsonResponse
     {
         $admin = Auth::user();
 
-        // 1. Proteksi Role Sistem Institusi: Tidak dapat dihapus jika is_system = true
-        if ($role->is_system) {
-            $errorMsg = "Akses Ditolak: Role [{$role->label}] adalah role sistem institusi yang diproteksi. Untuk menghapusnya melalui website, ubah terlebih dahulu flag is_system di database menjadi false.";
+        // 1. Proteksi Role Administrator Utama: Tidak dapat dihapus
+        if ($role->nama_role === 'admin') {
+            $errorMsg = "Akses Ditolak: Role [{$role->label}] adalah Administrator utama sistem yang tidak boleh dihapus.";
 
             if ($request->expectsJson() || $request->is('api/*')) {
                 return response()->json([
@@ -170,7 +178,21 @@ class RoleController extends Controller
             return back()->with('error', $errorMsg);
         }
 
-        // 2. Proteksi Pengguna Aktif: Role tidak dapat dihapus jika masih ada pengguna yang menggunakannya
+        // 2. Proteksi Role dengan status is_system aktif
+        if ($role->is_system) {
+            $errorMsg = "Akses Ditolak: Role [{$role->label}] saat ini memiliki proteksi peran sistem. Buka modal 'Atur Hak Akses' lalu hilangkan centang proteksi sistem jika ingin menghapusnya.";
+
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => $errorMsg,
+                ], 403);
+            }
+
+            return back()->with('error', $errorMsg);
+        }
+
+        // 3. Proteksi Pengguna Aktif: Role tidak dapat dihapus jika masih ada pengguna yang menggunakannya
         $usersCount = User::where('role', $role->nama_role)->orWhere('id_role', $role->id)->count();
         if ($usersCount > 0) {
             $errorMsg = "Tidak dapat menghapus role [{$role->label}] karena masih digunakan oleh {$usersCount} pengguna. Alihkan peran pengguna tersebut terlebih dahulu.";
@@ -188,11 +210,11 @@ class RoleController extends Controller
         $namaRole = $role->label;
         $slugRole = $role->nama_role;
 
-        // 3. Hapus relasi pivot permissions dan hapus role
+        // 4. Hapus relasi pivot permissions dan hapus role
         $role->permissions()->detach();
         $role->delete();
 
-        // 4. Catat jejak audit log penghapusan role
+        // 5. Catat jejak audit log penghapusan role
         AuditLog::catat(
             $admin?->id_user ?? 1,
             'HAPUS_ROLE_KUSTOM',
@@ -200,10 +222,10 @@ class RoleController extends Controller
             $slugRole,
             $slugRole,
             null,
-            "Admin menghapus role kustom: {$namaRole} ({$slugRole})."
+            "Admin menghapus role: {$namaRole} ({$slugRole})."
         );
 
-        $successMsg = "Role kustom [{$namaRole}] berhasil dihapus.";
+        $successMsg = "Role [{$namaRole}] berhasil dihapus.";
 
         if ($request->expectsJson() || $request->is('api/*')) {
             return response()->json([

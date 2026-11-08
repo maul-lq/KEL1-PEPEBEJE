@@ -43,23 +43,23 @@
         />
 
         <x-stat-card
-            title="Peran Sistem (Terkunci)"
+            title="Peran Bawaan Sistem"
             :value="$roles->where('is_system', true)->count()"
             icon="check"
             color="blue"
-            badge="Terkunci"
+            badge="Dapat Diatur"
             badgeColor="bg-blue-50 text-[#0969da] border-blue-200"
             subtitle="Peran standar institusi"
         />
 
         <x-stat-card
-            title="Peran Kustom"
+            title="Peran Terbuka / Kustom"
             :value="$roles->where('is_system', false)->count()"
             icon="users"
             color="amber"
-            badge="Dinamis"
+            badge="Dapat Diatur"
             badgeColor="bg-amber-50 text-amber-700 border-amber-200"
-            subtitle="Peran kustom dapat disesuaikan"
+            subtitle="Hak akses & matriks dapat disesuaikan"
         />
 
         <x-stat-card
@@ -100,16 +100,33 @@
                 </div>
 
                 <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-2">Pilih Hak Akses Fitur (Permissions)</label>
-                    <div class="space-y-3 max-h-60 overflow-y-auto border border-slate-200 p-3 rounded-xl bg-slate-50">
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="block text-xs font-bold text-slate-700">Pilih Hak Akses Fitur (Permissions)</label>
+                        <div class="flex items-center gap-1.5 text-xs">
+                            <button type="button" onclick="const p = this.closest('form').querySelectorAll('input[name=\'permissions[]\']'); p.forEach(c => c.checked = true);" class="px-2 py-0.5 rounded bg-blue-50 text-[#0969da] font-bold text-[11px] hover:bg-blue-100 transition">Pilih Seluruh Izin</button>
+                            <span class="text-slate-300">|</span>
+                            <button type="button" onclick="const p = this.closest('form').querySelectorAll('input[name=\'permissions[]\']'); p.forEach(c => c.checked = false);" class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-bold text-[11px] hover:bg-slate-200 transition">Kosongkan Izin</button>
+                        </div>
+                    </div>
+                    <div class="space-y-3 max-h-64 overflow-y-auto border border-slate-200 p-3 rounded-xl bg-slate-50">
                         @foreach($permissionsByModule as $module => $modulePermissions)
-                            <div>
-                                <div class="text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1">{{ $module }}</div>
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pl-2">
+                            <div class="modul-group bg-white p-2.5 rounded-lg border border-slate-200/70 shadow-2xs">
+                                <div class="flex items-center justify-between mb-1.5 pb-1 border-b border-slate-100">
+                                    <div class="text-[11px] font-bold text-[#213153] uppercase tracking-wide">{{ $module }}</div>
+                                    <div class="flex items-center gap-1.5 text-[10px]">
+                                        <button type="button" onclick="const p = this.closest('.modul-group').querySelectorAll('input[type=checkbox]'); p.forEach(c => c.checked = true);" class="text-[#0969da] hover:underline font-semibold">Pilih Semua</button>
+                                        <span class="text-slate-300">&bull;</span>
+                                        <button type="button" onclick="const p = this.closest('.modul-group').querySelectorAll('input[type=checkbox]'); p.forEach(c => c.checked = false);" class="text-slate-500 hover:underline">Batal</button>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                                     @foreach($modulePermissions as $perm)
-                                        <label class="flex items-start gap-2 text-xs text-slate-600 cursor-pointer">
+                                        <label class="flex items-start gap-2 text-xs text-slate-600 cursor-pointer p-1 rounded hover:bg-slate-50 transition">
                                             <input type="checkbox" name="permissions[]" value="{{ $perm->id }}" class="mt-0.5 rounded text-[#0969da]">
-                                            <span><strong>{{ $perm->label }}</strong> <span class="text-[10px] text-slate-400 font-mono">({{ $perm->slug }})</span></span>
+                                            <div>
+                                                <strong class="text-slate-800">{{ $perm->label }}</strong>
+                                                <span class="text-[10px] text-slate-400 font-mono block">({{ $perm->slug }})</span>
+                                            </div>
                                         </label>
                                     @endforeach
                                 </div>
@@ -166,11 +183,11 @@
 
                             <td class="px-5 py-4 align-top">
                                 @if($role->is_system)
-                                    <span class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 font-bold text-slate-700 border border-slate-200 text-[11px]">
-                                        Peran Bawaan Sistem
+                                    <span class="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 font-bold text-[#0969da] border border-blue-200 text-[11px]">
+                                        Peran Bawaan (Dapat Diatur)
                                     </span>
                                 @else
-                                    <span class="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 font-bold text-[#0969da] border border-blue-200 text-[11px]">
+                                    <span class="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 font-bold text-emerald-700 border border-emerald-200 text-[11px]">
                                         Peran Kustom
                                     </span>
                                 @endif
@@ -193,76 +210,113 @@
                             </td>
 
                             <td class="px-5 py-4 align-top text-center">
-                                @if($role->is_system && !in_array($role->nama_role, ['admin']))
-                                    <span class="text-xs text-slate-400 italic">Sistem Terkunci</span>
-                                @else
-                                    <button
-                                        type="button"
-                                        @click="editModal = true"
-                                        class="px-3 py-1 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-xs"
-                                    >
-                                        Ubah Matriks
-                                    </button>
+                                <button
+                                    type="button"
+                                    @click="editModal = true"
+                                    class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-[#0969da] hover:bg-blue-50 hover:border-blue-300 transition shadow-xs inline-flex items-center gap-1.5"
+                                >
+                                    <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                    <span>Atur Hak Akses</span>
+                                </button>
 
-                                    {{-- MODAL UBAH ROLE --}}
-                                    <div x-show="editModal" x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 text-left" style="display: none;">
-                                        <div @click.away="editModal = false" class="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
-                                            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                                                <h3 class="text-base font-bold text-[#213153]">Ubah Matriks Izin: {{ $role->label }}</h3>
-                                                <button type="button" @click="editModal = false" class="text-slate-400 hover:text-slate-600">
-                                                    <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                                                </button>
+                                {{-- MODAL UBAH ROLE & MATRIKS HAK AKSES --}}
+                                <div x-show="editModal" x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 text-left" style="display: none;">
+                                    <div @click.away="editModal = false" class="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+                                        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                                            <div>
+                                                <h3 class="text-base font-bold text-[#213153]">Atur Hak Akses: {{ $role->label }}</h3>
+                                                <div class="flex items-center gap-2 mt-1">
+                                                    <span class="text-[11px] font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded">Kode: {{ $role->nama_role }}</span>
+                                                    @if($role->is_system)
+                                                        <span class="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">Peran Bawaan Sistem</span>
+                                                    @else
+                                                        <span class="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">Peran Kustom</span>
+                                                    @endif
+                                                </div>
+                                            </div>
+                                            <button type="button" @click="editModal = false" class="text-slate-400 hover:text-slate-600">
+                                                <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                                            </button>
+                                        </div>
+
+                                        <form action="{{ route('admin.roles.update', $role->id) }}" method="POST" class="mt-4 space-y-4">
+                                            @csrf
+                                            @method('PUT')
+                                            <div>
+                                                <label class="block text-xs font-bold text-slate-700 mb-1">Label Tampilan Role</label>
+                                                <input type="text" name="label" value="{{ old('label', $role->label) }}" required class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-1 focus:ring-[#0969da]">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-bold text-slate-700 mb-1">Deskripsi Wewenang</label>
+                                                <textarea name="deskripsi" rows="2" class="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-1 focus:ring-[#0969da]">{{ old('deskripsi', $role->deskripsi) }}</textarea>
                                             </div>
 
-                                            <form action="{{ route('admin.roles.update', $role->id) }}" method="POST" class="mt-4 space-y-4">
-                                                @csrf
-                                                @method('PUT')
-                                                <div>
-                                                    <label class="block text-xs font-bold text-slate-700 mb-1">Label Tampilan Role</label>
-                                                    <input type="text" name="label" value="{{ old('label', $role->label) }}" required class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-1 focus:ring-[#0969da]">
+                                            @if($role->nama_role !== 'admin')
+                                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                                                    <label class="flex items-center gap-2 text-xs text-slate-700 font-semibold cursor-pointer">
+                                                        <input type="checkbox" name="is_system" value="1" {{ $role->is_system ? 'checked' : '' }} class="rounded text-[#0969da]">
+                                                        <span>Proteksi Peran Sistem Institusi</span>
+                                                    </label>
+                                                    <p class="text-[10px] text-slate-400 ml-6 mt-0.5">Jika dicentang, tombol hapus akan dikunci untuk mencegah peran ini terhapus secara tidak sengaja.</p>
                                                 </div>
-                                                <div>
-                                                    <label class="block text-xs font-bold text-slate-700 mb-1">Deskripsi Wewenang</label>
-                                                    <textarea name="deskripsi" rows="2" class="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-1 focus:ring-[#0969da]">{{ old('deskripsi', $role->deskripsi) }}</textarea>
-                                                </div>
+                                            @endif
 
-                                                <div>
-                                                    <label class="block text-xs font-bold text-slate-700 mb-2">Pilih Hak Akses Fitur (Permissions)</label>
-                                                    <div class="space-y-3 max-h-64 overflow-y-auto border border-slate-200 p-3 rounded-xl bg-slate-50">
-                                                        @php
-                                                            $currentPermIds = $role->permissions->pluck('id')->toArray();
-                                                        @endphp
-                                                        @foreach($permissionsByModule as $module => $modulePermissions)
-                                                            <div>
-                                                                <div class="text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1">{{ $module }}</div>
-                                                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pl-2">
-                                                                    @foreach($modulePermissions as $perm)
-                                                                        <label class="flex items-start gap-2 text-xs text-slate-600 cursor-pointer">
-                                                                            <input type="checkbox" name="permissions[]" value="{{ $perm->id }}"
-                                                                                   {{ in_array($perm->id, $currentPermIds) ? 'checked' : '' }}
-                                                                                   class="mt-0.5 rounded text-[#0969da]">
-                                                                            <span><strong>{{ $perm->label }}</strong></span>
-                                                                        </label>
-                                                                    @endforeach
-                                                                </div>
-                                                            </div>
-                                                        @endforeach
+                                            <div>
+                                                <div class="flex items-center justify-between mb-2">
+                                                    <label class="block text-xs font-bold text-slate-700">Pilih Hak Akses Fitur (Permissions)</label>
+                                                    <div class="flex items-center gap-1.5 text-xs">
+                                                        <button type="button" onclick="const p = this.closest('form').querySelectorAll('input[name=\'permissions[]\']'); p.forEach(c => c.checked = true);" class="px-2 py-0.5 rounded bg-blue-50 text-[#0969da] font-bold text-[11px] hover:bg-blue-100 transition">Pilih Seluruh Izin</button>
+                                                        <span class="text-slate-300">|</span>
+                                                        <button type="button" onclick="const p = this.closest('form').querySelectorAll('input[name=\'permissions[]\']'); p.forEach(c => c.checked = false);" class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-bold text-[11px] hover:bg-slate-200 transition">Kosongkan Izin</button>
                                                     </div>
                                                 </div>
 
-                                                <div class="flex justify-end gap-2.5 pt-3 border-t border-slate-100">
-                                                    <button type="button" @click="editModal = false" class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">Batal</button>
-                                                    <button type="submit" class="px-5 py-2 rounded-xl bg-[#0969da] text-xs font-bold text-white hover:bg-blue-700 shadow-sm transition">Simpan Perubahan</button>
+                                                <div class="space-y-3 max-h-72 overflow-y-auto border border-slate-200 p-3 rounded-xl bg-slate-50">
+                                                    @php
+                                                        $currentPermIds = $role->permissions->pluck('id')->toArray();
+                                                    @endphp
+                                                    @foreach($permissionsByModule as $module => $modulePermissions)
+                                                        <div class="modul-group bg-white p-2.5 rounded-lg border border-slate-200/70 shadow-2xs">
+                                                            <div class="flex items-center justify-between mb-1.5 pb-1 border-b border-slate-100">
+                                                                <div class="text-[11px] font-bold text-[#213153] uppercase tracking-wide">{{ $module }}</div>
+                                                                <div class="flex items-center gap-1.5 text-[10px]">
+                                                                    <button type="button" onclick="const p = this.closest('.modul-group').querySelectorAll('input[type=checkbox]'); p.forEach(c => c.checked = true);" class="text-[#0969da] hover:underline font-semibold">Pilih Semua</button>
+                                                                    <span class="text-slate-300">&bull;</span>
+                                                                    <button type="button" onclick="const p = this.closest('.modul-group').querySelectorAll('input[type=checkbox]'); p.forEach(c => c.checked = false);" class="text-slate-500 hover:underline">Batal</button>
+                                                                </div>
+                                                            </div>
+                                                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                                                                @foreach($modulePermissions as $perm)
+                                                                    <label class="flex items-start gap-2 text-xs text-slate-600 cursor-pointer p-1 rounded hover:bg-slate-50 transition">
+                                                                        <input type="checkbox" name="permissions[]" value="{{ $perm->id }}"
+                                                                               {{ in_array($perm->id, $currentPermIds) ? 'checked' : '' }}
+                                                                               class="mt-0.5 rounded text-[#0969da]">
+                                                                        <div>
+                                                                            <strong class="text-slate-800">{{ $perm->label }}</strong>
+                                                                            <span class="text-[10px] text-slate-400 font-mono block">({{ $perm->slug }})</span>
+                                                                        </div>
+                                                                    </label>
+                                                                @endforeach
+                                                            </div>
+                                                        </div>
+                                                    @endforeach
                                                 </div>
-                                            </form>
-                                        </div>
+                                            </div>
+
+                                            <div class="flex justify-end gap-2.5 pt-3 border-t border-slate-100">
+                                                <button type="button" @click="editModal = false" class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">Batal</button>
+                                                <button type="submit" class="px-5 py-2 rounded-xl bg-[#0969da] text-xs font-bold text-white hover:bg-blue-700 shadow-sm transition">Simpan Perubahan</button>
+                                            </div>
+                                        </form>
                                     </div>
-                                @endif
+                                </div>
                             </td>
 
                             <td class="px-5 py-4 align-top text-center">
-                                @if($role->is_system)
-                                    <span class="text-xs text-slate-400 italic">Terkunci</span>
+                                @if($role->nama_role === 'admin')
+                                    <span class="text-xs text-slate-400 italic">Admin Utama</span>
+                                @elseif($role->is_system)
+                                    <span class="text-xs text-slate-400 italic" title="Hilangkan centang proteksi sistem di modal jika ingin menghapus">Diproteksi</span>
                                 @else
                                     <form
                                         action="{{ route('admin.roles.destroy', $role->id) }}"
