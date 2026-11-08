@@ -73,6 +73,41 @@
         </div>
     </div>
 
+    {{-- Banner Notifikasi Flash Message Feedback Operasional & Verifikasi --}}
+    @if(session('success'))
+        <div class="rounded-xl border border-emerald-200 bg-emerald-50/90 p-4 shadow-xs flex items-center justify-between gap-3 text-emerald-800">
+            <div class="flex items-center gap-2.5">
+                <svg class="size-5 shrink-0 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span class="text-xs font-bold leading-relaxed">{{ session('success') }}</span>
+            </div>
+            <button type="button" @click="$el.parentElement.remove()" class="text-emerald-600 hover:text-emerald-900 text-xs font-bold px-2 py-1 rounded">✕</button>
+        </div>
+    @endif
+
+    @if(session('error'))
+        <div class="rounded-xl border border-rose-200 bg-rose-50/90 p-4 shadow-xs flex items-center justify-between gap-3 text-rose-800">
+            <div class="flex items-center gap-2.5">
+                <svg class="size-5 shrink-0 text-rose-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span class="text-xs font-bold leading-relaxed">{{ session('error') }}</span>
+            </div>
+            <button type="button" @click="$el.parentElement.remove()" class="text-rose-600 hover:text-rose-900 text-xs font-bold px-2 py-1 rounded">✕</button>
+        </div>
+    @endif
+
+    @if($errors->any())
+        <div class="rounded-xl border border-rose-200 bg-rose-50/90 p-4 shadow-xs text-rose-800 space-y-1">
+            <div class="flex items-center gap-2 font-bold text-xs text-rose-900">
+                <svg class="size-4 shrink-0 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                <span>Mohon periksa kendala berikut:</span>
+            </div>
+            <ul class="list-disc list-inside text-xs space-y-0.5 pl-1">
+                @foreach($errors->all() as $err)
+                    <li>{{ $err }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
     <!-- 2. SECTION FILTER & PENCARIAN (Figma 462:7620 / Rectangle 57) -->
     <form method="GET" action="{{ route('permohonan.index') }}" x-show="viewMode === 'split'" class="bg-white rounded-xl border border-slate-200/80 p-4 shadow-sm">
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
@@ -648,6 +683,11 @@
                             </div>
                         </div>
 
+                        <!-- Banner Aksi Cepat Sesuai Hak Akses Peran RBAC -->
+                        <div class="pt-2">
+                            @include('permohonan.partials.role-actions-index')
+                        </div>
+
                     </div>
                 </template>
 
@@ -1008,6 +1048,41 @@
         </div>
     </div>
 
+    {{-- Banner Notifikasi Flash Message Feedback Operasional & Verifikasi --}}
+    @if(session('success'))
+        <div class="rounded-xl border border-emerald-200 bg-emerald-50/90 p-4 shadow-xs flex items-center justify-between gap-3 text-emerald-800">
+            <div class="flex items-center gap-2.5">
+                <svg class="size-5 shrink-0 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span class="text-xs font-bold leading-relaxed">{{ session('success') }}</span>
+            </div>
+            <button type="button" @click="$el.parentElement.remove()" class="text-emerald-600 hover:text-emerald-900 text-xs font-bold px-2 py-1 rounded">✕</button>
+        </div>
+    @endif
+
+    @if(session('error'))
+        <div class="rounded-xl border border-rose-200 bg-rose-50/90 p-4 shadow-xs flex items-center justify-between gap-3 text-rose-800">
+            <div class="flex items-center gap-2.5">
+                <svg class="size-5 shrink-0 text-rose-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span class="text-xs font-bold leading-relaxed">{{ session('error') }}</span>
+            </div>
+            <button type="button" @click="$el.parentElement.remove()" class="text-rose-600 hover:text-rose-900 text-xs font-bold px-2 py-1 rounded">✕</button>
+        </div>
+    @endif
+
+    @if($errors->any())
+        <div class="rounded-xl border border-rose-200 bg-rose-50/90 p-4 shadow-xs text-rose-800 space-y-1">
+            <div class="flex items-center gap-2 font-bold text-xs text-rose-900">
+                <svg class="size-4 shrink-0 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                <span>Mohon periksa kendala berikut:</span>
+            </div>
+            <ul class="list-disc list-inside text-xs space-y-0.5 pl-1">
+                @foreach($errors->all() as $err)
+                    <li>{{ $err }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
     <!-- ========================================================================= -->
     <!-- 5. MODAL 2: BUAT PERMOHONAN BARU MULTI-DOKUMEN (737:7343 & 737:7339)      -->
     <!-- ========================================================================= -->
@@ -1050,19 +1125,11 @@
                 </div>
 
                 <div class="space-y-1">
-                    <label class="block text-xs font-bold text-slate-700">Unit Pengusul <span class="text-rose-500">*</span></label>
-                    <select name="kode_unit" required 
-                            class="w-full h-10 px-3 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-[#3b82f6]/20 focus:border-[#3b82f6] outline-none">
-                        @if(isset($units))
-                            @foreach($units as $u)
-                                <option value="{{ $u->kode_unit }}" {{ Auth::user()->kode_unit === $u->kode_unit ? 'selected' : '' }}>
-                                    [{{ $u->kode_unit }}] {{ $u->nama_unit }}
-                                </option>
-                            @endforeach
-                        @else
-                            <option value="{{ Auth::user()->kode_unit ?? 'TIK' }}">{{ Auth::user()->kode_unit ?? 'TIK' }}</option>
-                        @endif
-                    </select>
+                    <label class="block text-xs font-bold text-slate-700">Unit Pengusul</label>
+                    <input type="hidden" name="kode_unit" value="{{ Auth::user()->kode_unit ?? 'TIK' }}">
+                    <input type="text" readonly disabled 
+                           value="{{ Auth::user()->unit ? '[' . Auth::user()->kode_unit . '] ' . Auth::user()->unit->nama_unit : (Auth::user()->kode_unit ?? 'Unit Pengusul') }}" 
+                           class="w-full h-10 px-3 rounded-lg border border-slate-200 bg-slate-100 text-slate-700 text-sm font-semibold cursor-not-allowed">
                 </div>
             </div>
 

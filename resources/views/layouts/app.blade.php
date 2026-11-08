@@ -165,21 +165,26 @@
             @endif
         @endif
 
-        <!-- 3. USER: Permohonan Pengadaan -->
-        @if(Auth::user()->hasRole('user'))
+        @php
+            $u = Auth::user();
+            $isAdmin = $u->hasRole('admin');
+        @endphp
+
+        <!-- 3. PERMOHONAN PENGAJUAN (Pengusul / Jurusan / Unit) -->
+        @if(!$isAdmin && ($u->hasRole(['user', 'pengaju']) || $u->hasAnyPermission(['permohonan.create', 'permohonan.view_own', 'permohonan.view_all'])))
             @php $aUserPerm = request()->routeIs('permohonan.*'); @endphp
             <a href="{{ route('permohonan.index') }}" 
-               title="Permohonan Saya" 
+               title="Permohonan Pengadaan" 
                class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aUserPerm ? $menuOn : $menuOff }}">
                 <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Permohonan Saya</span>
+                <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Permohonan Pengadaan</span>
             </a>
         @endif
 
-        <!-- 4. STAFF BIDANG 2 -->
-        @if(Auth::user()->hasRole('staff_bidang_2'))
+        <!-- 4. STAFF BIDANG 2: Telaah Berkas Masuk -->
+        @if(!$isAdmin && ($u->hasRole('staff_bidang_2') || $u->hasPermission('verifikasi.bidang_2_view')))
             @php $aBidang2 = request()->routeIs('verifikasi.bidang-2*'); @endphp
             <a href="{{ route('verifikasi.bidang-2') }}" 
                title="Telaah Berkas Bidang II" 
@@ -192,33 +197,21 @@
             </a>
         @endif
 
-        <!-- 5. WADIR 2 -->
-        @if(Auth::user()->hasRole('wadir_2'))
-            @php 
-                $aWadir2 = request()->routeIs('verifikasi.wadir-2*'); 
-                $aWadirBayar = request()->routeIs('pembayaran.*');
-            @endphp
+        <!-- 5. WADIR 2: Persetujuan Eksekutif & Disposisi -->
+        @if(!$isAdmin && ($u->hasRole('wadir_2') || $u->hasAnyPermission(['verifikasi.wadir_2_view', 'verifikasi.wadir_2_decide'])))
+            @php $aWadir2 = request()->routeIs('verifikasi.wadir-2*'); @endphp
             <a href="{{ route('verifikasi.wadir-2') }}" 
-               title="Persetujuan Eksekutif" 
+               title="Persetujuan Eksekutif Wadir II" 
                class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aWadir2 ? $menuOn : $menuOff }}">
                 <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                 </svg>
                 <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Persetujuan Eksekutif</span>
             </a>
-
-            <a href="{{ route('pembayaran.index') }}" 
-               title="Tagihan & Pembayaran SP2D" 
-               class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aWadirBayar ? $menuOn : $menuOff }}">
-                <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-                <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Tagihan &amp; Pembayaran SP2D</span>
-            </a>
         @endif
 
-        <!-- 6. PERENCANAAN -->
-        @if(!Auth::user()->hasRole('admin') && (Auth::user()->hasRole('perencanaan') || Auth::user()->hasPermission('anggaran.mak_view')))
+        <!-- 6. PERENCANAAN: Alokasi & Penguncian MAK -->
+        @if(!$isAdmin && ($u->hasRole('perencanaan') || $u->hasAnyPermission(['anggaran.mak_view', 'anggaran.mak_manage', 'anggaran.mak_alokasi', 'anggaran.mak_lock', 'permohonan.split_mak'])))
             @php $aPerencanaan = request()->routeIs('verifikasi.perencanaan*'); @endphp
             <a href="{{ route('verifikasi.perencanaan') }}" 
                title="Verifikasi MAK & Pagu" 
@@ -230,56 +223,8 @@
             </a>
         @endif
 
-        <!-- 7. PPBJ -->
-        @if(!Auth::user()->hasRole('admin') && (Auth::user()->hasRole('ppbj') || Auth::user()->hasPermission('paket.view_all')))
-            @php 
-                $aPaket = request()->routeIs('paket.*');
-                $aKontrakPPBJ = request()->routeIs('kontrak.*');
-                $aBayarPPBJ = request()->routeIs('pembayaran.*');
-            @endphp
-            <a href="{{ route('paket.index') }}" 
-               title="Paket Pengadaan" 
-               class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aPaket ? $menuOn : $menuOff }}">
-                <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                </svg>
-                <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Paket Pengadaan</span>
-            </a>
-
-            <a href="{{ route('kontrak.index') }}" 
-               title="Kontrak SPK" 
-               class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aKontrakPPBJ ? $menuOn : $menuOff }}">
-                <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Kontrak SPK</span>
-            </a>
-
-            <a href="{{ route('pembayaran.index') }}" 
-               title="Perintah Bayar" 
-               class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aBayarPPBJ ? $menuOn : $menuOff }}">
-                <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-                <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Perintah Bayar</span>
-            </a>
-        @endif
-
-        <!-- 8. PP -->
-        @if(Auth::user()->hasRole('pp'))
-            @php $aPPKontrak = request()->routeIs('kontrak.*'); @endphp
-            <a href="{{ route('kontrak.index') }}" 
-               title="Reviu & Negosiasi Harga" 
-               class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aPPKontrak ? $menuOn : $menuOff }}">
-                <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Reviu &amp; Negosiasi Harga</span>
-            </a>
-        @endif
-
-        <!-- 9. PPK -->
-        @if(Auth::user()->hasRole('ppk'))
+        <!-- 7. PPK: Persetujuan Awal Usulan PPK (Isolasi 4 Akun) -->
+        @if(!$isAdmin && ($u->hasRole('ppk') || $u->hasPermission('reviu.ppk')))
             @php
                 $ppkAntreanCount = isset($stats['antrean_persetujuan_awal']) 
                     ? $stats['antrean_persetujuan_awal'] 
@@ -290,8 +235,6 @@
                         ])
                         ->count();
                 $aPPKVerif = request()->routeIs('verifikasi.ppk*');
-                $aPPKKomitmen = request()->routeIs('kontrak.*');
-                $aPPKBayar = request()->routeIs('pembayaran.*');
             @endphp
             <a href="{{ route('verifikasi.ppk') }}" 
                title="Persetujuan Awal Usulan PPK" 
@@ -310,28 +253,63 @@
                     </span>
                 @endif
             </a>
+        @endif
 
-            <a href="{{ route('kontrak.index') }}" 
-               title="Approval Paket Komitmen" 
-               class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aPPKKomitmen ? $menuOn : $menuOff }}">
+        <!-- 8. PPBJ: Manajemen Paket Pengadaan -->
+        @if(!$isAdmin && ($u->hasRole('ppbj') || $u->hasAnyPermission(['paket.create', 'paket.view_all', 'paket.reassign_ppk', 'paket.split_jenis'])))
+            @php $aPaket = request()->routeIs('paket.*'); @endphp
+            <a href="{{ route('paket.index') }}" 
+               title="Paket Pengadaan" 
+               class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aPaket ? $menuOn : $menuOff }}">
                 <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                 </svg>
-                <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Approval Paket Komitmen</span>
-            </a>
-
-            <a href="{{ route('pembayaran.index') }}" 
-               title="Memo Bayar Level 1" 
-               class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aPPKBayar ? $menuOn : $menuOff }}">
-                <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-                <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Memo Bayar Level 1</span>
+                <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Paket Pengadaan</span>
             </a>
         @endif
 
-        <!-- 10. PERLENGKAPAN -->
-        @if(Auth::user()->hasRole('perlengkapan'))
+        <!-- 9. MONITOR AKTIVITAS PP (FR RBAC lihat_pp / pp.monitoring_aktivitas - PPBJ & Pengawas) -->
+        @if(!$isAdmin && $u->canMonitorPp())
+            @php $aMonitorPP = request()->routeIs('kontrak.*') && request('tab') === 'reviu'; @endphp
+            <a href="{{ route('kontrak.index', ['tab' => 'reviu']) }}" 
+               title="Monitor Aktivitas PP" 
+               class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aMonitorPP ? $menuOn : $menuOff }}">
+                <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Monitor Aktivitas PP</span>
+            </a>
+        @endif
+
+        <!-- 10. PP: Reviu & Negosiasi Harga -->
+        @if(!$isAdmin && ($u->hasRole('pp') || $u->hasPermission('reviu.pp')))
+            @php $aPPKontrak = request()->routeIs('kontrak.*') && request('tab') === 'reviu'; @endphp
+            <a href="{{ route('kontrak.index', ['tab' => 'reviu']) }}" 
+               title="Reviu & Negosiasi Harga (PP)" 
+               class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aPPKontrak ? $menuOn : $menuOff }}">
+                <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Reviu &amp; Negosiasi Harga</span>
+            </a>
+        @endif
+
+        <!-- 11. KONTRAK SPK / DOKUMEN PERIKATAN (PPBJ / PPK / PP) -->
+        @if(!$isAdmin && ($u->hasRole(['ppbj', 'ppk']) || $u->hasAnyPermission(['spk.create', 'reviu.ppk'])))
+            @php $aKontrakSPK = request()->routeIs('kontrak.*') && request('tab') !== 'reviu'; @endphp
+            <a href="{{ route('kontrak.index') }}" 
+               title="Kontrak SPK & Dokumen Perikatan" 
+               class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aKontrakSPK ? $menuOn : $menuOff }}">
+                <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Kontrak SPK</span>
+            </a>
+        @endif
+
+        <!-- 12. PERLENGKAPAN: Penerimaan Barang & BAST -->
+        @if(!$isAdmin && ($u->hasRole('perlengkapan') || $u->hasAnyPermission(['penerimaan.view', 'penerimaan.bast_create', 'penerimaan.bast_sign'])))
             @php $aPerlengkapan = request()->routeIs('penerimaan.*'); @endphp
             <a href="{{ route('penerimaan.index') }}" 
                title="Penerimaan Barang & BAST" 
@@ -343,8 +321,8 @@
             </a>
         @endif
 
-        <!-- 11. KEUANGAN -->
-        @if(Auth::user()->hasRole('keuangan'))
+        <!-- 13. KEUANGAN / WADIR 2 / PPK / PPBJ: Tagihan & Pembayaran SP2D -->
+        @if(!$isAdmin && ($u->hasRole(['keuangan', 'wadir_2', 'ppk', 'ppbj']) || $u->hasAnyPermission(['pembayaran.pencairan_sp2d', 'pembayaran.memo_wadir2', 'pembayaran.memo_ppk', 'pembayaran.spp_terbitkan', 'pembayaran.pengajuan'])))
             @php $aKeuangan = request()->routeIs('pembayaran.*'); @endphp
             <a href="{{ route('pembayaran.index') }}" 
                title="Tagihan & Pembayaran SP2D" 
@@ -352,7 +330,7 @@
                 <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
-                <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Tagihan &amp; Pembayaran SP2D</span>
+                <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Tagihan &amp; Pembayaran</span>
             </a>
         @endif
 

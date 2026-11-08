@@ -231,24 +231,15 @@
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <!-- Unit Kerja / Jurusan Pengusul (Dengan Logika old() Fullstuck) -->
+                        <!-- Unit Kerja / Jurusan Pengusul (Otomatis dari Akun) -->
                         <div class="space-y-1.5">
-                            <label for="kode_unit" class="block text-sm font-semibold text-[#213153]">
-                                Unit Kerja / Jurusan Pengusul <span class="text-rose-600">*</span>
+                            <label class="block text-sm font-semibold text-[#213153]">
+                                Unit Kerja / Jurusan Pengusul
                             </label>
-                            <select id="kode_unit" 
-                                    name="kode_unit" 
-                                    required
-                                    class="w-full h-11 px-4 rounded-xl border border-slate-300 text-sm text-[#213153] bg-white focus:ring-2 focus:ring-[#0969da]/20 focus:border-[#0969da] outline-none transition-all">
-                                @foreach($units as $u)
-                                    <option value="{{ $u->kode_unit }}" {{ (old('kode_unit', Auth::user()->kode_unit) === $u->kode_unit) ? 'selected' : '' }}>
-                                        [{{ $u->kode_unit }}] {{ $u->nama_unit }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            @error('kode_unit') 
-                                <span class="text-xs text-rose-600 font-medium">{{ $message }}</span> 
-                            @enderror
+                            <input type="hidden" name="kode_unit" value="{{ Auth::user()->kode_unit ?? 'TIK' }}">
+                            <input type="text" readonly disabled 
+                                   value="{{ Auth::user()->unit ? '[' . Auth::user()->kode_unit . '] ' . Auth::user()->unit->nama_unit : (Auth::user()->kode_unit ?? 'Unit Pengusul') }}"
+                                   class="w-full h-11 px-4 rounded-xl border border-slate-200 bg-slate-100 text-sm font-semibold text-slate-700 cursor-not-allowed">
                         </div>
 
                         <!-- Tanggal Pengajuan Usulan -->

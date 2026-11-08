@@ -93,6 +93,7 @@ class User extends Authenticatable
         'google_email',
         'google_avatar',
         'google_linked_at',
+        'foto_profil',
     ];
 
     /**
@@ -168,6 +169,27 @@ class User extends Authenticatable
     public function setNameAttribute(?string $value): void
     {
         $this->attributes['nama'] = $value;
+    }
+
+    /**
+     * Accessor untuk alias unit_kerja yang merujuk ke nama unit atau kode_unit.
+     */
+    public function getUnitKerjaAttribute(): ?string
+    {
+        return $this->unit?->nama_unit ?? ($this->attributes['kode_unit'] ?? null);
+    }
+
+    /**
+     * Mutator untuk alias unit_kerja yang memetakan ke kolom kode_unit.
+     */
+    public function setUnitKerjaAttribute(?string $value): void
+    {
+        if (! empty($value)) {
+            $unit = Unit::where('kode_unit', $value)->orWhere('nama_unit', 'like', "%{$value}%")->first();
+            if ($unit) {
+                $this->attributes['kode_unit'] = $unit->kode_unit;
+            }
+        }
     }
 
     /**
@@ -279,6 +301,19 @@ class User extends Authenticatable
         }
 
         return false;
+    }
+
+    /**
+     * Memeriksa apakah pengguna berhak memonitor seluruh aktivitas Pejabat Pengadaan (PP)
+     * berdasarkan matriks wewenang peran atau hak akses fitur ('pp.monitoring_aktivitas' / 'lihat_pp').
+     */
+    public function canMonitorPp(): bool
+    {
+        if ($this->hasRole([self::ROLE_ADMIN, self::ROLE_PPBJ])) {
+            return true;
+        }
+
+        return $this->hasPermission('pp.monitoring_aktivitas') || $this->hasPermission('lihat_pp');
     }
 
     public function isGoogleLinked(): bool

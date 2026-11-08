@@ -18,7 +18,7 @@
     $normalizedItems = $rawCollection->map(function($p) {
         $status = $p->status_permohonan ?? $p->status ?? 'diajukan';
         return [
-            'id' => $p->id,
+            'id' => $p->nomor_surat,
             'nomor' => $p->nomor_surat,
             'nomor_surat' => $p->nomor_surat,
             'judul' => $p->perihal ?? $p->judul_pengadaan ?? 'Pengadaan Barang/Jasa',
@@ -42,7 +42,7 @@
     })->values();
 @endphp
 
-<div x-data="trackingManager(@js($normalizedItems))" class="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+<div x-data="trackingManager({{ json_encode($normalizedItems, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) }})" class="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
     <!-- 1. HEADER HALAMAN & ROLE BADGE -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -83,7 +83,7 @@
             @else
                 <span class="inline-flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200/80 px-3 py-1 text-xs font-bold text-[#0969da]">
                     <span class="size-2 rounded-full bg-[#0969da] animate-pulse"></span>
-                    Staf Bidang II (Pemantau Berkas)
+                    Staf Bidang II (Pemantau Berkas - Read-Only)
                 </span>
             @endif
 
@@ -686,19 +686,11 @@
                 </div>
 
                 <div class="space-y-1">
-                    <label class="text-xs font-bold text-slate-700">Unit Pengusul <span class="text-rose-500">*</span></label>
-                    <select name="kode_unit" required 
-                            class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs font-medium focus:border-[#0969da] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0969da]/20">
-                        @if(isset($units))
-                            @foreach($units as $u)
-                                <option value="{{ $u->kode_unit }}" {{ Auth::user()->kode_unit === $u->kode_unit ? 'selected' : '' }}>
-                                    [{{ $u->kode_unit }}] {{ $u->nama_unit }}
-                                </option>
-                            @endforeach
-                        @else
-                            <option value="{{ Auth::user()->kode_unit ?? 'UTAMA' }}">{{ Auth::user()->kode_unit ?? 'Unit Pengusul Utama' }}</option>
-                        @endif
-                    </select>
+                    <label class="text-xs font-bold text-slate-700">Unit Pengusul</label>
+                    <input type="hidden" name="kode_unit" value="{{ Auth::user()->kode_unit ?? 'TIK' }}">
+                    <input type="text" readonly disabled
+                           value="{{ Auth::user()->unit ? '[' . Auth::user()->kode_unit . '] ' . Auth::user()->unit->nama_unit : (Auth::user()->kode_unit ?? 'Unit Pengusul') }}"
+                           class="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600 cursor-not-allowed">
                 </div>
 
                 <div class="space-y-1 md:col-span-2">

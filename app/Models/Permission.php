@@ -25,6 +25,14 @@ class Permission extends Model
     ];
 
     /**
+     * Accessor alias slug untuk nama_permission agar seragam di tampilan Blade dan otorisasi.
+     */
+    public function getSlugAttribute(): string
+    {
+        return $this->attributes['nama_permission'] ?? '';
+    }
+
+    /**
      * Relasi many-to-many ke peran yang memiliki hak akses ini.
      */
     public function roles(): BelongsToMany

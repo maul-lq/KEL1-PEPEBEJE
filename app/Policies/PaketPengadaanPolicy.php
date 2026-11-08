@@ -64,6 +64,11 @@ class PaketPengadaanPolicy
             return Response::allow();
         }
 
+        // Pengguna / Peran Kustom dengan izin 'pp.monitoring_aktivitas' atau 'lihat_pp'
+        if ($user->canMonitorPp() && ($paket->jalur_routing === PaketPengadaan::ROUTING_PP || ! empty($paket->id_user_pp))) {
+            return Response::allow();
+        }
+
         // 5. Peran lain yang tidak dikenali ditolak secara default
         return Response::deny('Akses Ditolak: Peran Anda tidak memiliki hak akses untuk berkas ini.');
     }

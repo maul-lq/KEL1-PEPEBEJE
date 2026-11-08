@@ -3,10 +3,55 @@
 @section('title', 'Dashboard Utama - SIM-PBJ Politeknik Negeri Jakarta')
 
 @section('content')
+@php
+    $authUser = Auth::user();
+    $isUserOnly = ! $authUser->hasRole('admin') && (
+        $authUser->hasRole(['user', 'pengaju']) || (
+            $authUser->hasPermission('permohonan.create') &&
+            ! $authUser->hasAnyPermission([
+                'verifikasi.bidang_2_view',
+                'verifikasi.wadir_2_view',
+                'anggaran.mak_view',
+                'paket.create',
+                'paket.view_all',
+                'reviu.pp',
+                'reviu.ppk',
+                'penerimaan.view',
+                'pembayaran.pencairan_sp2d',
+            ])
+        )
+    );
+
+    $dashRole = $user->role ?? $authUser->role ?? 'user';
+    if (! view()->exists('dashboard.roles.' . $dashRole)) {
+        if ($authUser->hasPermission('admin.role_manage')) {
+            $dashRole = 'admin';
+        } elseif ($authUser->hasAnyPermission(['paket.create', 'paket.view_all', 'lihat_pp', 'pp.monitoring_aktivitas'])) {
+            $dashRole = 'ppbj';
+        } elseif ($authUser->hasPermission('reviu.ppk')) {
+            $dashRole = 'ppk';
+        } elseif ($authUser->hasPermission('reviu.pp')) {
+            $dashRole = 'pp';
+        } elseif ($authUser->hasAnyPermission(['anggaran.mak_view', 'anggaran.mak_alokasi'])) {
+            $dashRole = 'perencanaan';
+        } elseif ($authUser->hasAnyPermission(['verifikasi.wadir_2_view', 'verifikasi.wadir_2_decide'])) {
+            $dashRole = 'wadir_2';
+        } elseif ($authUser->hasPermission('verifikasi.bidang_2_view')) {
+            $dashRole = 'staff_bidang_2';
+        } elseif ($authUser->hasPermission('penerimaan.view')) {
+            $dashRole = 'perlengkapan';
+        } elseif ($authUser->hasPermission('pembayaran.pencairan_sp2d')) {
+            $dashRole = 'keuangan';
+        } else {
+            $dashRole = 'user';
+        }
+    }
+@endphp
+
 <div class="space-y-8">
 
     {{-- 1. HERO BANNER WELCOME --}}
-    @if(($user->role ?? Auth::user()?->role) === 'user')
+    @if($isUserOnly)
         {{-- Header & Welcome Banner for Role User matching Figma node 484:3385 --}}
         <div class="space-y-6">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -14,6 +59,13 @@
                     <h1 class="text-3xl md:text-[40px] font-semibold text-black tracking-tight leading-none">
                         Dashboard
                     </h1>
+                    <span class="sr-only">Dashboard USER</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <a href="{{ route('permohonan.index') }}" class="hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#3b82f6] text-white text-sm font-semibold hover:bg-blue-600 transition-colors shadow-sm">
+                        <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+                        Ajukan Permohonan Baru
+                    </a>
                 </div>
             </div>
 
@@ -53,7 +105,7 @@
     @endif
 
     {{-- 2. DYNAMIC ROLE-SPECIFIC WORKSPACE SUBVIEW --}}
-    @includeFirst(['dashboard.roles.' . ($user->role ?? 'user'), 'dashboard.roles.user'])
+    @includeFirst(['dashboard.roles.' . $dashRole, 'dashboard.roles.user'])
 
 </div>
 @endsection

@@ -21,33 +21,39 @@
                 </p>
             </div>
 
-            @if(Auth::user() && in_array(Auth::user()->role, ['ppbj', 'admin']))
+            @if(Auth::user() && (Auth::user()->hasRole('admin') || Auth::user()->hasAnyPermission(['paket.create', 'paket.view_all', 'paket.reassign_ppk', 'paket.split_jenis'])))
                 <div class="flex flex-wrap items-center gap-2 shrink-0">
-                    <button
-                        type="button"
-                        @click="$dispatch('open-modal', 'modal-split-jenis')"
-                        class="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-sm transition inline-flex items-center gap-1.5"
-                    >
-                        <svg class="size-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
-                        Split Jenis Pengadaan
-                    </button>
+                    @if(Auth::user()->hasRole('admin') || Auth::user()->hasPermission('permohonan.split_jenis') || Auth::user()->hasPermission('paket.split_jenis'))
+                        <button
+                            type="button"
+                            @click="$dispatch('open-modal', 'modal-split-jenis')"
+                            class="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-sm transition inline-flex items-center gap-1.5"
+                        >
+                            <svg class="size-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+                            Split Jenis Pengadaan
+                        </button>
+                    @endif
 
-                    <button
-                        type="button"
-                        @click="selectedPaket = ''; $dispatch('open-modal', 'modal-reassign-ppk')"
-                        class="px-3.5 py-2 rounded-xl border border-amber-200 bg-amber-50 text-xs font-bold text-amber-800 hover:bg-amber-100 shadow-sm transition inline-flex items-center gap-1.5"
-                    >
-                        <svg class="size-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
-                        Alih Tugas PPK
-                    </button>
+                    @if(Auth::user()->hasRole('admin') || Auth::user()->hasPermission('paket.reassign_ppk'))
+                        <button
+                            type="button"
+                            @click="selectedPaket = ''; $dispatch('open-modal', 'modal-reassign-ppk')"
+                            class="px-3.5 py-2 rounded-xl border border-amber-200 bg-amber-50 text-xs font-bold text-amber-800 hover:bg-amber-100 shadow-sm transition inline-flex items-center gap-1.5"
+                        >
+                            <svg class="size-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+                            Alih Tugas PPK
+                        </button>
+                    @endif
 
-                    <a
-                        href="{{ route('paket.create') }}"
-                        class="px-4 py-2 rounded-xl bg-[#0969da] text-xs font-bold text-white hover:bg-blue-700 shadow-sm hover:shadow transition inline-flex items-center gap-1.5"
-                    >
-                        <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                        + Registrasi Paket Baru
-                    </a>
+                    @if(Auth::user()->hasRole('admin') || Auth::user()->hasPermission('paket.create'))
+                        <a
+                            href="{{ route('paket.create') }}"
+                            class="px-4 py-2 rounded-xl bg-[#0969da] text-xs font-bold text-white hover:bg-blue-700 shadow-sm hover:shadow transition inline-flex items-center gap-1.5"
+                        >
+                            <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                            + Registrasi Paket Baru
+                        </a>
+                    @endif
                 </div>
             @endif
         </div>
@@ -135,6 +141,144 @@
             </select>
         </x-slot:filters>
     </x-filter-bar>
+
+    {{-- 3.5. Antrean Usulan Masuk dari Wadir 2 & PPK (BPMN: Menerima Form Pengadaan, MAK & Memo) --}}
+    @if(Auth::user() && (Auth::user()->hasRole('admin') || Auth::user()->hasAnyPermission(['paket.create', 'paket.view_all'])))
+        <div class="rounded-2xl bg-white shadow-sm border border-slate-200/80 overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-blue-50/50 via-white to-slate-50/50">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#0969da] text-white">
+                            BPMN Siklus 3 - PPBJ
+                        </span>
+                        <h3 class="text-sm font-bold text-[#213153]">Antrean Usulan Masuk dari Wadir 2 &amp; PPK</h3>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-0.5">
+                        Node BPMN: <em>Menerima Form Pengadaan, MAK, dan Memo Permohonan</em> yang telah disetujui penuh oleh Perencanaan, Wadir 2, dan PPK Awal.
+                    </p>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <span class="px-3 py-1 rounded-full text-xs font-bold {{ $permohonanDisetujui->isNotEmpty() ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500' }}">
+                        {{ $permohonanDisetujui->count() }} Usulan Siap Dibuat Paket
+                    </span>
+                </div>
+            </div>
+
+            @if($permohonanDisetujui->isEmpty())
+                <div class="p-6 text-center text-xs text-slate-500 bg-slate-50/30">
+                    <div class="inline-flex items-center justify-center size-10 rounded-full bg-slate-100 text-slate-400 mb-2">
+                        <svg class="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    </div>
+                    <p class="font-semibold text-slate-700">Semua usulan yang disetujui pimpinan telah didaftarkan ke paket pengadaan.</p>
+                    <p class="text-[11px] text-slate-400 mt-0.5">Usulan baru akan otomatis muncul di sini setelah Perencanaan menetapkan MAK serta Wadir 2 &amp; PPK memberikan persetujuan (ACC).</p>
+                </div>
+            @else
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs border-collapse">
+                        <thead>
+                            <tr class="bg-blue-50/40 border-b border-blue-100/70 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                                <th class="px-5 py-3.5">Nomor &amp; Unit Usulan</th>
+                                <th class="px-5 py-3.5">Judul Pengadaan</th>
+                                <th class="px-5 py-3.5">MAK &amp; Pagu Disetujui</th>
+                                <th class="px-5 py-3.5">Memo &amp; PPK Awal</th>
+                                <th class="px-5 py-3.5">Kelengkapan Dokumen BPMN</th>
+                                <th class="px-5 py-3.5 text-center">Tindakan</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            @foreach($permohonanDisetujui as $p)
+                                <tr class="hover:bg-blue-50/30 transition-colors">
+                                    <td class="px-5 py-4">
+                                        <span class="font-mono font-bold text-[#0969da] block">
+                                            {{ $p->nomor_surat }}
+                                        </span>
+                                        <span class="text-[11px] font-semibold text-slate-600 block mt-0.5">
+                                            {{ $p->unit->nama_unit ?? $p->kode_unit }}
+                                        </span>
+                                        <span class="text-[10px] text-slate-400 block font-mono">
+                                            {{ $p->tanggal_pengajuan ? date('d M Y', strtotime($p->tanggal_pengajuan)) : '-' }}
+                                        </span>
+                                    </td>
+
+                                    <td class="px-5 py-4 max-w-xs">
+                                        <span class="font-bold text-slate-800 block text-xs line-clamp-2">
+                                            {{ $p->perihal ?? $p->judul_pengadaan }}
+                                        </span>
+                                        @if($p->tujuan_pengadaan_ringkas)
+                                            <span class="text-[11px] text-slate-400 block mt-0.5 line-clamp-1">
+                                                {{ $p->tujuan_pengadaan_ringkas }}
+                                            </span>
+                                        @endif
+                                    </td>
+
+                                    <td class="px-5 py-4">
+                                        <span class="font-mono font-extrabold text-emerald-600 block text-sm">
+                                            Rp {{ number_format($p->anggaran_diajukan ?? $p->estimasi_total_pagu, 0, ',', '.') }}
+                                        </span>
+                                        <div class="mt-1 flex items-center gap-1.5">
+                                            <span class="font-mono text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded">
+                                                {{ $p->kode_mak ?? 'MAK DIPA' }}
+                                            </span>
+                                            <span class="text-[10px] text-slate-500 truncate max-w-[140px]" title="{{ $p->anggaranMak->uraian_mak ?? '' }}">
+                                                {{ $p->anggaranMak->uraian_mak ?? 'Pagu PNJ' }}
+                                            </span>
+                                        </div>
+                                    </td>
+
+                                    <td class="px-5 py-4">
+                                        <div class="text-[11px] font-medium text-slate-700">
+                                            Memo: <strong class="font-mono text-slate-900">{{ $p->nomor_memo_ketersediaan_mak ?? $p->nomor_memo_cek_mak ?? 'Sudah Terbit' }}</strong>
+                                        </div>
+                                        <div class="text-[11px] text-slate-500 mt-0.5">
+                                            PPK Ditunjuk: <strong class="text-slate-800">{{ $p->ppkAwal->nama ?? 'Sesuai Memo' }}</strong>
+                                        </div>
+                                        <span class="inline-flex items-center gap-1 mt-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full">
+                                            <svg class="size-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                                            ACC Wadir 2 &amp; PPK
+                                        </span>
+                                    </td>
+
+                                    <td class="px-5 py-4">
+                                        <div class="flex flex-wrap items-center gap-1.5">
+                                            <a href="{{ route('dokumen.pdf', ['jenis' => 'permohonan', 'id' => $p->nomor_surat]) }}" target="_blank"
+                                               class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-semibold border border-slate-200 transition"
+                                               title="Unduh / Pratinjau Surat Permohonan">
+                                                <svg class="size-3 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                                                Form (PDF)
+                                            </a>
+                                            @if($p->file_kak)
+                                                <a href="{{ asset('storage/' . $p->file_kak) }}" target="_blank"
+                                                   class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-semibold border border-slate-200 transition">
+                                                    KAK
+                                                </a>
+                                            @endif
+                                            @if($p->file_spesifikasi_teknis)
+                                                <a href="{{ asset('storage/' . $p->file_spesifikasi_teknis) }}" target="_blank"
+                                                   class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-semibold border border-slate-200 transition">
+                                                    Spek Teknis
+                                                </a>
+                                            @endif
+                                        </div>
+                                    </td>
+
+                                    <td class="px-5 py-4 text-center">
+                                        <a
+                                            href="{{ route('paket.create', ['selected' => $p->nomor_surat]) }}"
+                                            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0969da] text-xs font-bold text-white hover:bg-blue-700 shadow-sm transition whitespace-nowrap"
+                                        >
+                                            <span>Buat Paket Pengadaan</span>
+                                            <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                                        </a>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        </div>
+    @endif
 
     {{-- 4. Tabel Paket Pengadaan --}}
     <div class="rounded-2xl bg-white shadow-sm border border-slate-200/80 overflow-hidden">
@@ -246,7 +390,7 @@
                                             Detail
                                         </a>
 
-                                        @if(Auth::user() && in_array(Auth::user()->role, ['ppbj', 'admin']))
+                                        @if(Auth::user() && (Auth::user()->hasRole('admin') || Auth::user()->hasPermission('paket.reassign_ppk')))
                                             <button
                                                 type="button"
                                                 @click="selectedPaket = '{{ $pkt->nomor_paket }}'; $dispatch('open-modal', 'modal-reassign-ppk')"
@@ -258,7 +402,7 @@
                                         @endif
 
                                         @if($pkt->jalur_routing === 'langsung_sd_50jt' || (float)($pkt->nilai_hps ?: $pkt->alokasi_pagu_paket) <= 50000000)
-                                            @if(Auth::user() && in_array(Auth::user()->role, ['ppbj', 'admin']))
+                                            @if(Auth::user() && (Auth::user()->hasRole('admin') || Auth::user()->hasPermission('paket.create')))
                                                 <button
                                                     type="button"
                                                     @click="selectedPaket = '{{ $pkt->nomor_paket }}'; $dispatch('open-modal', 'modal-belanja-langsung')"
@@ -269,7 +413,7 @@
                                                 </button>
                                             @endif
                                         @else
-                                            @if(Auth::user() && Auth::user()->role === 'pp' && in_array($pkt->status_paket, [\App\Models\PaketPengadaan::STATUS_DISETUJUI_PPK_SIAP_BELANJA_PP, 'reviu_dokumen_disetujui']))
+                                            @if(Auth::user() && (Auth::user()->hasRole('pp') || Auth::user()->hasPermission('reviu.pp')) && in_array($pkt->status_paket, [\App\Models\PaketPengadaan::STATUS_DISETUJUI_PPK_SIAP_BELANJA_PP, 'reviu_dokumen_disetujui']))
                                                 <button
                                                     type="button"
                                                     @click="selectedPaket = '{{ $pkt->nomor_paket }}'; $dispatch('open-modal', 'modal-eksekusi-belanja')"
@@ -278,7 +422,7 @@
                                                 >
                                                     Belanja PP &rarr;
                                                 </button>
-                                            @elseif(Auth::user() && Auth::user()->role === 'ppk' && $pkt->jalur_routing === 'ppk_diatas_200jt' && in_array($pkt->status_paket, [\App\Models\PaketPengadaan::STATUS_MENUNGGU_APPROVAL_PPK, 'reviu_dokumen_disetujui']))
+                                            @elseif(Auth::user() && (Auth::user()->hasRole('ppk') || Auth::user()->hasPermission('reviu.ppk')) && $pkt->jalur_routing === 'ppk_diatas_200jt' && in_array($pkt->status_paket, [\App\Models\PaketPengadaan::STATUS_MENUNGGU_APPROVAL_PPK, 'reviu_dokumen_disetujui']))
                                                 <button
                                                     type="button"
                                                     @click="selectedPaket = '{{ $pkt->nomor_paket }}'; $dispatch('open-modal', 'modal-eksekusi-belanja')"

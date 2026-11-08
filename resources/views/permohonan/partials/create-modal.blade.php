@@ -107,6 +107,7 @@
         <!-- FORM SUBMIT LARAVEL -->
         <form action="{{ route('permohonan.store') }}" method="POST" enctype="multipart/form-data" class="px-8 pb-8 space-y-6">
             @csrf
+            <input type="hidden" name="kode_unit" value="{{ Auth::user()->kode_unit ?? 'TIK' }}">
 
             <!-- CONTAINER SCROLLABLE FORM FIELD -->
             <div class="space-y-4 max-h-[480px] overflow-y-auto pr-1">

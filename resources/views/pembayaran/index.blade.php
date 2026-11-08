@@ -26,7 +26,7 @@
 
             <div>
                 <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 text-[#213153] border border-slate-200 text-xs font-bold uppercase">
-                    Peran: {{ str_replace('_', ' ', Auth::user()->role) }}
+                    Peran: {{ Auth::user()->roleEntity ? Auth::user()->roleEntity->label : str_replace('_', ' ', Auth::user()->role) }}
                 </span>
             </div>
         </div>
@@ -72,7 +72,7 @@
     </div>
 
     {{-- 4. PANEL PENGAJUAN BERKAS PEMBAYARAN OLEH PPBJ (FR 15) --}}
-    @if(Auth::user()->role === 'ppbj' || Auth::user()->role === 'admin')
+    @if(Auth::user()->hasRole('admin') || Auth::user()->hasPermission('pembayaran.pengajuan'))
     <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80">
         <div class="border-b border-slate-100 pb-4 mb-5">
             <h2 class="text-base font-bold text-[#213153] flex items-center gap-2">
@@ -187,7 +187,7 @@
     @endif
 
     {{-- 5. PANEL PERSETUJUAN MEMO PEMBAYARAN BERTINGKAT (PPK & WADIR II - FR 16) --}}
-    @if(in_array(Auth::user()->role, ['ppk', 'wadir_2', 'admin']))
+    @if(Auth::user()->hasRole('admin') || Auth::user()->hasAnyPermission(['pembayaran.memo_ppk', 'pembayaran.memo_wadir2']))
     <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80">
         <div class="border-b border-slate-100 pb-4 mb-5">
             <h2 class="text-base font-bold text-[#213153] flex items-center gap-2">
@@ -235,7 +235,7 @@
     @endif
 
     {{-- 6. PANEL PENERBITAN SPP OLEH PPBJ (FR 17) --}}
-    @if(Auth::user()->role === 'ppbj' || Auth::user()->role === 'admin')
+    @if(Auth::user()->hasRole('admin') || Auth::user()->hasPermission('pembayaran.pengajuan'))
     <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80">
         <div class="border-b border-slate-100 pb-4 mb-5">
             <h2 class="text-base font-bold text-[#213153] flex items-center gap-2">
@@ -272,9 +272,16 @@
                                     <form action="{{ route('pembayaran.terbitkan-spp') }}" method="POST" enctype="multipart/form-data" class="flex flex-wrap items-center gap-2">
                                         @csrf
                                         <input type="hidden" name="nomor_pembayaran" value="{{ $s->nomor_pembayaran }}">
-                                        <input type="text" name="catatan_reviu_akhir" placeholder="Catatan reviu akhir..." class="h-8 rounded-lg border border-slate-200 bg-white px-2 text-[11px] w-40">
-                                        <input type="file" name="file_spp" accept=".pdf" class="text-[10px] w-36">
-                                        <button type="submit" class="h-8 px-3 rounded-lg bg-indigo-600 text-[11px] font-bold text-white hover:bg-indigo-700 transition shrink-0">
+                                        <input type="text" name="catatan_reviu_akhir" placeholder="Catatan reviu akhir..." class="h-8 rounded-lg border border-slate-200 bg-white px-2 text-[11px] w-36">
+                                        <div class="flex flex-col">
+                                            <span class="text-[9px] text-slate-400 font-bold">Berkas SPP (.pdf):</span>
+                                            <input type="file" name="file_spp" accept=".pdf" class="text-[10px] w-32">
+                                        </div>
+                                        <div class="flex flex-col">
+                                            <span class="text-[9px] text-slate-400 font-bold">Legalitas Vendor (NIB/NPWP):</span>
+                                            <input type="file" name="file_legalitas_vendor" accept=".pdf,image/*" class="text-[10px] w-32">
+                                        </div>
+                                        <button type="submit" class="h-8 px-3 rounded-lg bg-indigo-600 text-[11px] font-bold text-white hover:bg-indigo-700 transition shrink-0 mt-3">
                                             Terbitkan SPP &rarr;
                                         </button>
                                     </form>
@@ -289,7 +296,7 @@
     @endif
 
     {{-- 7. PANEL PENCAIRAN SP2D OLEH KEUANGAN (FR 18) --}}
-    @if(Auth::user()->role === 'keuangan' || Auth::user()->role === 'admin')
+    @if(Auth::user()->hasRole('admin') || Auth::user()->hasPermission('pembayaran.pencairan_sp2d'))
     <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80">
         <div class="border-b border-slate-100 pb-4 mb-5">
             <h2 class="text-base font-bold text-[#213153] flex items-center gap-2">

@@ -250,6 +250,127 @@
         @endif
     </div>
 
+    <!-- 4b. SECTION 1B: DAFTAR USULAN YANG TELAH MEMILIKI MAK (BPMN: Memperbaiki Jenis MAK yang Digunakan) -->
+    <div class="rounded-2xl border border-slate-200/80 bg-white p-6 md:p-7 shadow-xs space-y-6" x-data="{ expandedSurat: null }">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-slate-100">
+            <div>
+                <h2 class="text-lg font-bold text-[#213153]">Daftar Usulan yang Telah Memiliki MAK DIPA</h2>
+                <p class="text-xs text-slate-500">Daftar usulan yang telah dialokasikan MAK DIPA. Bagian Perencanaan dapat menyesuaikan kembali pos MAK jika diperlukan (BPMN: Memperbaiki Jenis MAK yang Digunakan).</p>
+            </div>
+            <span class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800 self-start sm:self-auto">
+                {{ $permohonanSudahMak->count() }} usulan
+            </span>
+        </div>
+
+        @if($permohonanSudahMak->isEmpty())
+            <div class="p-8 text-center text-slate-400">
+                <p class="text-xs font-medium">Belum ada usulan yang telah ditetapkan pos MAK-nya.</p>
+            </div>
+        @else
+            <div class="overflow-x-auto rounded-xl border border-slate-100">
+                <table class="w-full text-left text-xs">
+                    <thead class="bg-slate-50/80 text-slate-500 font-bold uppercase tracking-wider border-b border-slate-100">
+                        <tr>
+                            <th class="px-4 py-3">No. Surat</th>
+                            <th class="px-4 py-3">Unit Pengusul</th>
+                            <th class="px-4 py-3">Perihal Pengadaan</th>
+                            <th class="px-4 py-3">Mata Anggaran (MAK)</th>
+                            <th class="px-4 py-3 text-right">Nilai Alokasi</th>
+                            <th class="px-4 py-3 text-center">Status</th>
+                            <th class="px-4 py-3 text-center">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        @foreach($permohonanSudahMak as $sm)
+                            <tr class="hover:bg-slate-50/50 transition-colors">
+                                <td class="px-4 py-3 font-mono font-bold text-[#0969da] whitespace-nowrap">
+                                    {{ $sm->nomor_surat }}
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-slate-700">
+                                    {{ $sm->unit->nama_unit ?? $sm->kode_unit }}
+                                </td>
+                                <td class="px-4 py-3 max-w-xs truncate text-slate-800 font-medium" title="{{ $sm->judul_pengadaan ?? $sm->perihal }}">
+                                    {{ $sm->judul_pengadaan ?? $sm->perihal }}
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    <span class="font-mono font-bold text-indigo-700">[{{ $sm->kode_mak }}]</span>
+                                    <div class="text-[11px] text-slate-500 truncate max-w-xs">{{ $sm->anggaranMak?->uraian_mak ?? '-' }}</div>
+                                </td>
+                                <td class="px-4 py-3 text-right font-mono font-bold text-emerald-700 whitespace-nowrap">
+                                    Rp {{ number_format($sm->anggaran_diajukan ?? $sm->estimasi_total_pagu ?? 0, 0, ',', '.') }}
+                                </td>
+                                <td class="px-4 py-3 text-center whitespace-nowrap">
+                                    <x-status-badge :status="$sm->status_permohonan ?? $sm->status" size="sm" />
+                                </td>
+                                <td class="px-4 py-3 text-center whitespace-nowrap">
+                                    <button type="button" 
+                                            @click="expandedSurat = (expandedSurat === '{{ $sm->nomor_surat }}' ? null : '{{ $sm->nomor_surat }}')"
+                                            class="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-bold text-indigo-700 hover:bg-indigo-100 transition-colors cursor-pointer">
+                                        <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                        <span x-text="expandedSurat === '{{ $sm->nomor_surat }}' ? 'Tutup' : 'Ubah MAK'"></span>
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr x-show="expandedSurat === '{{ $sm->nomor_surat }}'" style="display: none;" class="bg-indigo-50/40">
+                                <td colspan="7" class="p-4 border-b border-indigo-100">
+                                    <form action="{{ route('verifikasi.perencanaan.mak') }}" method="POST" class="bg-white p-4 rounded-xl border border-indigo-200 space-y-4">
+                                        @csrf
+                                        <input type="hidden" name="nomor_surat" value="{{ $sm->nomor_surat }}">
+                                        <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+                                            <h4 class="font-bold text-xs text-[#213153]">Penyesuaian / Perbaikan Jenis MAK (Nomor Surat: {{ $sm->nomor_surat }})</h4>
+                                            <span class="text-[11px] text-slate-500">Pagu saat ini: Rp {{ number_format($sm->anggaran_diajukan ?? $sm->estimasi_total_pagu ?? 0, 0, ',', '.') }}</span>
+                                        </div>
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label class="block text-xs font-bold text-slate-700 mb-1">Ganti ke Pos MAK Baru <span class="text-rose-500">*</span></label>
+                                                <select name="kode_mak" required class="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-mono font-medium focus:border-[#0969da] focus:outline-none">
+                                                    @foreach($makList as $mak)
+                                                        <option value="{{ $mak->kode_mak }}" {{ $sm->kode_mak === $mak->kode_mak ? 'selected' : '' }} {{ $mak->is_locked ? 'disabled' : '' }}>
+                                                            [{{ $mak->kode_mak }}] {{ $mak->uraian_mak }} (Sisa: Rp {{ number_format($mak->sisa_pagu_mak, 0, ',', '.') }})
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-bold text-slate-700 mb-1">Nominal Alokasi (Rp) <span class="text-rose-500">*</span></label>
+                                                <input type="number" name="nominal_alokasi" step="0.01" min="1" required value="{{ (float) ($sm->anggaran_diajukan ?? $sm->estimasi_total_pagu ?? 0) }}" class="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-mono font-medium focus:border-[#0969da] focus:outline-none">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-bold text-slate-700 mb-1">Pilih PPK Penerima Memo</label>
+                                                <select name="id_user_ppk_awal" class="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-medium focus:border-[#0969da] focus:outline-none">
+                                                    @foreach($ppkUsers ?? [] as $ppk)
+                                                        <option value="{{ $ppk->id_user }}" {{ (int) $sm->id_user_ppk_awal === (int) $ppk->id_user ? 'selected' : '' }}>
+                                                            {{ $ppk->nama }} ({{ $ppk->jabatan ?? 'PPK' }})
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-bold text-slate-700 mb-1">Keputusan</label>
+                                                <select name="keputusan_anggaran" required class="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-emerald-700 focus:border-[#0969da] focus:outline-none">
+                                                    <option value="setuju">Setujui &amp; Simpan Perubahan MAK</option>
+                                                    <option value="tahan">Tahan Anggaran (Hold)</option>
+                                                </select>
+                                            </div>
+                                            <div class="md:col-span-2">
+                                                <label class="block text-xs font-bold text-slate-700 mb-1">Catatan Penyesuaian MAK</label>
+                                                <input type="text" name="catatan_anggaran" placeholder="Alasan penyesuaian jenis MAK..." class="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs focus:border-[#0969da] focus:outline-none">
+                                            </div>
+                                        </div>
+                                        <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                                            <button type="button" @click="expandedSurat = null" class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50">Batal</button>
+                                            <button type="submit" class="px-5 py-2 rounded-xl bg-indigo-600 text-xs font-bold text-white hover:bg-indigo-700 shadow-sm">Simpan Perubahan MAK</button>
+                                        </div>
+                                    </form>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
+    </div>
+
     <!-- 5. SECTION 2: FORM PEMOTONGAN / PEMECAHAN (SPLIT MAK) BERDASARKAN POS REKENING (FR 6.3) -->
     <div class="rounded-2xl border border-slate-200/80 bg-white p-6 md:p-7 shadow-xs space-y-6"
          x-data="splitMakManager({ 

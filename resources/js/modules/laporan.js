@@ -17,6 +17,7 @@ export function laporanApp(config = {}) {
         rawRiwayat: Array.isArray(config.riwayatData) ? config.riwayatData : [],
         laporanCards: Array.isArray(config.laporanCards) ? config.laporanCards : [],
         rawLaporanRows: Array.isArray(config.laporanRows) ? config.laporanRows : [],
+        ringkasanTitle: config.ringkasanTitle || 'Ringkasan Realisasi & Pengadaan',
         tableTitle: config.tableTitle || 'Distribusi Anggaran per Jurusan dan Unit Kerja',
         tableColumns: Array.isArray(config.tableColumns) ? config.tableColumns : [],
         userRole: config.userRole || 'user',

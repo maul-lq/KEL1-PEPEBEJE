@@ -161,10 +161,10 @@
                 </div>
 
                 <div>
-                    <label for="kondisi_barang" class="block text-xs font-bold text-slate-700 mb-1">
+                    <label for="status_fisik" class="block text-xs font-bold text-slate-700 mb-1">
                         Status Keputusan Kondisi Fisik Barang <span class="text-rose-500">*</span>
                     </label>
-                    <select id="kondisi_barang" name="kondisi_barang" required class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
+                    <select id="status_fisik" name="status_fisik" required class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
                         <option value="terima">Diterima Lengkap (Sesuai Spesifikasi 100%)</option>
                         <option value="pending">Tertahan / Pending (Belum Lengkap / Perlu Pengujian)</option>
                         <option value="tidak_sesuai">Tidak Sesuai / Rusak (Retur ke Penyedia)</option>

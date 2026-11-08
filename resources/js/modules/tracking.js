@@ -25,6 +25,61 @@ export function trackingManager(initialItems = null) {
         filterTanggal: '',
         items: itemsList,
 
+        get filteredList() {
+            return (this.items || []).filter(item => {
+                if (this.searchQuery && this.searchQuery.trim() !== '') {
+                    const q = this.searchQuery.toLowerCase().trim();
+                    const no = String(item.nomor_surat || item.nomor || '').toLowerCase();
+                    const judul = String(item.judul || item.perihal || item.judul_pengadaan || '').toLowerCase();
+                    const pemohon = String(item.pemohon || '').toLowerCase();
+                    if (!no.includes(q) && !judul.includes(q) && !pemohon.includes(q)) {
+                        return false;
+                    }
+                }
+
+                if (this.filterStatus && this.filterStatus !== 'Semua') {
+                    const s = String(item.statusRaw || item.status_permohonan || item.status || '').toLowerCase();
+                    const f = String(this.filterStatus).toLowerCase();
+                    if (f === 'reviu_paralel') {
+                        if (!['reviu_paralel', 'menunggu_bidang_2', 'cek_mak_perencanaan'].includes(s)) return false;
+                    } else if (f === 'disetujui') {
+                        if (!['disetujui', 'disetujui_wadir2_dan_ppk', 'disetujui_ppk_siap_belanja_pp'].includes(s)) return false;
+                    } else if (f === 'perlu_revisi') {
+                        if (!['perlu_revisi', 'revisi'].includes(s)) return false;
+                    } else if (s !== f) {
+                        return false;
+                    }
+                }
+
+                if (this.filterJenis && this.filterJenis !== 'Semua') {
+                    const j = String(item.jenis || item.jenis_pengadaan || '').toLowerCase();
+                    if (!j.includes(String(this.filterJenis).toLowerCase())) {
+                        return false;
+                    }
+                }
+
+                if (this.filterTanggal) {
+                    const t = String(item.tanggal_pengajuan || item.tanggal || '');
+                    if (!t.startsWith(this.filterTanggal)) {
+                        return false;
+                    }
+                }
+
+                return true;
+            });
+        },
+
+        resetFilters() {
+            this.searchQuery = '';
+            this.filterStatus = 'Semua';
+            this.filterJenis = 'Semua';
+            this.filterTanggal = '';
+        },
+
+        getStatusBadgeClass(statusRaw) {
+            return this.statusMeta(statusRaw);
+        },
+
         // ==================== MODAL 1: PRATINJAU DOKUMEN (715:6528 & 744:7446) ====================
         showPreviewModal: false,
         activePreviewPage: 1, // 1: Halaman 1 (Surat Pengantar), 2: Halaman 2 (Lampiran Rincian)
@@ -150,14 +205,19 @@ export function trackingManager(initialItems = null) {
                 rose:    { circle: 'bg-rose-100 text-rose-600',       pill: 'bg-rose-100 text-rose-700',       icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>' },
             };
             const map = {
-                diajukan:            { label: 'Diajukan',             t: 'sky' },
-                reviu_paralel:       { label: 'Dalam Proses',         t: 'amber' },
-                diproses:            { label: 'Dalam Proses',         t: 'amber' },
-                disetujui:           { label: 'Disetujui',            t: 'emerald' },
-                selesai:             { label: 'Selesai',              t: 'emerald' },
-                revisi:              { label: 'Perlu Revisi',         t: 'orange' },
-                perlu_revisi:        { label: 'Perlu Revisi',         t: 'orange' },
-                ditolak:             { label: 'Ditolak',              t: 'rose' },
+                diajukan:                { label: 'Diajukan',                     t: 'sky' },
+                menunggu_bidang_2:       { label: 'Pemeriksaan Staf Bidang 2',    t: 'amber' },
+                cek_mak_perencanaan:     { label: 'Verifikasi MAK Perencanaan',   t: 'amber' },
+                menunggu_acc_wadir_ppk:  { label: 'Menunggu Persetujuan Wadir 2 & PPK', t: 'amber' },
+                reviu_paralel:           { label: 'Verifikasi Paralel Pimpinan',  t: 'amber' },
+                diproses_ppbj:           { label: 'Menunggu PPBJ',                t: 'amber' },
+                paket_terdaftar:         { label: 'Paket Terdaftar',              t: 'amber' },
+                diproses:                { label: 'Dalam Proses',                 t: 'amber' },
+                disetujui:               { label: 'Disetujui',                    t: 'emerald' },
+                selesai:                 { label: 'Selesai',                      t: 'emerald' },
+                revisi:                  { label: 'Perlu Revisi',                 t: 'orange' },
+                perlu_revisi:            { label: 'Perlu Revisi',                 t: 'orange' },
+                ditolak:                 { label: 'Ditolak',                      t: 'rose' },
             };
             const m = map[key] || {
                 label: key ? key.replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase()) : 'Diajukan',
@@ -361,15 +421,26 @@ export function trackingManager(initialItems = null) {
                 }
 
                 // Tahap 2: Persetujuan 1 Disetujui
-                if (['disetujui', 'selesai'].includes(statusKey) || currentStep >= 3) {
+                if (['disetujui', 'selesai', 'diproses_ppbj', 'paket_terdaftar'].includes(statusKey) || currentStep >= 3) {
                     list.push({
                         id: 2,
                         time: tanggalStr + ' • 15:00',
-                        title: 'Perencanaan dan Bidang 2 menyetujui form pengajuan',
-                        subtitle: 'Persetujuan pimpinan telah lengkap',
+                        title: 'Perencanaan, Wadir 2, dan PPK menyetujui form pengajuan',
+                        subtitle: 'Persetujuan pimpinan telah lengkap; berkas diteruskan ke PPBJ',
                         badge: 'Disetujui',
                         badge_type: 'success',
                         type: 'success',
+                        revisi: 'Revisi ' + revNum
+                    });
+                } else if (statusKey === 'menunggu_acc_wadir_ppk') {
+                    list.push({
+                        id: 202,
+                        time: tanggalStr + ' • 14:00',
+                        title: 'Verifikasi MAK selesai, menunggu persetujuan (ACC) Wadir II & PPK',
+                        subtitle: 'Memo ketersediaan pagu MAK telah diterbitkan oleh Perencanaan',
+                        badge: 'Dalam Proses',
+                        badge_type: 'info',
+                        type: 'info',
                         revisi: 'Revisi ' + revNum
                     });
                 }
@@ -379,8 +450,8 @@ export function trackingManager(initialItems = null) {
                     list.push({
                         id: 201,
                         time: tanggalStr + ' • 11:00',
-                        title: 'Perencanaan dan Bidang 2 sedang memeriksa form pengajuan',
-                        subtitle: 'Pemeriksaan berkas telaah dan alokasi pagu',
+                        title: 'Perencanaan dan Staf Bidang 2 sedang memeriksa form pengajuan',
+                        subtitle: 'Pemeriksaan berkas telaah administrasi dan alokasi pagu DIPA',
                         badge: 'Informasi',
                         badge_type: 'info',
                         type: 'info',

@@ -525,6 +525,14 @@ class PengadaanNotificationService
         $judulPpbj = "Pencairan SP2D Tuntas: {$nomorTransaksi}";
         $pesanPpbj = "Bagian Keuangan telah menyelesaikan pencairan SP2D nomor {$nomorTransaksi} sebesar Rp {$nominal} untuk paket '{$namaPaket}'.";
         $this->kirimKePeran('ppbj', $judulPpbj, $pesanPpbj, 'pembayaran', $transaksi->pembayaran?->nomor_paket);
+
+        // 3. Notifikasi Untuk Seluruh Role Terkait (Sesuai Node BPMN: Mengirim Notifikasi Untuk Seluruh Role)
+        $rolesNotif = ['ppk', 'wadir_2', 'perencanaan', 'perlengkapan', 'staff_bidang_2', 'pp'];
+        $judulAll = "Pencairan SP2D Selesai: {$nomorTransaksi}";
+        $pesanAll = "Bagian Keuangan telah menyelesaikan pembayaran SP2D {$nomorTransaksi} untuk paket '{$namaPaket}' sebesar Rp {$nominal}. Siklus pengadaan selesai.";
+        foreach ($rolesNotif as $roleTarget) {
+            $this->kirimKePeran($roleTarget, $judulAll, $pesanAll, 'pembayaran', $transaksi->pembayaran?->nomor_paket);
+        }
     }
 
     /**

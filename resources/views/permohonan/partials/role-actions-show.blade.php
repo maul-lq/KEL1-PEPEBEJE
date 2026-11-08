@@ -1,55 +1,37 @@
 {{-- resources/views/permohonan/partials/role-actions-show.blade.php
-
-     Dipakai di 2 tempat:
-     1) permohonan/index.blade.php  (di dalam Alpine, memakai selectedItem)  -> tanpa variabel tambahan
-     2) permohonan/show.blade.php   (halaman detail biasa)                   -> kirim: nomorSurat, pagu, statusLabel
-
-     Semua form memakai route verifikasi yang sudah ada, bukan lagi POST ke permohonan.index. --}}
+     Panel Aksi Dinamis Berbasis Hak Akses RBAC & Permissions (Figma & BPMN Compliant).
+     Mendukung 2 mode penggunaan:
+     1) Mode Alpine (di permohonan/index.blade.php) -> memanfaatkan selectedItem secara reaktif
+     2) Mode Server (di permohonan/show.blade.php)  -> menggunakan parameter $nomorSurat, $pagu, $statusLabel --}}
 @php
-    $role = str_replace([' ', '-'], '_', strtolower(trim(auth()->user()->role ?? '')));
-    $role = ['wadir2' => 'wadir_2', 'bidang_2' => 'staff_bidang_2', 'logistik' => 'perlengkapan', 'finance' => 'keuangan'][$role] ?? $role;
-
-    // Mode Alpine (halaman tracking) atau mode server (halaman detail)
+    $u = auth()->user();
     $inAlpine   = !isset($nomorSurat);
     $nomorField = $inAlpine
-        ? ':value="selectedItem ? selectedItem.nomor : \'\'"'
+        ? ':value="selectedItem ? (selectedItem.nomor_surat || selectedItem.nomor) : \'\'"'
         : 'value="' . e($nomorSurat) . '"';
     $paguField  = $inAlpine
-        ? ':value="selectedItem ? selectedItem.pagu : \'\'"'
+        ? ':value="selectedItem ? (selectedItem.pagu || selectedItem.anggaran_diajukan || selectedItem.estimasi_total_pagu || \'\') : \'\'"'
         : 'value="' . e($pagu ?? '') . '"';
 
-    // Role yang bekerja di modul lain -> arahkan ke halamannya
-    // [judul, deskripsi, route, label tombol, tone]
-    $modul = [
-        'ppbj'         => ['Paket & Kontrak PPBJ',       'Bentuk paket pengadaan, tetapkan routing HPS, dan terbitkan SPK.',          'paket.index',      'Buka Paket Pengadaan', 'blue'],
-        'pp'           => ['Kontrak SPK & Reviu',        'Reviu dan proses kontrak SPK / surat pesanan.',                             'kontrak.index',    'Buka Kontrak SPK',     'blue'],
-        'ppk'          => ['Persetujuan PPK',            'Reviu dan setujui kontrak SPK sebagai Pejabat Pembuat Komitmen.',           'kontrak.index',    'Buka Kontrak SPK',     'blue'],
-        'perlengkapan' => ['Penerimaan Barang & BAST',   'Periksa fisik barang, unggah foto bukti, dan terbitkan BAST.',              'penerimaan.index', 'Buka Penerimaan',      'blue'],
-        'keuangan'     => ['Tagihan & Pembayaran SP2D',  'Verifikasi tagihan dan unggah bukti pembayaran / kuitansi.',                'pembayaran.index', 'Buka Pembayaran',      'emerald'],
-    ];
-    $mod    = $modul[$role] ?? null;
-    $modUrl = ($mod && \Illuminate\Support\Facades\Route::has($mod[2])) ? route($mod[2]) : null;
-
-    // Role berform: [route POST, route halaman (fallback), judul, deskripsi]
-    // Jika route POST belum didaftarkan, form TIDAK dirender (mencegah RouteNotFoundException)
-    // dan diganti tautan ke halaman verifikasinya.
-    $formRoutes = [
-        'staff_bidang_2' => ['verifikasi.bidang-2.teruskan',     'verifikasi.bidang-2',  'Verifikasi Staf Bidang 2',      'Telaah berkas lalu teruskan ke antrean Wadir 2.'],
-        'wadir_2'        => ['verifikasi.wadir-2.keputusan',     'verifikasi.wadir-2',   'Persetujuan Wadir 2',           'Berikan keputusan persetujuan tingkat Wakil Direktur 2.'],
-        'perencanaan'    => ['verifikasi.perencanaan.alokasi',   'verifikasi.perencanaan', 'Verifikasi MAK & Pagu Perencanaan', 'Tetapkan Mata Anggaran dan alokasi pagu usulan.'],
-    ];
-    $fr      = $formRoutes[$role] ?? null;
-    $formUrl = ($fr && \Illuminate\Support\Facades\Route::has($fr[0])) ? route($fr[0]) : null;
-    $pageUrl = ($fr && \Illuminate\Support\Facades\Route::has($fr[1])) ? route($fr[1]) : null;
+    // Evaluasi Hak Akses Fitur (RBAC Permissions)
+    $canBidang2     = $u && ($u->hasRole('staff_bidang_2') || $u->hasPermission('verifikasi.bidang_2_view'));
+    $canWadir2      = $u && ($u->hasRole('wadir_2') || $u->hasAnyPermission(['verifikasi.wadir_2_decide', 'verifikasi.wadir_2_view']));
+    $canPerencanaan = $u && ($u->hasRole('perencanaan') || $u->hasAnyPermission(['anggaran.mak_alokasi', 'anggaran.mak_view', 'permohonan.split_mak']));
+    $canPpk         = $u && ($u->hasRole('ppk') || $u->hasPermission('reviu.ppk'));
+    $canPpbj        = $u && ($u->hasRole('ppbj') || $u->hasAnyPermission(['paket.create', 'paket.view_all', 'spk.create']));
+    $canMonitorPp   = $u && $u->canMonitorPp();
+    $canPp          = $u && ($u->hasRole('pp') || $u->hasPermission('reviu.pp'));
+    $canPerlengkapan= $u && ($u->hasRole('perlengkapan') || $u->hasAnyPermission(['penerimaan.view', 'penerimaan.bast_create']));
+    $canKeuangan    = $u && ($u->hasRole('keuangan') || $u->hasAnyPermission(['pembayaran.pencairan_sp2d', 'pembayaran.spp_terbitkan']));
 
     $field = 'w-full rounded-lg border border-slate-300 bg-white p-2.5 text-xs text-slate-700 placeholder:text-slate-400 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20 outline-none transition';
     $label = 'block text-xs font-semibold text-slate-600 mb-1';
-    $btn   = 'inline-flex items-center justify-center gap-1.5 h-10 px-4 rounded-lg text-white font-semibold text-xs shadow-sm transition-colors';
+    $btn   = 'inline-flex items-center justify-center gap-1.5 h-10 px-4 rounded-lg text-white font-semibold text-xs shadow-sm transition-colors cursor-pointer';
 @endphp
 
 {{-- ============ 1. STAF BIDANG 2 ============ --}}
-@if($role === 'staff_bidang_2' && $formUrl)
-    <form action="{{ $formUrl }}" method="POST" class="space-y-4">
+@if($canBidang2 && \Illuminate\Support\Facades\Route::has('verifikasi.bidang-2.teruskan'))
+    <form action="{{ route('verifikasi.bidang-2.teruskan') }}" method="POST" class="space-y-4">
         @csrf
         <input type="hidden" name="nomor_surat" {!! $nomorField !!}>
 
@@ -64,16 +46,18 @@
         </div>
 
         <div class="flex justify-end">
-            <button type="submit" class="{{ $btn }} bg-[#0969da] hover:bg-blue-700">
-                Teruskan ke Wadir 2
+            <button type="submit" 
+                    @if($inAlpine) :disabled="!selectedItem || (!selectedItem.nomor && !selectedItem.nomor_surat)" @endif
+                    class="{{ $btn }} bg-[#0969da] hover:bg-blue-700">
+                Teruskan ke Wadir 2 &amp; Perencanaan
                 <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
             </button>
         </div>
     </form>
 
-{{-- ============ 2. WADIR 2 ============ --}}
-@elseif($role === 'wadir_2' && $formUrl)
-    <form action="{{ $formUrl }}" method="POST" class="space-y-4">
+{{-- ============ 2. WADIR 2 (Persetujuan Eksekutif Kegiatan) ============ --}}
+@elseif($canWadir2 && \Illuminate\Support\Facades\Route::has('verifikasi.wadir-2.keputusan'))
+    <form action="{{ route('verifikasi.wadir-2.keputusan') }}" method="POST" class="space-y-4">
         @csrf
         <input type="hidden" name="nomor_surat" {!! $nomorField !!}>
 
@@ -83,37 +67,49 @@
         </div>
 
         <div>
-            <label class="{{ $label }}">Catatan / Alasan Keputusan</label>
-            <textarea name="catatan_alasan" rows="3" placeholder="Isi alasan bila menolak, atau instruksi revisi..." class="{{ $field }}"></textarea>
-            <p class="mt-1 text-[11px] text-slate-400">Disarankan diisi jika pengajuan ditolak / dikembalikan.</p>
+            <label class="{{ $label }}">Catatan / Alasan Keputusan Wadir 2</label>
+            <textarea name="catatan_alasan" rows="3" placeholder="Isi arahan disposisi, catatan efisiensi, atau alasan jika menolak/minta revisi..." class="{{ $field }}"></textarea>
+            <p class="mt-1 text-[11px] text-slate-400">Wajib diisi jika menolak atau meminta revisi usulan (FR 5.3).</p>
         </div>
 
         <div class="flex flex-wrap items-center justify-end gap-2">
-            <button type="submit" name="keputusan" value="ditolak" class="{{ $btn }} bg-amber-500 hover:bg-amber-600">
+            <button type="submit" name="keputusan" value="ditolak" 
+                    @if($inAlpine) :disabled="!selectedItem || (!selectedItem.nomor && !selectedItem.nomor_surat)" @endif
+                    class="{{ $btn }} bg-amber-500 hover:bg-amber-600">
                 Tolak / Minta Revisi
             </button>
-            <button type="submit" name="keputusan" value="disetujui" class="{{ $btn }} bg-emerald-600 hover:bg-emerald-700">
+            <button type="submit" name="keputusan" value="disetujui" 
+                    @if($inAlpine) :disabled="!selectedItem || (!selectedItem.nomor && !selectedItem.nomor_surat)" @endif
+                    class="{{ $btn }} bg-emerald-600 hover:bg-emerald-700">
                 <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                Setujui Pengajuan
+                Setujui Pengajuan (ACC Wadir 2)
             </button>
         </div>
     </form>
 
-{{-- ============ 3. PERENCANAAN ============ --}}
-@elseif($role === 'perencanaan' && $formUrl)
-    <form action="{{ $formUrl }}" method="POST" class="space-y-4">
+{{-- ============ 3. PERENCANAAN (Verifikasi MAK & Pagu DIPA) ============ --}}
+@elseif($canPerencanaan && \Illuminate\Support\Facades\Route::has('verifikasi.perencanaan.mak'))
+    <form action="{{ route('verifikasi.perencanaan.mak') }}" method="POST" class="space-y-4">
         @csrf
         <input type="hidden" name="nomor_surat" {!! $nomorField !!}>
 
         <div class="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
-            <h3 class="font-semibold text-base text-[#213153]">Alokasi MAK & Anggaran</h3>
+            <h3 class="font-semibold text-base text-[#213153]">Alokasi MAK &amp; Anggaran DIPA</h3>
             <span class="rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-700 whitespace-nowrap">Perencanaan</span>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
                 <label class="{{ $label }}">Kode MAK (Mata Anggaran) <span class="text-rose-500">*</span></label>
-                <input type="text" name="kode_mak" required placeholder="Contoh: 521111.001" class="{{ $field }}">
+                <select name="kode_mak" required class="{{ $field }}">
+                    <option value="">-- Pilih Rekening MAK DIPA --</option>
+                    @php $listMakGlobal = \App\Models\AnggaranMAK::orderBy('kode_mak')->get(); @endphp
+                    @foreach($listMakGlobal as $makItem)
+                        <option value="{{ $makItem->kode_mak }}" {{ $makItem->is_locked ? 'disabled' : '' }}>
+                            [{{ $makItem->kode_mak }}] {{ $makItem->uraian_mak }} (Sisa: Rp {{ number_format($makItem->sisa_pagu_mak, 0, ',', '.') }})
+                        </option>
+                    @endforeach
+                </select>
             </div>
             <div>
                 <label class="{{ $label }}">Nominal Alokasi (Rp) <span class="text-rose-500">*</span></label>
@@ -122,58 +118,176 @@
         </div>
 
         <div>
-            <label class="{{ $label }}">Catatan Perencanaan</label>
-            <textarea name="catatan_anggaran" rows="2" placeholder="Catatan ketersediaan pagu..." class="{{ $field }}"></textarea>
+            <label class="{{ $label }}">Pilih PPK yang Ditugaskan (1 dari 4 Akun PPK)</label>
+            <select name="id_user_ppk" class="{{ $field }}">
+                <option value="">-- Tetapkan Akun PPK Awal --</option>
+                @php $ppkList = \App\Models\User::where('role', 'ppk')->where('status_aktif', true)->get(); @endphp
+                @foreach($ppkList as $ppkOpt)
+                    <option value="{{ $ppkOpt->id_user }}">{{ $ppkOpt->nama }} ({{ $ppkOpt->jabatan ?? 'PPK' }})</option>
+                @endforeach
+            </select>
+        </div>
+
+        <div>
+            <label class="{{ $label }}">Catatan Ketersediaan MAK</label>
+            <textarea name="catatan_anggaran" rows="2" placeholder="Catatan ketersediaan pagu dan sumber dana DIPA..." class="{{ $field }}"></textarea>
         </div>
 
         <div class="flex flex-wrap items-center justify-end gap-2">
-            <button type="submit" name="keputusan_anggaran" value="tahan" class="{{ $btn }} bg-amber-500 hover:bg-amber-600">
+            <button type="submit" name="keputusan_anggaran" value="tahan" 
+                    @if($inAlpine) :disabled="!selectedItem || (!selectedItem.nomor && !selectedItem.nomor_surat)" @endif
+                    class="{{ $btn }} bg-amber-500 hover:bg-amber-600">
                 Tahan (Anggaran Belum Siap)
             </button>
-            <button type="submit" name="keputusan_anggaran" value="setuju" class="{{ $btn }} bg-indigo-600 hover:bg-indigo-700">
-                Setujui & Kunci MAK
+            <button type="submit" name="keputusan_anggaran" value="setuju" 
+                    @if($inAlpine) :disabled="!selectedItem || (!selectedItem.nomor && !selectedItem.nomor_surat)" @endif
+                    class="{{ $btn }} bg-indigo-600 hover:bg-indigo-700">
+                Setujui &amp; Terbitkan Memo MAK
             </button>
         </div>
     </form>
 
-{{-- ============ 3b. FALLBACK: role berform, tetapi route POST belum terdaftar ============ --}}
-@elseif($fr && $pageUrl)
-    <div class="space-y-4">
+{{-- ============ 4. PPK (Persetujuan Awal Usulan Berdasarkan Memo MAK) ============ --}}
+@elseif($canPpk && \Illuminate\Support\Facades\Route::has('verifikasi.ppk.keputusan'))
+    <form action="{{ route('verifikasi.ppk.keputusan') }}" method="POST" class="space-y-4">
+        @csrf
+        <input type="hidden" name="nomor_surat" {!! $nomorField !!}>
+
         <div class="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
-            <h3 class="font-semibold text-base text-[#213153]">{{ $fr[2] }}</h3>
-            <span class="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-[#0969da] whitespace-nowrap">Modul Terkait</span>
+            <h3 class="font-semibold text-base text-[#213153]">Persetujuan Awal PPK</h3>
+            <span class="rounded-full bg-cyan-100 px-2.5 py-1 text-xs font-semibold text-cyan-800 whitespace-nowrap">Pejabat Pembuat Komitmen</span>
         </div>
 
-        <p class="text-xs text-slate-500 leading-relaxed">{{ $fr[3] }}</p>
+        <div>
+            <label class="{{ $label }}">Catatan / Rekomendasi PPK</label>
+            <textarea name="catatan_alasan" rows="3" placeholder="Tuliskan catatan persetujuan usulan atau alasan bila menolak..." class="{{ $field }}"></textarea>
+            <p class="mt-1 text-[11px] text-slate-400">Persetujuan awal PPK diperlukan sebelum usulan diteruskan ke PPBJ.</p>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-end gap-2">
+            <button type="submit" name="keputusan" value="ditolak" 
+                    @if($inAlpine) :disabled="!selectedItem || (!selectedItem.nomor && !selectedItem.nomor_surat)" @endif
+                    class="{{ $btn }} bg-rose-600 hover:bg-rose-700">
+                Tolak Usulan
+            </button>
+            <button type="submit" name="keputusan" value="disetujui" 
+                    @if($inAlpine) :disabled="!selectedItem || (!selectedItem.nomor && !selectedItem.nomor_surat)" @endif
+                    class="{{ $btn }} bg-cyan-700 hover:bg-cyan-800">
+                <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                Setujui Usulan (ACC PPK)
+            </button>
+        </div>
+    </form>
+
+{{-- ============ 5. PPBJ (Registrasi Paket Pengadaan) ============ --}}
+@elseif($canPpbj)
+    <div class="space-y-4">
+        <div class="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
+            <h3 class="font-semibold text-base text-[#213153]">Paket Pengadaan &amp; Routing PPBJ</h3>
+            <span class="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-[#0969da] whitespace-nowrap">PPBJ Kampus</span>
+        </div>
+
+        <p class="text-xs text-slate-500 leading-relaxed">
+            Menerima Form Pengadaan, MAK, dan Memo permohonan yang telah disetujui pimpinan untuk diregistrasikan menjadi paket pengadaan, penetapan HPS, dan routing penugasan.
+        </p>
+
+        <div class="flex flex-wrap items-center justify-end gap-2">
+            @if($inAlpine)
+                <a :href="'/paket-pengadaan/create?selected=' + encodeURIComponent(selectedItem ? (selectedItem.nomor_surat || selectedItem.nomor) : '')"
+                   class="{{ $btn }} bg-[#0969da] hover:bg-blue-700">
+                    Buka Registrasi Paket Baru
+                    <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                </a>
+            @else
+                <a href="{{ route('paket.create', ['selected' => $nomorSurat ?? '']) }}" class="{{ $btn }} bg-[#0969da] hover:bg-blue-700">
+                    Buka Registrasi Paket Baru
+                    <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                </a>
+            @endif
+        </div>
+    </div>
+
+{{-- ============ 6. PEMANTAU PP (lihat_pp / pp.monitoring_aktivitas) ============ --}}
+@elseif($canMonitorPp)
+    <div class="space-y-4">
+        <div class="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
+            <h3 class="font-semibold text-base text-[#213153]">Pemantauan Aktivitas PP</h3>
+            <span class="rounded-full bg-purple-100 px-2.5 py-1 text-xs font-semibold text-purple-700 whitespace-nowrap">Monitoring PP</span>
+        </div>
+
+        <p class="text-xs text-slate-500 leading-relaxed">
+            Wewenang memantau proses verifikasi teknis, negosiasi harga rekanan, dan progres belanja Pejabat Pengadaan (PP).
+        </p>
 
         <div class="flex justify-end">
-            <a href="{{ $pageUrl }}" class="{{ $btn }} bg-[#0969da] hover:bg-blue-700">
-                Buka Halaman Verifikasi
+            <a href="{{ route('kontrak.index', ['tab' => 'reviu']) }}" class="{{ $btn }} bg-purple-700 hover:bg-purple-800">
+                Buka Monitor Aktivitas PP
                 <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
             </a>
         </div>
     </div>
 
-{{-- ============ 4. ROLE MODUL LAIN (PPBJ, PP, PPK, KEUANGAN, PERLENGKAPAN) ============ --}}
-@elseif($mod && $modUrl)
-    @php $isEm = $mod[4] === 'emerald'; @endphp
+{{-- ============ 7. PP (Reviu Teknis & Negosiasi Harga) ============ --}}
+@elseif($canPp)
     <div class="space-y-4">
         <div class="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
-            <h3 class="font-semibold text-base text-[#213153]">{{ $mod[0] }}</h3>
-            <span class="rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap {{ $isEm ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-[#0969da]' }}">Modul Terkait</span>
+            <h3 class="font-semibold text-base text-[#213153]">Reviu Teknis &amp; Negosiasi Harga</h3>
+            <span class="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700 whitespace-nowrap">Pejabat Pengadaan</span>
         </div>
 
-        <p class="text-xs text-slate-500 leading-relaxed">{{ $mod[1] }}</p>
+        <p class="text-xs text-slate-500 leading-relaxed">
+            Lakukan telaah spesifikasi teknis, evaluasi rekanan penyedia, dan negosiasi harga paket pengadaan &le; 200 Juta.
+        </p>
 
         <div class="flex justify-end">
-            <a href="{{ $modUrl }}" class="{{ $btn }} {{ $isEm ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-[#0969da] hover:bg-blue-700' }}">
-                {{ $mod[3] }}
+            <a href="{{ route('kontrak.index', ['tab' => 'reviu']) }}" class="{{ $btn }} bg-amber-600 hover:bg-amber-700">
+                Buka Reviu Pengadaan PP
                 <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
             </a>
         </div>
     </div>
 
-{{-- ============ 5. USER PEMOHON / ROLE LAIN: INFO STATUS ============ --}}
+{{-- ============ 8. PERLENGKAPAN (Penerimaan Barang & BAST) ============ --}}
+@elseif($canPerlengkapan)
+    <div class="space-y-4">
+        <div class="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
+            <h3 class="font-semibold text-base text-[#213153]">Penerimaan Barang &amp; BAST</h3>
+            <span class="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-[#0969da] whitespace-nowrap">Bagian Perlengkapan</span>
+        </div>
+
+        <p class="text-xs text-slate-500 leading-relaxed">
+            Periksa kesesuaian fisik kiriman barang dari penyedia, unggah bukti multi-foto, dan terbitkan Berita Acara Serah Terima (BAST).
+        </p>
+
+        <div class="flex justify-end">
+            <a href="{{ route('penerimaan.index') }}" class="{{ $btn }} bg-[#0969da] hover:bg-blue-700">
+                Buka Modul Penerimaan
+                <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+            </a>
+        </div>
+    </div>
+
+{{-- ============ 9. KEUANGAN (Tagihan & Pembayaran SP2D) ============ --}}
+@elseif($canKeuangan)
+    <div class="space-y-4">
+        <div class="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
+            <h3 class="font-semibold text-base text-[#213153]">Tagihan &amp; Pembayaran SP2D</h3>
+            <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700 whitespace-nowrap">Bagian Keuangan</span>
+        </div>
+
+        <p class="text-xs text-slate-500 leading-relaxed">
+            Verifikasi kelengkapan berkas BAST, terbitkan SPP/SPM, dan catat realisasi pencairan dana SP2D anti-duplicate bayar.
+        </p>
+
+        <div class="flex justify-end">
+            <a href="{{ route('pembayaran.index') }}" class="{{ $btn }} bg-emerald-600 hover:bg-emerald-700">
+                Buka Modul Pembayaran
+                <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+            </a>
+        </div>
+    </div>
+
+{{-- ============ 10. PEMOHON / UMUM: INFO STATUS ============ --}}
 @else
     <div class="flex items-center justify-between gap-3 p-3.5 rounded-xl bg-blue-50/70 border border-blue-100">
         <div class="flex items-center gap-2.5 min-w-0">
@@ -182,7 +296,7 @@
             </div>
             <div class="min-w-0">
                 <h4 class="font-semibold text-xs text-[#213153]">Status Pengajuan Saat Ini</h4>
-                <p class="text-[11px] text-slate-500">Berkas sedang diproses oleh verifikator terkait.</p>
+                <p class="text-[11px] text-slate-500">Berkas sedang dalam pemrosesan siklus pengadaan resmi PNJ.</p>
             </div>
         </div>
 

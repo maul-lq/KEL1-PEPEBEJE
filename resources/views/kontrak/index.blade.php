@@ -5,7 +5,7 @@
 @section('content')
 <div
     x-data="{
-        activeTab: '{{ request('tab', in_array(Auth::user()->role ?? '', ['pp', 'ppk']) ? 'reviu' : (Auth::user()->role === 'ppbj' ? 'spk' : 'daftar')) }}',
+        activeTab: '{{ request('tab', (Auth::user() && (Auth::user()->hasAnyPermission(['reviu.pp', 'reviu.ppk']) || in_array(Auth::user()->role ?? '', ['pp', 'ppk']))) ? 'reviu' : ((Auth::user() && (Auth::user()->hasPermission('spk.create') || Auth::user()->role === 'ppbj')) ? 'spk' : 'daftar')) }}',
         hpsVal: 0,
         negoVal: 0,
         calcSavings() {
@@ -42,12 +42,12 @@
 
             {{-- Role Badge Indicator --}}
             <div class="shrink-0">
-                @if(Auth::user()->role === 'ppk')
+                @if(Auth::user()->hasRole('ppk') || Auth::user()->hasPermission('reviu.ppk'))
                     <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-50 text-purple-700 border border-purple-200 text-xs font-bold">
                         <span class="size-2 rounded-full bg-purple-600"></span>
                         PPK: {{ Auth::user()->nama }} (Isolasi Berkas Aktif)
                     </span>
-                @elseif(Auth::user()->role === 'pp')
+                @elseif(Auth::user()->hasRole('pp') || Auth::user()->hasPermission('reviu.pp'))
                     <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 text-xs font-bold">
                         <span class="size-2 rounded-full bg-amber-600"></span>
                         Pejabat Pengadaan (PP): {{ Auth::user()->nama }}
@@ -55,7 +55,7 @@
                 @else
                     <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 text-[#0969da] border border-blue-200 text-xs font-bold">
                         <span class="size-2 rounded-full bg-[#0969da]"></span>
-                        PPBJ: Penerbit Kontrak &amp; SPK Sah
+                        {{ Auth::user()->roleEntity ? Auth::user()->roleEntity->label : strtoupper(str_replace('_', ' ', Auth::user()->role ?? 'PENGGUNA')) }}
                     </span>
                 @endif
             </div>
@@ -110,7 +110,7 @@
             class="px-4 py-2.5 rounded-xl text-xs font-bold transition inline-flex items-center gap-2"
         >
             <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-            <span>1. Penelaahan &amp; Negosiasi Harga (PP &amp; PPK)</span>
+            <span>1. Penelaahan &amp; Negosiasi Harga {{ Auth::user()?->canMonitorPp() ? '(Monitoring PP & PPK)' : '(PP & PPK)' }}</span>
             <span class="px-2 py-0.5 rounded-full text-[10px] font-bold"
                   :class="activeTab === 'reviu' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800'">
                 {{ $paketReviu->count() }}
@@ -151,7 +151,34 @@
     {{-- ===================================================================== --}}
     <div x-show="activeTab === 'reviu'" class="space-y-6">
 
-        @if(Auth::user() && in_array(Auth::user()->role, ['pp', 'ppk']))
+        @if(Auth::user() && Auth::user()->canMonitorPp() && !Auth::user()->hasRole(['pp', 'ppk']) && !Auth::user()->hasPermission('reviu.pp'))
+            {{-- Panel Monitoring Aktivitas Pejabat Pengadaan (PP) -- Fitur 'lihat_pp' / 'pp.monitoring_aktivitas' --}}
+            <div class="rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50/60 p-6 shadow-sm border border-blue-200/80">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-blue-200/60">
+                    <div class="flex items-center gap-3">
+                        <div class="size-10 rounded-xl bg-[#0969da] text-white flex items-center justify-center shrink-0 shadow-sm">
+                            <svg class="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <h2 class="text-base font-bold text-[#213153]">Monitoring Aktivitas Pejabat Pengadaan (PP)</h2>
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-[#0969da] border border-blue-200">Hak Akses: lihat_pp</span>
+                            </div>
+                            <p class="text-xs text-slate-500 mt-0.5">
+                                Koordinator PPBJ dapat memantau seluruh proses penelaahan teknis, negosiasi harga, pemilihan rekanan, dan progres review yang dilakukan oleh Pejabat Pengadaan (PP).
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <span class="px-3 py-1.5 rounded-xl bg-white text-xs font-bold text-slate-700 border border-slate-200 shadow-xs">
+                            Paket Jalur PP (50-200 Juta): <strong class="text-[#0969da] font-mono">{{ $paketReviu->where('jalur_routing', 'pp_50_sd_200jt')->count() }}</strong>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        @endif
+
+        @if(Auth::user() && (Auth::user()->hasRole(['pp', 'ppk']) || Auth::user()->hasAnyPermission(['reviu.pp', 'reviu.ppk'])))
             {{-- Form Penelaahan Dokumen & Negosiasi --}}
             <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80">
                 <div class="border-b border-slate-100 pb-4 mb-5">
@@ -201,7 +228,7 @@
                             {{-- Keputusan Reviu Sesuai Role --}}
                             <div class="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
                                 <span class="block text-xs font-bold text-slate-800">Keputusan Hasil Penelaahan <span class="text-rose-500">*</span></span>
-                                @if(Auth::user()->role === 'pp')
+                                @if(Auth::user()->hasRole('pp') || Auth::user()->hasPermission('reviu.pp'))
                                     <label class="flex items-center text-xs text-slate-800 cursor-pointer gap-2">
                                         <input type="radio" name="status_reviu" value="terverifikasi_pp" checked class="text-[#0969da] focus:ring-[#0969da]">
                                         <span><strong>Hasil Reviu &amp; Negosiasi Sesuai</strong> &mdash; Teruskan ke PPK untuk persetujuan (Approval).</span>
@@ -210,7 +237,7 @@
                                         <input type="radio" name="status_reviu" value="perlu_perbaikan" class="text-rose-600 focus:ring-rose-500">
                                         <span><strong>Perlu Perbaikan</strong> &mdash; Kembalikan berkas ke PPBJ disertai catatan revisi wajib.</span>
                                     </label>
-                                @elseif(Auth::user()->role === 'ppk')
+                                @elseif(Auth::user()->hasRole('ppk') || Auth::user()->hasPermission('reviu.ppk'))
                                     <label class="flex items-center text-xs text-slate-800 cursor-pointer gap-2">
                                         <input type="radio" name="status_reviu" value="disetujui" checked class="text-[#087F79] focus:ring-[#087F79]">
                                         <span><strong>Disetujui (ACC PPK)</strong> &mdash; Berkas dan spesifikasi disetujui, siap eksekusi belanja / terbitkan dokumen perikatan.</span>
@@ -223,7 +250,7 @@
                             </div>
 
                             {{-- PP: Negosiasi Harga, Harga Perkiraan, Vendor, & Kalkulator Efisiensi --}}
-                            @if(Auth::user()->role === 'pp')
+                            @if(Auth::user()->hasRole('pp') || Auth::user()->hasPermission('reviu.pp'))
                                 <div class="p-4 rounded-xl bg-amber-50/60 border border-amber-200/80 space-y-3">
                                     <div>
                                         <label for="nominal_harga_perkiraan" class="block text-xs font-bold text-amber-900 mb-1">
@@ -300,7 +327,7 @@
                                         </div>
                                     </div>
                                 </div>
-                            @elseif(Auth::user()->role === 'ppk')
+                            @elseif(Auth::user()->hasRole('ppk') || Auth::user()->hasPermission('reviu.ppk'))
                                 <div class="p-4 rounded-xl bg-purple-50/60 border border-purple-200/80 space-y-1">
                                     <h4 class="text-xs font-bold text-purple-900">Persetujuan Dokumen &amp; Hasil Telaah</h4>
                                     <p class="text-[11px] text-purple-800 leading-relaxed">
@@ -331,9 +358,9 @@
                                 type="submit"
                                 class="px-6 py-2.5 rounded-xl bg-[#213153] text-xs font-bold text-white hover:bg-slate-800 shadow-sm transition"
                             >
-                                @if(Auth::user()->role === 'pp')
+                                @if(Auth::user()->hasRole('pp') || Auth::user()->hasPermission('reviu.pp'))
                                     Kirim Hasil Reviu &amp; Negosiasi PP
-                                @elseif(Auth::user()->role === 'ppk')
+                                @elseif(Auth::user()->hasRole('ppk') || Auth::user()->hasPermission('reviu.ppk'))
                                     Kirim Persetujuan Dokumen (ACC PPK)
                                 @endif
                             </button>
@@ -363,7 +390,8 @@
                                 <th class="px-5 py-3">Paket Pengadaan</th>
                                 <th class="px-5 py-3">Pagu HPS</th>
                                 <th class="px-5 py-3">Jalur Routing</th>
-                                <th class="px-5 py-3">Hasil Negosiasi PP</th>
+                                <th class="px-5 py-3">Pejabat PP</th>
+                                <th class="px-5 py-3">Hasil Negosiasi &amp; Rekanan</th>
                                 <th class="px-5 py-3">PPK Penanggung Jawab</th>
                                 <th class="px-5 py-3">Status</th>
                             </tr>
@@ -385,9 +413,18 @@
                                             {{ strtoupper(str_replace('_', ' ', $pr->jalur_routing)) }}
                                         </span>
                                     </td>
+                                    <td class="px-5 py-3.5 text-slate-700">
+                                        <div class="font-semibold text-slate-800">{{ $pr->ppUser->nama ?? ($pr->jalur_routing === 'pp_50_sd_200jt' ? 'PP Belum Ditugaskan' : '-') }}</div>
+                                        @if($pr->jalur_routing === 'pp_50_sd_200jt' && $pr->ppUser)
+                                            <div class="text-[10px] text-slate-400 font-mono">NIP: {{ $pr->ppUser->nip ?? '-' }}</div>
+                                        @endif
+                                    </td>
                                     <td class="px-5 py-3.5">
                                         @if($pr->nilai_hasil_negosiasi)
                                             <span class="font-mono font-bold text-[#0969da]">Rp {{ number_format($pr->nilai_hasil_negosiasi, 0, ',', '.') }}</span>
+                                            @if($pr->vendor)
+                                                <div class="text-[10px] font-semibold text-emerald-700 mt-0.5">&bull; {{ $pr->vendor->nama_vendor }}</div>
+                                            @endif
                                             @if($pr->catatan_verifikasi_pp)
                                                 <div class="text-[10px] text-slate-500 truncate max-w-xs mt-0.5">"{{ $pr->catatan_verifikasi_pp }}"</div>
                                             @endif

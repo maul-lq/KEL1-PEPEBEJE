@@ -22,8 +22,8 @@
 
 <div x-data="{ 
     editModalOpen: false, 
-    passwordModalOpen: {{ session('password_modal_error') ? 'true' : 'false' }}, 
-    deleteAccountModalOpen: {{ session('delete_modal_error') ? 'true' : 'false' }} 
+    passwordModalOpen: {{ ($errors->has('old_password') || $errors->has('new_password') || $errors->has('confirm_password') || session('password_modal_error')) ? 'true' : 'false' }}, 
+    deleteAccountModalOpen: {{ (session('delete_modal_error') || $errors->has('password_konfirmasi')) ? 'true' : 'false' }} 
 }" class="mx-auto max-w-[1750px]">
 
     {{-- HEADER HALAMAN --}}
@@ -132,11 +132,6 @@
                 <label class="flex flex-col gap-2">
                     <span class="text-[15px] font-medium text-black">Unit Kerja / Jurusan</span>
                     <input readOnly value="{{ $user->unit->nama_unit ?? $user->kode_unit ?? '-' }}" class="h-[34px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] px-[14px] text-[13px] text-[#4A4A4A] outline-none" />
-                </label>
-
-                <label class="flex flex-col gap-2">
-                    <span class="text-[15px] font-medium text-black">Gelar</span>
-                    <input readOnly value="{{ $user->gelar ?? '-' }}" class="h-[34px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] px-[14px] text-[13px] text-[#4A4A4A] outline-none" />
                 </label>
 
                 <label class="flex flex-col gap-2">
@@ -341,7 +336,7 @@
 
     {{-- MODAL EDIT PROFIL (form otomatis kembali ke data asli saat modal ditutup) --}}
     <div x-show="editModalOpen" x-cloak x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-        <form action="{{ route('profile.update') }}" method="POST"
+        <form action="{{ route('profile.update') }}" method="POST" enctype="multipart/form-data"
               x-init="$watch('editModalOpen', open => { if (!open) $el.reset(); })"
               @click.away="editModalOpen = false"
               class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-slate-200">
@@ -371,6 +366,10 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700">Jabatan</label>
                     <input type="text" name="jabatan" value="{{ $user->jabatan }}" class="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm outline-none focus:ring-2 focus:ring-[#0088E8]" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Ganti Foto Profil (Opsional, JPG/PNG Maks. 2MB)</label>
+                    <input type="file" name="foto_profil" accept="image/*" class="mt-1 w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
                 </div>
             </div>
             <div class="mt-6 flex justify-end gap-3 border-t pt-4">
@@ -408,7 +407,14 @@
                 <svg class="size-7 text-black shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
                 <h2 class="text-2xl font-semibold text-black">Ubah Password</h2>
             </div>
-            <p class="text-[17px] text-[#494949] mb-8">Masukkan password baru Anda untuk mengganti kata sandi akun.</p>
+            <p class="text-[17px] text-[#494949] mb-6">Masukkan password baru Anda untuk mengganti kata sandi akun.</p>
+
+            @if(session('password_modal_error') && session('error'))
+                <div class="mb-5 flex items-center gap-2.5 rounded-lg border border-rose-200 bg-rose-50 p-3.5 text-sm font-semibold text-rose-700">
+                    <svg class="size-5 shrink-0 text-rose-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <span>{{ session('error') }}</span>
+                </div>
+            @endif
 
             <form x-ref="passwordForm" action="{{ route('profile.password.update') }}" method="POST" class="space-y-6">
                 @csrf
@@ -419,7 +425,7 @@
                     <label class="block text-lg font-medium text-black mb-2">
                         Password Lama <span class="text-[#ff0000]">*</span>
                     </label>
-                    <div class="relative h-[60px] w-full rounded-[5px] border border-[#d1d1d1] bg-[#f5f5ff]">
+                    <div class="relative h-[60px] w-full rounded-[5px] border {{ $errors->has('old_password') ? 'border-rose-400' : 'border-[#d1d1d1]' }} bg-[#f5f5ff]">
                         <input :type="showOld ? 'text' : 'password'" 
                                name="old_password" 
                                required 
@@ -430,6 +436,9 @@
                             <svg x-show="showOld" x-cloak class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858-5.908a8.962 8.962 0 013.98-.863c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m-4.692-4.692a3 3 0 00-4.243-4.243"/></svg>
                         </button>
                     </div>
+                    @error('old_password')
+                        <p class="text-xs font-semibold text-rose-600 mt-1.5">{{ $message }}</p>
+                    @enderror
                 </div>
 
                 <!-- Field 2: Password Baru -->
@@ -437,7 +446,7 @@
                     <label class="block text-lg font-medium text-black mb-2">
                         Password Baru <span class="text-[#ff0000]">*</span>
                     </label>
-                    <div class="relative h-[60px] w-full rounded-[5px] border border-[#d1d1d1] bg-[#f5f5ff]">
+                    <div class="relative h-[60px] w-full rounded-[5px] border {{ $errors->has('new_password') ? 'border-rose-400' : 'border-[#d1d1d1]' }} bg-[#f5f5ff]">
                         <input :type="showNew ? 'text' : 'password'" 
                                name="new_password" 
                                required 
@@ -449,6 +458,9 @@
                             <svg x-show="showNew" x-cloak class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858-5.908a8.962 8.962 0 013.98-.863c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m-4.692-4.692a3 3 0 00-4.243-4.243"/></svg>
                         </button>
                     </div>
+                    @error('new_password')
+                        <p class="text-xs font-semibold text-rose-600 mt-1.5">{{ $message }}</p>
+                    @enderror
                 </div>
 
                 <!-- Field 3: Konfirmasi Password Baru -->
@@ -456,7 +468,7 @@
                     <label class="block text-lg font-medium text-black mb-2">
                         Konfirmasi Password Baru <span class="text-[#ff0000]">*</span>
                     </label>
-                    <div class="relative h-[60px] w-full rounded-[5px] border border-[#d1d1d1] bg-[#f5f5ff]">
+                    <div class="relative h-[60px] w-full rounded-[5px] border {{ $errors->has('confirm_password') ? 'border-rose-400' : 'border-[#d1d1d1]' }} bg-[#f5f5ff]">
                         <input :type="showConfirm ? 'text' : 'password'" 
                                name="confirm_password" 
                                required 
@@ -467,6 +479,9 @@
                             <svg x-show="showConfirm" x-cloak class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858-5.908a8.962 8.962 0 013.98-.863c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m-4.692-4.692a3 3 0 00-4.243-4.243"/></svg>
                         </button>
                     </div>
+                    @error('confirm_password')
+                        <p class="text-xs font-semibold text-rose-600 mt-1.5">{{ $message }}</p>
+                    @enderror
                 </div>
 
                 <!-- Tombol Aksi -->

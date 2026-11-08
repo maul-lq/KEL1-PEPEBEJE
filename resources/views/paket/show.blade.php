@@ -65,7 +65,7 @@
                             <svg class="size-4 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                             Kwitansi Sah: {{ $paket->nomor_kwitansi_belanja }}
                         </span>
-                    @elseif(Auth::user() && in_array(Auth::user()->role, ['ppbj', 'admin']))
+                    @elseif(Auth::user() && (Auth::user()->hasRole('admin') || Auth::user()->hasPermission('paket.create')))
                         <a
                             href="{{ route('paket.index') }}"
                             class="px-4 py-2 rounded-xl bg-teal-600 text-xs font-bold text-white hover:bg-teal-700 shadow-sm transition inline-flex items-center gap-1.5"
@@ -75,7 +75,7 @@
                         </a>
                     @endif
                 @else
-                    @if(Auth::user() && Auth::user()->role === 'pp' && in_array($paket->status_paket, [\App\Models\PaketPengadaan::STATUS_DISETUJUI_PPK_SIAP_BELANJA_PP, 'reviu_dokumen_disetujui']))
+                    @if(Auth::user() && (Auth::user()->hasRole('pp') || Auth::user()->hasPermission('reviu.pp')) && in_array($paket->status_paket, [\App\Models\PaketPengadaan::STATUS_DISETUJUI_PPK_SIAP_BELANJA_PP, 'reviu_dokumen_disetujui']))
                         <form action="{{ route('kontrak.eksekusi-belanja') }}" method="POST" class="inline">
                             @csrf
                             <input type="hidden" name="nomor_paket" value="{{ $paket->nomor_paket }}">
@@ -87,7 +87,7 @@
                                 <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                             </button>
                         </form>
-                    @elseif(Auth::user() && Auth::user()->role === 'ppk' && $paket->jalur_routing === 'ppk_diatas_200jt' && in_array($paket->status_paket, [\App\Models\PaketPengadaan::STATUS_MENUNGGU_APPROVAL_PPK, 'reviu_dokumen_disetujui']))
+                    @elseif(Auth::user() && (Auth::user()->hasRole('ppk') || Auth::user()->hasPermission('reviu.ppk')) && $paket->jalur_routing === 'ppk_diatas_200jt' && in_array($paket->status_paket, [\App\Models\PaketPengadaan::STATUS_MENUNGGU_APPROVAL_PPK, 'reviu_dokumen_disetujui']))
                         <form action="{{ route('kontrak.eksekusi-belanja') }}" method="POST" class="inline">
                             @csrf
                             <input type="hidden" name="nomor_paket" value="{{ $paket->nomor_paket }}">
@@ -205,22 +205,83 @@
         </div>
     </div>
 
-    {{-- 4. Berkas Usulan Permohonan Induk --}}
+    {{-- 4. Berkas Usulan Permohonan Induk & Kelengkapan BPMN (Form, MAK & Memo) --}}
     @if($paket->permohonan)
-        <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80">
-            <h3 class="text-sm font-bold text-[#213153] mb-3">Usulan Permohonan Pengadaan Terkait</h3>
-            <div class="p-4 rounded-xl bg-slate-50 border border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+        <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80 space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
                 <div>
-                    <span class="font-mono font-bold text-[#0969da]">{{ $paket->permohonan->nomor_surat }}</span>
-                    <h4 class="font-bold text-slate-800 text-sm mt-0.5">{{ $paket->permohonan->perihal }}</h4>
-                    <p class="text-slate-500 mt-0.5">Unit: {{ $paket->permohonan->unit->nama_unit ?? $paket->permohonan->kode_unit }} &bull; Estimasi Pagu: Rp {{ number_format($paket->permohonan->anggaran_diajukan ?? $paket->permohonan->estimasi_total_pagu, 0, ',', '.') }}</p>
+                    <h3 class="text-sm font-bold text-[#213153]">Dasar Berkas Permohonan Masuk (BPMN: Form Pengadaan, MAK &amp; Memo)</h3>
+                    <p class="text-xs text-slate-400 mt-0.5">Dokumen usulan dan disposisi persetujuan pimpinan yang mendasari paket pengadaan ini</p>
                 </div>
                 <a
                     href="{{ route('permohonan.show', $paket->permohonan->nomor_surat) }}"
-                    class="px-3.5 py-1.5 rounded-lg border border-slate-200 bg-white font-semibold text-slate-700 hover:bg-slate-50 transition shadow-xs text-xs shrink-0 inline-flex items-center gap-1"
+                    class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white font-semibold text-slate-700 hover:bg-slate-50 transition shadow-xs text-xs inline-flex items-center gap-1"
                 >
-                    Lihat Berkas Permohonan &rarr;
+                    Lihat Detail Usulan &rarr;
                 </a>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                {{-- 1. Form Pengadaan & Dokumen Teknis --}}
+                <div class="p-4 rounded-xl bg-slate-50/70 border border-slate-200/80 space-y-2">
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">1. Form Pengadaan &amp; Teknis</span>
+                    <div>
+                        <span class="font-mono font-bold text-[#0969da] block">{{ $paket->permohonan->nomor_surat }}</span>
+                        <h4 class="font-bold text-slate-800 text-xs mt-0.5">{{ $paket->permohonan->perihal ?? $paket->permohonan->judul_pengadaan }}</h4>
+                        <p class="text-slate-500 text-[11px] mt-0.5">Unit: {{ $paket->permohonan->unit->nama_unit ?? $paket->permohonan->kode_unit }}</p>
+                    </div>
+                    <div class="pt-2 border-t border-slate-200/60 flex flex-wrap gap-2">
+                        <a href="{{ route('dokumen.pdf', ['jenis' => 'permohonan', 'id' => $paket->permohonan->nomor_surat]) }}" target="_blank" class="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0969da] hover:underline">
+                            <svg class="size-3 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                            Surat Permohonan
+                        </a>
+                        @if($paket->permohonan->file_kak)
+                            <a href="{{ asset('storage/' . $paket->permohonan->file_kak) }}" target="_blank" class="text-[11px] font-semibold text-[#0969da] hover:underline">
+                                KAK
+                            </a>
+                        @endif
+                        @if($paket->permohonan->file_spesifikasi_teknis)
+                            <a href="{{ asset('storage/' . $paket->permohonan->file_spesifikasi_teknis) }}" target="_blank" class="text-[11px] font-semibold text-[#0969da] hover:underline">
+                                Spek Teknis
+                            </a>
+                        @endif
+                    </div>
+                </div>
+
+                {{-- 2. Penetapan Rekening MAK DIPA --}}
+                <div class="p-4 rounded-xl bg-slate-50/70 border border-slate-200/80 space-y-2">
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">2. Penetapan MAK DIPA</span>
+                    <div>
+                        <span class="font-mono font-bold text-emerald-700 block">{{ $paket->permohonan->kode_mak ?? '(MAK Belum Terhubung)' }}</span>
+                        <p class="text-xs text-slate-800 font-medium mt-0.5">{{ $paket->permohonan->anggaranMak->uraian_mak ?? 'Pagu DIPA Kampus' }}</p>
+                        <p class="text-slate-500 text-[11px] mt-0.5">Pagu Usulan: <strong class="font-mono text-slate-800">Rp {{ number_format($paket->permohonan->anggaran_diajukan ?? $paket->permohonan->estimasi_total_pagu, 0, ',', '.') }}</strong></p>
+                    </div>
+                    <div class="pt-2 border-t border-slate-200/60">
+                        <span class="text-[11px] text-emerald-700 font-bold inline-flex items-center gap-1">
+                            <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            Mata Anggaran Telah Terkunci
+                        </span>
+                    </div>
+                </div>
+
+                {{-- 3. Memo Ketersediaan MAK & Persetujuan --}}
+                <div class="p-4 rounded-xl bg-slate-50/70 border border-slate-200/80 space-y-2">
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">3. Memo &amp; Persetujuan Masuk</span>
+                    <div class="space-y-1">
+                        <p class="text-[11px] text-slate-500">
+                            Memo MAK: <strong class="font-mono text-slate-800">{{ $paket->permohonan->nomor_memo_ketersediaan_mak ?? $paket->permohonan->nomor_memo_cek_mak ?? 'Terbit Resmi' }}</strong>
+                        </p>
+                        <p class="text-[11px] text-slate-500">
+                            Disposisi Wadir II: <span class="font-bold text-emerald-700">Disetujui</span>
+                        </p>
+                        <p class="text-[11px] text-slate-500">
+                            Persetujuan PPK: <strong class="text-slate-800">{{ $paket->permohonan->ppkAwal->nama ?? 'PPK Penanggung Jawab' }}</strong> (<span class="font-bold text-emerald-700">ACC</span>)
+                        </p>
+                    </div>
+                    <div class="pt-2 border-t border-slate-200/60">
+                        <span class="text-[10px] text-slate-400 italic">Disetujui penuh sebelum registrasi paket</span>
+                    </div>
+                </div>
             </div>
         </div>
     @endif

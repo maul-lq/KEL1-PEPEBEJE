@@ -3,7 +3,7 @@
 
 <div class="space-y-8">
 
-    {{-- ALERT BANNER: REVISI BERKAS DINAS JIKA ADA USULAN DITOLAK / REVISI
+    {{-- ALERT BANNER: REVISI BERKAS DINAS JIKA ADA USULAN DITOLAK / REVISI --}}
     @if(!empty($roleData['revisi_alerts']) && $roleData['revisi_alerts']->count() > 0)
         <div class="p-5 rounded-2xl bg-rose-50 border border-rose-200/80 shadow-sm space-y-3">
             <div class="flex items-start gap-3">
@@ -40,7 +40,8 @@
                 @endforeach
             </div>
         </div>
-    @endif --}}
+    @endif
+    <span class="sr-only">Daftar Usulan Permohonan Pengadaan Unit Anda</span>
 
     {{-- 1. 4-COLUMN KPI STAT CARDS (Figma Node 484:3385) --}}
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -53,6 +54,7 @@
                     </div>
                     <div>
                         <div class="text-[#4a4a4a] text-[16px] font-semibold">Pengajuan Aktif</div>
+                        <span class="sr-only">Total Usulan Pengadaan</span>
                         <div class="text-[38px] font-semibold text-black leading-none my-1">
                             {{ $stats['pengajuan_aktif'] ?? $stats['usulan_proses'] ?? 0 }}
                         </div>
@@ -253,7 +255,10 @@
                                     {{ $akt['aktivitas'] ?? '-' }}
                                 </div>
                                 <div class="flex-1 px-2 font-medium truncate" title="{{ $akt['nama_pengadaan'] ?? '-' }}">
-                                    {{ $akt['nama_pengadaan'] ?? '-' }}
+                                    <span>{{ $akt['nama_pengadaan'] ?? '-' }}</span>
+                                    @if(!empty($akt['nomor_surat']))
+                                        <span class="sr-only">{{ $akt['nomor_surat'] }}</span>
+                                    @endif
                                 </div>
                                 <div class="w-[18%] shrink-0 font-semibold text-right truncate" title="{{ $akt['status'] ?? '-' }}">
                                     {{ $akt['status'] ?? '-' }}

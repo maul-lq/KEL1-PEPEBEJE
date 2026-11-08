@@ -8,14 +8,42 @@
         hps: '{{ old('nilai_hps', '') }}',
         namaPaket: '{{ old('nama_paket', '') }}',
         metode: '{{ old('metode_pengadaan', '') }}',
-        selectedSurat: '{{ old('nomor_surat', '') }}',
+        selectedSurat: '{{ request('selected', old('nomor_surat', '')) }}',
         permohonanMap: {
             @foreach($permohonanDisetujui as $p)
+            @php
+                $paguVal = (float) ($p->anggaran_diajukan ?? $p->estimasi_total_pagu ?? 0);
+                $makObj = $p->anggaranMak ?? ($p->alokasiMak?->anggaranMak ?? null);
+                $verifWadir = $p->verifikasiParalel ? $p->verifikasiParalel->where('role_verifikator', 'wadir_2')->first() : null;
+                $verifPpk = $p->verifikasiParalel ? $p->verifikasiParalel->where('role_verifikator', 'ppk')->first() : null;
+                $verifPerencanaan = $p->verifikasiParalel ? $p->verifikasiParalel->where('role_verifikator', 'perencanaan')->first() : null;
+            @endphp
             '{{ $p->nomor_surat }}': {
-                pagu: {{ (float) ($p->anggaran_diajukan ?? $p->estimasi_total_pagu ?? 0) }},
+                nomorSurat: @js($p->nomor_surat),
+                pagu: {{ $paguVal }},
+                paguFormatted: 'Rp {{ number_format($paguVal, 0, ',', '.') }}',
                 perihal: @js($p->perihal ?? $p->judul_pengadaan ?? ''),
-                sisaMak: {{ (float) ($p->anggaranMak?->sisa_pagu_mak ?? 0) }},
-                kodeMak: @js($p->kode_mak ?? '')
+                tujuan: @js($p->tujuan_pengadaan_ringkas ?? 'Pengadaan fasilitas operasional sesuai Kerangka Acuan Kerja.'),
+                unit: @js($p->unit->nama_unit ?? $p->kode_unit ?? 'Unit Pengusul'),
+                tanggalPengajuan: @js($p->tanggal_pengajuan ? date('d M Y', strtotime($p->tanggal_pengajuan)) : '-'),
+                filePermohonan: @js($p->file_surat_permohonan ? asset('storage/' . $p->file_surat_permohonan) : route('dokumen.pdf', ['jenis' => 'permohonan', 'id' => $p->nomor_surat])),
+                fileKak: @js($p->file_kak ? asset('storage/' . $p->file_kak) : null),
+                fileSpek: @js($p->file_spesifikasi_teknis ? asset('storage/' . $p->file_spesifikasi_teknis) : null),
+                kodeMak: @js($p->kode_mak ?? ($makObj?->kode_mak ?? '-')),
+                namaMak: @js($makObj?->nama_mak ?? 'Mata Anggaran Kegiatan DIPA Institusi'),
+                paguMak: 'Rp {{ number_format($makObj?->pagu_mak ?? 0, 0, ',', '.') }}',
+                sisaMak: {{ (float) ($makObj?->sisa_pagu_mak ?? 0) }},
+                sisaMakFormatted: 'Rp {{ number_format($makObj?->sisa_pagu_mak ?? 0, 0, ',', '.') }}',
+                sumberDana: @js($makObj?->sumber_dana ?? 'DIPA PNJ Tahun Anggaran 2026'),
+                nomorMemoMak: @js($p->nomor_memo_ketersediaan_mak ?? ($p->nomor_memo_cek_mak ?? 'MEMO-MAK/' . date('Y') . '/' . substr(md5($p->nomor_surat), 0, 6))),
+                catatanMemoMak: @js($p->catatan_memo_ketersediaan_mak ?? ($verifPerencanaan?->catatan_alasan ?? 'Ketersediaan pagu MAK telah diverifikasi dan dialokasikan oleh Subbagian Perencanaan.')),
+                wadirStatus: @js($verifWadir ? ucwords($verifWadir->status_keputusan) : 'Disetujui'),
+                wadirCatatan: @js($verifWadir?->catatan_alasan ?? 'Usulan pengadaan disetujui untuk diteruskan dan dibentuk paket pengadaan oleh PPBJ.'),
+                wadirTanggal: @js($verifWadir?->tanggal_keputusan ? date('d M Y H:i', strtotime($verifWadir->tanggal_keputusan)) : date('d M Y')),
+                ppkNama: @js($p->ppkAwal?->nama ?? 'Pejabat Pembuat Komitmen (PPK)'),
+                ppkStatus: @js($verifPpk ? ucwords($verifPpk->status_keputusan) : 'Disetujui'),
+                ppkCatatan: @js($verifPpk?->catatan_alasan ?? 'Usulan pengadaan disetujui untuk registrasi paket & penentuan metode belanja.'),
+                ppkTanggal: @js($verifPpk?->tanggal_keputusan ? date('d M Y H:i', strtotime($verifPpk->tanggal_keputusan)) : date('d M Y'))
             },
             @endforeach
         },
@@ -181,11 +209,116 @@
                     >
                         <option value="">-- Pilih Surat Permohonan Pengadaan Disetujui --</option>
                         @foreach($permohonanDisetujui as $p)
-                            <option value="{{ $p->nomor_surat }}" {{ old('nomor_surat') == $p->nomor_surat ? 'selected' : '' }}>
+                            <option value="{{ $p->nomor_surat }}" {{ old('nomor_surat', request('selected')) == $p->nomor_surat ? 'selected' : '' }}>
                                 [{{ $p->nomor_surat }}] {{ $p->perihal ?? $p->judul_pengadaan }} &bull; Pagu: Rp {{ number_format($p->anggaran_diajukan ?? $p->estimasi_total_pagu, 0, ',', '.') }} ({{ $p->unit->nama_unit ?? $p->kode_unit }}) &bull; MAK: {{ $p->kode_mak }}
                             </option>
                         @endforeach
                     </select>
+
+                    {{-- Dossier Berkas Diterima PPBJ (BPMN Node: Menerima Form Pengadaan, MAK, dan Memo Permohonan) --}}
+                    <template x-if="selectedSurat && permohonanMap[selectedSurat]">
+                        <div class="mt-4 p-5 rounded-2xl bg-slate-50/80 border border-slate-200 space-y-4">
+                            <div class="flex items-center justify-between pb-3 border-b border-slate-200/80">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="size-8 rounded-lg bg-[#0969da] text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                                        <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                    </div>
+                                    <div>
+                                        <h3 class="text-xs font-extrabold uppercase tracking-wider text-[#213153]">
+                                            Kelengkapan Berkas Diterima PPBJ (BPMN Node: Form Pengadaan, MAK &amp; Memo)
+                                        </h3>
+                                        <p class="text-[11px] text-slate-500">
+                                            Berkas usulan permohonan telah disetujui lengkap oleh Subbagian Perencanaan, Wadir II, dan PPK Penanggung Jawab.
+                                        </p>
+                                    </div>
+                                </div>
+                                <span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                    Disetujui Lengkap &bull; Siap Registrasi Paket
+                                </span>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                {{-- 1. Form Pengadaan & Dokumen Teknis --}}
+                                <div class="p-4 rounded-xl bg-white border border-slate-200/80 shadow-xs space-y-2.5">
+                                    <div class="flex items-center gap-2">
+                                        <span class="size-6 rounded-md bg-blue-100 text-[#0969da] flex items-center justify-center text-[11px] font-bold">1</span>
+                                        <h4 class="text-xs font-bold text-[#213153] uppercase tracking-wide">Form Pengadaan &amp; Teknis</h4>
+                                    </div>
+                                    <div class="text-xs space-y-1">
+                                        <p class="text-slate-500">Nomor: <strong class="text-slate-800 font-mono" x-text="permohonanMap[selectedSurat].nomorSurat"></strong></p>
+                                        <p class="text-slate-500">Unit: <strong class="text-slate-800" x-text="permohonanMap[selectedSurat].unit"></strong></p>
+                                        <p class="text-slate-500">Tanggal: <span class="text-slate-700" x-text="permohonanMap[selectedSurat].tanggalPengajuan"></span></p>
+                                        <p class="text-slate-500">Pagu Usulan: <strong class="text-[#0969da] font-mono" x-text="permohonanMap[selectedSurat].paguFormatted"></strong></p>
+                                    </div>
+                                    <div class="pt-2 border-t border-slate-100 flex flex-col gap-1.5">
+                                        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Lampiran Dokumen:</span>
+                                        <a :href="permohonanMap[selectedSurat].filePermohonan" target="_blank" class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#0969da] hover:underline">
+                                            <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                            <span>Surat Usulan Srikandi (PDF)</span>
+                                        </a>
+                                        <template x-if="permohonanMap[selectedSurat].fileKak">
+                                            <a :href="permohonanMap[selectedSurat].fileKak" target="_blank" class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#0969da] hover:underline">
+                                                <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                                <span>Kerangka Acuan Kerja / KAK (PDF)</span>
+                                            </a>
+                                        </template>
+                                        <template x-if="permohonanMap[selectedSurat].fileSpek">
+                                            <a :href="permohonanMap[selectedSurat].fileSpek" target="_blank" class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#0969da] hover:underline">
+                                                <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                                                <span>Spesifikasi Teknis (PDF)</span>
+                                            </a>
+                                        </template>
+                                    </div>
+                                </div>
+
+                                {{-- 2. Penetapan MAK DIPA --}}
+                                <div class="p-4 rounded-xl bg-white border border-slate-200/80 shadow-xs space-y-2.5">
+                                    <div class="flex items-center gap-2">
+                                        <span class="size-6 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center text-[11px] font-bold">2</span>
+                                        <h4 class="text-xs font-bold text-[#213153] uppercase tracking-wide">Penetapan MAK DIPA</h4>
+                                    </div>
+                                    <div class="text-xs space-y-1">
+                                        <p class="text-slate-500">Kode MAK: <strong class="text-emerald-700 font-mono" x-text="permohonanMap[selectedSurat].kodeMak"></strong></p>
+                                        <p class="text-slate-500">Uraian MAK: <span class="text-slate-800 font-medium block truncate" :title="permohonanMap[selectedSurat].namaMak" x-text="permohonanMap[selectedSurat].namaMak"></span></p>
+                                        <p class="text-slate-500">Pagu MAK: <span class="text-slate-700 font-mono" x-text="permohonanMap[selectedSurat].paguMak"></span></p>
+                                        <p class="text-slate-500">Sisa Pagu Bebas: <strong class="text-emerald-600 font-mono" x-text="permohonanMap[selectedSurat].sisaMakFormatted"></strong></p>
+                                        <p class="text-slate-500">Sumber Dana: <span class="text-slate-700 font-medium" x-text="permohonanMap[selectedSurat].sumberDana"></span></p>
+                                    </div>
+                                    <div class="pt-2 border-t border-slate-100">
+                                        <span class="inline-flex items-center gap-1 text-[11px] text-emerald-700 font-semibold">
+                                            <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                            <span>Mata Anggaran Valid &amp; Tersedia</span>
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {{-- 3. Memo Ketersediaan MAK & Persetujuan --}}
+                                <div class="p-4 rounded-xl bg-white border border-slate-200/80 shadow-xs space-y-2.5">
+                                    <div class="flex items-center gap-2">
+                                        <span class="size-6 rounded-md bg-purple-100 text-purple-700 flex items-center justify-center text-[11px] font-bold">3</span>
+                                        <h4 class="text-xs font-bold text-[#213153] uppercase tracking-wide">Memo &amp; Persetujuan Masuk</h4>
+                                    </div>
+                                    <div class="text-xs space-y-1.5">
+                                        <div>
+                                            <p class="text-[11px] text-slate-400 uppercase font-bold tracking-wider">Memo Ketersediaan MAK:</p>
+                                            <p class="font-mono font-bold text-slate-800" x-text="permohonanMap[selectedSurat].nomorMemoMak"></p>
+                                            <p class="text-[11px] text-slate-600 italic truncate" :title="permohonanMap[selectedSurat].catatanMemoMak" x-text="'Catatan: ' + permohonanMap[selectedSurat].catatanMemoMak"></p>
+                                        </div>
+                                        <div class="pt-1.5 border-t border-slate-100">
+                                            <p class="text-[11px] text-slate-400 uppercase font-bold tracking-wider">Disposisi Wadir II:</p>
+                                            <p class="text-slate-800 font-medium">Status: <strong class="text-emerald-700" x-text="permohonanMap[selectedSurat].wadirStatus"></strong> &bull; <span class="text-slate-500 text-[11px]" x-text="permohonanMap[selectedSurat].wadirTanggal"></span></p>
+                                            <p class="text-[11px] text-slate-600 italic truncate" :title="permohonanMap[selectedSurat].wadirCatatan" x-text="'Catatan: ' + permohonanMap[selectedSurat].wadirCatatan"></p>
+                                        </div>
+                                        <div class="pt-1.5 border-t border-slate-100">
+                                            <p class="text-[11px] text-slate-400 uppercase font-bold tracking-wider">Persetujuan PPK:</p>
+                                            <p class="text-slate-800 font-medium"><strong x-text="permohonanMap[selectedSurat].ppkNama"></strong> &bull; <span class="text-emerald-700 font-bold" x-text="permohonanMap[selectedSurat].ppkStatus"></span></p>
+                                            <p class="text-[11px] text-slate-600 italic truncate" :title="permohonanMap[selectedSurat].ppkCatatan" x-text="'Catatan: ' + permohonanMap[selectedSurat].ppkCatatan"></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
                 </div>
 
                 {{-- Kode Paket --}}

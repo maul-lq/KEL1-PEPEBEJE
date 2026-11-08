@@ -106,6 +106,7 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:perencanaan')->group(function () {
         Route::get('/verifikasi/perencanaan', [HomeController::class, 'verifikasiPerencanaan'])->name('verifikasi.perencanaan');
         Route::post('/verifikasi/perencanaan/mak', [HomeController::class, 'alokasiMakPerencanaan'])->name('verifikasi.perencanaan.mak');
+        Route::post('/verifikasi/perencanaan/alokasi', [HomeController::class, 'alokasiMakPerencanaan'])->name('verifikasi.perencanaan.alokasi');
         Route::post('/verifikasi/perencanaan/mak/store', [HomeController::class, 'storeMakPerencanaan'])->name('verifikasi.perencanaan.mak.store');
         Route::post('/verifikasi/perencanaan/mak/{anggaran_mak}/lock', [HomeController::class, 'lockMakWeb'])
             ->name('verifikasi.perencanaan.mak.lock')
@@ -136,9 +137,9 @@ Route::middleware('auth')->group(function () {
     // -------------------------------------------------------------------------
     // Modul 5: Review PP, Approval PPK, Eksekusi Belanja, & Upload 1 Dokumen Perikatan PPBJ
     // -------------------------------------------------------------------------
-    Route::get('/kontrak-spk', [HomeController::class, 'kontrakIndex'])->name('kontrak.index');
-    Route::post('/kontrak-spk', [HomeController::class, 'storeKontrak'])->name('kontrak.store');
-    Route::post('/kontrak-spk/reviu', [HomeController::class, 'storeReviuWeb'])->name('kontrak.reviu');
+    Route::get('/kontrak-spk', [HomeController::class, 'kontrakIndex'])->name('kontrak.index')->middleware('role:pp,ppk,ppbj,admin');
+    Route::post('/kontrak-spk', [HomeController::class, 'storeKontrak'])->name('kontrak.store')->middleware('role:pp,ppbj,admin');
+    Route::post('/kontrak-spk/reviu', [HomeController::class, 'storeReviuWeb'])->name('kontrak.reviu')->middleware('role:pp,ppk');
     Route::post('/kontrak-spk/eksekusi-belanja', [HomeController::class, 'eksekusiBelanjaWeb'])
         ->name('kontrak.eksekusi-belanja')
         ->middleware('role:pp,ppk');
@@ -193,12 +194,6 @@ Route::middleware('auth')->group(function () {
         Route::put('/roles/{role}', [RoleController::class, 'update'])->name('roles.update');
         Route::delete('/roles/{role}', [RoleController::class, 'destroy'])->name('roles.destroy');
     });
-
-    // -------------------------------------------------------------------------
-    // Modul Profil Pengguna (User Profile)
-    // -------------------------------------------------------------------------
-    Route::get('/profil', [HomeController::class, 'profileIndex'])->name('profile.index');
-    Route::put('/profil', [HomeController::class, 'profileUpdate'])->name('profile.update');
 
     // -------------------------------------------------------------------------
     // Helper Unduh Berkas Resmi Format PDF (< 3 Detik - NFR 12)
@@ -272,6 +267,11 @@ Route::prefix('api')->group(function () {
 
     Route::get('monitoring-status', [PermohonanPengadaanController::class, 'monitoringStatus'])->name('monitoring.status');
     Route::get('permohonan-pengadaan/monitoring', [PermohonanPengadaanController::class, 'monitoringStatus'])->name('permohonan-pengadaan.monitoring');
+
+    // Penahanan status pagu (Hold / Pending Anggaran) jika anggaran DIPA belum siap (FR 6.2)
+    Route::post('anggaran-mak/hold', [AnggaranMAKController::class, 'holdAnggaran'])
+        ->name('anggaran-mak.hold')
+        ->middleware('role:perencanaan');
 
     // Penguncian dan pembukaan kunci pagu MAK secara eksklusif oleh Bagian Perencanaan (NFR Integritas MAK)
     Route::post('anggaran-mak/{anggaran_mak}/lock', [AnggaranMAKController::class, 'lock'])
@@ -384,11 +384,3 @@ Route::prefix('api')->group(function () {
 // Health Checks
 Route::get('/health', [HomeController::class, 'healthCheck'])->name('health');
 Route::get('/health-check', [HomeController::class, 'healthCheck']);
-
-Route::delete('/permohonan/{id}', [HomeController::class, 'destroyPermohonan'])
-    ->where('id', '.*')                 // nomor surat mengandung "/"
-    ->name('permohonan.destroy');
-
-Route::get('/admin/roles', function () {
-    return view('admin.roles.index');
-})->name('admin.roles.index');

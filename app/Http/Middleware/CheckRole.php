@@ -54,6 +54,8 @@ class CheckRole
             'paket.view_all',
             'paket.reassign_ppk',
             'paket.split_jenis',
+            'pp.monitoring_aktivitas',
+            'lihat_pp',
             'spk.create',
             'reminder.manage',
             'pembayaran.pengajuan',

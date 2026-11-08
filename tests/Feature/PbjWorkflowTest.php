@@ -103,9 +103,9 @@ class PbjWorkflowTest extends TestCase
             ->assertStatus(200)
             ->assertSee('Ajukan Usulan Pengadaan Baru');
 
-        $this->actingAs($user)->get(route('monitoring.index'))
+        $this->actingAs($user)->get(route('laporan.index'))
             ->assertStatus(200)
-            ->assertSee('Monitoring Agregat 8 Siklus');
+            ->assertSee('Riwayat dan Laporan');
     }
 
     public function test_reminders_and_reports_pages_are_accessible_by_authorized_staff(): void

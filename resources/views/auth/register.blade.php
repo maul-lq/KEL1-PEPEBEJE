@@ -178,75 +178,79 @@
     </span>
 
     <select
-        name="unit_kerja"
+        id="kode_unit"
+        name="kode_unit"
         required
         class="h-[55px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] px-[22px] text-base text-black outline-none focus:border-[#3B82F6]"
     >
-        <option value="" disabled {{ old('unit_kerja') ? '' : 'selected' }}>
+        <option value="" disabled {{ old('kode_unit', old('unit_kerja')) ? '' : 'selected' }}>
             Pilih unit kerja / jurusan
         </option>
 
-        <option value="[TIK] Jurusan Teknik Informatika dan Komputer"
-            {{ old('unit_kerja') == '[TIK] Jurusan Teknik Informatika dan Komputer' ? 'selected' : '' }}>
+        <option value="TIK"
+            {{ old('kode_unit', old('unit_kerja')) == 'TIK' ? 'selected' : '' }}>
             [TIK] Jurusan Teknik Informatika dan Komputer
         </option>
 
-        <option value="[TM] Jurusan Teknik Mesin"
-            {{ old('unit_kerja') == '[TM] Jurusan Teknik Mesin' ? 'selected' : '' }}>
+        <option value="TM"
+            {{ old('kode_unit', old('unit_kerja')) == 'TM' ? 'selected' : '' }}>
             [TM] Jurusan Teknik Mesin
         </option>
 
-        <option value="[TS] Jurusan Teknik Sipil"
-            {{ old('unit_kerja') == '[TS] Jurusan Teknik Sipil' ? 'selected' : '' }}>
+        <option value="TS"
+            {{ old('kode_unit', old('unit_kerja')) == 'TS' ? 'selected' : '' }}>
             [TS] Jurusan Teknik Sipil
         </option>
 
-        <option value="[TE] Jurusan Teknik Elektro"
-            {{ old('unit_kerja') == '[TE] Jurusan Teknik Elektro' ? 'selected' : '' }}>
+        <option value="TE"
+            {{ old('kode_unit', old('unit_kerja')) == 'TE' ? 'selected' : '' }}>
             [TE] Jurusan Teknik Elektro
         </option>
 
-        <option value="[TGP] Jurusan Teknik Grafika Penerbitan"
-            {{ old('unit_kerja') == '[TGP] Jurusan Teknik Grafika Penerbitan' ? 'selected' : '' }}>
+        <option value="TGP"
+            {{ old('kode_unit', old('unit_kerja')) == 'TGP' ? 'selected' : '' }}>
             [TGP] Jurusan Teknik Grafika Penerbitan
         </option>
 
-        <option value="[AK] Jurusan Akuntansi"
-            {{ old('unit_kerja') == '[AK] Jurusan Akuntansi' ? 'selected' : '' }}>
+        <option value="AK"
+            {{ old('kode_unit', old('unit_kerja')) == 'AK' ? 'selected' : '' }}>
             [AK] Jurusan Akuntansi
         </option>
 
-        <option value="[AN] Jurusan Administrasi Niaga"
-            {{ old('unit_kerja') == '[AN] Jurusan Administrasi Niaga' ? 'selected' : '' }}>
+        <option value="AN"
+            {{ old('kode_unit', old('unit_kerja')) == 'AN' ? 'selected' : '' }}>
             [AN] Jurusan Administrasi Niaga
         </option>
 
-        <option value="[LKP] Unit Perlengkapan & BMN"
-            {{ old('unit_kerja') == '[LKP] Unit Perlengkapan & BMN' ? 'selected' : '' }}>
+        <option value="LKP"
+            {{ old('kode_unit', old('unit_kerja')) == 'LKP' ? 'selected' : '' }}>
             [LKP] Unit Perlengkapan & BMN
         </option>
 
-        <option value="[KEU] Unit Keuangan"
-            {{ old('unit_kerja') == '[KEU] Unit Keuangan' ? 'selected' : '' }}>
+        <option value="KEU"
+            {{ old('kode_unit', old('unit_kerja')) == 'KEU' ? 'selected' : '' }}>
             [KEU] Unit Keuangan
         </option>
 
-        <option value="[B1] Bidang I (Akademik)"
-            {{ old('unit_kerja') == '[B1] Bidang I (Akademik)' ? 'selected' : '' }}>
+        <option value="B1"
+            {{ old('kode_unit', old('unit_kerja')) == 'B1' ? 'selected' : '' }}>
             [B1] Bidang I (Akademik)
         </option>
 
-        <option value="[B2] Bidang II (Umum dan Keuangan)"
-            {{ old('unit_kerja') == '[B2] Bidang II (Umum dan Keuangan)' ? 'selected' : '' }}>
+        <option value="B2"
+            {{ old('kode_unit', old('unit_kerja')) == 'B2' ? 'selected' : '' }}>
             [B2] Bidang II (Umum dan Keuangan)
         </option>
 
-        <option value="[B3] Bidang III (Kemahasiswaan)"
-            {{ old('unit_kerja') == '[B3] Bidang III (Kemahasiswaan)' ? 'selected' : '' }}>
+        <option value="B3"
+            {{ old('kode_unit', old('unit_kerja')) == 'B3' ? 'selected' : '' }}>
             [B3] Bidang III (Kemahasiswaan)
         </option>
     </select>
 
+    @error('kode_unit')
+        <span class="text-xs text-rose-600 font-medium">{{ $message }}</span>
+    @enderror
     @error('unit_kerja')
         <span class="text-xs text-rose-600 font-medium">{{ $message }}</span>
     @enderror

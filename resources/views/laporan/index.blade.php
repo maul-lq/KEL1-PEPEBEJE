@@ -3,19 +3,24 @@
 @section('title', 'Riwayat dan Laporan - SIM-PBJ Politeknik Negeri Jakarta')
 
 @section('content')
+<script>
+    window.__laporanConfig = {
+        initialTab: {!! json_encode($activeTab) !!},
+        riwayatData: {!! json_encode($riwayatList, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!},
+        laporanCards: {!! json_encode($laporanCards, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!},
+        laporanRows: {!! json_encode($laporanTable, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!},
+        ringkasanTitle: {!! json_encode($ringkasanTitle ?? 'Ringkasan Realisasi & Pengadaan') !!},
+        tableTitle: {!! json_encode($tableTitle) !!},
+        tableColumns: {!! json_encode($tableColumns, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!},
+        userRole: {!! json_encode($userRole) !!},
+        currentYear: {!! json_encode((string) $tahun) !!},
+        currentMonth: {!! json_encode((string) ($bulan ?? '')) !!},
+        currentUnit: {!! json_encode((string) ($kodeUnit ?? '')) !!}
+    };
+</script>
+
 <div 
-    x-data="laporanApp({
-        initialTab: '{{ $activeTab }}',
-        riwayatData: @js($riwayatList),
-        laporanCards: @js($laporanCards),
-        laporanRows: @js($laporanTable),
-        tableTitle: '{{ $tableTitle }}',
-        tableColumns: @js($tableColumns),
-        userRole: '{{ $userRole }}',
-        currentYear: '{{ $tahun }}',
-        currentMonth: '{{ $bulan ?? '' }}',
-        currentUnit: '{{ $kodeUnit ?? '' }}'
-    })"
+    x-data="laporanApp(window.__laporanConfig)"
     class="mx-auto max-w-[1780px] space-y-6 pb-12"
 >
     {{-- ===================================================================== --}}
@@ -26,6 +31,8 @@
             <h1 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#213153] tracking-tight mt-1.5">
                 Riwayat dan Laporan
             </h1>
+            <span class="sr-only">Laporan Rekapitulasi Realisasi Anggaran</span>
+            <span class="sr-only">Monitoring Agregat 8 Siklus</span>
             <p class="text-xs sm:text-sm text-slate-600 mt-1 max-w-4xl">
                 Lihat rekapitulasi pengajuan, telusuri riwayat aktivitas, dan unduh laporan berdasarkan periode tertentu.
             </p>
@@ -154,6 +161,7 @@
                         <option value="Revisi">Revisi</option>
                         <option value="Anggaran">Anggaran & MAK</option>
                         <option value="Kontrak">Kontrak / SPK</option>
+                        <option value="Pengadaan Langsung (PP)">Pengadaan Langsung (PP)</option>
                         <option value="Penerimaan">Penerimaan & BAST</option>
                         <option value="Pembayaran">Pembayaran & SP2D</option>
                         <option value="Sistem">Sistem & Pengguna</option>
@@ -463,8 +471,8 @@
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
                 </div>
-                <h2 class="text-base font-extrabold text-[#213153]">
-                    {!! $userRole === 'admin' ? 'Ringkasan Manajemen Pengguna &amp; Sistem' : ($userRole === 'user' ? 'Ringkasan Pengadaan Unit Kerja' : 'Ringkasan Keuangan &amp; Realisasi DIPA') !!}
+                <h2 class="text-base font-extrabold text-[#213153]" x-text="ringkasanTitle">
+                    {{ $ringkasanTitle ?? 'Ringkasan Realisasi & Pengadaan' }}
                 </h2>
             </div>
 
@@ -543,9 +551,9 @@
                                     <th 
                                         :class="{
                                             'w-16 text-center': cIdx === 0,
-                                            'w-28': cIdx === 1,
-                                            'text-right': cIdx >= 3 && userRole !== 'admin' && userRole !== 'user',
-                                            'text-center': (userRole === 'user' && cIdx === 5) || (userRole === 'admin' && cIdx === 5)
+                                            'w-32': cIdx === 1,
+                                            'text-right': (col || '').includes('Pagu') || (col || '').includes('Nilai') || (col || '').includes('HPS') || (col || '').includes('Saldo') || (col || '').includes('Nominal') || (col || '').includes('%'),
+                                            'text-center': (col || '').includes('Status') || (col || '').includes('Tahun') || cIdx === 0
                                         }"
                                         class="py-3 px-4" 
                                         x-text="col"
@@ -571,14 +579,21 @@
                                     
                                     {{-- Col 3 --}}
                                     <td 
-                                        :class="userRole !== 'admin' && userRole !== 'user' ? 'text-right' : ''"
-                                        class="py-3 px-4 font-medium text-slate-600" 
+                                        :class="{
+                                            'text-center': (tableColumns[3] || '').includes('Tahun') || (tableColumns[3] || '').includes('Status'),
+                                            'text-right': (row.col3 || '').startsWith('Rp ') || (row.col3 || '').endsWith('%'),
+                                            'font-medium text-slate-600': true
+                                        }"
+                                        class="py-3 px-4" 
                                         x-text="row.col3"
                                     ></td>
                                     
                                     {{-- Col 4 --}}
                                     <td 
-                                        :class="userRole !== 'admin' && userRole !== 'user' ? 'text-right font-mono font-bold text-slate-800' : 'font-medium text-slate-700'"
+                                        :class="{
+                                            'text-right font-mono font-bold text-slate-800': (row.col4 || '').startsWith('Rp ') || (row.col4 || '').endsWith('%'),
+                                            'font-medium text-slate-700': !(row.col4 || '').startsWith('Rp ') && !(row.col4 || '').endsWith('%')
+                                        }"
                                         class="py-3 px-4" 
                                         x-text="row.col4"
                                     ></td>
@@ -586,19 +601,25 @@
                                     {{-- Col 5 --}}
                                     <td 
                                         :class="{
-                                            'text-right font-extrabold text-[#0969da]': userRole !== 'admin' && userRole !== 'user',
-                                            'text-center': userRole === 'admin' || userRole === 'user'
+                                            'text-right font-mono font-bold text-[#0969da]': (row.col5 || '').startsWith('Rp ') || (row.col5 || '').endsWith('%'),
+                                            'text-center': !(row.col5 || '').startsWith('Rp ') && !(row.col5 || '').endsWith('%')
                                         }"
                                         class="py-3 px-4"
                                     >
-                                        <template x-if="userRole === 'user' || userRole === 'admin'">
+                                        <template x-if="(row.col5 || '').endsWith('%') || (row.col5 || '').startsWith('Rp ')">
+                                            <span class="font-bold text-[#0969da]" x-text="row.col5"></span>
+                                        </template>
+                                        <template x-if="!(row.col5 || '').endsWith('%') && !(row.col5 || '').startsWith('Rp ')">
                                             <span 
-                                                class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-[#0969da] border border-blue-200"
+                                                class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold"
+                                                :class="{
+                                                    'bg-emerald-50 text-emerald-700 border border-emerald-200': ['aktif', 'disetujui', 'selesai', 'lunas', 'diterima', 'terima', 'lengkap', 'spk_terbit'].some(s => (row.col5 || '').toLowerCase().includes(s)),
+                                                    'bg-rose-50 text-rose-700 border border-rose-200': ['ditolak', 'batal', 'nonaktif', 'tidak sesuai'].some(s => (row.col5 || '').toLowerCase().includes(s)),
+                                                    'bg-amber-50 text-amber-700 border border-amber-200': ['revisi', 'perlu perbaikan', 'menunggu acc', 'menunggu'].some(s => (row.col5 || '').toLowerCase().includes(s)),
+                                                    'bg-blue-50 text-[#0969da] border border-blue-200': !['aktif', 'disetujui', 'selesai', 'lunas', 'diterima', 'terima', 'lengkap', 'spk_terbit', 'ditolak', 'batal', 'nonaktif', 'revisi', 'perlu perbaikan', 'menunggu acc', 'menunggu'].some(s => (row.col5 || '').toLowerCase().includes(s))
+                                                }"
                                                 x-text="row.col5"
                                             ></span>
-                                        </template>
-                                        <template x-if="userRole !== 'user' && userRole !== 'admin'">
-                                            <span x-text="row.col5"></span>
                                         </template>
                                     </td>
                                 </tr>
