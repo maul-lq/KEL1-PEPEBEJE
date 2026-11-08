@@ -51,6 +51,8 @@ class MemoBayar extends Model
         'urutan_level',
         'status_memo',
         'catatan_memo',
+        'nomor_memo',
+        'file_memo',
         'tanggal_acc',
     ];
 

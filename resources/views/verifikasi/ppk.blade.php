@@ -157,6 +157,7 @@
                     <!-- FORM KEPUTUSAN AWAL PPK TERPILIH -->
                     <form action="{{ route('verifikasi.ppk.keputusan') }}" 
                           method="POST" 
+                          enctype="multipart/form-data"
                           x-data="{ 
                               keputusan: 'disetujui', 
                               get isMandatory() { return this.keputusan === 'ditolak'; } 
@@ -208,6 +209,38 @@
                                 </p>
                             </label>
 
+                        </div>
+
+                        <!-- Kelengkapan Berkas Fisik Memo Persetujuan Usulan PPK (BPMN Fase 1) -->
+                        <div x-show="keputusan === 'disetujui'" class="p-4 rounded-xl bg-teal-50/60 border border-teal-200/80 space-y-3">
+                            <div class="flex items-center gap-2">
+                                <span class="rounded-md bg-teal-200/80 text-teal-900 px-2 py-0.5 text-[10px] font-bold font-mono">BPMN PPK</span>
+                                <h4 class="text-xs font-bold text-teal-950">Memo Persetujuan Usulan Awal PPK</h4>
+                            </div>
+                            <p class="text-[11px] text-slate-600">
+                                Bersama Wadir II, persetujuan awal PPK wajib menyertakan nomor memo dan file fisik dokumen memo resmi.
+                            </p>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-700 mb-1">
+                                        Nomor Memo Persetujuan PPK
+                                    </label>
+                                    <input type="text" 
+                                           name="nomor_memo" 
+                                           value="{{ 'MEMO-PPK/' . date('Y') . '/' . substr(md5($p->nomor_surat . Auth::id()), 0, 6) }}"
+                                           placeholder="Contoh: 041/PL3.PPK/PG/{{ date('Y') }}"
+                                           class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-mono text-slate-800 placeholder-slate-400 focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-700 mb-1">
+                                        Upload File Fisik Dokumen Memo <span class="text-rose-500">*</span>
+                                    </label>
+                                    <input type="file" 
+                                           name="file_memo" 
+                                           accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                                           class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[11px] file:font-semibold file:bg-teal-100 file:text-teal-800 hover:file:bg-teal-200 cursor-pointer">
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Catatan / Alasan Keputusan PPK -->

@@ -911,11 +911,17 @@ class HomeController extends Controller
             'nomor_memo_cek_mak' => ['nullable', 'string', 'max:100'],
             'catatan_staff' => ['nullable', 'string'],
             'catatan_memo_cek_mak' => ['nullable', 'string'],
+            'file_memo_cek_mak' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,doc,docx', 'max:5120'],
         ]);
 
         $permohonan = PermohonanPengadaan::findOrFail($validated['nomor_surat']);
         $nomorMemo = $validated['nomor_memo_cek_mak'] ?? ('MEMO-B2/CEK-MAK/'.date('Ymd').'/'.rand(100, 999));
         $catatan = $validated['catatan_memo_cek_mak'] ?? $validated['catatan_staff'] ?? 'Berkas KAK dan spesifikasi teknis lengkap, mohon cek ketersediaan MAK DIPA';
+
+        $fileMemoPath = null;
+        if ($request->hasFile('file_memo_cek_mak')) {
+            $fileMemoPath = $request->file('file_memo_cek_mak')->store('memo_cek_mak', 'public');
+        }
 
         // Perbarui entri verifikasi Staf Bidang 2
         $verifB2 = VerifikasiParalel::firstOrCreate(
@@ -925,6 +931,10 @@ class HomeController extends Controller
         $verifB2->id_user = $user->id_user;
         $verifB2->status_keputusan = 'disetujui';
         $verifB2->catatan_alasan = $catatan;
+        $verifB2->nomor_memo = $nomorMemo;
+        if ($fileMemoPath) {
+            $verifB2->file_memo = $fileMemoPath;
+        }
         $verifB2->tanggal_keputusan = now();
         $verifB2->save();
 
@@ -932,6 +942,9 @@ class HomeController extends Controller
         $statusLama = $permohonan->status_permohonan;
         $permohonan->nomor_memo_cek_mak = $nomorMemo;
         $permohonan->catatan_memo_cek_mak = $catatan;
+        if ($fileMemoPath) {
+            $permohonan->file_memo_cek_mak = $fileMemoPath;
+        }
         $permohonan->status_permohonan = PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN;
         $permohonan->status = PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN;
         $permohonan->save();
@@ -992,6 +1005,8 @@ class HomeController extends Controller
             'nomor_surat' => ['required', 'exists:permohonan_pengadaan,nomor_surat'],
             'keputusan' => ['required', 'in:disetujui,ditolak,revisi'],
             'catatan_alasan' => ['required_if:keputusan,ditolak,revisi', 'nullable', 'string'],
+            'nomor_memo' => ['nullable', 'string', 'max:100'],
+            'file_memo' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,doc,docx', 'max:5120'],
         ], [
             'catatan_alasan.required_if' => 'Catatan alasan penolakan/revisi wajib diisi saat Wadir 2 menolak atau meminta revisi usulan (FR 5.3).',
         ]);
@@ -1017,6 +1032,14 @@ class HomeController extends Controller
         $verifWadir->id_user = $user->id_user;
         $verifWadir->status_keputusan = $validated['keputusan'];
         $verifWadir->catatan_alasan = $validated['catatan_alasan'] ?? null;
+        if ($request->filled('nomor_memo')) {
+            $verifWadir->nomor_memo = $validated['nomor_memo'];
+        } elseif ($validated['keputusan'] === 'disetujui' && empty($verifWadir->nomor_memo)) {
+            $verifWadir->nomor_memo = 'MEMO-WADIR2/'.date('Ymd').'/'.rand(100, 999);
+        }
+        if ($request->hasFile('file_memo')) {
+            $verifWadir->file_memo = $request->file('file_memo')->store('memo_wadir2', 'public');
+        }
         $verifWadir->tanggal_keputusan = now();
         $verifWadir->save();
 
@@ -1070,18 +1093,13 @@ class HomeController extends Controller
             );
         }
 
-        // Evaluasi kelulusan lengkap: Perencanaan (MAK) + Wadir 2 (ACC Kegiatan) + PPK Terpilih (ACC Usulan)
+        // Evaluasi kelulusan paralel (AND-join): Perencanaan (MAK) + Wadir 2 (ACC Kegiatan) + PPK Terpilih (ACC Usulan)
         $perencanaanAcc = VerifikasiParalel::where('nomor_surat', $permohonan->nomor_surat)
             ->where('role_verifikator', VerifikasiParalel::ROLE_PERENCANAAN)
             ->where('status_keputusan', 'disetujui')
             ->exists() || ! empty($permohonan->kode_mak);
 
-        $requiresPpk = ! empty($permohonan->id_user_ppk_awal)
-            || VerifikasiParalel::where('nomor_surat', $permohonan->nomor_surat)
-                ->where('role_verifikator', VerifikasiParalel::ROLE_PPK)
-                ->exists();
-
-        $ppkAcc = ! $requiresPpk || VerifikasiParalel::where('nomor_surat', $permohonan->nomor_surat)
+        $ppkAcc = VerifikasiParalel::where('nomor_surat', $permohonan->nomor_surat)
             ->where('role_verifikator', VerifikasiParalel::ROLE_PPK)
             ->where('status_keputusan', 'disetujui')
             ->exists();
@@ -1154,6 +1172,8 @@ class HomeController extends Controller
             'nomor_surat' => ['required', 'exists:permohonan_pengadaan,nomor_surat'],
             'keputusan' => ['required', 'in:disetujui,ditolak'],
             'catatan_alasan' => ['required_if:keputusan,ditolak', 'nullable', 'string'],
+            'nomor_memo' => ['nullable', 'string', 'max:100'],
+            'file_memo' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,doc,docx', 'max:5120'],
         ], [
             'catatan_alasan.required_if' => 'Catatan alasan penolakan wajib diisi saat PPK menolak usulan permohonan.',
         ]);
@@ -1172,6 +1192,14 @@ class HomeController extends Controller
         $verifPpk->id_user = $user->id_user;
         $verifPpk->status_keputusan = $validated['keputusan'];
         $verifPpk->catatan_alasan = $validated['catatan_alasan'] ?? 'Usulan disetujui oleh PPK atas Memo Ketersediaan MAK Perencanaan';
+        if ($request->filled('nomor_memo')) {
+            $verifPpk->nomor_memo = $validated['nomor_memo'];
+        } elseif ($validated['keputusan'] === 'disetujui' && empty($verifPpk->nomor_memo)) {
+            $verifPpk->nomor_memo = 'MEMO-PPK/'.date('Ymd').'/'.rand(100, 999);
+        }
+        if ($request->hasFile('file_memo')) {
+            $verifPpk->file_memo = $request->file('file_memo')->store('memo_ppk', 'public');
+        }
         $verifPpk->tanggal_keputusan = now();
         $verifPpk->save();
 
@@ -1785,9 +1813,8 @@ class HomeController extends Controller
                 ->where('status_keputusan', 'disetujui')
                 ->isNotEmpty();
 
-            $requiresPpk = ! empty($p->id_user_ppk_awal) || $p->verifikasiParalel->where('role_verifikator', VerifikasiParalel::ROLE_PPK)->isNotEmpty();
-
-            $ppkAcc = ! $requiresPpk || $p->verifikasiParalel
+            // Evaluasi kelulusan paralel (AND-join): Perencanaan (MAK) + Wadir 2 (ACC) + PPK (ACC)
+            $ppkAcc = $p->verifikasiParalel
                 ->where('role_verifikator', VerifikasiParalel::ROLE_PPK)
                 ->where('status_keputusan', 'disetujui')
                 ->isNotEmpty();
@@ -3053,23 +3080,50 @@ class HomeController extends Controller
     {
         $user = Auth::user();
 
+        if ($request->has('id_memo') && ! $request->has('id_memo_bayar')) {
+            $request->merge(['id_memo_bayar' => $request->id_memo]);
+        }
+        if ($request->has('catatan') && ! $request->has('catatan_memo')) {
+            $request->merge(['catatan_memo' => $request->catatan]);
+        }
+
         $validated = $request->validate([
             'id_memo_bayar' => ['required', 'exists:memo_bayar,id'],
             'status_memo' => ['required', 'in:disetujui,ditolak'],
             'catatan_memo' => ['nullable', 'string'],
+            'nomor_memo' => ['nullable', 'string', 'max:100'],
+            'file_memo' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,doc,docx', 'max:5120'],
         ]);
 
         $memo = MemoBayar::findOrFail($validated['id_memo_bayar']);
 
         // Verifikasi wewenang hak akses peran
-        if ($memo->role_approver === 'ppk' && $user->role === 'ppk' && (int) $memo->id_user !== (int) $user->id_user) {
+        if ($memo->role_approver === 'ppk' && $user->hasPermission('pembayaran.memo_ppk') && ! $user->hasRole('admin') && (int) $memo->id_user !== (int) $user->id_user) {
             abort(403, 'Akses Ditolak: Anda hanya berhak menyetujui memo pada paket yang ditugaskan kepada Anda.');
         }
 
         $memo->status_memo = $validated['status_memo'];
         $memo->catatan_memo = $validated['catatan_memo'];
+        if ($request->filled('nomor_memo')) {
+            $memo->nomor_memo = $validated['nomor_memo'];
+        } elseif ($validated['status_memo'] === 'disetujui' && empty($memo->nomor_memo)) {
+            $memo->nomor_memo = 'MEMO-BAYAR-LVL'.$memo->urutan_level.'/'.date('Ymd').'/'.rand(100, 999);
+        }
+        if ($request->hasFile('file_memo')) {
+            $memo->file_memo = $request->file('file_memo')->store('memo_bayar', 'public');
+        }
         $memo->tanggal_acc = ($validated['status_memo'] === 'disetujui') ? now() : null;
         $memo->save();
+
+        // Jika ditolak, kembalikan dokumen pembayaran ke PPBJ (BPMN N60 -> Tidak -> N52)
+        if ($validated['status_memo'] === 'ditolak') {
+            $pembayaran = $memo->pembayaran;
+            if ($pembayaran) {
+                $pembayaran->status_pembayaran = 'ditolak';
+                $pembayaran->catatan_reviu_akhir = $validated['catatan_memo'] ?? 'Dokumen pembayaran ditolak pada tahap disposisi memo bayar.';
+                $pembayaran->save();
+            }
+        }
 
         AuditLog::catat(
             $user->id_user,
@@ -3078,7 +3132,7 @@ class HomeController extends Controller
             (string) $memo->id,
             null,
             $memo->status_memo,
-            "Persetujuan memo pembayaran tingkat {$memo->urutan_level} ({$memo->role_approver}) ditetapkan menjadi {$memo->status_memo}"
+            "Persetujuan memo pembayaran tingkat {$memo->urutan_level} ({$memo->role_approver}) ditetapkan menjadi {$memo->status_memo}".($memo->nomor_memo ? " [{$memo->nomor_memo}]" : '')
         );
 
         // Memicu notifikasi alur disposisi memo bayar (ke Wadir 2 atau PPBJ)

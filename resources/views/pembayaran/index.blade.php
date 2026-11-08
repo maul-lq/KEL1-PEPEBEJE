@@ -205,27 +205,58 @@
             <div class="space-y-4">
                 @foreach($memoMenungguReview as $memo)
                     <div class="p-4 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div>
+                        <div class="space-y-1">
                             <div class="flex items-center gap-2">
-                                <span class="font-mono font-bold text-xs text-[#0969da]">{{ $memo->nomor_memo }}</span>
-                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">Level {{ $memo->level_approver }} ({{ strtoupper($memo->role_approver) }})</span>
+                                <span class="font-mono font-bold text-xs text-[#0969da]">{{ $memo->nomor_memo ?: 'Belum Ada No. Memo' }}</span>
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                                    Level {{ $memo->urutan_level ?? $memo->level_approver }} ({{ strtoupper($memo->role_approver) }})
+                                </span>
                             </div>
-                            <h4 class="text-xs font-bold text-slate-800 mt-1">Paket: {{ $memo->pembayaran->nomor_paket ?? '-' }}</h4>
-                            <p class="text-[11px] text-slate-500 mt-0.5">Nominal: Rp {{ number_format($memo->pembayaran->nominal_pengajuan ?? 0, 0, ',', '.') }} &bull; SPP: {{ $memo->nomor_pembayaran }}</p>
+                            <h4 class="text-xs font-bold text-slate-800">Paket: {{ $memo->pembayaran->nomor_paket ?? '-' }}</h4>
+                            <p class="text-[11px] text-slate-500">
+                                Nominal: <strong>Rp {{ number_format($memo->pembayaran->nominal_pengajuan ?? 0, 0, ',', '.') }}</strong> &bull; SPP: <span class="font-mono">{{ $memo->nomor_pembayaran }}</span>
+                            </p>
+                            @if(!empty($memo->file_memo))
+                                <div class="pt-1">
+                                    <a href="{{ asset('storage/' . $memo->file_memo) }}" target="_blank" class="inline-flex items-center gap-1 text-[11px] font-bold text-[#0969da] hover:underline">
+                                        <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                        <span>Lihat Dokumen Fisik Memo Resmi</span>
+                                    </a>
+                                </div>
+                            @endif
                         </div>
 
-                        <form action="{{ route('pembayaran.memo.approve') }}" method="POST" class="flex flex-wrap items-center gap-2 shrink-0">
+                        <form action="{{ route('pembayaran.memo.approve') }}" method="POST" enctype="multipart/form-data" class="flex flex-col sm:flex-row flex-wrap items-end sm:items-center gap-2 shrink-0">
                             @csrf
-                            <input type="hidden" name="id_memo" value="{{ $memo->id_memo }}">
-                            <input type="text" name="catatan" placeholder="Catatan persetujuan..." class="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-700 w-48">
+                            <input type="hidden" name="id_memo" value="{{ $memo->id }}">
+                            <input type="hidden" name="id_memo_bayar" value="{{ $memo->id }}">
+                            
+                            <div class="flex flex-col gap-1">
+                                <input type="text" 
+                                       name="nomor_memo" 
+                                       value="{{ $memo->nomor_memo ?? ('MEMO-BAYAR/' . date('Y') . '/' . rand(100, 999)) }}" 
+                                       placeholder="Nomor Memo..." 
+                                       class="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-700 w-44 font-mono">
+                            </div>
 
-                            <button type="submit" name="status_memo" value="disetujui" class="h-9 px-3.5 rounded-lg bg-emerald-600 text-xs font-bold text-white hover:bg-emerald-700 transition">
-                                Setujui (ACC)
-                            </button>
+                            <div class="flex flex-col gap-1">
+                                <input type="file" 
+                                       name="file_memo" 
+                                       accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                                       class="h-9 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-600 w-48 file:mr-1 file:py-0.5 file:px-2 file:rounded file:border-0 file:text-[10px] file:bg-blue-100 file:text-[#0969da] cursor-pointer">
+                            </div>
 
-                            <button type="submit" name="status_memo" value="ditolak" class="h-9 px-3.5 rounded-lg bg-rose-600 text-xs font-bold text-white hover:bg-rose-700 transition">
-                                Tolak
-                            </button>
+                            <input type="text" name="catatan" placeholder="Catatan persetujuan..." class="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-700 w-44">
+
+                            <div class="flex items-center gap-1.5">
+                                <button type="submit" name="status_memo" value="disetujui" class="h-9 px-3.5 rounded-lg bg-emerald-600 text-xs font-bold text-white hover:bg-emerald-700 transition cursor-pointer">
+                                    Setujui (ACC)
+                                </button>
+
+                                <button type="submit" name="status_memo" value="ditolak" class="h-9 px-3 rounded-lg bg-rose-600 text-xs font-bold text-white hover:bg-rose-700 transition cursor-pointer">
+                                    Tolak
+                                </button>
+                            </div>
                         </form>
                     </div>
                 @endforeach

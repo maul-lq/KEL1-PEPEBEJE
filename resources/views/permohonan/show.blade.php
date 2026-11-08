@@ -240,6 +240,17 @@
                                 <p class="text-xs text-slate-700 bg-white p-2.5 rounded-lg border border-slate-100 leading-relaxed">
                                     {{ $vp->catatan_alasan ?? $vp->catatan ?? 'Tidak ada catatan tertulis.' }}
                                 </p>
+                                @if(!empty($vp->nomor_memo) || !empty($vp->file_memo))
+                                    <div class="text-xs text-slate-600 bg-blue-50/60 p-2 rounded-lg border border-blue-100 flex items-center justify-between">
+                                        <span>Memo: <strong class="font-mono text-[#0969da]">{{ $vp->nomor_memo ?: 'Tercatat' }}</strong></span>
+                                        @if(!empty($vp->file_memo))
+                                            <a href="{{ asset('storage/' . $vp->file_memo) }}" target="_blank" class="inline-flex items-center gap-1 font-bold text-[#0969da] hover:underline text-[11px]">
+                                                <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                                Dokumen Fisik
+                                            </a>
+                                        @endif
+                                    </div>
+                                @endif
                                 <div class="text-[10px] text-slate-400 text-right">
                                     {{ $vp->tanggal_keputusan ? date('d/m/Y H:i', strtotime($vp->tanggal_keputusan)) : ($vp->tanggal_verifikasi ? $vp->tanggal_verifikasi->format('d/m/Y H:i') : '-') }}
                                 </div>

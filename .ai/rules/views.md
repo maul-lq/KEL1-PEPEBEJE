@@ -11,3 +11,6 @@ Semua otorisasi akses menu, tombol, aksi, dan controller WAJIB menggunakan RBAC 
 
 ## Alur BPMN Inkremental Per Role & Pembersihan Dead Code
 Alur proses bisnis PBJ dibangun secara bertahap per role sesuai panduan BPMN pengguna (backend & frontend berfungsi penuh). Agen WAJIB bertanya (dilarang berasumsi) jika ada instruksi, istilah, atau alur yang kurang jelas. Setelah implementasi fungsi tiap role selesai, hapus class, method, atau rute yang sudah tidak relevan (dead code cleanup).
+
+## Kewajiban Unggah File Fisik untuk Semua Jenis Memo
+Semua dokumen atau proses berlabel 'Memo' (Memo Cek MAK, Memo Ketersediaan MAK, Memo Disposisi/Permohonan Wadir 2, Memo Persetujuan Pembayaran PPK/Wadir 2) WAJIB menyediakan input nomor memo dan upload file fisik dokumen memo (PDF/gambar). Dilarang hanya mengandalkan generate otomatis tanpa bukti file fisik.

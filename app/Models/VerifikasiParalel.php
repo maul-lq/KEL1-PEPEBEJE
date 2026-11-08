@@ -54,6 +54,8 @@ class VerifikasiParalel extends Model
         'role_verifikator',
         'status_keputusan',
         'catatan_alasan',
+        'nomor_memo',
+        'file_memo',
         'tanggal_keputusan',
     ];
 

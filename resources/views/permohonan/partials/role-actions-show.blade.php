@@ -31,13 +31,24 @@
 
 {{-- ============ 1. STAF BIDANG 2 ============ --}}
 @if($canBidang2 && \Illuminate\Support\Facades\Route::has('verifikasi.bidang-2.teruskan'))
-    <form action="{{ route('verifikasi.bidang-2.teruskan') }}" method="POST" class="space-y-4">
+    <form action="{{ route('verifikasi.bidang-2.teruskan') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
         @csrf
         <input type="hidden" name="nomor_surat" {!! $nomorField !!}>
 
         <div class="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
             <h3 class="font-semibold text-base text-[#213153]">Form Verifikasi Staf Bidang 2</h3>
             <span class="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700 whitespace-nowrap">Telaah Berkas</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+                <label class="{{ $label }}">Nomor Memo Cek MAK (Opsional)</label>
+                <input type="text" name="nomor_memo_cek_mak" placeholder="MEMO-B2/CEK-MAK/..." class="{{ $field }}">
+            </div>
+            <div>
+                <label class="{{ $label }}">Upload Dokumen Fisik Memo Cek MAK</label>
+                <input type="file" name="file_memo_cek_mak" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" class="{{ $field }}">
+            </div>
         </div>
 
         <div>
@@ -57,13 +68,24 @@
 
 {{-- ============ 2. WADIR 2 (Persetujuan Eksekutif Kegiatan) ============ --}}
 @elseif($canWadir2 && \Illuminate\Support\Facades\Route::has('verifikasi.wadir-2.keputusan'))
-    <form action="{{ route('verifikasi.wadir-2.keputusan') }}" method="POST" class="space-y-4">
+    <form action="{{ route('verifikasi.wadir-2.keputusan') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
         @csrf
         <input type="hidden" name="nomor_surat" {!! $nomorField !!}>
 
         <div class="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
             <h3 class="font-semibold text-base text-[#213153]">Form Persetujuan Wadir 2</h3>
             <span class="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-[#0969da] whitespace-nowrap">Keputusan Eksekutif</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+                <label class="{{ $label }}">Nomor Memo Disposisi Wadir II</label>
+                <input type="text" name="nomor_memo" placeholder="025/PL3.WDIR2/PG/..." class="{{ $field }}">
+            </div>
+            <div>
+                <label class="{{ $label }}">Upload Dokumen Fisik Memo Disposisi</label>
+                <input type="file" name="file_memo" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" class="{{ $field }}">
+            </div>
         </div>
 
         <div>

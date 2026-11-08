@@ -114,8 +114,10 @@ class PermohonanPengadaan extends Model
         'kode_mak',
         'nomor_memo_cek_mak',
         'catatan_memo_cek_mak',
+        'file_memo_cek_mak',
         'nomor_memo_ketersediaan_mak',
         'catatan_memo_ketersediaan_mak',
+        'file_memo_ketersediaan_mak',
         'id_user_ppk_awal',
         'jenis_pengadaan_split',
     ];

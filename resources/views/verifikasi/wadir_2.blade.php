@@ -171,6 +171,7 @@
                     <!-- FORM KEPUTUSAN MUTLAK WADIR 2 (3 OPSI DISPOSISI - FIGMA 565:20075) -->
                     <form action="{{ route('verifikasi.wadir-2.keputusan') }}" 
                           method="POST" 
+                          enctype="multipart/form-data"
                           x-data="{ 
                               keputusan: 'disetujui', 
                               get isMandatory() { return this.keputusan === 'ditolak' || this.keputusan === 'revisi'; } 
@@ -238,6 +239,38 @@
                                 </p>
                             </label>
 
+                        </div>
+
+                        <!-- Kelengkapan Berkas Fisik Memo Permohonan/Disposisi Wadir 2 (N19, N23 BPMN) -->
+                        <div x-show="keputusan === 'disetujui'" class="p-4 rounded-xl bg-indigo-50/60 border border-indigo-200/80 space-y-3">
+                            <div class="flex items-center gap-2">
+                                <span class="rounded-md bg-indigo-200/80 text-indigo-900 px-2 py-0.5 text-[10px] font-bold font-mono">BPMN N19 & N23</span>
+                                <h4 class="text-xs font-bold text-indigo-950">Memo Permohonan / Disposisi Resmi Wadir II</h4>
+                            </div>
+                            <p class="text-[11px] text-slate-600">
+                                Sesuai prosedur, penerbitan memo persetujuan ke PPBJ wajib menyertakan nomor memo dan unggahan dokumen fisik resmi.
+                            </p>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-700 mb-1">
+                                        Nomor Memo Disposisi Wadir II
+                                    </label>
+                                    <input type="text" 
+                                           name="nomor_memo" 
+                                           value="{{ 'MEMO-WDIR2/' . date('Y') . '/' . substr(md5($p->nomor_surat), 0, 6) }}"
+                                           placeholder="Contoh: 025/PL3.WDIR2/PG/{{ date('Y') }}"
+                                           class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-mono text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-700 mb-1">
+                                        Upload File Fisik Dokumen Memo <span class="text-rose-500">*</span>
+                                    </label>
+                                    <input type="file" 
+                                           name="file_memo" 
+                                           accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                                           class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[11px] file:font-semibold file:bg-indigo-100 file:text-indigo-800 hover:file:bg-indigo-200 cursor-pointer">
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Catatan / Alasan Keputusan Wadir 2 -->

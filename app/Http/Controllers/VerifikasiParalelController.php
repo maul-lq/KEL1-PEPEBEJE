@@ -511,12 +511,10 @@ class VerifikasiParalelController extends Controller
             return;
         }
 
-        // KASUS 3: Evaluasi persetujuan Perencanaan, Wadir 2, dan PPK terpilih
+        // KASUS 3: Evaluasi persetujuan paralel (AND-join): Perencanaan, Wadir 2, dan PPK terpilih wajib disetujui
         $perencanaanOk = $verifikasi->where('role_verifikator', 'perencanaan')->where('status_keputusan', 'disetujui')->isNotEmpty();
         $wadirOk = $verifikasi->where('role_verifikator', 'wadir_2')->where('status_keputusan', 'disetujui')->isNotEmpty();
-
-        $requiresPpk = ! empty($permohonan->id_user_ppk_awal) || $verifikasi->where('role_verifikator', 'ppk')->isNotEmpty();
-        $ppkOk = ! $requiresPpk || $verifikasi->where('role_verifikator', 'ppk')->where('status_keputusan', 'disetujui')->isNotEmpty();
+        $ppkOk = $verifikasi->where('role_verifikator', 'ppk')->where('status_keputusan', 'disetujui')->isNotEmpty();
 
         if ($perencanaanOk && $wadirOk && $ppkOk) {
             $permohonan->status_permohonan = PermohonanPengadaan::STATUS_DISETUJUI;
