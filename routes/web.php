@@ -154,9 +154,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/kontrak-spk', [HomeController::class, 'kontrakIndex'])->name('kontrak.index')->middleware('role:pp,ppk,ppbj,admin');
     Route::post('/kontrak-spk', [HomeController::class, 'storeKontrak'])->name('kontrak.store')->middleware('role:pp,ppbj,admin');
     Route::post('/kontrak-spk/reviu', [HomeController::class, 'storeReviuWeb'])->name('kontrak.reviu')->middleware('role:pp,ppk');
-    Route::post('/kontrak-spk/eksekusi-belanja', [HomeController::class, 'eksekusiBelanjaWeb'])
-        ->name('kontrak.eksekusi-belanja')
-        ->middleware('role:pp,ppk');
 
     // Modul 6: Penerimaan Barang & BAST
     Route::middleware('role:perlengkapan')->group(function () {

@@ -15,24 +15,24 @@
         />
 
         <x-stat-card
-            title="Proses Negosiasi & Reviu"
+            title="Antrean Review Dokumen (BPMN N24)"
             :value="$stats['paket_negosiasi'] ?? 0"
             color="amber"
             icon="bell"
             badge="Tindak Lanjut"
-            subtitle="Klarifikasi teknis & harga vendor"
+            subtitle="Telaah spesifikasi teknis &amp; HPS"
         />
 
         <div class="relative">
             <x-stat-card
-                title="Reviu & Negosiasi Selesai"
+                title="Verifikasi Selesai (BPMN N31)"
                 :value="$stats['paket_spk'] ?? 0"
                 color="blue"
                 icon="document"
                 badge="Siap Approval"
                 subtitle="Diteruskan ke PPK untuk Approval"
             />
-            <span class="sr-only">SPK Diterbitkan</span>
+            <span class="sr-only">Verifikasi Selesai</span>
         </div>
 
         <x-stat-card
@@ -40,16 +40,16 @@
             :value="$stats['paket_selesai'] ?? 0"
             color="emerald"
             icon="check"
-            subtitle="Tuntas BAST & pencairan dana"
+            subtitle="Tuntas BAST &amp; pencairan dana"
         />
     </div>
 
-    {{-- 2. MAIN OPERATION: ANTREAN REVIU TEKNIS & NEGOSIASI HARGA --}}
+    {{-- 2. MAIN OPERATION: ANTREAN REVIEW DOKUMEN PENGADAAN (BPMN N24) --}}
     <div class="space-y-4">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div class="flex items-center gap-2">
                 <span class="size-2 rounded-full bg-amber-500 animate-pulse"></span>
-                <h2 class="text-lg font-bold text-[#213153]">Antrean Paket Menunggu Reviu & Negosiasi Harga Definitif</h2>
+                <h2 class="text-lg font-bold text-[#213153]">Antrean Paket Menunggu Review Dokumen Pengadaan (BPMN N24)</h2>
             </div>
             <a href="{{ route('kontrak.index') }}" class="text-xs font-bold text-[#0969da] hover:underline flex items-center gap-1">
                 Buka Ruang Kerja SPK
@@ -66,7 +66,7 @@
                             <th class="px-4 py-3">Nama Paket Pengadaan</th>
                             <th class="px-4 py-3">Unit Pengusul</th>
                             <th class="px-4 py-3">Nilai HPS</th>
-                            <th class="px-4 py-3">Rekanan Calon Penyedia</th>
+                            <th class="px-4 py-3">Catatan Telaah</th>
                             <th class="px-4 py-3 text-center">Status</th>
                             <th class="px-4 py-3 text-right">Aksi</th>
                         </tr>
@@ -86,15 +86,15 @@
                                 <td class="px-4 py-3 whitespace-nowrap font-semibold text-[#213153]">
                                     Rp {{ number_format((float) ($pktPp->nilai_hps ?? 0), 0, ',', '.') }}
                                 </td>
-                                <td class="px-4 py-3 whitespace-nowrap">
-                                    {{ $pktPp->vendor->nama_perusahaan ?? 'Belum Ditunjuk' }}
+                                <td class="px-4 py-3 whitespace-nowrap text-slate-500">
+                                    {{ $pktPp->catatan_verifikasi_pp ? \Illuminate\Support\Str::limit($pktPp->catatan_verifikasi_pp, 30) : '-' }}
                                 </td>
                                 <td class="px-4 py-3 text-center whitespace-nowrap">
                                     <x-status-badge :status="$pktPp->status_paket" size="xs" />
                                 </td>
                                 <td class="px-4 py-3 text-right whitespace-nowrap">
                                     <a href="{{ route('kontrak.index') }}" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-[#0969da] hover:bg-blue-700 shadow-sm transition-colors">
-                                        Reviu / Nego
+                                        Review Dokumen &rarr;
                                     </a>
                                 </td>
                             </tr>
@@ -102,7 +102,7 @@
                             <tr>
                                 <td colspan="7" class="px-4 py-8 text-center text-slate-400">
                                     <svg class="size-8 text-slate-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                    Tidak ada paket non-tender / tender (Rp 50jt s.d Rp 200jt) yang menunggu negosiasi saat ini.
+                                    Tidak ada paket pengadaan (Rp 50jt s.d Rp 200jt) yang menunggu review dokumen pengadaan saat ini.
                                 </td>
                             </tr>
                         @endforelse

@@ -75,39 +75,13 @@
                         </a>
                     @endif
                 @else
-                    @if(Auth::user() && (Auth::user()->hasRole('pp') || Auth::user()->hasPermission('reviu.pp')) && in_array($paket->status_paket, [\App\Models\PaketPengadaan::STATUS_DISETUJUI_PPK_SIAP_BELANJA_PP, 'reviu_dokumen_disetujui']))
-                        <form action="{{ route('kontrak.eksekusi-belanja') }}" method="POST" class="inline">
-                            @csrf
-                            <input type="hidden" name="nomor_paket" value="{{ $paket->nomor_paket }}">
-                            <button
-                                type="submit"
-                                class="px-4 py-2 rounded-xl bg-amber-600 text-xs font-bold text-white hover:bg-amber-700 shadow-sm transition inline-flex items-center gap-1.5"
-                            >
-                                <span>Eksekusi Belanja PP</span>
-                                <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                            </button>
-                        </form>
-                    @elseif(Auth::user() && (Auth::user()->hasRole('ppk') || Auth::user()->hasPermission('reviu.ppk')) && $paket->jalur_routing === 'ppk_diatas_200jt' && in_array($paket->status_paket, [\App\Models\PaketPengadaan::STATUS_MENUNGGU_APPROVAL_PPK, 'reviu_dokumen_disetujui']))
-                        <form action="{{ route('kontrak.eksekusi-belanja') }}" method="POST" class="inline">
-                            @csrf
-                            <input type="hidden" name="nomor_paket" value="{{ $paket->nomor_paket }}">
-                            <button
-                                type="submit"
-                                class="px-4 py-2 rounded-xl bg-purple-600 text-xs font-bold text-white hover:bg-purple-700 shadow-sm transition inline-flex items-center gap-1.5"
-                            >
-                                <span>Eksekusi Belanja PPK</span>
-                                <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                            </button>
-                        </form>
-                    @else
-                        <a
-                            href="{{ route('kontrak.index') }}"
-                            class="px-4 py-2 rounded-xl bg-[#0969da] text-xs font-bold text-white hover:bg-blue-700 shadow-sm transition inline-flex items-center gap-1.5"
-                        >
-                            <span>Modul Dokumen Perikatan / SPK</span>
-                            <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
-                        </a>
-                    @endif
+                    <a
+                        href="{{ route('kontrak.index') }}"
+                        class="px-4 py-2 rounded-xl bg-[#0969da] text-xs font-bold text-white hover:bg-blue-700 shadow-sm transition inline-flex items-center gap-1.5"
+                    >
+                        <span>Modul Dokumen Perikatan / SPK</span>
+                        <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
                 @endif
             </div>
         </div>

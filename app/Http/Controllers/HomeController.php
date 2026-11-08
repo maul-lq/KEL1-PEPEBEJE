@@ -281,13 +281,14 @@ class HomeController extends Controller
             ],
             'pp' => [
                 'stats' => [
-                    'total_paket_pp' => PaketPengadaan::where('jalur_routing', 'pp_50jt_sd_200jt')->orWhere('id_user_pp', $user->id_user)->count(),
-                    'paket_negosiasi' => PaketPengadaan::where(fn ($q) => $q->where('jalur_routing', 'pp_50jt_sd_200jt')->orWhere('id_user_pp', $user->id_user))->where('status_paket', 'terdaftar')->count(),
-                    'paket_spk' => PaketPengadaan::where(fn ($q) => $q->where('jalur_routing', 'pp_50jt_sd_200jt')->orWhere('id_user_pp', $user->id_user))->where('status_paket', 'spk_terbit')->count(),
-                    'paket_selesai' => PaketPengadaan::where(fn ($q) => $q->where('jalur_routing', 'pp_50jt_sd_200jt')->orWhere('id_user_pp', $user->id_user))->where('status_paket', 'selesai')->count(),
+                    'total_paket_pp' => PaketPengadaan::whereIn('jalur_routing', [PaketPengadaan::ROUTING_PP, 'pp_50_sd_200jt'])->orWhere('id_user_pp', $user->id_user)->count(),
+                    'paket_negosiasi' => PaketPengadaan::where(fn ($q) => $q->whereIn('jalur_routing', [PaketPengadaan::ROUTING_PP, 'pp_50_sd_200jt'])->orWhere('id_user_pp', $user->id_user))->whereIn('status_paket', ['terdaftar', 'reviu_dokumen', 'perlu_perbaikan'])->count(),
+                    'paket_spk' => PaketPengadaan::where(fn ($q) => $q->whereIn('jalur_routing', [PaketPengadaan::ROUTING_PP, 'pp_50_sd_200jt'])->orWhere('id_user_pp', $user->id_user))->whereIn('status_paket', [PaketPengadaan::STATUS_MENUNGGU_APPROVAL_PPK, PaketPengadaan::STATUS_SIAP_UPLOAD_DOKUMEN_PPBJ, 'spk_terbit'])->count(),
+                    'paket_selesai' => PaketPengadaan::where(fn ($q) => $q->whereIn('jalur_routing', [PaketPengadaan::ROUTING_PP, 'pp_50_sd_200jt'])->orWhere('id_user_pp', $user->id_user))->where('status_paket', 'selesai')->count(),
                 ],
                 'antrean_negosiasi' => PaketPengadaan::with(['permohonan.unit', 'vendor'])
-                    ->where(fn ($q) => $q->where('jalur_routing', 'pp_50jt_sd_200jt')->orWhere('id_user_pp', $user->id_user))
+                    ->where(fn ($q) => $q->whereIn('jalur_routing', [PaketPengadaan::ROUTING_PP, 'pp_50_sd_200jt'])->orWhere('id_user_pp', $user->id_user))
+                    ->whereIn('status_paket', ['terdaftar', 'reviu_dokumen', 'perlu_perbaikan'])
                     ->latest('tanggal_registrasi_paket')
                     ->take(5)
                     ->get(),
@@ -2750,8 +2751,8 @@ class HomeController extends Controller
     }
 
     /**
-     * Memproses review kelengkapan oleh PP (50-200jt: input Harga Perkiraan, Harga Akhir, & Vendor; PP tidak bisa klik Approval)
-     * serta keputusan Approval oleh PPK (tanpa mengunci MAK).
+     * Memproses penelaahan/verifikasi dokumen pengadaan oleh PP (BPMN N21 -> N24 -> N27 -> N31)
+     * atau persetujuan dokumen pengadaan oleh PPK (BPMN N30 -> N33 -> N35 -> N36).
      */
     public function storeReviuWeb(Request $request): RedirectResponse
     {
@@ -2761,79 +2762,32 @@ class HomeController extends Controller
             'nomor_paket' => ['required', 'exists:paket_pengadaan,nomor_paket'],
             'status_reviu' => ['required', 'in:terverifikasi_pp,disetujui,perlu_perbaikan'],
             'catatan_perbaikan' => ['required_if:status_reviu,perlu_perbaikan', 'nullable', 'string'],
-            'nominal_harga_perkiraan' => ['nullable', 'numeric', 'gt:0'],
-            'nominal_harga_akhir' => ['nullable', 'numeric', 'gt:0'],
-            'nilai_hasil_negosiasi' => ['nullable', 'numeric', 'min:0'],
-            'nama_vendor' => ['nullable', 'string', 'max:255'],
-            'file_dokumen_legalitas' => ['nullable', DokumenUploadRule::pdfOrImage()],
-            'id_vendor' => ['nullable'],
-            'npwp_vendor' => ['nullable'],
-            'eksekusi_belanja_sekaligus' => ['nullable', 'boolean'],
         ], [
-            'catatan_perbaikan.required_if' => 'Catatan perbaikan wajib diisi saat meminta perbaikan dokumen pengadaan (FR 9.3).',
+            'catatan_perbaikan.required_if' => 'Catatan perbaikan / alasan penolakan wajib diisi saat meminta perbaikan dokumen pengadaan (BPMN N18).',
         ]);
 
         $paket = PaketPengadaan::where('nomor_paket', $validated['nomor_paket'])->firstOrFail();
 
-        // Penegakan aturan PP: PP tidak bisa klik Approval final
-        if ($user->hasPermission('reviu.pp') && ! $user->hasPermission('reviu.ppk') && $validated['status_reviu'] === 'disetujui') {
+        // Penegakan wewenang: PP tidak bisa klik Approval final (hanya PPK yang berwenang - BPMN N35)
+        if (($user->hasRole('pp') || $user->hasPermission('reviu.pp')) && ! $user->hasRole('admin') && ! $user->hasPermission('reviu.ppk') && $validated['status_reviu'] === 'disetujui') {
             return back()->withErrors([
-                'status_reviu' => 'Pejabat Pengadaan (PP) tidak memiliki wewenang klik Approval. Persetujuan tetap dilakukan oleh PPK.',
+                'status_reviu' => 'Pejabat Pengadaan (PP) tidak memiliki wewenang persetujuan final (Approval). Persetujuan dokumen dilakukan oleh PPK (BPMN N35).',
             ])->withInput();
         }
 
         // Penegakan isolasi berkas 4 akun PPK
-        if ($user->hasPermission('reviu.ppk') && ! $user->hasRole('admin') && (int) $paket->id_user_ppk !== (int) $user->id_user) {
+        if ($user->hasPermission('reviu.ppk') && ! $user->hasRole('admin') && $paket->id_user_ppk && (int) $paket->id_user_ppk !== (int) $user->id_user) {
             abort(403, 'Akses Ditolak: Anda tidak berhak mereviu atau meng-approve paket yang ditugaskan kepada PPK lain (Isolasi Berkas PPK).');
         }
 
-        // Apabila PP melakukan verifikasi kelengkapan pada paket 50-200jt, wajib input Harga Perkiraan, Harga Akhir, & Vendor
-        if (($user->hasRole('pp') || $user->hasPermission('reviu.pp')) && $validated['status_reviu'] === 'terverifikasi_pp') {
-            $hargaPerkiraan = $validated['nominal_harga_perkiraan'] ?? null;
-            $hargaAkhir = $validated['nominal_harga_akhir'] ?? $validated['nilai_hasil_negosiasi'] ?? null;
-
-            if (! empty($validated['nama_vendor'])) {
-                $legalitasPath = $request->hasFile('file_dokumen_legalitas')
-                    ? $request->file('file_dokumen_legalitas')->store('vendor_legalitas', 'public')
-                    : null;
-                $vendor = Vendor::firstOrCreate(
-                    ['nama_vendor' => trim($validated['nama_vendor'])],
-                    [
-                        'file_dokumen_legalitas' => $legalitasPath,
-                        'is_active' => true,
-                    ]
-                );
-                if ($legalitasPath && empty($vendor->file_dokumen_legalitas)) {
-                    $vendor->file_dokumen_legalitas = $legalitasPath;
-                    $vendor->save();
-                }
-                $paket->id_vendor = $vendor->id;
-                $paket->npwp_vendor = $vendor->npwp;
-            } elseif (! empty($validated['id_vendor'])) {
-                $paket->id_vendor = $validated['id_vendor'];
-            } elseif (! empty($validated['npwp_vendor'])) {
-                $paket->npwp_vendor = $validated['npwp_vendor'];
-            }
-
-            if (empty($hargaPerkiraan) || empty($hargaAkhir) || (empty($paket->id_vendor) && empty($paket->npwp_vendor))) {
-                return back()->withErrors([
-                    'nominal_harga_akhir' => 'Setelah review kelengkapan, PP wajib menginput Nominal Harga Perkiraan, Nominal Harga Akhir, dan Rekanan/Vendor.',
-                ])->withInput();
-            }
-
-            $paket->nominal_harga_perkiraan = (float) $hargaPerkiraan;
-            $paket->nominal_harga_akhir = (float) $hargaAkhir;
-            $paket->nilai_hasil_negosiasi = (float) $hargaAkhir;
-            $paket->catatan_verifikasi_pp = $validated['catatan_perbaikan'] ?? 'Dokumen lengkap diverifikasi PP; menunggu Approval PPK.';
-        }
-
         $nextRound = (ReviuDokumen::where('nomor_paket', $paket->nomor_paket)->max('putaran_ke') ?? 0) + 1;
+        $isPp = ($user->hasRole('pp') || $user->hasPermission('reviu.pp')) && ! ($user->hasPermission('reviu.ppk') && $validated['status_reviu'] === 'disetujui');
 
         ReviuDokumen::create([
             'nomor_paket' => $paket->nomor_paket,
             'id_user' => $user->id_user,
             'putaran_ke' => $nextRound,
-            'role_reviewer' => ($user->hasRole('pp') || $user->hasPermission('reviu.pp')) ? 'pp' : 'ppk',
+            'role_reviewer' => $isPp ? 'pp' : 'ppk',
             'status_reviu' => $validated['status_reviu'],
             'catatan_perbaikan' => $validated['catatan_perbaikan'],
             'tanggal_reviu' => now(),
@@ -2841,135 +2795,73 @@ class HomeController extends Controller
 
         $statusLama = $paket->status_paket;
 
+        // KASUS 1: PP Verifikasi Berhasil (BPMN N27: Iya -> N31: Kirim ke PPK N30)
         if ($validated['status_reviu'] === 'terverifikasi_pp') {
             $paket->status_paket = PaketPengadaan::STATUS_MENUNGGU_APPROVAL_PPK;
+            $paket->catatan_verifikasi_pp = $validated['catatan_perbaikan'] ?? 'Dokumen pengadaan lolos verifikasi teknis & HPS oleh PP (BPMN N27: Iya); berkas diteruskan ke PPK (N31 -> N30).';
             $paket->save();
 
             AuditLog::catat(
                 $user->id_user,
-                'REVIEW_KELENGKAPAN_PP',
+                'REVIEW_DOKUMEN_PP_BERHASIL',
                 'paket_pengadaan',
                 $paket->nomor_paket,
                 $statusLama,
                 $paket->status_paket,
-                "PP memverifikasi kelengkapan paket {$paket->nomor_paket} dan menginput Harga Perkiraan, Harga Akhir, serta Vendor; menunggu Approval PPK."
+                "PP menyatakan verifikasi dokumen pengadaan paket {$paket->nomor_paket} berhasil (BPMN N27: Iya); dokumen diteruskan ke PPK (N31 -> N30)."
             );
 
             $this->notificationService->notifyReviewPpKePpk($paket, $validated['catatan_perbaikan'] ?? null);
 
             return redirect()->route('kontrak.index')->with(
                 'success',
-                "Review kelengkapan PP serta input Harga Perkiraan, Harga Akhir, dan Vendor untuk paket {$paket->nomor_paket} berhasil disimpan. Menunggu Approval PPK."
+                "Verifikasi dokumen pengadaan paket {$paket->nomor_paket} berhasil (BPMN N27 & N31). Berkas diteruskan ke PPK untuk persetujuan (N30)."
             );
         }
 
+        // KASUS 2: PPK Menyetujui Dokumen Pengadaan (BPMN N35: Iya -> N36: Teruskan ke PPBJ N32/N34/N37)
         if ($validated['status_reviu'] === 'disetujui') {
-            // Otoritas lock/unlock MAK murni berada di Perencanaan (tidak dikunci otomatis oleh PPK)
-            if ($paket->jalur_routing === PaketPengadaan::ROUTING_PP) {
-                $paket->status_paket = PaketPengadaan::STATUS_DISETUJUI_PPK_SIAP_BELANJA_PP;
-                $paket->save();
-                $this->notificationService->notifyApprovalPpkKePp($paket);
-                $msg = "Approval PPK untuk paket {$paket->nomor_paket} berhasil diterbitkan. Silakan PP mengeksekusi kewenangan belanja.";
-            } else {
-                if (! empty($validated['nominal_harga_perkiraan'])) {
-                    $paket->nominal_harga_perkiraan = (float) $validated['nominal_harga_perkiraan'];
-                }
-                if (! empty($validated['nominal_harga_akhir'])) {
-                    $paket->nominal_harga_akhir = (float) $validated['nominal_harga_akhir'];
-                    $paket->nilai_hasil_negosiasi = (float) $validated['nominal_harga_akhir'];
-                }
-                if (! empty($validated['npwp_vendor'])) {
-                    $paket->npwp_vendor = $validated['npwp_vendor'];
-                }
-
-                if ($request->boolean('eksekusi_belanja_sekaligus')) {
-                    $paket->dieksekusi_belanja_oleh = $user->id_user;
-                    $paket->tanggal_eksekusi_belanja = now();
-                    $paket->status_paket = PaketPengadaan::STATUS_SIAP_UPLOAD_DOKUMEN_PPBJ;
-                    $paket->save();
-                    $this->notificationService->notifySiapUploadDokumenPpbj($paket, 'ppk');
-                    $msg = "Approval & eksekusi belanja PPK untuk paket {$paket->nomor_paket} berhasil. PPBJ siap mengunggah 1 dokumen perikatan terpilih.";
-                } else {
-                    $paket->status_paket = 'reviu_dokumen_disetujui';
-                    $paket->save();
-                    $msg = "Approval PPK untuk paket {$paket->nomor_paket} berhasil dicatat. Silakan PPK melanjutkan eksekusi belanja.";
-                }
-            }
-        } else {
-            $paket->status_paket = 'perlu_perbaikan';
+            $paket->status_paket = PaketPengadaan::STATUS_SIAP_UPLOAD_DOKUMEN_PPBJ;
             $paket->save();
-            $this->notificationService->notifyReviuDokumen($paket, 'perlu_perbaikan', $validated['catatan_perbaikan'] ?? null);
-            $msg = "Paket {$paket->nomor_paket} dikembalikan dengan catatan perbaikan.";
+
+            AuditLog::catat(
+                $user->id_user,
+                'APPROVAL_PENGADAAN_PPK',
+                'paket_pengadaan',
+                $paket->nomor_paket,
+                $statusLama,
+                $paket->status_paket,
+                "PPK menyetujui dokumen pengadaan paket {$paket->nomor_paket} (BPMN N35: Iya); berkas diteruskan ke PPBJ untuk melakukan pengadaan & membuat SPK/Kontrak (N32/N34/N37)."
+            );
+
+            $this->notificationService->notifySiapUploadDokumenPpbj($paket, 'ppk');
+
+            return redirect()->route('kontrak.index')->with(
+                'success',
+                "Dokumen pengadaan paket {$paket->nomor_paket} berhasil disetujui oleh PPK (BPMN N35). Berkas diteruskan ke PPBJ untuk pelaksanaan pengadaan & penerbitan SPK/Kontrak (N32 & N37)."
+            );
         }
 
-        AuditLog::catat(
-            $user->id_user,
-            $validated['status_reviu'] === 'disetujui' ? 'APPROVAL_PENGADAAN_PPK' : 'REVIU_DOKUMEN_PERBAIKAN',
-            'paket_pengadaan',
-            $paket->nomor_paket,
-            $statusLama,
-            $paket->status_paket,
-            'Keputusan reviu/approval oleh '.strtoupper($user->role).': '.($validated['catatan_perbaikan'] ?? $paket->status_paket)
-        );
-
-        return redirect()->route('kontrak.index')->with('success', $msg);
-    }
-
-    /**
-     * Mengeksekusi kewenangan belanja oleh PP (untuk 50-200jt setelah Approval PPK)
-     * atau oleh PPK penanggung jawab (untuk > 200jt).
-     */
-    public function eksekusiBelanjaWeb(Request $request): RedirectResponse
-    {
-        $user = Auth::user();
-
-        $validated = $request->validate([
-            'nomor_paket' => ['required', 'exists:paket_pengadaan,nomor_paket'],
-            'catatan_belanja' => ['nullable', 'string'],
-        ]);
-
-        $paket = PaketPengadaan::where('nomor_paket', $validated['nomor_paket'])->firstOrFail();
-
-        if ($paket->jalur_routing === PaketPengadaan::ROUTING_PP) {
-            if ($user->role !== 'pp') {
-                abort(403, 'Akses Ditolak: Kewenangan eksekusi belanja pada paket > Rp 50 Juta s.d. Rp 200 Juta berada pada Pejabat Pengadaan (PP).');
-            }
-            if (! in_array($paket->status_paket, [PaketPengadaan::STATUS_DISETUJUI_PPK_SIAP_BELANJA_PP, 'reviu_dokumen_disetujui'], true)) {
-                return back()->withErrors([
-                    'nomor_paket' => 'Pejabat Pengadaan (PP) hanya dapat mengeksekusi belanja setelah PPK memberikan Approval.',
-                ]);
-            }
-        } elseif ($paket->jalur_routing === PaketPengadaan::ROUTING_PPK) {
-            if ($user->role !== 'ppk' || (int) $paket->id_user_ppk !== (int) $user->id_user) {
-                abort(403, 'Akses Ditolak: Eksekusi belanja paket > Rp 200 Juta hanya dapat dilakukan oleh akun PPK penanggung jawab paket.');
-            }
-        } else {
-            return back()->withErrors([
-                'nomor_paket' => 'Paket <= Rp 50 Juta adalah Belanja Langsung yang dieksekusi oleh PPBJ melalui modul Paket Pengadaan.',
-            ]);
-        }
-
-        $statusLama = $paket->status_paket;
-        $paket->dieksekusi_belanja_oleh = $user->id_user;
-        $paket->tanggal_eksekusi_belanja = now();
-        $paket->status_paket = PaketPengadaan::STATUS_SIAP_UPLOAD_DOKUMEN_PPBJ;
+        // KASUS 3: Penolakan / Perlu Perbaikan (PP N27: Tidak ATAU PPK N35: Tidak -> N18 PPBJ Susun Ulang)
+        $paket->status_paket = 'perlu_perbaikan';
+        $paket->catatan_verifikasi_pp = ($isPp ? 'Catatan PP: ' : 'Catatan PPK: ').$validated['catatan_perbaikan'];
         $paket->save();
 
         AuditLog::catat(
             $user->id_user,
-            'EKSEKUSI_KEWENANGAN_BELANJA',
+            'REVIU_DOKUMEN_PERBAIKAN',
             'paket_pengadaan',
             $paket->nomor_paket,
             $statusLama,
-            PaketPengadaan::STATUS_SIAP_UPLOAD_DOKUMEN_PPBJ,
-            strtoupper($user->role)." mengeksekusi kewenangan belanja paket {$paket->nomor_paket}.".(! empty($validated['catatan_belanja']) ? ' Catatan: '.$validated['catatan_belanja'] : '')
+            $paket->status_paket,
+            'Penelaah ('.($isPp ? 'PP' : 'PPK').") mengembalikan dokumen paket {$paket->nomor_paket} ke PPBJ untuk disusun ulang (BPMN N18): ".$validated['catatan_perbaikan']
         );
 
-        $this->notificationService->notifySiapUploadDokumenPpbj($paket, $user->role);
+        $this->notificationService->notifyReviuDokumen($paket, 'perlu_perbaikan', $validated['catatan_perbaikan'] ?? null);
 
         return redirect()->route('kontrak.index')->with(
             'success',
-            'Eksekusi belanja paket '.$paket->nomor_paket.' oleh '.strtoupper($user->role).' berhasil dicatat. PPBJ kini dapat mengunggah salah satu dokumen perikatan (Surat Pesanan / SPK / Surat Kontrak).'
+            "Dokumen pengadaan paket {$paket->nomor_paket} dikembalikan ke PPBJ untuk perbaikan (BPMN N18)."
         );
     }
 
