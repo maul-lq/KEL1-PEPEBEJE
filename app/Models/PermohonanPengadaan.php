@@ -683,9 +683,6 @@ class PermohonanPengadaan extends Model
             // d. Hapus ReviuDokumen
             ReviuDokumen::where('nomor_paket', $nomorPaket)->delete();
 
-            // e. Hapus RiwayatPenugasanPPK
-            RiwayatPenugasanPPK::where('nomor_paket', $nomorPaket)->delete();
-
             // f. Hapus Reminder dan NotifikasiUser
             $reminderList = Reminder::where('nomor_paket', $nomorPaket)->get();
             foreach ($reminderList as $reminder) {

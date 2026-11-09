@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -122,5 +123,51 @@ class AuditLog extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'id_user', 'id_user');
+    }
+
+    /**
+     * Relasi many-to-one ke User pelaksana aksi (alias userPenetap untuk kompatibilitas mutasi).
+     *
+     * @return BelongsTo Relasi ke model User
+     */
+    public function userPenetap(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'id_user', 'id_user');
+    }
+
+    /**
+     * Relasi ke PPK lama (khusus log REASSIGN_PPK di mana nilai_lama berisi id_user PPK terdahulu).
+     *
+     * @return BelongsTo Relasi ke model User
+     */
+    public function ppkLama(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'nilai_lama', 'id_user');
+    }
+
+    /**
+     * Relasi ke PPK baru (khusus log REASSIGN_PPK di mana nilai_baru berisi id_user PPK penerima).
+     *
+     * @return BelongsTo Relasi ke model User
+     */
+    public function ppkBaru(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'nilai_baru', 'id_user');
+    }
+
+    /**
+     * Accessor alias tanggal_penugasan untuk kompatibilitas waktu mutasi.
+     */
+    public function getTanggalPenugasanAttribute(): ?Carbon
+    {
+        return $this->waktu_log;
+    }
+
+    /**
+     * Accessor alias alasan_pengalihan untuk alasan mutasi.
+     */
+    public function getAlasanPengalihanAttribute(): ?string
+    {
+        return $this->alasan;
     }
 }

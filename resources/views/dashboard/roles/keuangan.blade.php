@@ -98,7 +98,7 @@
                                     {{ $tagihan->paket->nama_paket ?? 'Pembayaran Pengadaan' }}
                                 </h4>
                                 <p class="text-[11px] text-slate-500 mt-0.5 truncate">
-                                    Penyedia: <span class="font-semibold text-slate-700">{{ $vendorObj->nama_perusahaan ?? ($vendorObj->nama_vendor ?? 'Penyedia Resmi') }}</span>
+                                    Penyedia: <span class="font-semibold text-slate-700">{{ $vendorObj->nama_vendor ?? 'Penyedia Resmi' }}</span>
                                 </p>
                                 <div class="flex items-center gap-2 text-[10px] text-slate-400 mt-1">
                                     <span>Termin: Ke-{{ $tagihan->tahap_termin }}</span>
@@ -200,7 +200,7 @@
                                             {{ $tx->nomor_transaksi_bank }}
                                         </td>
                                         <td class="px-4 py-3 max-w-xs truncate">
-                                            {{ $tx->pembayaran->paket->vendor->nama_perusahaan ?? 'Penyedia Rekanan' }}
+                                            {{ $tx->pembayaran->paket->vendor->nama_vendor ?? 'Penyedia Rekanan' }}
                                         </td>
                                         <td class="px-4 py-3 whitespace-nowrap font-mono font-bold text-emerald-600">
                                             Rp {{ number_format((float) ($tx->nominal_transfer ?? 0), 0, ',', '.') }}

@@ -44,9 +44,8 @@
             :value="$stats['total_vendor'] ?? 0"
             color="emerald"
             icon="document"
-            badge="Master Data"
+            badge="Inline Vendor"
             subtitle="Penyedia & toko terdaftar"
-            :href="route('vendors.index')"
         />
     </div>
 

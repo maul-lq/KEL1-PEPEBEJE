@@ -232,6 +232,26 @@
             [KEU] Unit Keuangan
         </option>
 
+        <option value="REN"
+            {{ old('kode_unit', old('unit_kerja')) == 'REN' ? 'selected' : '' }}>
+            [REN] Subbagian Perencanaan &amp; Anggaran
+        </option>
+
+        <option value="PPBJ"
+            {{ old('kode_unit', old('unit_kerja')) == 'PPBJ' ? 'selected' : '' }}>
+            [PPBJ] Unit Pengadaan Barang dan Jasa
+        </option>
+
+        <option value="PPK"
+            {{ old('kode_unit', old('unit_kerja')) == 'PPK' ? 'selected' : '' }}>
+            [PPK] Pejabat Pembuat Komitmen
+        </option>
+
+        <option value="PST"
+            {{ old('kode_unit', old('unit_kerja')) == 'PST' ? 'selected' : '' }}>
+            [PST] Pusat Komputer &amp; TI
+        </option>
+
         <option value="B1"
             {{ old('kode_unit', old('unit_kerja')) == 'B1' ? 'selected' : '' }}>
             [B1] Bidang I (Akademik)

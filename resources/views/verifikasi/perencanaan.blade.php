@@ -269,9 +269,9 @@
                                 <!-- Pilih 1 dari 4 Akun PPK Penerima Memo MAK -->
                                 <div class="space-y-1">
                                     <label for="id_user_ppk_awal_{{ $p->nomor_surat }}" class="block text-xs font-bold text-slate-700">
-                                        Pilih 1 dari 4 Akun PPK Penerima Memo MAK
+                                        Pilih 1 dari 4 Akun PPK Penerima Memo MAK<span class="text-rose-500">*</span>
                                     </label>
-                                    <select id="id_user_ppk_awal_{{ $p->nomor_surat }}" 
+                                    <select required id="id_user_ppk_awal_{{ $p->nomor_surat }}" 
                                             name="id_user_ppk_awal" 
                                             class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2 text-xs font-medium focus:border-[#0969da] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0969da]/20">
                                         <option value="">-- Pilih Pejabat Pembuat Komitmen (PPK) --</option>

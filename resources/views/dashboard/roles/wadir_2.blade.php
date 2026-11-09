@@ -126,7 +126,7 @@
                                     {{ $memo->pembayaran->paket->nama_paket ?? $memo->nomor_pembayaran }}
                                 </h4>
                                 <p class="text-[11px] text-slate-500 mt-0.5 truncate">
-                                    Rekanan: {{ $memo->pembayaran->paket->vendor->nama_perusahaan ?? 'Penyedia Resmi' }}
+                                    Rekanan: {{ $memo->pembayaran->paket->vendor->nama_vendor ?? 'Penyedia Resmi' }}
                                 </p>
                             </div>
                             <x-status-badge status="spp_terbit" text="Menunggu ACC Lvl 2" size="xs" />

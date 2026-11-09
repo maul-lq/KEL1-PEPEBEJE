@@ -257,7 +257,7 @@
                                         Rp {{ number_format((float) ($komitmen->nilai_hps ?? 0), 0, ',', '.') }}
                                     </td>
                                     <td class="px-4 py-3 whitespace-nowrap">
-                                        {{ $komitmen->vendor->nama_perusahaan ?? 'Penyedia Terpilih' }}
+                                        {{ $komitmen->vendor->nama_vendor ?? 'Penyedia Terpilih' }}
                                     </td>
                                     <td class="px-4 py-3 text-center whitespace-nowrap">
                                         <x-status-badge :status="$komitmen->status_paket" size="xs" />
@@ -303,7 +303,7 @@
                                     {{ $memoLvl1->pembayaran->paket->nama_paket ?? $memoLvl1->nomor_pembayaran }}
                                 </h4>
                                 <p class="text-[11px] text-slate-500 mt-0.5 truncate">
-                                    Rekanan: {{ $memoLvl1->pembayaran->paket->vendor->nama_perusahaan ?? 'Penyedia Resmi' }}
+                                    Rekanan: {{ $memoLvl1->pembayaran->paket->vendor->nama_vendor ?? 'Penyedia Resmi' }}
                                 </p>
                             </div>
                             <x-status-badge status="spp_terbit" text="Menunggu ACC Lvl 1" size="xs" />

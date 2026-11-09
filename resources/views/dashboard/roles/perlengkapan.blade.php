@@ -69,7 +69,7 @@
                                     {{ $spkKirim->paket->nama_paket ?? 'Paket Pengadaan' }}
                                 </h4>
                                 <p class="text-[11px] text-slate-500 mt-0.5 truncate">
-                                    Rekanan: {{ $spkKirim->paket->vendor->nama_perusahaan ?? 'Penyedia Resmi' }}
+                                    Rekanan: {{ $spkKirim->paket->vendor->nama_vendor ?? 'Penyedia Resmi' }}
                                 </p>
                             </div>
                             <x-status-badge status="pengiriman" text="Siap BAST" size="xs" />
@@ -128,7 +128,7 @@
                                         {{ $bast->paket->nama_paket ?? 'Paket Pengadaan' }}
                                     </td>
                                     <td class="px-4 py-3 whitespace-nowrap">
-                                        {{ $bast->paket->vendor->nama_perusahaan ?? 'Penyedia' }}
+                                        {{ $bast->paket->vendor->nama_vendor ?? 'Penyedia' }}
                                     </td>
                                     <td class="px-4 py-3 text-center whitespace-nowrap">
                                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold {{ $bast->kategori_belanja === 'belanja_modal' ? 'bg-blue-50 text-[#0969da] border border-blue-200' : 'bg-teal-50 text-[#087F79] border border-teal-200' }}">

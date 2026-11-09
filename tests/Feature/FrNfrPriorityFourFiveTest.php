@@ -560,12 +560,10 @@ class FrNfrPriorityFourFiveTest extends TestCase
         $paket->refresh();
         $this->assertSame((int) $ppk2->id_user, (int) $paket->id_user_ppk);
 
-        // Verifikasi tabel riwayat_penugasan_ppk
-        $this->assertDatabaseHas('riwayat_penugasan_ppk', [
-            'nomor_paket' => $paket->nomor_paket,
-            'ppk_lama_user_id' => $ppk1->id_user,
-            'ppk_baru_user_id' => $ppk2->id_user,
-            'alasan_perubahan' => 'Pemerataan beban kerja PPK 1 yang memegang 5 paket konstruksi.',
+        // Verifikasi tabel audit_log
+        $this->assertDatabaseHas('audit_log', [
+            'id_entitas' => $paket->kode_paket,
+            'jenis_aksi' => 'REASSIGN_PPK',
         ]);
 
         // 3. User biasa tidak berhak melakukan alih tugas PPK (403 Forbidden)

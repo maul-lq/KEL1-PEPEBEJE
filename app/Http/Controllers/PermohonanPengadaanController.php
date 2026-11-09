@@ -2,847 +2,607 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AlokasiMAK;
+use App\Models\AnggaranMAK;
 use App\Models\AuditLog;
 use App\Models\PermohonanPengadaan;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\VerifikasiParalel;
 use App\Rules\DokumenUploadRule;
-use Illuminate\Http\JsonResponse;
+use App\Services\PengadaanNotificationService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
-use Symfony\Component\HttpFoundation\Response;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\View\View;
 
 /**
- * Controller Manajemen Permohonan Pengadaan Barang & Jasa (PermohonanPengadaanController)
+ * Controller Permohonan Pengadaan (PermohonanPengadaanController)
  *
- * Mengelola siklus awal pengadaan kampus:
- * - Pengajuan usulan baru oleh Unit Pemohon (Jurusan/Unit) via sistem Srikandi (FR 3).
- * - Pengajuan usulan revisi berkas yang ditolak dengan penomoran surat baru & unary relation (FR 3.4).
- * - Pemecahan (split) permohonan jika terdapat item usulan yang dipisahkan (FR Unary Split).
- * - Pelacakan posisi berkas real-time 8 tahapan siklus PBJ dengan respons < 5 detik (NFR 7).
- * - Dashboard agregat monitoring status pengadaan kampus (NFR 7).
- * - Riwayat permohonan dan penolakan khusus milik pengguna (FR 4.1).
- * - Unduh berkas fisik resmi format PDF dengan kecepatan respons < 3 detik (NFR 12).
+ * Mengelola siklus pengajuan usulan surat permohonan pengadaan barang/jasa oleh unit kerja (User).
+ * Mencakup pendaftaran usulan baru, revisi pasca penolakan, pelacakan status, dan pembatalan usulan.
  */
 class PermohonanPengadaanController extends Controller
 {
+    public function __construct(
+        protected PengadaanNotificationService $notificationService
+    ) {}
+
     /**
-     * Menampilkan daftar permohonan pengadaan dengan filter pencarian dan paginasi.
-     * Menerapkan pembatasan data sesuai peran pengguna yang login (User hanya melihat miliknya).
+     * Menampilkan riwayat usulan permohonan milik user login beserta jejak penolakan.
      */
-    public function index(Request $request): JsonResponse
+    public function index(Request $request): View
     {
-        // 1. Siapkan query dengan eager loading relasi-relasi kunci
-        $query = PermohonanPengadaan::with(['user', 'unit', 'anggaranMak', 'indukSplit', 'verifikasiParalel']);
+        return $this->permohonanIndex($request);
+    }
 
-        // 2. Batasi data jika pengguna login berperan sebagai pemohon (role: user)
-        $user = $request->user();
-        if ($user) {
-            $query->forUser($user);
+    public function permohonanIndex(Request $request): View
+    {
+        $user = Auth::user();
+        $query = PermohonanPengadaan::with([
+            'unit',
+            'user',
+            'verifikasiParalel.user',
+            'suratAsalRevisi',
+            'alokasiMak.anggaranMak',
+            'paketPengadaan.reviuDokumen',
+            'paketPengadaan.kontrakSpk',
+            'paketPengadaan.penerimaanBarang',
+            'paketPengadaan.pembayaran.transaksiPencairan',
+            'paketPengadaan.reminders',
+        ])
+            ->where('status_permohonan', '!=', 'digantikan_oleh_revisi');
+
+        // Jika user yang login hanya memiliki izin melihat usulan sendiri (tanpa view_all), filter berdasarkan ID user
+        if ($user && ($user->hasRole(['user', 'pengaju']) || ($user->hasPermission('permohonan.view_own') && ! $user->hasPermission('permohonan.view_all')))) {
+            $query->where('id_user', $user->id_user);
         }
 
-        // 3. Terapkan filter berdasarkan status permohonan jika dikirimkan oleh klien
-        if ($request->filled('status')) {
-            $query->where('status_permohonan', $request->status);
-        }
-
-        // 4. Terapkan filter berdasarkan status ketersediaan anggaran DIPA
-        if ($request->filled('status_anggaran')) {
-            $query->where('status_anggaran', $request->status_anggaran);
-        }
-
-        // 5. Terapkan filter berdasarkan unit kerja / jurusan kampus
-        if ($request->filled('kode_unit')) {
-            $query->where('kode_unit', $request->kode_unit);
-        }
-
-        // 6. Pencarian bebas berdasarkan nomor surat atau judul pengadaan
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('nomor_surat', 'like', "%{$search}%")
-                    ->orWhere('judul_pengadaan', 'like', "%{$search}%");
+        // Terapkan Filter Pencarian (Search / Status / Jenis Pengadaan)
+        if ($request->filled('keyword')) {
+            $keyword = $request->keyword;
+            $query->where(function ($q) use ($keyword) {
+                $q->where('nomor_surat', 'like', "%{$keyword}%")
+                    ->orWhere('judul_pengadaan', 'like', "%{$keyword}%");
             });
         }
 
-        // 7. Ambil data dengan urutan tanggal pengajuan terbaru, 15 item per halaman
-        $permohonan = $query->latest('tanggal_pengajuan')->paginate(15);
+        if ($request->filled('status') && $request->status !== 'all') {
+            $query->where('status_permohonan', $request->status);
+        }
 
-        return response()->json([
-            'status' => 'success',
-            'data' => $permohonan,
-        ]);
+        if ($request->filled('type') && $request->type !== 'all') {
+            $query->where('jenis_pengadaan_split', $request->type);
+        }
+
+        $permohonanList = $query->latest('tanggal_pengajuan')->paginate(15);
+        $units = Unit::all();
+        $makList = AnggaranMAK::orderBy('kode_mak')->get();
+        $ppkUsers = User::where('role', 'ppk')->where('status_aktif', true)->get();
+
+        return view('permohonan.index', compact('permohonanList', 'user', 'units', 'makList', 'ppkUsers'));
     }
 
     /**
-     * Menyimpan usulan permohonan pengadaan baru ke sistem (FR 3.1 - FR 3.3).
-     * Otomatis menginisialisasi 2 baris antrean verifikasi paralel untuk Perencanaan dan Wadir 2.
+     * Menampilkan detail tracking & informasi permohonan pengadaan.
      */
-    public function store(Request $request): JsonResponse
+    public function show(string $id): View
     {
-        $user = $request->user();
+        return $this->permohonanShow($id);
+    }
 
-        // Otomatis melengkapi data default jika pengujian atau klien tidak menyediakannya
-        if (! $request->filled('tujuan_pengadaan_ringkas')) {
-            $request->merge([
-                'tujuan_pengadaan_ringkas' => $request->input('judul_pengadaan', 'Pengadaan barang jasa institusi'),
-            ]);
-        }
-        if (! $request->has('file_permohonan')) {
-            $request->merge([
-                'file_permohonan' => 'permohonan/dummy.pdf',
-            ]);
-        }
+    public function permohonanShow(string $id): View
+    {
+        $permohonan = PermohonanPengadaan::with([
+            'unit',
+            'user',
+            'verifikasiParalel.user',
+            'paket.kontrak.penerimaan',
+        ])->where('nomor_surat', $id)
+            ->firstOrFail();
 
-        // 1. Validasi data payload request pengajuan usulan
+        $makList = AnggaranMAK::orderBy('kode_mak')->get();
+        $ppkUsers = User::where('role', 'ppk')->where('status_aktif', true)->get();
+
+        return view('permohonan.show', compact('permohonan', 'makList', 'ppkUsers'));
+    }
+
+    /**
+     * Menampilkan formulir pendaftaran usulan permohonan pengadaan baru berbasis Srikandi.
+     */
+    public function create(): View
+    {
+        return $this->permohonanCreate();
+    }
+
+    public function permohonanCreate(): View
+    {
+        $units = Unit::all();
+
+        return view('permohonan.create', compact('units'));
+    }
+
+    /**
+     * Memproses pengajuan usulan permohonan baru ke Bidang 2 (Alur Persetujuan Awal Berantai).
+     */
+    public function store(Request $request): RedirectResponse
+    {
+        return $this->storePermohonan($request);
+    }
+
+    public function storePermohonan(Request $request): RedirectResponse
+    {
+        $user = Auth::user();
+
         $validated = $request->validate([
-            'nomor_surat' => 'required|string|max:100|unique:permohonan_pengadaan,nomor_surat',
-            'judul_pengadaan' => 'required|string|max:255',
-            'tujuan_pengadaan_ringkas' => 'required|string',
-            'file_permohonan' => ['required', DokumenUploadRule::pdfOnly()],
-            'kode_unit' => 'nullable|string|exists:units,kode_unit',
-            'id_user' => 'nullable|exists:users,id_user',
-            'estimasi_total_pagu' => 'nullable|numeric|min:0',
-            'kode_mak' => 'nullable|exists:anggaran_mak,kode_mak',
+            'nomor_surat' => ['required', 'string', 'max:100', 'unique:permohonan_pengadaan,nomor_surat'],
+            'perihal' => ['required', 'string', 'max:255'],
+            'tujuan_pengadaan_ringkas' => ['nullable', 'string', 'max:500'],
+            'anggaran_diajukan' => ['required', 'numeric', 'min:1'],
+            'kode_unit' => ['required', 'string', 'exists:units,kode_unit'],
+            'tanggal_pengajuan' => ['required', 'date'],
+            'file_surat_permohonan' => ['nullable', DokumenUploadRule::pdfOnly()],
+            'file_kak' => ['nullable', DokumenUploadRule::pdfOnly()],
+            'file_spesifikasi_teknis' => ['nullable', DokumenUploadRule::pdfOnly()],
         ]);
 
-        // Tetapkan kode unit pemohon dari profil pengguna jika kosong
-        if (empty($validated['kode_unit'])) {
-            $defaultUnit = $user?->kode_unit ?? Unit::first()?->kode_unit;
-            if (! $defaultUnit) {
-                $unit = Unit::firstOrCreate(
-                    ['kode_unit' => 'TIK'],
-                    ['nama_unit' => 'Jurusan Teknik Informatika dan Komputer', 'jenis_unit' => 'jurusan']
-                );
-                $defaultUnit = $unit->kode_unit;
-            }
-            $validated['kode_unit'] = $defaultUnit;
-        }
+        $filePermohonanPath = $request->hasFile('file_surat_permohonan')
+            ? $request->file('file_surat_permohonan')->store('permohonan', 'public')
+            : null;
 
-        // Tetapkan ID pengguna pemohon jika tidak disediakan secara eksplisit
-        if (empty($validated['id_user'])) {
-            $defaultUserId = $user?->id_user ?? User::first()?->id_user;
-            if (! $defaultUserId) {
-                $createdUser = User::create([
-                    'nip' => '199001012020121000',
-                    'username' => 'system_default_user',
-                    'email' => 'system@kampus.ac.id',
-                    'nama' => 'System User',
-                    'password' => 'secret123',
-                    'jabatan' => 'Staff Pengusul',
-                    'role' => 'user',
-                    'no_hp' => '081234567890',
-                    'kode_unit' => $validated['kode_unit'],
-                ]);
-                $defaultUserId = $createdUser->id_user;
-            }
-            $validated['id_user'] = $defaultUserId;
-        }
+        $fileKakPath = $request->hasFile('file_kak')
+            ? $request->file('file_kak')->store('kak', 'public')
+            : null;
 
-        // Simpan file lampiran PDF ke penyimpanan publik di direktori 'permohonan'
-        if ($request->hasFile('file_permohonan')) {
-            $validated['file_permohonan'] = $request->file('file_permohonan')->store('permohonan', 'public');
-        }
+        $fileSpekPath = $request->hasFile('file_spesifikasi_teknis')
+            ? $request->file('file_spesifikasi_teknis')->store('spek', 'public')
+            : null;
 
-        // Tetapkan status awal usulan memasuki antrean Bidang 2 sesuai alur berantai Notulensi PPBJ
-        $validated['status_permohonan'] = PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2;
-        $validated['status_anggaran'] = 'pending';
-        $validated['tanggal_pengajuan'] = now();
+        $kodeUnit = $user->kode_unit ?? $validated['kode_unit'] ?? 'TIK';
 
-        // Simpan data permohonan ke tabel permohonan_pengadaan
-        $permohonan = PermohonanPengadaan::create($validated);
+        // Buat baris data permohonan pengadaan pada tahap awal Bidang 2
+        $permohonan = PermohonanPengadaan::create([
+            'nomor_surat' => $validated['nomor_surat'],
+            'judul_pengadaan' => $validated['perihal'],
+            'tujuan_pengadaan_ringkas' => $validated['tujuan_pengadaan_ringkas'] ?? $validated['perihal'],
+            'estimasi_total_pagu' => $validated['anggaran_diajukan'],
+            'perihal' => $validated['perihal'],
+            'anggaran_diajukan' => $validated['anggaran_diajukan'],
+            'kode_unit' => $kodeUnit,
+            'id_user' => $user->id_user,
+            'tanggal_pengajuan' => $validated['tanggal_pengajuan'],
+            'file_permohonan' => $filePermohonanPath ?? 'permohonan/dummy.pdf',
+            'file_surat_permohonan' => $filePermohonanPath ?? 'permohonan/dummy.pdf',
+            'file_kak' => $fileKakPath,
+            'file_spesifikasi_teknis' => $fileSpekPath,
+            'status_permohonan' => PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
+            'status_anggaran' => 'pending',
+            'status' => PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
+        ]);
 
-        // Inisialisasi antrean awal di Bidang 2 (Staff Bidang 2 memeriksa kelengkapan & membuat Memo Cek MAK ke Perencanaan)
-        $staffB2 = User::where('role', 'staff_bidang_2')->where('status_aktif', true)->first();
+        // Inisialisasi antrean telaah untuk Wadir 2, Perencanaan, dan pemantauan Staf Bidang 2
         VerifikasiParalel::create([
-            'id_user' => $staffB2?->id_user ?? $permohonan->id_user,
+            'id_user' => $user->id_user,
             'nomor_surat' => $permohonan->nomor_surat,
-            'role_verifikator' => 'staff_bidang_2',
+            'role_verifikator' => VerifikasiParalel::ROLE_STAFF_BIDANG_2,
+            'status_keputusan' => 'menunggu',
+        ]);
+        VerifikasiParalel::create([
+            'id_user' => $user->id_user,
+            'nomor_surat' => $permohonan->nomor_surat,
+            'role_verifikator' => VerifikasiParalel::ROLE_WADIR_2,
+            'status_keputusan' => 'menunggu',
+        ]);
+        VerifikasiParalel::create([
+            'id_user' => $user->id_user,
+            'nomor_surat' => $permohonan->nomor_surat,
+            'role_verifikator' => VerifikasiParalel::ROLE_PERENCANAAN,
             'status_keputusan' => 'menunggu',
         ]);
 
-        // Catat peristiwa pengajuan usulan baru ke tabel audit log
+        // Catat ke jejak audit
         AuditLog::catat(
-            $permohonan->id_user,
-            'PENGAJUAN_PERMOHONAN_BARU',
+            $user->id_user,
+            'AJUKAN_PERMOHONAN',
             'permohonan_pengadaan',
             $permohonan->nomor_surat,
             null,
             PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
-            'Pengajuan usulan pengadaan baru ke Bidang 2: '.$permohonan->judul_pengadaan
+            "Pengajuan usulan permohonan pengadaan nomor {$permohonan->nomor_surat} ke Bidang 2 oleh {$user->nama}"
         );
 
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Permohonan pengadaan berhasil diajukan ke Bidang 2 untuk pemeriksaan berkas dan Memo Cek MAK',
-            'data' => $permohonan->load(['unit', 'user', 'ppkAwal', 'verifikasiParalel']),
-        ], 201);
+        // Memicu notifikasi siklus: Bidang 2 menerima alarm usulan baru
+        $this->notificationService->notifyPengajuanBaru($permohonan);
+
+        return redirect()->route('permohonan.index')->with(
+            'success',
+            "Usulan permohonan nomor {$permohonan->nomor_surat} berhasil diajukan ke Bidang II untuk pemeriksaan berkas dan penerbitan Memo Cek MAK."
+        );
     }
 
     /**
-     * Menampilkan detail lengkap satu permohonan pengadaan beserta seluruh relasinya.
+     * Memproses pengajuan revisi surat usulan permohonan yang sebelumnya ditolak/perlu revisi secara in-place (Opsi A).
+     * Mendukung pembaruan in-place maupun pewarisan ke nomor surat baru tanpa pemotongan ganda saldo pagu MAK.
      */
-    public function show(PermohonanPengadaan $permohonan_pengadaan): JsonResponse
+    public function revisi(Request $request): RedirectResponse
     {
-        return response()->json([
-            'status' => 'success',
-            'data' => $permohonan_pengadaan->load([
-                'user',
-                'unit',
-                'anggaranMak',
-                'indukSplit',
-                'anakSplit',
-                'suratAsalRevisi',
-                'suratHasilRevisi',
-                'verifikasiParalel.user',
-                'alokasiMak.anggaranMak',
-                'paketPengadaan',
-            ]),
-        ]);
+        return $this->revisiPermohonan($request);
     }
 
-    /**
-     * Memperbarui data umum permohonan pengadaan yang sedang diproses.
-     */
-    public function update(Request $request, PermohonanPengadaan $permohonan_pengadaan): JsonResponse
+    public function revisiPermohonan(Request $request): RedirectResponse
     {
-        // Validasi field input yang dikirimkan
+        $user = Auth::user();
+
         $validated = $request->validate([
-            'judul_pengadaan' => 'sometimes|required|string|max:255',
-            'tujuan_pengadaan_ringkas' => 'sometimes|required|string',
-            'file_permohonan' => 'sometimes|required|string|max:255',
-            'status_permohonan' => 'sometimes|required|string',
-            'status_anggaran' => 'sometimes|required|string',
-            'estimasi_total_pagu' => 'nullable|numeric|min:0',
-            'kode_mak' => 'nullable|exists:anggaran_mak,kode_mak',
+            'nomor_surat_lama' => ['required', 'exists:permohonan_pengadaan,nomor_surat'],
+            'nomor_surat_baru' => ['nullable', 'string', 'max:100'],
+            'perihal' => ['required', 'string', 'max:255'],
+            'tujuan_pengadaan_ringkas' => ['nullable', 'string', 'max:500'],
+            'anggaran_diajukan' => ['required', 'numeric', 'min:1'],
+            'keterangan_revisi' => ['nullable', 'string'],
+            'file_kak' => ['nullable', DokumenUploadRule::pdfOnly()],
         ]);
 
-        // Perbarui atribut permohonan
-        $permohonan_pengadaan->update($validated);
+        $induk = PermohonanPengadaan::findOrFail($validated['nomor_surat_lama']);
+        $oldNomorSurat = $induk->nomor_surat;
+        $targetNomorSurat = trim($validated['nomor_surat_baru'] ?? '');
+        $isSameSurat = empty($targetNomorSurat) || ($targetNomorSurat === $oldNomorSurat);
 
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Permohonan pengadaan berhasil diperbarui',
-            'data' => $permohonan_pengadaan->load(['unit', 'user', 'anggaranMak']),
-        ]);
-    }
-
-    /**
-     * Mengajukan usulan revisi atas permohonan pengadaan yang sebelumnya ditolak (FR 3.4).
-     * Menerapkan prinsip nomor surat baru dan relasi silsilah unary (nomor_surat_revisi).
-     */
-    public function revisi(Request $request, PermohonanPengadaan $permohonan_pengadaan): JsonResponse
-    {
-        // 1. Validasi input pengajuan usulan revisi
-        $validated = $request->validate([
-            'nomor_surat_baru' => 'required|string|max:100|unique:permohonan_pengadaan,nomor_surat',
-            'judul_pengadaan' => 'required|string|max:255',
-            'tujuan_pengadaan_ringkas' => 'required|string',
-            'file_permohonan' => ['required', DokumenUploadRule::pdfOnly()],
-            'estimasi_total_pagu' => 'nullable|numeric|min:0',
-            'alasan_revisi' => 'required|string',
-        ]);
-
-        // Simpan file berkas PDF usulan yang telah diperbaiki
-        if ($request->hasFile('file_permohonan')) {
-            $validated['file_permohonan'] = $request->file('file_permohonan')->store('permohonan', 'public');
+        if (! $isSameSurat) {
+            $isUsed = PermohonanPengadaan::where('nomor_surat', $targetNomorSurat)->exists();
+            if ($isUsed) {
+                return back()->withErrors(['nomor_surat_baru' => "Nomor surat {$targetNomorSurat} sudah terdaftar di sistem."])->withInput();
+            }
         }
 
-        $user = $request->user();
+        $fileKakPath = $request->hasFile('file_kak')
+            ? $request->file('file_kak')->store('kak', 'public')
+            : $induk->file_kak;
 
-        // 2. Buat baris permohonan baru dengan counter revisi_ke yang diinkrementasi (+1)
-        $revisi = PermohonanPengadaan::create([
-            'nomor_surat' => $validated['nomor_surat_baru'],
-            'judul_pengadaan' => $validated['judul_pengadaan'],
-            'tujuan_pengadaan_ringkas' => $validated['tujuan_pengadaan_ringkas'],
-            'file_permohonan' => $validated['file_permohonan'],
-            'status_permohonan' => PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
-            'status_anggaran' => 'pending',
-            'revisi_ke' => $permohonan_pengadaan->revisi_ke + 1, // Naikkan versi revisi
-            'estimasi_total_pagu' => $validated['estimasi_total_pagu'] ?? $permohonan_pengadaan->estimasi_total_pagu,
-            'tanggal_pengajuan' => now(),
-            'kode_unit' => $permohonan_pengadaan->kode_unit,
-            'id_user' => $user?->id_user ?? $permohonan_pengadaan->id_user,
-            'nomor_surat_revisi' => $permohonan_pengadaan->nomor_surat, // Tautan silsilah unary ke surat lama
-            'tanggal_revisi' => now(),
-            'alasan_revisi' => $validated['alasan_revisi'],
-            'kode_mak' => $permohonan_pengadaan->kode_mak,
-        ]);
+        $nominalBaru = (float) $validated['anggaran_diajukan'];
+        $nominalLama = (float) ($induk->anggaran_diajukan ?? $induk->estimasi_total_pagu ?? 0);
+        $selisih = $nominalBaru - $nominalLama;
+        $revisiKe = ($induk->revisi_ke ?? 0) + 1;
 
-        // 3. Bangkitkan antrean awal baru di Bidang 2 untuk berkas revisi
-        $staffB2 = User::where('role', 'staff_bidang_2')->where('status_aktif', true)->first();
-        VerifikasiParalel::create([
-            'id_user' => $staffB2?->id_user ?? $revisi->id_user,
-            'nomor_surat' => $revisi->nomor_surat,
-            'role_verifikator' => 'staff_bidang_2',
-            'status_keputusan' => 'menunggu',
-        ]);
+        $hasMak = ! empty($induk->kode_mak);
+        $targetStatus = $hasMak
+            ? PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN
+            : PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2;
 
-        // 4. Catat riwayat revisi berkas ke tabel audit log
-        AuditLog::catat(
-            $revisi->id_user,
-            'REVISI_PERMOHONAN_DITOLAK',
-            'permohonan_pengadaan',
-            $revisi->nomor_surat,
-            $permohonan_pengadaan->nomor_surat,
-            PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
-            'Revisi pengajuan ulang dengan nomor surat baru atas penolakan surat '.$permohonan_pengadaan->nomor_surat.' (FR 3.4)'
-        );
+        // Ambil riwayat verifikasi paralel sebelum revisi
+        $oldVerifWadir = VerifikasiParalel::where('nomor_surat', $oldNomorSurat)
+            ->where('role_verifikator', VerifikasiParalel::ROLE_WADIR_2)
+            ->first();
+        $oldVerifPpk = VerifikasiParalel::where('nomor_surat', $oldNomorSurat)
+            ->where('role_verifikator', VerifikasiParalel::ROLE_PPK)
+            ->first();
 
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Permohonan revisi berhasil diajukan dengan nomor surat baru: '.$revisi->nomor_surat,
-            'data' => $revisi->load(['unit', 'user', 'ppkAwal', 'suratAsalRevisi', 'verifikasiParalel']),
-        ], 201);
-    }
+        // Cek dan kelola saldo MAK agar tidak terjadi pemotongan ganda
+        $mak = $induk->kode_mak ? AnggaranMAK::find($induk->kode_mak) : null;
+        $alokasiLama = $induk->kode_mak
+            ? AlokasiMAK::where('nomor_surat', $oldNomorSurat)->where('kode_mak', $induk->kode_mak)->first()
+            : null;
 
-    /**
-     * Memecah (split) usulan permohonan pengadaan menjadi usulan pecahan baru (FR 6.3 & FR 7.2).
-     * Mendukung pemecahan berdasarkan Kode MAK oleh Perencanaan (FR 6.3) maupun berdasarkan
-     * Jenis Pengadaan (barang, jasa, konstruksi) oleh PPBJ (FR 7.2), baik single-item maupun array 'items'.
-     */
-    public function split(Request $request, PermohonanPengadaan $permohonan_pengadaan): JsonResponse
-    {
-        // Mendukung pengiriman batch array 'items' (FR 6.3 / FR 7.2)
-        if ($request->has('items') && is_array($request->input('items'))) {
-            $validatedBatch = $request->validate([
-                'items' => 'required|array|min:1',
-                'items.*.nomor_surat_pecahan' => 'required|string|max:100|unique:permohonan_pengadaan,nomor_surat',
-                'items.*.judul_pengadaan' => 'required|string|max:255',
-                'items.*.estimasi_pagu_pecahan' => 'nullable|numeric|min:0',
-                'items.*.kode_mak' => 'nullable|exists:anggaran_mak,kode_mak',
-                'items.*.jenis_pengadaan_split' => 'nullable|string|in:barang,jasa,konstruksi,jasa_lainnya,jasa_konsultansi,pekerjaan_konstruksi',
-                'items.*.alasan_pemecahan' => 'nullable|string',
-            ]);
+        if ($mak && $alokasiLama) {
+            if ($selisih > 0) {
+                if ((float) $mak->sisa_pagu_mak < $selisih) {
+                    return back()->with('error', "Penyesuaian anggaran melebihi sisa pagu MAK {$mak->kode_mak} yang tersedia (tersisa Rp ".number_format($mak->sisa_pagu_mak, 0, ',', '.').').')->withInput();
+                }
+                $mak->sisa_pagu_mak = max(0, (float) $mak->sisa_pagu_mak - $selisih);
+                $mak->save();
+            } elseif ($selisih < 0) {
+                $mak->sisa_pagu_mak = (float) $mak->sisa_pagu_mak + abs($selisih);
+                $mak->save();
+            }
+        }
 
-            $statusAnak = ($permohonan_pengadaan->status_permohonan === PermohonanPengadaan::STATUS_DISETUJUI)
-                ? PermohonanPengadaan::STATUS_DISETUJUI
-                : PermohonanPengadaan::STATUS_REVIU_PARALEL;
+        if ($isSameSurat) {
+            // ==========================================
+            // KASUS 1: In-Place Update pada Surat Sama
+            // ==========================================
+            DB::transaction(function () use ($induk, $validated, $nominalBaru, $fileKakPath, $revisiKe, $alokasiLama, $targetStatus) {
+                if ($alokasiLama) {
+                    $alokasiLama->update(['nominal_alokasi' => $nominalBaru]);
+                }
 
-            $statusAnggaranAnak = ($permohonan_pengadaan->status_permohonan === PermohonanPengadaan::STATUS_DISETUJUI)
-                ? $permohonan_pengadaan->status_anggaran
-                : 'pending';
+                $induk->update([
+                    'judul_pengadaan' => $validated['perihal'],
+                    'perihal' => $validated['perihal'],
+                    'tujuan_pengadaan_ringkas' => $validated['tujuan_pengadaan_ringkas'] ?? $induk->tujuan_pengadaan_ringkas ?? $validated['perihal'],
+                    'anggaran_diajukan' => $nominalBaru,
+                    'estimasi_total_pagu' => $nominalBaru,
+                    'file_kak' => $fileKakPath,
+                    'status_permohonan' => $targetStatus,
+                    'status' => $targetStatus,
+                    'revisi_ke' => $revisiKe,
+                    'tanggal_revisi' => now(),
+                    'alasan_revisi' => $validated['keterangan_revisi'] ?? 'Perbaikan dokumen KAK dan spesifikasi',
+                ]);
+            });
 
-            $createdChildren = [];
-            foreach ($validatedBatch['items'] as $item) {
-                $alasan = $item['alasan_pemecahan'] ?? 'Pemecahan berkas berdasarkan jenis pengadaan/kode MAK';
-                $anak = PermohonanPengadaan::create([
-                    'nomor_surat' => $item['nomor_surat_pecahan'],
-                    'judul_pengadaan' => $item['judul_pengadaan'],
-                    'tujuan_pengadaan_ringkas' => $permohonan_pengadaan->tujuan_pengadaan_ringkas,
-                    'file_permohonan' => $permohonan_pengadaan->file_permohonan,
-                    'status_permohonan' => $statusAnak,
-                    'status_anggaran' => $statusAnggaranAnak,
-                    'revisi_ke' => 0,
-                    'estimasi_total_pagu' => $item['estimasi_pagu_pecahan'] ?? $permohonan_pengadaan->estimasi_total_pagu,
-                    'kode_unit' => $permohonan_pengadaan->kode_unit,
-                    'id_user' => $permohonan_pengadaan->id_user,
-                    'nomor_surat_induk_split' => $permohonan_pengadaan->nomor_surat,
-                    'tanggal_pemecahan' => now(),
-                    'alasan_pemecahan' => $alasan,
-                    'kode_mak' => $item['kode_mak'] ?? $permohonan_pengadaan->kode_mak,
-                    'jenis_pengadaan_split' => $item['jenis_pengadaan_split'] ?? null,
+            $activePermohonan = $induk;
+        } else {
+            // ==========================================
+            // KASUS 2: Surat Baru dengan Pewarisan MAK
+            // ==========================================
+            $activePermohonan = DB::transaction(function () use ($induk, $targetNomorSurat, $validated, $nominalBaru, $fileKakPath, $revisiKe, $user, $alokasiLama, $targetStatus) {
+                $revisi = PermohonanPengadaan::create([
+                    'nomor_surat' => $targetNomorSurat,
+                    'judul_pengadaan' => $validated['perihal'],
+                    'tujuan_pengadaan_ringkas' => $validated['tujuan_pengadaan_ringkas'] ?? $induk->tujuan_pengadaan_ringkas ?? $validated['perihal'],
+                    'estimasi_total_pagu' => $nominalBaru,
+                    'perihal' => $validated['perihal'],
+                    'anggaran_diajukan' => $nominalBaru,
+                    'kode_unit' => $induk->kode_unit,
+                    'id_user' => $user->id_user,
+                    'tanggal_pengajuan' => now(),
+                    'file_permohonan' => $induk->file_permohonan ?? 'permohonan/dummy.pdf',
+                    'file_surat_permohonan' => $induk->file_surat_permohonan ?? $induk->file_permohonan ?? 'permohonan/dummy.pdf',
+                    'file_kak' => $fileKakPath,
+                    'status_permohonan' => $targetStatus,
+                    'status' => $targetStatus,
+                    'revisi_ke' => $revisiKe,
+                    'nomor_surat_revisi' => $induk->nomor_surat,
+                    'tanggal_revisi' => now(),
+                    'alasan_revisi' => $validated['keterangan_revisi'] ?? 'Perbaikan dokumen KAK dan spesifikasi',
+                    'kode_mak' => $induk->kode_mak,
+                    'status_anggaran' => $induk->status_anggaran ?? 'pending',
+                    'id_user_ppk_awal' => $induk->id_user_ppk_awal,
+                    'nomor_memo_ketersediaan_mak' => $induk->nomor_memo_ketersediaan_mak,
+                    'catatan_memo_ketersediaan_mak' => $induk->catatan_memo_ketersediaan_mak,
                 ]);
 
-                $isPpbjSplit = ! empty($item['jenis_pengadaan_split']) || $request->user()?->role === 'ppbj';
-                AuditLog::catat(
-                    $request->user()?->id_user ?? $anak->id_user,
-                    $isPpbjSplit ? 'SPLIT_BERKAS_JENIS_PPBJ' : 'SPLIT_PERMOHONAN_MAK',
-                    'permohonan_pengadaan',
-                    $anak->nomor_surat,
-                    $permohonan_pengadaan->nomor_surat,
-                    $statusAnak,
-                    $alasan
-                );
+                // Transfer alokasi MAK dari surat lama ke surat baru
+                if ($alokasiLama) {
+                    AlokasiMAK::create([
+                        'nomor_surat' => $revisi->nomor_surat,
+                        'kode_mak' => $alokasiLama->kode_mak,
+                        'nominal_alokasi' => $nominalBaru,
+                        'tanggal_alokasi' => now(),
+                    ]);
+                    $alokasiLama->delete();
+                }
 
-                $createdChildren[] = $anak;
-            }
+                // Tandai surat lama sebagai telah digantikan oleh revisi baru
+                $induk->update([
+                    'status_permohonan' => 'digantikan_oleh_revisi',
+                    'status' => 'digantikan_oleh_revisi',
+                    'kode_mak' => null,
+                ]);
 
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Permohonan pengadaan berhasil dipecah (split)',
-                'data' => $createdChildren,
-            ], 201);
-        }
-
-        // 1. Validasi atribut usulan pecahan tunggal
-        $validated = $request->validate([
-            'nomor_surat_baru' => 'required|string|max:100|unique:permohonan_pengadaan,nomor_surat',
-            'judul_pengadaan' => 'required|string|max:255',
-            'alasan_pemecahan' => 'required|string',
-            'estimasi_total_pagu' => 'nullable|numeric|min:0',
-            'kode_mak' => 'nullable|exists:anggaran_mak,kode_mak',
-            'jenis_pengadaan_split' => 'nullable|string|in:barang,jasa,konstruksi,jasa_lainnya,jasa_konsultansi,pekerjaan_konstruksi',
-        ]);
-
-        // Jika nominal pecahan ditentukan dan lebih kecil dari pagu induk, kurangi pagu induk secara proporsional
-        $nominalSplit = (float) ($validated['estimasi_total_pagu'] ?? 0);
-        if ($nominalSplit > 0 && $permohonan_pengadaan->estimasi_total_pagu && $nominalSplit < (float) $permohonan_pengadaan->estimasi_total_pagu) {
-            $permohonan_pengadaan->estimasi_total_pagu = max(0, (float) $permohonan_pengadaan->estimasi_total_pagu - $nominalSplit);
-            $permohonan_pengadaan->save();
-        }
-
-        // Jika dipecah oleh PPBJ saat berkas sudah disetujui, warisi status disetujui agar langsung siap registrasi paket
-        $statusAnak = ($permohonan_pengadaan->status_permohonan === PermohonanPengadaan::STATUS_DISETUJUI)
-            ? PermohonanPengadaan::STATUS_DISETUJUI
-            : PermohonanPengadaan::STATUS_REVIU_PARALEL;
-
-        $statusAnggaranAnak = ($permohonan_pengadaan->status_permohonan === PermohonanPengadaan::STATUS_DISETUJUI)
-            ? $permohonan_pengadaan->status_anggaran
-            : 'pending';
-
-        // 2. Buat record permohonan pecahan dengan mengaitkan nomor_surat_induk_split
-        $anak = PermohonanPengadaan::create([
-            'nomor_surat' => $validated['nomor_surat_baru'],
-            'judul_pengadaan' => $validated['judul_pengadaan'],
-            'tujuan_pengadaan_ringkas' => $permohonan_pengadaan->tujuan_pengadaan_ringkas,
-            'file_permohonan' => $permohonan_pengadaan->file_permohonan,
-            'status_permohonan' => $statusAnak,
-            'status_anggaran' => $statusAnggaranAnak,
-            'revisi_ke' => 0,
-            'estimasi_total_pagu' => $validated['estimasi_total_pagu'] ?? $permohonan_pengadaan->estimasi_total_pagu,
-            'kode_unit' => $permohonan_pengadaan->kode_unit,
-            'id_user' => $permohonan_pengadaan->id_user,
-            'nomor_surat_induk_split' => $permohonan_pengadaan->nomor_surat, // Relasi pemecahan
-            'tanggal_pemecahan' => now(),
-            'alasan_pemecahan' => $validated['alasan_pemecahan'],
-            'kode_mak' => $validated['kode_mak'] ?? $permohonan_pengadaan->kode_mak,
-            'jenis_pengadaan_split' => $validated['jenis_pengadaan_split'] ?? null,
-        ]);
-
-        // 3. Rekam jejak pemecahan (split) permohonan ke audit log (FR 6.3, FR 7.2 & NFR 9)
-        $isPpbjSplit = ! empty($validated['jenis_pengadaan_split']) || $request->user()?->role === 'ppbj';
-        AuditLog::catat(
-            $request->user()?->id_user ?? $anak->id_user,
-            $isPpbjSplit ? 'SPLIT_BERKAS_JENIS_PPBJ' : 'SPLIT_PERMOHONAN_MAK',
-            'permohonan_pengadaan',
-            $anak->nomor_surat,
-            $permohonan_pengadaan->nomor_surat,
-            $statusAnak,
-            ($isPpbjSplit
-                ? 'Pemecahan berkas pengadaan berdasarkan jenis pengadaan oleh PPBJ (FR 7.2 & NFR 9): '
-                : 'Pemecahan usulan permohonan berdasarkan jenis anggaran MAK (FR 6.3 & NFR 9): ').$validated['alasan_pemecahan']
-        );
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Permohonan pengadaan berhasil dipecah (split)',
-            'data' => $anak,
-        ], 201);
-    }
-
-    /**
-     * Melacak posisi berkas secara real-time melalui 8 tahapan siklus pengadaan (NFR 7).
-     * Waktu respons dipastikan < 5 detik untuk kemudahan monitoring seluruh peran.
-     */
-    public function tracking(PermohonanPengadaan $permohonan_pengadaan): JsonResponse
-    {
-        // Mulai hitung waktu eksekusi untuk jaminan NFR Performa (< 5 detik)
-        $startTime = microtime(true);
-
-        // Muat seluruh relasi tahapan pengadaan secara efisien (Eager Loading)
-        $permohonan_pengadaan->load([
-            'unit',
-            'user',
-            'ppkAwal',
-            'verifikasiParalel.user',
-            'alokasiMak.anggaranMak',
-            'paketPengadaan.ppkUser',
-            'paketPengadaan.ppUser',
-            'paketPengadaan.reviuDokumen.user',
-            'paketPengadaan.kontrakSpk',
-            'paketPengadaan.penerimaanBarang.fotoDokumentasi',
-            'paketPengadaan.pembayaran.transaksiPencairan.user',
-        ]);
-
-        $stages = [];
-
-        // TAHAP 1: Pengajuan Usulan Srikandi oleh Unit Pemohon
-        $stages[] = [
-            'stage_number' => 1,
-            'stage_name' => 'Pengajuan Usulan Srikandi',
-            'role_in_charge' => 'Unit Pemohon ('.($permohonan_pengadaan->unit ? $permohonan_pengadaan->unit->nama_unit : $permohonan_pengadaan->kode_unit).')',
-            'actor' => $permohonan_pengadaan->user ? $permohonan_pengadaan->user->nama : 'Pemohon',
-            'status' => 'selesai',
-            'timestamp' => $permohonan_pengadaan->tanggal_pengajuan ? $permohonan_pengadaan->tanggal_pengajuan->toIso8601String() : null,
-            'details' => [
-                'nomor_surat' => $permohonan_pengadaan->nomor_surat,
-                'judul_pengadaan' => $permohonan_pengadaan->judul_pengadaan,
-                'estimasi_pagu' => (float) $permohonan_pengadaan->estimasi_total_pagu,
-                'is_revisi' => $permohonan_pengadaan->isRevisi(),
-                'nomor_surat_revisi' => $permohonan_pengadaan->nomor_surat_revisi,
-                'is_split' => $permohonan_pengadaan->isSplit(),
-            ],
-        ];
-
-        // TAHAP 2: Verifikasi Berantai Bidang 2 -> Perencanaan -> Wadir 2 & PPK
-        $verif = $permohonan_pengadaan->verifikasiParalel;
-        $verifStaffB2 = $verif->where('role_verifikator', 'staff_bidang_2')->first();
-        $verifPerencanaan = $verif->where('role_verifikator', 'perencanaan')->first();
-        $verifWadir = $verif->where('role_verifikator', 'wadir_2')->first();
-        $verifPpk = $verif->where('role_verifikator', 'ppk')->first();
-        $statusStage2 = 'menunggu';
-        if (in_array($permohonan_pengadaan->status_permohonan, ['disetujui', 'diproses_ppbj', 'selesai'], true)) {
-            $statusStage2 = 'selesai';
-        } elseif ($permohonan_pengadaan->status_permohonan === 'ditolak') {
-            $statusStage2 = 'ditolak';
-        } elseif ($permohonan_pengadaan->status_permohonan === 'pending_anggaran') {
-            $statusStage2 = 'pending_anggaran';
-        } elseif ($verif->isNotEmpty()) {
-            $statusStage2 = 'sedang_berjalan';
-        }
-
-        $stages[] = [
-            'stage_number' => 2,
-            'stage_name' => 'Verifikasi Paralel Pimpinan & Perencanaan',
-            'role_in_charge' => 'Bidang 2 (Staff & Wadir 2), Perencanaan & PPK',
-            'actor' => 'Bidang 2, Perencanaan & PPK',
-            'status' => $statusStage2,
-            'timestamp' => $verif->max('tanggal_keputusan')?->toIso8601String() ?? null,
-            'details' => [
-                'nomor_memo_cek_mak' => $permohonan_pengadaan->nomor_memo_cek_mak,
-                'nomor_memo_ketersediaan_mak' => $permohonan_pengadaan->nomor_memo_ketersediaan_mak,
-                'ppk_awal' => $permohonan_pengadaan->ppkAwal?->nama,
-                'staff_bidang_2' => $verifStaffB2 ? [
-                    'status' => $verifStaffB2->status_keputusan,
-                    'catatan' => $verifStaffB2->catatan_alasan,
-                    'tanggal' => $verifStaffB2->tanggal_keputusan?->toIso8601String(),
-                ] : null,
-                'perencanaan' => $verifPerencanaan ? [
-                    'status' => $verifPerencanaan->status_keputusan,
-                    'catatan' => $verifPerencanaan->catatan_alasan,
-                    'tanggal' => $verifPerencanaan->tanggal_keputusan?->toIso8601String(),
-                ] : null,
-                'wadir_2' => $verifWadir ? [
-                    'status' => $verifWadir->status_keputusan,
-                    'catatan' => $verifWadir->catatan_alasan,
-                    'tanggal' => $verifWadir->tanggal_keputusan?->toIso8601String(),
-                ] : null,
-                'ppk' => $verifPpk ? [
-                    'status' => $verifPpk->status_keputusan,
-                    'catatan' => $verifPpk->catatan_alasan,
-                    'tanggal' => $verifPpk->tanggal_keputusan?->toIso8601String(),
-                ] : null,
-            ],
-        ];
-
-        // TAHAP 3: Penetapan & Alokasi Pagu MAK oleh Bagian Perencanaan
-        $alokasi = $permohonan_pengadaan->alokasiMak;
-        $mak = $permohonan_pengadaan->anggaranMak;
-        $statusStage3 = $alokasi->isNotEmpty() || $mak ? 'selesai' : ($statusStage2 === 'selesai' ? 'sedang_berjalan' : 'menunggu');
-
-        $stages[] = [
-            'stage_number' => 3,
-            'stage_name' => 'Penetapan & Alokasi Pagu MAK',
-            'role_in_charge' => 'Bagian Perencanaan',
-            'actor' => $mak?->user?->nama ?? 'Tim Perencanaan',
-            'status' => $statusStage3,
-            'timestamp' => $mak?->updated_at?->toIso8601String() ?? null,
-            'details' => [
-                'kode_mak' => $mak?->kode_mak ?? $permohonan_pengadaan->kode_mak,
-                'uraian_mak' => $mak?->uraian_mak,
-                'is_locked' => (bool) ($mak?->is_locked),
-                'total_alokasi_mak' => (float) $alokasi->sum('nominal_alokasi'),
-            ],
-        ];
-
-        // TAHAP 4: Registrasi Paket Pengadaan & Auto-Routing Ambang Batas HPS oleh PPBJ
-        $paket = $permohonan_pengadaan->paketPengadaan->first();
-        $statusStage4 = $paket ? 'selesai' : ($statusStage3 === 'selesai' ? 'sedang_berjalan' : 'menunggu');
-
-        $stages[] = [
-            'stage_number' => 4,
-            'stage_name' => 'Registrasi Paket & Auto-Routing PP/PPK',
-            'role_in_charge' => 'Koordinator / Staf PPBJ',
-            'actor' => $paket?->ppbjUser?->nama ?? 'Staf PPBJ',
-            'status' => $statusStage4,
-            'timestamp' => $paket?->tanggal_registrasi_paket?->toIso8601String() ?? null,
-            'details' => $paket ? [
-                'nomor_paket' => $paket->nomor_paket,
-                'nama_paket' => $paket->nama_paket,
-                'jalur_routing' => $paket->jalur_routing,
-                'nilai_hps' => (float) $paket->nilai_hps,
-                'ppk_ditugaskan' => $paket->ppkUser ? $paket->ppkUser->nama : null,
-                'pp_ditugaskan' => $paket->ppUser ? $paket->ppUser->nama : null,
-            ] : null,
-        ];
-
-        // TAHAP 5: Penelaahan Berkas Teknis & Evaluasi HPS oleh Pejabat Pengadaan / PPK
-        $reviu = $paket?->reviuDokumen?->first();
-        $statusStage5 = $reviu ? 'selesai' : ($statusStage4 === 'selesai' ? 'sedang_berjalan' : 'menunggu');
-
-        $stages[] = [
-            'stage_number' => 5,
-            'stage_name' => 'Reviu Dokumen Pengadaan & HPS',
-            'role_in_charge' => $paket && $paket->jalur_routing === 'ppk_diatas_200jt' ? 'Pejabat Pembuat Komitmen (PPK)' : 'Pejabat Pengadaan (PP)',
-            'actor' => $reviu?->user?->nama ?? ($paket?->ppkUser?->nama ?? $paket?->ppUser?->nama),
-            'status' => $statusStage5,
-            'timestamp' => $reviu?->tanggal_reviu?->toIso8601String() ?? null,
-            'details' => $reviu ? [
-                'nomor_reviu' => $reviu->nomor_reviu,
-                'status_reviu' => $reviu->status_reviu,
-                'catatan' => $reviu->catatan_reviu,
-            ] : null,
-        ];
-
-        // TAHAP 6: Penerbitan Dokumen Perikatan Terpilih (> 50jt) atau Kwitansi Belanja Langsung (<= 50jt) oleh PPBJ
-        $spk = $paket?->kontrakSpk;
-        $isBelanjaLangsungSelesai = $paket && ($paket->jalur_routing === 'langsung_sd_50jt') && ! empty($paket->nomor_kwitansi_belanja);
-        $statusStage6 = ($spk || $isBelanjaLangsungSelesai) ? 'selesai' : ($statusStage5 === 'selesai' ? 'sedang_berjalan' : 'menunggu');
-
-        $stages[] = [
-            'stage_number' => 6,
-            'stage_name' => 'Penerbitan Kontrak / Surat Perintah Kerja (SPK)',
-            'role_in_charge' => 'Unit PPBJ (Dokumen Perikatan / Kwitansi Belanja Langsung)',
-            'actor' => $spk?->user?->nama ?? $paket?->ppbjUser?->nama ?? 'Staf PPBJ',
-            'status' => $statusStage6,
-            'timestamp' => $spk?->tanggal_spk?->toIso8601String() ?? $paket?->tanggal_eksekusi_belanja?->toIso8601String() ?? null,
-            'details' => $spk ? [
-                'tipe_dokumen' => $spk->tipe_dokumen,
-                'nomor_spk' => $spk->nomor_spk,
-                'nilai_kontrak' => (float) $spk->nilai_kontrak,
-                'tanggal_mulai' => $spk->tanggal_mulai?->format('Y-m-d'),
-                'tanggal_selesai' => $spk->tanggal_selesai?->format('Y-m-d'),
-                'status_spk' => $spk->status_spk,
-            ] : ($isBelanjaLangsungSelesai ? [
-                'tipe_dokumen' => 'kwitansi_belanja_langsung',
-                'nomor_kwitansi_belanja' => $paket->nomor_kwitansi_belanja,
-                'nominal_harga_akhir' => (float) ($paket->nominal_harga_akhir ?? $paket->nilai_hps),
-            ] : null),
-        ];
-
-        // TAHAP 7: Pemeriksaan Fisik Barang & Penerbitan BAST Digital oleh Bagian Perlengkapan
-        $bast = $paket?->penerimaanBarang?->first();
-        $statusStage7 = $bast ? 'selesai' : ($statusStage6 === 'selesai' ? 'sedang_berjalan' : 'menunggu');
-
-        $stages[] = [
-            'stage_number' => 7,
-            'stage_name' => 'Penerimaan Fisik & BAST Digital',
-            'role_in_charge' => 'Unit Perlengkapan & BMN',
-            'actor' => $bast?->user?->nama ?? 'Staf Perlengkapan',
-            'status' => $statusStage7,
-            'timestamp' => $bast?->tanggal_penerimaan?->toIso8601String() ?? null,
-            'details' => $bast ? [
-                'nomor_bast' => $bast->nomor_bast,
-                'status_penerimaan' => $bast->status_penerimaan,
-                'jumlah_foto_dokumentasi' => $bast->fotoDokumentasi?->count() ?? 0,
-                'ttd_digital_verified' => ! empty($bast->ttd_digital_bast),
-            ] : null,
-        ];
-
-        // TAHAP 8: Pembayaran SPP & Eksekusi Pencairan Dana SP2D oleh Bagian Keuangan
-        $pembayaran = $paket?->pembayaran?->first();
-        $cair = $pembayaran?->transaksiPencairan;
-        $statusStage8 = $cair ? 'selesai' : ($pembayaran ? 'sedang_berjalan' : 'menunggu');
-
-        $stages[] = [
-            'stage_number' => 8,
-            'stage_name' => 'Pembayaran SPP & Pencairan Dana SP2D',
-            'role_in_charge' => 'Bagian Keuangan',
-            'actor' => $cair?->user?->nama ?? 'Bendahara / Staf Keuangan',
-            'status' => $statusStage8,
-            'timestamp' => $cair?->tanggal_transfer?->toIso8601String() ?? ($pembayaran?->tanggal_pengajuan?->toIso8601String() ?? null),
-            'details' => [
-                'nomor_spp' => $pembayaran?->nomor_spp,
-                'nomor_sp2d' => $pembayaran?->nomor_sp2d,
-                'status_pembayaran' => $pembayaran?->status_pembayaran ?? 'belum_diajukan',
-                'nomor_transaksi_bank' => $cair?->nomor_transaksi_bank,
-                'tanggal_transfer' => $cair?->tanggal_transfer?->toIso8601String(),
-                'nominal_transfer' => $cair ? (float) $cair->nominal_transfer : null,
-            ],
-        ];
-
-        // Hitung waktu respons sistem dalam milidetik
-        $responseTime = round((microtime(true) - $startTime) * 1000, 2);
-
-        return response()->json([
-            'status' => 'success',
-            'response_time_ms' => $responseTime,
-            'data' => [
-                'nomor_surat' => $permohonan_pengadaan->nomor_surat,
-                'judul_pengadaan' => $permohonan_pengadaan->judul_pengadaan,
-                'overall_status' => $permohonan_pengadaan->status_permohonan,
-                'current_stage' => collect($stages)->where('status', 'selesai')->count(),
-                'total_stages' => count($stages),
-                'timeline' => $stages,
-            ],
-        ]);
-    }
-
-    /**
-     * Menampilkan dashboard status agregat permohonan pengadaan kampus secara real-time (NFR 7).
-     */
-    public function monitoringStatus(Request $request): JsonResponse
-    {
-        $startTime = microtime(true);
-
-        // Ambil data permohonan lengkap dengan relasi penting
-        $query = PermohonanPengadaan::with([
-            'unit',
-            'user',
-            'verifikasiParalel',
-            'paketPengadaan.ppkUser',
-            'paketPengadaan.ppUser',
-            'paketPengadaan.kontrakSpk',
-            'paketPengadaan.pembayaran.transaksiPencairan',
-        ]);
-
-        $user = $request->user();
-        if ($user) {
-            $query->forUser($user);
-        }
-
-        // Terapkan filter berdasarkan nomor surat (FR 19.2)
-        if ($request->filled('nomor_surat')) {
-            $query->where('nomor_surat', 'like', "%{$request->nomor_surat}%");
-        }
-
-        // Terapkan filter berdasarkan unit kerja / jurusan (FR 19.2)
-        if ($request->filled('kode_unit')) {
-            $query->where('kode_unit', $request->kode_unit);
-        }
-
-        // Terapkan filter berdasarkan tahun pengajuan / anggaran
-        if ($request->filled('tahun')) {
-            $query->whereYear('tanggal_pengajuan', $request->tahun);
-        }
-
-        // Terapkan filter berdasarkan bulan pengajuan
-        if ($request->filled('bulan')) {
-            $query->whereMonth('tanggal_pengajuan', $request->bulan);
-        }
-
-        // Terapkan filter berdasarkan status permohonan
-        if ($request->filled('status')) {
-            $query->where('status_permohonan', $request->status);
-        }
-
-        // Terapkan pencarian kata kunci umum
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('nomor_surat', 'like', "%{$search}%")
-                    ->orWhere('judul_pengadaan', 'like', "%{$search}%");
+                return $revisi;
             });
         }
 
-        $items = $query->latest('tanggal_pengajuan')->paginate(20);
-        $responseTime = round((microtime(true) - $startTime) * 1000, 2);
+        if ($hasMak) {
+            // Staf Bidang II telah menyetujui pada tahapan sebelumnya
+            VerifikasiParalel::updateOrCreate(
+                ['nomor_surat' => $activePermohonan->nomor_surat, 'role_verifikator' => VerifikasiParalel::ROLE_STAFF_BIDANG_2],
+                [
+                    'id_user' => $user->id_user,
+                    'status_keputusan' => 'disetujui',
+                    'catatan_alasan' => 'Diverifikasi Staf Bidang II sebelum siklus revisi',
+                    'tanggal_keputusan' => now(),
+                ]
+            );
 
-        return response()->json([
-            'status' => 'success',
-            'response_time_ms' => $responseTime,
-            'data' => $items,
-        ]);
+            // Antrean masuk ke Bagian Perencanaan untuk konfirmasi MAK
+            VerifikasiParalel::updateOrCreate(
+                ['nomor_surat' => $activePermohonan->nomor_surat, 'role_verifikator' => VerifikasiParalel::ROLE_PERENCANAAN],
+                [
+                    'status_keputusan' => 'menunggu',
+                    'catatan_alasan' => null,
+                    'tanggal_keputusan' => null,
+                ]
+            );
+
+            // WADIR 2: Jika sudah disetujui, TETAP disetujui beserta memo dan file fisiknya!
+            if ($oldVerifWadir && $oldVerifWadir->status_keputusan === 'disetujui') {
+                VerifikasiParalel::updateOrCreate(
+                    ['nomor_surat' => $activePermohonan->nomor_surat, 'role_verifikator' => VerifikasiParalel::ROLE_WADIR_2],
+                    [
+                        'id_user' => $oldVerifWadir->id_user,
+                        'status_keputusan' => 'disetujui',
+                        'nomor_memo' => $oldVerifWadir->nomor_memo,
+                        'file_memo' => $oldVerifWadir->file_memo,
+                        'catatan_alasan' => $oldVerifWadir->catatan_alasan,
+                        'tanggal_keputusan' => $oldVerifWadir->tanggal_keputusan,
+                    ]
+                );
+            } else {
+                VerifikasiParalel::updateOrCreate(
+                    ['nomor_surat' => $activePermohonan->nomor_surat, 'role_verifikator' => VerifikasiParalel::ROLE_WADIR_2],
+                    [
+                        'id_user' => $oldVerifWadir?->id_user ?? $user->id_user,
+                        'status_keputusan' => $oldVerifWadir?->status_keputusan ?? 'menunggu',
+                        'catatan_alasan' => $oldVerifWadir?->catatan_alasan,
+                    ]
+                );
+            }
+
+            // PPK: Jika sudah disetujui, TETAP disetujui beserta memo dan file fisiknya!
+            if ($oldVerifPpk && $oldVerifPpk->status_keputusan === 'disetujui') {
+                VerifikasiParalel::updateOrCreate(
+                    ['nomor_surat' => $activePermohonan->nomor_surat, 'role_verifikator' => VerifikasiParalel::ROLE_PPK],
+                    [
+                        'id_user' => $oldVerifPpk->id_user,
+                        'status_keputusan' => 'disetujui',
+                        'nomor_memo' => $oldVerifPpk->nomor_memo,
+                        'file_memo' => $oldVerifPpk->file_memo,
+                        'catatan_alasan' => $oldVerifPpk->catatan_alasan,
+                        'tanggal_keputusan' => $oldVerifPpk->tanggal_keputusan,
+                    ]
+                );
+            } else {
+                VerifikasiParalel::updateOrCreate(
+                    ['nomor_surat' => $activePermohonan->nomor_surat, 'role_verifikator' => VerifikasiParalel::ROLE_PPK],
+                    [
+                        'id_user' => $oldVerifPpk?->id_user ?? $activePermohonan->id_user_ppk_awal,
+                        'status_keputusan' => $oldVerifPpk?->status_keputusan ?? 'menunggu',
+                        'catatan_alasan' => $oldVerifPpk?->catatan_alasan,
+                    ]
+                );
+            }
+
+            // Catat jejak audit revisi
+            AuditLog::catat(
+                $user->id_user,
+                'REVISI_PERMOHONAN_PASCA_MAK',
+                'permohonan_pengadaan',
+                $activePermohonan->nomor_surat,
+                $oldNomorSurat !== $activePermohonan->nomor_surat ? $oldNomorSurat : null,
+                PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN,
+                "Revisi usulan permohonan ke-{$revisiKe} ({$activePermohonan->nomor_surat}) pasca alokasi MAK diteruskan ke Bagian Perencanaan."
+            );
+
+            // Memicu notifikasi ke Bagian Perencanaan
+            $this->notificationService->notifyRevisiKePerencanaan($activePermohonan);
+
+            return redirect()->route('permohonan.index')->with(
+                'success',
+                "Usulan permohonan nomor {$activePermohonan->nomor_surat} berhasil direvisi (Revisi ke-{$activePermohonan->revisi_ke}) dan diajukan kembali ke Bagian Perencanaan untuk konfirmasi MAK."
+            );
+        }
+
+        // Inisialisasi antrean awal kembali di Staf Bidang 2 jika belum memiliki MAK
+        VerifikasiParalel::updateOrCreate(
+            ['nomor_surat' => $activePermohonan->nomor_surat, 'role_verifikator' => VerifikasiParalel::ROLE_STAFF_BIDANG_2],
+            [
+                'id_user' => $user->id_user,
+                'status_keputusan' => 'menunggu',
+                'catatan_alasan' => null,
+                'tanggal_keputusan' => null,
+            ]
+        );
+
+        // Reset keputusan Wadir 2 dan PPK
+        VerifikasiParalel::where('nomor_surat', $activePermohonan->nomor_surat)
+            ->whereIn('role_verifikator', [VerifikasiParalel::ROLE_WADIR_2, VerifikasiParalel::ROLE_PPK])
+            ->update([
+                'status_keputusan' => 'menunggu',
+                'catatan_alasan' => null,
+                'tanggal_keputusan' => null,
+            ]);
+
+        // Catat jejak audit revisi
+        AuditLog::catat(
+            $user->id_user,
+            'REVISI_PERMOHONAN',
+            'permohonan_pengadaan',
+            $activePermohonan->nomor_surat,
+            $oldNomorSurat !== $activePermohonan->nomor_surat ? $oldNomorSurat : null,
+            PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
+            "Revisi usulan permohonan ke-{$revisiKe} ({$activePermohonan->nomor_surat}) oleh {$user->nama}"
+        );
+
+        // Memicu notifikasi siklus revisi berkas usulan ke Bidang 2
+        $this->notificationService->notifyPengajuanRevisi($activePermohonan);
+
+        return redirect()->route('permohonan.index')->with(
+            'success',
+            "Usulan permohonan nomor {$activePermohonan->nomor_surat} berhasil direvisi (Revisi ke-{$activePermohonan->revisi_ke}) dan diajukan kembali ke antrean Bidang II."
+        );
     }
 
     /**
-     * Menampilkan riwayat permohonan milik pengguna beserta jejak alasan penolakan (FR 4.1).
+     * Membatalkan dan menghapus usulan permohonan pengadaan status draft/diajukan/ditolak.
      */
-    public function riwayatUser(Request $request): JsonResponse
+    public function destroy(string $id): RedirectResponse
     {
-        $user = $request->user();
+        return $this->destroyPermohonan($id);
+    }
 
-        // 1. Ambil data usulan milik user login beserta relasi riwayat verifikasi
-        $query = PermohonanPengadaan::with([
-            'unit',
-            'verifikasiParalel.user',
-            'suratAsalRevisi',
-            'suratHasilRevisi',
-        ]);
+    public function destroyPermohonan(string $id): RedirectResponse
+    {
+        $user = Auth::user();
+        $permohonan = PermohonanPengadaan::where('nomor_surat', $id)
+            ->orWhere('nomor_surat', urldecode($id))
+            ->orWhere('nomor_surat', rawurldecode($id))
+            ->firstOrFail();
 
-        if ($user) {
-            $query->forUser($user);
+        $isAdmin = $user->hasRole('admin') || $user->role === User::ROLE_ADMIN || ($user->roleEntity && $user->roleEntity->nama_role === User::ROLE_ADMIN);
+
+        if (! $isAdmin) {
+            if ((int) $permohonan->id_user !== (int) $user->id_user) {
+                abort(403, 'Akses Ditolak: Anda hanya dapat membatalkan permohonan milik sendiri.');
+            }
+
+            if (! in_array($permohonan->status_permohonan, ['draft', 'diajukan', 'ditolak'], true)) {
+                return redirect()->route('permohonan.index')->with('error', 'Permohonan yang telah diverifikasi atau diproses paket tidak dapat dibatalkan.');
+            }
         }
 
-        // 2. Transformasi data agar menyertakan daftar penolakan secara spesifik
-        $items = $query->latest('tanggal_pengajuan')->get()->map(function ($p) {
-            // Saring catatan verifikasi yang berstatus 'ditolak' atau 'revisi'
-            $riwayatPenolakan = $p->verifikasiParalel
-                ->whereIn('status_keputusan', ['ditolak', 'revisi'])
-                ->map(function ($v) {
-                    return [
-                        'role_verifikator' => $v->role_verifikator,
-                        'nama_verifikator' => $v->user?->nama ?? $v->role_verifikator,
-                        'status_keputusan' => $v->status_keputusan,
-                        'catatan_alasan' => $v->catatan_alasan,
-                        'tanggal_keputusan' => $v->tanggal_keputusan?->toIso8601String(),
-                    ];
-                })->values();
+        $nomor = $permohonan->nomor_surat;
 
-            return [
-                'nomor_surat' => $p->nomor_surat,
-                'judul_pengadaan' => $p->judul_pengadaan,
-                'tujuan_pengadaan_ringkas' => $p->tujuan_pengadaan_ringkas,
-                'estimasi_total_pagu' => (float) $p->estimasi_total_pagu,
-                'status_permohonan' => $p->status_permohonan,
-                'status_anggaran' => $p->status_anggaran,
-                'tanggal_pengajuan' => $p->tanggal_pengajuan?->toIso8601String(),
-                'revisi_ke' => $p->revisi_ke,
-                'nomor_surat_revisi' => $p->nomor_surat_revisi,
-                'alasan_revisi' => $p->alasan_revisi,
-                'file_permohonan' => $p->file_permohonan,
-                'unit' => $p->unit ? [
-                    'kode_unit' => $p->unit->kode_unit,
-                    'nama_unit' => $p->unit->nama_unit,
-                ] : null,
-                'riwayat_penolakan' => $riwayatPenolakan, // Riwayat penolakan spesifik
-                'semua_verifikasi' => $p->verifikasiParalel->map(function ($v) {
-                    return [
-                        'role_verifikator' => $v->role_verifikator,
-                        'nama_verifikator' => $v->user?->nama ?? $v->role_verifikator,
-                        'status_keputusan' => $v->status_keputusan,
-                        'catatan_alasan' => $v->catatan_alasan,
-                        'tanggal_keputusan' => $v->tanggal_keputusan?->toIso8601String(),
-                    ];
-                })->values(),
-            ];
+        DB::transaction(function () use ($permohonan) {
+            $permohonan->cascadeDelete();
         });
 
-        return response()->json([
-            'status' => 'success',
-            'total_usulan' => $items->count(),
-            'data' => $items,
-        ]);
+        AuditLog::catat(
+            $user->id_user,
+            'HAPUS_PERMOHONAN',
+            'permohonan_pengadaan',
+            $nomor,
+            null,
+            'dihapus',
+            "Pembatalan dan penghapusan usulan permohonan nomor {$nomor} oleh {$user->nama}"
+        );
+
+        return redirect()->route('permohonan.index')->with('success', "Usulan permohonan nomor {$nomor} berhasil dibatalkan dan dihapus.");
     }
 
     /**
-     * Mengunduh berkas resmi format PDF Surat Permohonan Pengadaan dengan respons < 3 detik (NFR 12).
+     * Sinkronisasi otomatis status seluruh usulan yang telah disetujui penuh secara paralel
+     * (MAK teralokasi di Perencanaan, Wadir 2 menyetujui, dan PPK menyetujui)
+     * agar otomatis berstatus 'disetujui' dan siap diproses oleh PPBJ.
      */
-    public function unduhPdf(PermohonanPengadaan $permohonan_pengadaan): Response
+    public function syncAllPermohonanDisetujuiParalel(): void
     {
-        // Standarisasi nama file unduhan PDF
-        $filename = 'Permohonan_'.str_replace(['/', '\\'], '_', $permohonan_pengadaan->nomor_surat).'.pdf';
-        $disposition = request()->boolean('download') ? 'attachment' : 'inline';
+        $kandidat = PermohonanPengadaan::with(['verifikasiParalel'])
+            ->whereNotIn('status_permohonan', [
+                PermohonanPengadaan::STATUS_DISETUJUI,
+                PermohonanPengadaan::STATUS_DIPROSES_PPBJ,
+                PermohonanPengadaan::STATUS_DITOLAK,
+                PermohonanPengadaan::STATUS_SELESAI,
+                'digantikan_oleh_revisi',
+            ])
+            ->whereNotNull('kode_mak')
+            ->get();
 
-        // 1. Jika berkas fisik sudah tersimpan di storage, langsung stream file tersebut
-        if (! empty($permohonan_pengadaan->file_permohonan) && Storage::disk('public')->exists($permohonan_pengadaan->file_permohonan)) {
-            return response(Storage::disk('public')->get($permohonan_pengadaan->file_permohonan), 200, [
-                'Content-Type' => 'application/pdf',
-                'Content-Disposition' => $disposition.'; filename="'.$filename.'"',
-            ]);
+        foreach ($kandidat as $p) {
+            $perencanaanAcc = $p->verifikasiParalel
+                ->where('role_verifikator', VerifikasiParalel::ROLE_PERENCANAAN)
+                ->where('status_keputusan', 'disetujui')
+                ->isNotEmpty() || ! empty($p->kode_mak);
+
+            $wadirAcc = $p->verifikasiParalel
+                ->where('role_verifikator', VerifikasiParalel::ROLE_WADIR_2)
+                ->where('status_keputusan', 'disetujui')
+                ->isNotEmpty();
+
+            // Evaluasi kelulusan paralel (AND-join): Perencanaan (MAK) + Wadir 2 (ACC) + PPK (ACC)
+            $ppkAcc = $p->verifikasiParalel
+                ->where('role_verifikator', VerifikasiParalel::ROLE_PPK)
+                ->where('status_keputusan', 'disetujui')
+                ->isNotEmpty();
+
+            if ($perencanaanAcc && $wadirAcc && $ppkAcc) {
+                $statusLama = $p->status_permohonan;
+                $p->status = 'disetujui';
+                $p->status_permohonan = PermohonanPengadaan::STATUS_DISETUJUI;
+                $p->save();
+
+                AuditLog::catat(
+                    Auth::id() ?? $p->id_user,
+                    'PERSETUJUAN_PENUH_AWAL_KE_PPBJ',
+                    'permohonan_pengadaan',
+                    $p->nomor_surat,
+                    $statusLama,
+                    'disetujui',
+                    'Sinkronisasi otomatis: Usulan disetujui penuh oleh Perencanaan, Wadir 2, dan PPK terpilih; diteruskan ke PPBJ.'
+                );
+            }
         }
-
-        // 2. Jika berkas fisik belum diunggah / mode prototipe, stream PDF standar ISO %PDF-1.4 secara instan (<500ms)
-        $pdfStream = "%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/MediaBox[0 0 595 842]/Parent 2 0 R/Contents 4 0 R>>endobj\n4 0 obj<</Length 90>>stream\nBT /F1 12 Tf 50 800 Td (SURAT PERMOHONAN PBJ KAMPUS PNJ: ".addslashes($permohonan_pengadaan->nomor_surat).") Tj ET\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f\n0000000009 00000 n\n0000000056 00000 n\n0000000111 00000 n\n0000000212 00000 n\ntrailer<</Size 5/Root 1 0 R>>\nstartxref\n347\n%%EOF";
-
-        return response($pdfStream, 200, [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => $disposition.'; filename="'.$filename.'"',
-        ]);
-    }
-
-    /**
-     * Menghapus data permohonan pengadaan dari database.
-     */
-    public function destroy(PermohonanPengadaan $permohonan_pengadaan): JsonResponse
-    {
-        $permohonan_pengadaan->delete();
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Permohonan pengadaan berhasil dihapus',
-        ]);
     }
 }

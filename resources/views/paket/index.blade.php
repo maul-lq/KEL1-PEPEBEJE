@@ -651,6 +651,7 @@
                 Belum ada catatan riwayat mutasi penugasan PPK.
             </div>
         @else
+            @php $ppkUsersMap = $ppkUsers->keyBy('id_user'); @endphp
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-xs border-collapse">
                     <thead>
@@ -667,22 +668,22 @@
                         @foreach($riwayatPenugasan as $rw)
                             <tr class="hover:bg-slate-50/50 transition-colors">
                                 <td class="px-5 py-3.5 font-mono text-slate-500 text-[11px]">
-                                    {{ $rw->tanggal_penugasan ? \Carbon\Carbon::parse($rw->tanggal_penugasan)->format('d/m/Y H:i') : ($rw->created_at ? $rw->created_at->format('d/m/Y H:i') : '-') }}
+                                    {{ $rw->waktu_log ? $rw->waktu_log->format('d/m/Y H:i') : ($rw->created_at ? $rw->created_at->format('d/m/Y H:i') : '-') }}
                                 </td>
                                 <td class="px-5 py-3.5 font-mono font-bold text-slate-800">
-                                    {{ $rw->kode_paket ?? $rw->nomor_paket }}
+                                    {{ $rw->id_entitas }}
                                 </td>
                                 <td class="px-5 py-3.5 text-slate-600">
-                                    {{ $rw->ppkLama->nama ?? 'Penugasan Awal' }}
+                                    {{ $ppkUsersMap[$rw->nilai_lama]->nama ?? ($rw->nilai_lama ? 'PPK ID #'.$rw->nilai_lama : 'Penugasan Awal') }}
                                 </td>
                                 <td class="px-5 py-3.5 font-semibold text-emerald-700">
-                                    &rarr; {{ $rw->ppkBaru->nama ?? '-' }}
+                                    &rarr; {{ $ppkUsersMap[$rw->nilai_baru]->nama ?? ($rw->nilai_baru ? 'PPK ID #'.$rw->nilai_baru : '-') }}
                                 </td>
                                 <td class="px-5 py-3.5 text-slate-700">
-                                    {{ $rw->userPenetap->nama ?? ($rw->diubahOleh->nama ?? 'Sistem') }}
+                                    {{ $rw->user->nama ?? 'Sistem' }}
                                 </td>
                                 <td class="px-5 py-3.5 text-slate-600 text-[11px] max-w-xs">
-                                    {{ $rw->alasan_pengalihan ?? ($rw->alasan_perubahan ?? '-') }}
+                                    {{ $rw->alasan ?? '-' }}
                                 </td>
                             </tr>
                         @endforeach

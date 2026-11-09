@@ -12,37 +12,25 @@ use Carbon\Carbon;
 /**
  * Service Penentuan Jalur Pengadaan & Pembangkit Pengingat (PengadaanRoutingService)
  *
- * Mengimplementasikan aturan bisnis sesuai Notulensi Pertemuan PPBJ terbaru:
- * 1. Auto-routing penentuan jalur pengadaan berdasarkan nilai HPS/pagu:
- *    - Nilai <= Rp 50.000.000                     => Belanja Langsung (langsung_sd_50jt): dieksekusi PPBJ, output Kwitansi (tanpa Kontrak/SPK) -> Perlengkapan
- *    - Nilai > Rp 50.000.000 s.d. Rp 200.000.000  => Melibatkan PP (pp_50jt_sd_200jt): Review PP + Input Harga & Vendor -> Approval PPK -> PP Belanja -> PPBJ Upload 1 Dokumen
- *    - Nilai > Rp 200.000.000                     => Melibatkan PPK (ppk_diatas_200jt): PPBJ Input Data Lelang -> Approval & Belanja PPK -> PPBJ Upload 1 Dokumen (Tanpa Memo PPBJ)
- * 2. Pembangkitan alarm / reminder otomatis untuk pengiriman barang (termasuk H-2)
- *    dan distribusi tembusan ke Unit Perlengkapan serta Bagian Keuangan.
+ * Mengimplementasikan aturan pengingat dan auto-routing paket pengadaan.
  */
 class PengadaanRoutingService
 {
     /**
      * Menentukan jalur pengadaan secara otomatis pada model PaketPengadaan berdasarkan nilai HPS/pagu (FR 8.0).
-     *
-     * @param  PaketPengadaan  $paket  Model entitas paket pengadaan yang akan diset jalur routing-nya
      */
     public static function assignJalur(PaketPengadaan $paket): void
     {
         $nominal = (float) ($paket->nilai_hps ?: $paket->alokasi_pagu_paket);
         $paket->jalur_routing = PaketPengadaan::tentukanRouting($nominal);
 
-        // Paket > 200 juta (jalur PPK) tidak menggunakan memo pengadaan PPBJ
         if ($paket->jalur_routing === PaketPengadaan::ROUTING_PPK) {
             $paket->nomor_memo_ppbj = null;
         }
     }
 
     /**
-     * Membangkitkan pengingat (reminder) dan tembusan persiapan BAST untuk Belanja Langsung <= Rp 50 Juta (tanpa Kontrak/SPK).
-     *
-     * @param  PaketPengadaan  $paket  Model paket pengadaan Belanja Langsung
-     * @param  string|null  $jadwalPengiriman  Jadwal target pengiriman barang (opsional)
+     * Membangkitkan pengingat (reminder) dan tembusan persiapan BAST untuk Belanja Langsung <= Rp 50 Juta.
      */
     public static function generateBelanjaLangsungReminder(PaketPengadaan $paket, ?string $jadwalPengiriman = null): void
     {
@@ -114,9 +102,6 @@ class PengadaanRoutingService
 
     /**
      * Membangkitkan pengingat (reminder / notifikasi) jadwal pengadaan & tembusan SPK secara otomatis (FR 11.3 & FR 12.0).
-     *
-     * @param  PaketPengadaan  $paket  Model paket pengadaan
-     * @param  KontrakSPK|null  $spk  Model kontrak SPK terkait (opsional)
      */
     public static function generateReminders(PaketPengadaan $paket, ?KontrakSPK $spk = null): void
     {
@@ -138,7 +123,6 @@ class PengadaanRoutingService
             ]
         );
 
-        // BPMN N41 -> N42 (Perlengkapan) & N43 (Reminder Paralel ke N45 PPK, N44 Keuangan, N47 PPBJ)
         $targetUserIds = collect();
         if ($paket->id_user_ppk) {
             $targetUserIds->push($paket->id_user_ppk);

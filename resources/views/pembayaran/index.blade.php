@@ -526,7 +526,7 @@
                                 </div>
                                 <h3 class="text-sm font-bold text-[#213153] mt-1">{{ $s->paket->nama_paket ?? '-' }}</h3>
                                 <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 mt-1">
-                                    <span>Penyedia: <strong class="text-slate-700">{{ $sVendor->nama_perusahaan ?? ($sVendor->nama_vendor ?? 'Penyedia Rekanan') }}</strong></span>
+                                    <span>Penyedia: <strong class="text-slate-700">{{ $sVendor->nama_vendor ?? 'Penyedia Rekanan' }}</strong></span>
                                     @if($bastS)
                                         <span>BAST: <strong class="text-emerald-700 font-mono">{{ $bastS->nomor_bast }}</strong></span>
                                     @endif
@@ -619,7 +619,7 @@
                                 </div>
                                 <div>
                                     <label class="block text-[11px] font-bold text-slate-700 mb-1">Atas Nama Rekening</label>
-                                    <input type="text" name="atas_nama" value="{{ old('atas_nama', $sVendor->atas_nama ?? ($sVendor->nama_perusahaan ?? ($sVendor->nama_vendor ?? ''))) }}" placeholder="Nama pemilik rekening" class="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+                                    <input type="text" name="atas_nama" value="{{ old('atas_nama', $sVendor->atas_nama ?? ($sVendor->nama_vendor ?? '')) }}" placeholder="Nama pemilik rekening" class="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
                                 </div>
                             </div>
 
@@ -772,7 +772,7 @@
                                         @endif
                                     </td>
                                     <td class="px-4 py-3.5 align-top space-y-1">
-                                        <div class="font-bold text-slate-800">{{ $scVendor->nama_perusahaan ?? ($scVendor->nama_vendor ?? 'Penyedia Rekanan') }}</div>
+                                        <div class="font-bold text-slate-800">{{ $scVendor->nama_vendor ?? 'Penyedia Rekanan' }}</div>
                                         <div class="text-[10px] text-slate-500">NPWP: <span class="font-mono">{{ $scVendor->npwp ?? '-' }}</span></div>
                                         <div class="text-[10px] text-slate-500">Bank: <span class="font-medium text-slate-700">{{ $scVendor->nama_bank ?? 'Bank Penampung' }}</span> (No: {{ $scVendor->nomor_rekening ?? '-' }})</div>
                                         @if(!empty($scVendor?->file_dokumen_legalitas))

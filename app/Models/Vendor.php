@@ -10,9 +10,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * Model Rekanan / Penyedia (Vendor)
  *
  * Merepresentasikan perusahaan atau penyedia barang/jasa yang bermitra dengan institusi.
- * Diselaraskan ke struktur minimalis: id (primary key auto-increment), nama_vendor,
- * file_dokumen_legalitas, dan status keaktifan bermitra (is_active).
- * Tetap mempertahankan kompatibilitas atribut legacy (npwp, nib, dsb).
+ * Diselaraskan ke struktur minimalis dan operasional:
+ * - Identitas: id (primary key auto-increment), nama_vendor
+ * - Legalitas: file_dokumen_legalitas (unggah PDF/gambar berkas izin/NIB/SIUP)
+ * - Rekening Bayar (BPMN N69/N71): npwp, nama_bank, nomor_rekening, atas_nama
+ * - Status: is_active (status keaktifan bermitra)
  */
 class Vendor extends Model
 {
@@ -55,13 +57,7 @@ class Vendor extends Model
         'nama_vendor',
         'file_dokumen_legalitas',
         'is_active',
-        'nama_perusahaan',
         'npwp',
-        'nib',
-        'alamat',
-        'nama_pic',
-        'telepon_pic',
-        'email_pic',
         'nama_bank',
         'nomor_rekening',
         'atas_nama',
@@ -80,59 +76,27 @@ class Vendor extends Model
     }
 
     /**
-     * Accessor alias id_vendor untuk primary key id atau npwp legacy.
+     * Accessor alias id_vendor untuk primary key id.
      */
     public function getIdVendorAttribute(): int|string|null
     {
-        return $this->id ?: ($this->attributes['npwp'] ?? null);
+        return $this->id;
     }
 
     /**
-     * Accessor alias nama_vendor untuk nama_vendor atau nama_perusahaan.
-     */
-    public function getNamaVendorAttribute(): ?string
-    {
-        return $this->attributes['nama_vendor'] ?? $this->attributes['nama_perusahaan'] ?? null;
-    }
-
-    /**
-     * Mutator untuk nama_vendor yang menyelaraskan ke nama_perusahaan.
-     */
-    public function setNamaVendorAttribute(?string $value): void
-    {
-        $this->attributes['nama_vendor'] = $value;
-        if (empty($this->attributes['nama_perusahaan'])) {
-            $this->attributes['nama_perusahaan'] = $value;
-        }
-    }
-
-    /**
-     * Accessor alias nama_perusahaan untuk nama_perusahaan atau nama_vendor.
+     * Accessor alias nama_perusahaan untuk kompatibilitas kode legacy yang merujuk nama_vendor.
      */
     public function getNamaPerusahaanAttribute(): ?string
     {
-        return $this->attributes['nama_perusahaan'] ?? $this->attributes['nama_vendor'] ?? null;
+        return $this->attributes['nama_vendor'] ?? null;
     }
 
     /**
-     * Mutator untuk nama_perusahaan yang menyelaraskan ke nama_vendor.
+     * Mutator alias nama_perusahaan yang otomatis diarahkan ke nama_vendor.
      */
     public function setNamaPerusahaanAttribute(?string $value): void
     {
-        $this->attributes['nama_perusahaan'] = $value;
-        if (empty($this->attributes['nama_vendor'])) {
-            $this->attributes['nama_vendor'] = $value;
-        }
-    }
-
-    /**
-     * Relasi one-to-many ke berkas-berkas legalitas resmi vendor (SIUP, Akta, dsb).
-     *
-     * @return HasMany Koleksi berkas legalitas vendor
-     */
-    public function filesLegalitas(): HasMany
-    {
-        return $this->hasMany(VendorFileLegalitas::class, 'npwp', 'npwp');
+        $this->attributes['nama_vendor'] = $value;
     }
 
     /**

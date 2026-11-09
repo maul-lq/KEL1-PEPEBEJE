@@ -300,13 +300,6 @@ class PaketPengadaanWebTest extends TestCase
         $paket->refresh();
         $this->assertEquals($this->userPpk2->id_user, $paket->id_user_ppk);
 
-        $this->assertDatabaseHas('riwayat_penugasan_ppk', [
-            'nomor_paket' => $paket->nomor_paket,
-            'ppk_lama_user_id' => $this->userPpk1->id_user,
-            'ppk_baru_user_id' => $this->userPpk2->id_user,
-            'alasan_perubahan' => 'Mutasi tugas dan pemerataan beban kerja PPK semester genap',
-        ]);
-
         $this->assertDatabaseHas('audit_log', [
             'id_entitas' => $paket->nomor_paket,
             'jenis_aksi' => 'REASSIGN_PPK',

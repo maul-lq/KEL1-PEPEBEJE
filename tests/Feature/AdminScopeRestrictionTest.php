@@ -16,7 +16,6 @@ use App\Models\Permission;
 use App\Models\PermohonanPengadaan;
 use App\Models\Reminder;
 use App\Models\ReviuDokumen;
-use App\Models\RiwayatPenugasanPPK;
 use App\Models\Role;
 use App\Models\TransaksiPencairan;
 use App\Models\Unit;
@@ -606,15 +605,7 @@ class AdminScopeRestrictionTest extends TestCase
             'id_user_pp' => $this->pp->id_user,
         ]);
 
-        // Riwayat Penugasan PPK & Reviu Dokumen
-        RiwayatPenugasanPPK::create([
-            'nomor_paket' => $nomorPaket,
-            'ppk_lama_user_id' => $this->ppk->id_user,
-            'ppk_baru_user_id' => $this->ppk->id_user,
-            'diubah_oleh_user_id' => $this->ppbj->id_user,
-            'alasan_perubahan' => 'Penugasan awal PPK',
-            'tanggal_penugasan' => now(),
-        ]);
+        // Reviu Dokumen
 
         ReviuDokumen::create([
             'nomor_paket' => $nomorPaket,
