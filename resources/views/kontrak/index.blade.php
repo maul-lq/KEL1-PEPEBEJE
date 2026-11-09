@@ -32,12 +32,6 @@
     <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-                <div class="flex items-center gap-2">
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-[#0969da] border border-blue-200">
-                        Siklus 4 &amp; 5: Reviu &amp; Kontrak SPK
-                    </span>
-                    <span class="text-xs text-slate-400 font-mono">FR 9 &bull; FR 11</span>
-                </div>
                 <h1 class="text-2xl font-bold text-[#213153] mt-1">Penelaahan Dokumen &amp; Penerbitan Kontrak SPK</h1>
                 <p class="text-xs text-slate-500 mt-0.5">
                     Unit Kerja Pengadaan Barang &amp; Jasa, Pejabat Pengadaan, dan Pejabat Pembuat Komitmen (PPK) PNJ

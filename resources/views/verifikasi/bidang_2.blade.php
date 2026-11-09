@@ -59,7 +59,6 @@
             </div>
 
             <div class="flex items-center gap-2.5">
-                <span class="rounded-lg bg-blue-100 text-[#0969da] px-2.5 py-0.5 text-xs font-bold font-mono">FR 5.1</span>
                 <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight text-[#213153]"
                     x-text="viewMode === 'fullscreen' ? 'Detail & Tracking Pengajuan' : 'Tracking Pengajuan Pengadaan'">
                     Tracking Pengajuan Pengadaan
@@ -81,10 +80,10 @@
                     Administrator SIM-PBJ
                 </span>
             @else
-                <span class="inline-flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200/80 px-3 py-1 text-xs font-bold text-[#0969da]">
+                {{-- <span class="inline-flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200/80 px-3 py-1 text-xs font-bold text-[#0969da]">
                     <span class="size-2 rounded-full bg-[#0969da] animate-pulse"></span>
                     Staf Bidang II (Pemantau Berkas - Read-Only)
-                </span>
+                </span> --}}
             @endif
 
             @if(!Auth::user()->hasRole('admin') && (Auth::user()->hasRole('user') || Auth::user()->hasAnyPermission(['permohonan.create'])))

@@ -9,7 +9,6 @@
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
             <div class="flex items-center gap-2.5">
-                <span class="rounded-lg bg-teal-100 text-[#087F79] px-2.5 py-1 text-xs font-bold font-mono">FR 5.2 - FR 6.3</span>
                 <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight text-[#213153]">
                     Persetujuan Awal Usulan Pengadaan (PPK)
                 </h1>

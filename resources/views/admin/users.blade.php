@@ -24,9 +24,6 @@
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
                 <div class="flex items-center gap-2">
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-[#0969da] border border-blue-200">
-                        Admin: User Management
-                    </span>
                     <span class="text-xs text-slate-400 font-mono">CRUD Pengguna Sivitas SIM-PBJ</span>
                 </div>
                 <h1 class="text-2xl font-bold text-[#213153] mt-1">Manajemen Pengguna</h1>

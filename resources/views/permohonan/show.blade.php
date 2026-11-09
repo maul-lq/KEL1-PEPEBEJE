@@ -108,6 +108,47 @@
                      color="amber" />
     </div>
 
+    {{-- Banner Informatif Alur Verifikasi Paralel (Wadir 2, Perencanaan, & PPK) --}}
+    @php
+        $vpWadir = $permohonan->verifikasiParalel->firstWhere('role_verifikator', 'wadir_2');
+        $vpPerencanaan = $permohonan->verifikasiParalel->firstWhere('role_verifikator', 'perencanaan');
+        $vpPpk = $permohonan->verifikasiParalel->firstWhere('role_verifikator', 'ppk');
+    @endphp
+
+    @if(in_array($st, ['reviu_paralel', 'menunggu_acc_wadir_ppk', 'menunggu_persetujuan_wadir2_dan_ppk'], true))
+        @if($vpWadir?->status_keputusan === 'disetujui' && empty($permohonan->id_user_ppk_awal))
+            <div class="rounded-2xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-blue-50 p-5 shadow-xs flex items-start gap-4">
+                <div class="size-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                    <svg class="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+                <div class="space-y-1">
+                    <h3 class="text-sm font-bold text-indigo-950 flex items-center gap-2">
+                        <span>Wadir 2 Telah Menyetujui Usulan</span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">ACC Wadir II Selesai</span>
+                    </h3>
+                    <p class="text-xs text-indigo-900/80 leading-relaxed">
+                        Persetujuan eksekutif dari Wakil Direktur II telah diberikan. Agar berkas muncul dan dapat ditelaah oleh PPK, <strong>Subbagian Perencanaan</strong> perlu menetapkan rekening MAK DIPA dan memilih 1 dari 4 akun PPK pada menu <a href="{{ route('verifikasi.perencanaan') }}" class="font-bold underline text-[#0969da]">Verifikasi MAK &amp; Pagu</a>.
+                    </p>
+                </div>
+            </div>
+        @elseif($vpWadir?->status_keputusan === 'disetujui' && !empty($permohonan->id_user_ppk_awal) && (!$vpPpk || $vpPpk->status_keputusan !== 'disetujui'))
+            <div class="rounded-2xl border border-teal-200 bg-gradient-to-r from-teal-50 to-cyan-50 p-5 shadow-xs flex items-start gap-4">
+                <div class="size-10 rounded-xl bg-teal-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                    <svg class="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+                <div class="space-y-1">
+                    <h3 class="text-sm font-bold text-teal-950 flex items-center gap-2">
+                        <span>Menunggu Persetujuan Awal PPK Terpilih</span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-100 text-teal-800">Menunggu ACC PPK</span>
+                    </h3>
+                    <p class="text-xs text-teal-900/80 leading-relaxed">
+                        Wadir 2 dan Perencanaan telah menyelesaikan verifikasi. Berkas saat ini telah dialokasikan dan berada di antrean persetujuan awal PPK: <strong>{{ $permohonan->ppkAwal->nama ?? 'PPK Penanggung Jawab' }}</strong>.
+                    </p>
+                </div>
+            </div>
+        @endif
+    @endif
+
     <!-- 3. KONTEN UTAMA DUA KOLOM -->
     <div class="grid gap-6 lg:grid-cols-3 items-start">
 
@@ -364,6 +405,7 @@
                     'nomorSurat' => $permohonan->nomor_surat,
                     'pagu' => $permohonan->anggaran_diajukan ?? $permohonan->estimasi_total_pagu,
                     'statusLabel' => $permohonan->status_permohonan ?? $permohonan->status,
+                    'permohonan' => $permohonan,
                 ])
             </div>
 

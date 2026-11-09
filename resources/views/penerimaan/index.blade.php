@@ -31,19 +31,6 @@
                 </span>
             </div>
         </div>
-
-        {{-- Visual Workflow 5 Node BPMN Perlengkapan --}}
-        <div class="mt-4 pt-4 border-t border-slate-100 flex flex-wrap items-center gap-2 text-xs">
-            <span class="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-medium">N42: Terima Kwitansi/SPK/Kontrak</span>
-            <span class="text-slate-300">&rarr;</span>
-            <span class="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-medium">N46: Dokumentasi Barang</span>
-            <span class="text-slate-300">&rarr;</span>
-            <span class="px-2.5 py-1 rounded-lg bg-teal-100 text-teal-800 font-bold">N48: Menerbitkan BAST</span>
-            <span class="text-slate-300">&rarr;</span>
-            <span class="px-2.5 py-1 rounded-lg bg-teal-100 text-teal-800 font-bold">N49: Input Dokumentasi &amp; BAST</span>
-            <span class="text-slate-300">&rarr;</span>
-            <span class="px-2.5 py-1 rounded-lg bg-[#0969da] text-white font-bold">N50: Kirim ke PPBJ (N51)</span>
-        </div>
     </div>
 
     {{-- 3. Top 4-Card KPI Stat Row --}}

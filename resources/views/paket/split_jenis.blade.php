@@ -7,11 +7,6 @@
     <div class="rounded-2xl bg-white p-6 md:p-8 shadow-sm border border-slate-200/80">
         <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
             <div>
-                <div class="flex items-center gap-2">
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-[#0969da] border border-blue-200">
-                        Feature 24 &bull; FR 7.2
-                    </span>
-                </div>
                 <h1 class="text-xl font-bold text-[#213153] mt-1">Pemecahan Jenis Pengadaan (Split Jenis)</h1>
                 <p class="text-xs text-slate-500 mt-0.5">Memecah usulan pengadaan berdasarkan jenis pengadaan (Barang / Jasa / Konstruksi)</p>
             </div>

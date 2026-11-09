@@ -9,9 +9,6 @@
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
             <div class="flex items-center gap-2">
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-[#0969da] border border-blue-200">
-                    Feature 32: Rekapitulasi DIPA PNJ
-                </span>
                 <span class="text-xs text-slate-400 font-mono">Tahun Anggaran {{ $tahun }}</span>
             </div>
             <h1 class="text-2xl font-bold text-[#213153] mt-1 sm:text-3xl">

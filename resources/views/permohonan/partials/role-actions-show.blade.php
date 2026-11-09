@@ -141,7 +141,7 @@
 
         <div>
             <label class="{{ $label }}">Pilih PPK yang Ditugaskan (1 dari 4 Akun PPK)</label>
-            <select name="id_user_ppk" class="{{ $field }}">
+            <select name="id_user_ppk_awal" class="{{ $field }}">
                 <option value="">-- Tetapkan Akun PPK Awal --</option>
                 @php $ppkList = \App\Models\User::where('role', 'ppk')->where('status_aktif', true)->get(); @endphp
                 @foreach($ppkList as $ppkOpt)
@@ -171,35 +171,68 @@
 
 {{-- ============ 4. PPK (Persetujuan Awal Usulan Berdasarkan Memo MAK) ============ --}}
 @elseif($canPpk && \Illuminate\Support\Facades\Route::has('verifikasi.ppk.keputusan'))
-    <form action="{{ route('verifikasi.ppk.keputusan') }}" method="POST" class="space-y-4">
-        @csrf
-        <input type="hidden" name="nomor_surat" {!! $nomorField !!}>
-
-        <div class="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
-            <h3 class="font-semibold text-base text-[#213153]">Persetujuan Awal PPK</h3>
-            <span class="rounded-full bg-cyan-100 px-2.5 py-1 text-xs font-semibold text-cyan-800 whitespace-nowrap">Pejabat Pembuat Komitmen</span>
+    @if(isset($permohonan) && empty($permohonan->id_user_ppk_awal))
+        <div class="rounded-xl border border-amber-200 bg-amber-50/80 p-4 space-y-2">
+            <div class="flex items-center gap-2 text-amber-800 font-bold text-xs">
+                <svg class="size-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                Menunggu Penetapan MAK &amp; Penugasan Akun PPK
+            </div>
+            <p class="text-xs text-amber-700 leading-relaxed">
+                Usulan ini belum dialokasikan ke akun PPK Anda karena Subbagian Perencanaan belum menetapkan nomor rekening MAK DIPA dan belum memilih 1 dari 4 akun PPK yang bertugas.
+            </p>
         </div>
-
-        <div>
-            <label class="{{ $label }}">Catatan / Rekomendasi PPK</label>
-            <textarea name="catatan_alasan" rows="3" placeholder="Tuliskan catatan persetujuan usulan atau alasan bila menolak..." class="{{ $field }}"></textarea>
-            <p class="mt-1 text-[11px] text-slate-400">Persetujuan awal PPK diperlukan sebelum usulan diteruskan ke PPBJ.</p>
+    @elseif(isset($permohonan) && (int) $permohonan->id_user_ppk_awal !== (int) $u->id_user)
+        <div class="rounded-xl border border-slate-200 bg-slate-50/80 p-4 space-y-2">
+            <div class="flex items-center gap-2 text-slate-700 font-bold text-xs">
+                <svg class="size-4 text-[#0969da]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                Ditugaskan ke Akun PPK Lain
+            </div>
+            <p class="text-xs text-slate-600 leading-relaxed">
+                Usulan ini ditugaskan oleh Perencanaan kepada <strong>{{ $permohonan->ppkAwal->nama ?? 'PPK Terpilih' }}</strong>. Anda saat ini masuk sebagai <strong>{{ $u->nama }}</strong>, sehingga verifikasi persetujuan awal hanya dapat diproses oleh PPK terkait.
+            </p>
         </div>
+    @else
+        <form action="{{ route('verifikasi.ppk.keputusan') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+            @csrf
+            <input type="hidden" name="nomor_surat" {!! $nomorField !!}>
 
-        <div class="flex flex-wrap items-center justify-end gap-2">
-            <button type="submit" name="keputusan" value="ditolak" 
-                    @if($inAlpine) :disabled="!selectedItem || (!selectedItem.nomor && !selectedItem.nomor_surat)" @endif
-                    class="{{ $btn }} bg-rose-600 hover:bg-rose-700">
-                Tolak Usulan
-            </button>
-            <button type="submit" name="keputusan" value="disetujui" 
-                    @if($inAlpine) :disabled="!selectedItem || (!selectedItem.nomor && !selectedItem.nomor_surat)" @endif
-                    class="{{ $btn }} bg-cyan-700 hover:bg-cyan-800">
-                <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                Setujui Usulan (ACC PPK)
-            </button>
-        </div>
-    </form>
+            <div class="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                <h3 class="font-semibold text-base text-[#213153]">Persetujuan Awal PPK</h3>
+                <span class="rounded-full bg-cyan-100 px-2.5 py-1 text-xs font-semibold text-cyan-800 whitespace-nowrap">Pejabat Pembuat Komitmen</span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="{{ $label }}">Nomor Memo Persetujuan PPK</label>
+                    <input type="text" name="nomor_memo" placeholder="MEMO-PPK/{{ date('Y') }}/..." class="{{ $field }}">
+                </div>
+                <div>
+                    <label class="{{ $label }}">Upload Dokumen Fisik Memo</label>
+                    <input type="file" name="file_memo" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" class="{{ $field }}">
+                </div>
+            </div>
+
+            <div>
+                <label class="{{ $label }}">Catatan / Rekomendasi PPK</label>
+                <textarea name="catatan_alasan" rows="3" placeholder="Tuliskan catatan persetujuan usulan atau alasan bila menolak..." class="{{ $field }}"></textarea>
+                <p class="mt-1 text-[11px] text-slate-400">Persetujuan awal PPK diperlukan sebelum usulan diteruskan ke PPBJ.</p>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-end gap-2">
+                <button type="submit" name="keputusan" value="ditolak" 
+                        @if($inAlpine) :disabled="!selectedItem || (!selectedItem.nomor && !selectedItem.nomor_surat)" @endif
+                        class="{{ $btn }} bg-rose-600 hover:bg-rose-700">
+                    Tolak Usulan
+                </button>
+                <button type="submit" name="keputusan" value="disetujui" 
+                        @if($inAlpine) :disabled="!selectedItem || (!selectedItem.nomor && !selectedItem.nomor_surat)" @endif
+                        class="{{ $btn }} bg-cyan-700 hover:bg-cyan-800">
+                    <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                    Setujui Usulan (ACC PPK)
+                </button>
+            </div>
+        </form>
+    @endif
 
 {{-- ============ 5. PPBJ (Registrasi Paket Pengadaan) ============ --}}
 @elseif($canPpbj)

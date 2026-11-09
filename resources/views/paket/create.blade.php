@@ -104,12 +104,6 @@
     <div class="rounded-2xl bg-white p-6 md:p-8 shadow-sm border border-slate-200/80">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-100 pb-5 mb-6">
             <div>
-                <div class="flex items-center gap-2">
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-[#0969da] border border-blue-200">
-                        Feature 23: Auto-Routing HPS Presisi
-                    </span>
-                    <span class="text-xs text-slate-400 font-mono">BPMN PBJ 2026</span>
-                </div>
                 <h1 class="text-2xl font-bold text-[#213153] mt-1">Registrasi Paket Pengadaan Baru</h1>
                 <p class="text-xs text-slate-500 mt-0.5">
                     Unit Kerja Pengadaan Barang &amp; Jasa (UKPBJ / PPBJ) Politeknik Negeri Jakarta

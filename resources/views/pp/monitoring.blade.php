@@ -9,14 +9,6 @@
     <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-                <div class="flex items-center gap-2">
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-[#0969da] border border-blue-200">
-                        BPMN Fase 1: N21 &bull; N27 &bull; N31
-                    </span>
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                        Hak Akses: lihat_pp / pp.monitoring_aktivitas
-                    </span>
-                </div>
                 <h1 class="text-2xl font-bold text-[#213153] mt-2">Monitoring Aktivitas Pejabat Pengadaan (PP)</h1>
                 <p class="text-xs text-slate-500 mt-1">
                     Pemantauan terpusat untuk Koordinator PPBJ, Pengawas, dan Pimpinan terhadap proses penelaahan teknis spesifikasi, evaluasi kewajaran harga, serta negosiasi definitif pada paket pengadaan jalur PP (&gt; Rp 50 Juta s.d. Rp 200 Juta).

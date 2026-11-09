@@ -16,19 +16,6 @@
                     <p class="text-[11px] text-slate-500">Menerima reminder operasional dan mengeksekusi pencairan kas final pengadaan barang dan jasa.</p>
                 </div>
             </div>
-            <div class="flex flex-wrap items-center gap-1.5 font-mono text-[11px]">
-                <span class="px-2 py-1 rounded-lg bg-amber-100 text-amber-800 font-bold border border-amber-200">N44 Terima Reminder</span>
-                <span class="text-slate-400">&rarr;</span>
-                <span class="px-2 py-1 rounded-lg bg-blue-100 text-blue-800 font-bold border border-blue-200">N59 Terima Dokumen &amp; Memo</span>
-                <span class="text-slate-400">&rarr;</span>
-                <span class="px-2 py-1 rounded-lg bg-indigo-100 text-indigo-800 font-bold border border-indigo-200">N62 Bayar</span>
-                <span class="text-slate-400">&rarr;</span>
-                <span class="px-2 py-1 rounded-lg bg-emerald-100 text-emerald-800 font-bold border border-emerald-200">N66 Bukti SP2D</span>
-                <span class="text-slate-400">&rarr;</span>
-                <span class="px-2 py-1 rounded-lg bg-purple-100 text-purple-800 font-bold border border-purple-200">N70 Notif All</span>
-                <span class="text-slate-400">&rarr;</span>
-                <span class="px-2 py-1 rounded-lg bg-emerald-600 text-white font-bold shadow-sm">N72 End</span>
-            </div>
         </div>
     </div>
 
