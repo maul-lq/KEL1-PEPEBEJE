@@ -73,6 +73,11 @@
         @else
             <div class="space-y-6">
                 @foreach($permohonanAntrean as $p)
+                    @php
+                        $vpWadir = $p->verifikasiParalel->where('role_verifikator', 'wadir_2')->first();
+                        $vpPpk = $p->verifikasiParalel->where('role_verifikator', 'ppk')->first();
+                        $isRevisi = ($p->revisi_ke > 0) || !empty($p->alasan_revisi) || !empty($p->nomor_surat_revisi) || in_array($vpWadir?->status_keputusan, ['ditolak', 'revisi']) || ($vpPpk?->status_keputusan === 'ditolak');
+                    @endphp
                     <div class="rounded-xl border border-slate-200/80 bg-slate-50/50 p-5 md:p-6 space-y-4">
                         
                         <!-- Header Baris Usulan -->
@@ -81,6 +86,11 @@
                                 <div class="flex items-center gap-2">
                                     <span class="font-mono text-sm font-bold text-[#0969da]">{{ $p->nomor_surat }}</span>
                                     <x-status-badge :status="$p->status_permohonan ?? $p->status" size="sm" />
+                                    @if($isRevisi)
+                                        <span class="rounded-full bg-amber-500/10 text-amber-800 border border-amber-300 px-2 py-0.5 text-[10px] font-bold">
+                                            Revisi ke-{{ $p->revisi_ke ?? 1 }}
+                                        </span>
+                                    @endif
                                 </div>
                                 <div class="text-xs text-slate-500 mt-0.5">
                                     Unit: <strong class="text-slate-800">{{ $p->unit->nama_unit ?? $p->kode_unit }}</strong> &bull;
@@ -97,6 +107,70 @@
                                 </span>
                             </div>
                         </div>
+
+                        <!-- Banner Usulan Hasil Revisi & Konteks Verifikator -->
+                        @if($isRevisi)
+                            <div class="rounded-xl border border-amber-300 bg-amber-50/80 p-4 space-y-2.5">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2">
+                                        <span class="rounded-md bg-amber-600 px-2.5 py-0.5 text-xs font-bold text-white shadow-xs">
+                                            Usulan Hasil Revisi Pengusul
+                                        </span>
+                                        @if(!empty($p->nomor_surat_revisi))
+                                            <span class="text-xs text-amber-900 font-mono">Asal Surat: {{ $p->nomor_surat_revisi }}</span>
+                                        @endif
+                                    </div>
+                                    <span class="text-[11px] text-amber-800 font-medium">Periksa riwayat catatan verifikator di bawah</span>
+                                </div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-xs">
+                                    <!-- Status Wadir 2 -->
+                                    <div class="rounded-lg p-2.5 {{ $vpWadir && $vpWadir->status_keputusan === 'disetujui' ? 'bg-emerald-50 border border-emerald-200 text-emerald-900' : ($vpWadir && in_array($vpWadir->status_keputusan, ['ditolak', 'revisi']) ? 'bg-rose-50 border border-rose-200 text-rose-900' : 'bg-slate-50 border border-slate-200 text-slate-700') }}">
+                                        <div class="font-bold flex items-center justify-between mb-1">
+                                            <span>Wakil Direktur II:</span>
+                                            @if($vpWadir && $vpWadir->status_keputusan === 'disetujui')
+                                                <span class="rounded bg-emerald-200/80 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800">Telah Disetujui (ACC)</span>
+                                            @elseif($vpWadir && in_array($vpWadir->status_keputusan, ['ditolak', 'revisi']))
+                                                <span class="rounded bg-rose-200 px-1.5 py-0.5 text-[10px] font-bold text-rose-800">Meminta Revisi/Tolak</span>
+                                            @else
+                                                <span class="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">Belum Verifikasi</span>
+                                            @endif
+                                        </div>
+                                        @if($vpWadir && $vpWadir->status_keputusan === 'disetujui')
+                                            <p class="text-[11px] text-emerald-800">Memo: <strong class="font-mono">{{ $vpWadir->nomor_memo ?? '-' }}</strong>. Status disetujui tetap dipertahankan.</p>
+                                        @elseif($vpWadir && $vpWadir->catatan_alasan)
+                                            <p class="text-[11px] italic text-rose-700">&ldquo;{{ $vpWadir->catatan_alasan }}&rdquo;</p>
+                                        @endif
+                                    </div>
+
+                                    <!-- Status PPK Terpilih -->
+                                    <div class="rounded-lg p-2.5 {{ $vpPpk && $vpPpk->status_keputusan === 'disetujui' ? 'bg-teal-50 border border-teal-200 text-teal-900' : ($vpPpk && $vpPpk->status_keputusan === 'ditolak' ? 'bg-rose-50 border border-rose-200 text-rose-900' : 'bg-slate-50 border border-slate-200 text-slate-700') }}">
+                                        <div class="font-bold flex items-center justify-between mb-1">
+                                            <span>PPK ({{ $p->ppkAwal->nama ?? 'PPK Terpilih' }}):</span>
+                                            @if($vpPpk && $vpPpk->status_keputusan === 'disetujui')
+                                                <span class="rounded bg-teal-200/80 px-1.5 py-0.5 text-[10px] font-bold text-teal-800">Telah Disetujui (ACC)</span>
+                                            @elseif($vpPpk && $vpPpk->status_keputusan === 'ditolak')
+                                                <span class="rounded bg-rose-200 px-1.5 py-0.5 text-[10px] font-bold text-rose-800">Meminta Revisi/Tolak</span>
+                                            @else
+                                                <span class="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">Belum Verifikasi</span>
+                                            @endif
+                                        </div>
+                                        @if($vpPpk && $vpPpk->status_keputusan === 'disetujui')
+                                            <p class="text-[11px] text-teal-800">Memo: <strong class="font-mono">{{ $vpPpk->nomor_memo ?? '-' }}</strong>. Status disetujui tetap dipertahankan jika PPK sama.</p>
+                                        @elseif($vpPpk && $vpPpk->catatan_alasan)
+                                            <p class="text-[11px] italic text-rose-700">&ldquo;{{ $vpPpk->catatan_alasan }}&rdquo;</p>
+                                        @endif
+                                    </div>
+                                </div>
+
+                                @if(!empty($p->alasan_revisi))
+                                    <div class="text-xs text-amber-950 bg-white/80 p-2.5 rounded-lg border border-amber-200/70">
+                                        <span class="font-bold">Catatan Perbaikan Dokumen oleh Pengusul:</span>
+                                        <p class="italic text-[11px] text-slate-700 mt-0.5">&ldquo;{{ $p->alasan_revisi }}&rdquo;</p>
+                                    </div>
+                                @endif
+                            </div>
+                        @endif
 
                         <!-- Perihal -->
                         <div>
@@ -235,11 +309,29 @@
                                 </div>
                             </div>
 
-                            <div class="flex justify-end pt-2">
+                            <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                                <div class="text-[11px] text-slate-500">
+                                    @if($vpWadir && $vpWadir->status_keputusan === 'disetujui' && $vpPpk && $vpPpk->status_keputusan === 'disetujui')
+                                        <span class="text-emerald-700 font-semibold flex items-center gap-1">
+                                            <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                            Wadir II dan PPK keduanya telah menyetujui. Berkas akan langsung dilanjutkan ke PPBJ.
+                                        </span>
+                                    @elseif($vpWadir && $vpWadir->status_keputusan === 'disetujui')
+                                        <span class="text-indigo-700 font-medium flex items-center gap-1">
+                                            <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                            Wadir II telah ACC sebelumnya (memo dipertahankan). Memo hanya diteruskan ke PPK.
+                                        </span>
+                                    @elseif($vpPpk && $vpPpk->status_keputusan === 'disetujui')
+                                        <span class="text-teal-700 font-medium flex items-center gap-1">
+                                            <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                            PPK telah ACC sebelumnya (memo dipertahankan). Memo hanya diteruskan ke Wadir II.
+                                        </span>
+                                    @endif
+                                </div>
                                 <button type="submit" 
                                         class="inline-flex items-center gap-2 rounded-xl bg-[#0969da] px-6 py-2.5 text-xs font-bold text-white shadow-md shadow-[#0969da]/20 hover:bg-blue-700 transition-all cursor-pointer">
                                     <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                                    <span>Teruskan Memo Ketersediaan MAK ke Wadir 2 &amp; PPK</span>
+                                    <span>Teruskan Memo Ketersediaan MAK ke Verifikator Terkait</span>
                                 </button>
                             </div>
                         </form>

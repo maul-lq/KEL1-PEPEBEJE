@@ -13,6 +13,7 @@ use App\Models\PermohonanPengadaan;
 use App\Models\Reminder;
 use App\Models\TransaksiPencairan;
 use App\Models\User;
+use App\Models\VerifikasiParalel;
 use Illuminate\Support\Collection;
 
 /**
@@ -148,6 +149,19 @@ class PengadaanNotificationService
     }
 
     /**
+     * Notifikasi saat usulan yang sudah memiliki MAK direvisi oleh pengaju dan dikirim kembali ke Bagian Perencanaan.
+     */
+    public function notifyRevisiKePerencanaan(PermohonanPengadaan $permohonan): void
+    {
+        $judul = "Revisi Usulan Pengadaan (Pasca-MAK): {$permohonan->nomor_surat}";
+        $unitName = $permohonan->unit->nama_unit ?? $permohonan->kode_unit;
+
+        $pesan = "Unit {$unitName} telah memperbarui dokumen usulan pengadaan '{$permohonan->perihal}' (Revisi ke-{$permohonan->revisi_ke}). Silakan periksa konfirmasi ketersediaan MAK DIPA dan teruskan ke verifikator terkait.";
+
+        $this->kirimKePeran('perencanaan', $judul, $pesan, 'verifikasi', $permohonan->nomor_surat);
+    }
+
+    /**
      * Event 3: Staf Bidang 2 Mengirimkan Memo Cek MAK ke Bagian Perencanaan.
      * Notifikasi dikirimkan ke: Perencanaan.
      */
@@ -253,11 +267,25 @@ class PengadaanNotificationService
 
         $memoRef = $permohonan->nomor_memo_ketersediaan_mak ?: '-';
         $judul = "Memo Ketersediaan MAK ({$mak->kode_mak}): {$permohonan->nomor_surat}";
-        $pesan = "Tim Perencanaan telah memastikan ketersediaan MAK {$mak->kode_mak} (Memo: {$memoRef}) untuk usulan '{$permohonan->perihal}'. Mohon persetujuan Wadir 2 dan PPK agar berkas dapat diteruskan ke PPBJ.";
+        $pesan = "Tim Perencanaan telah memastikan ketersediaan MAK {$mak->kode_mak} (Memo: {$memoRef}) untuk usulan '{$permohonan->perihal}'. Mohon persetujuan agar berkas dapat diteruskan ke PPBJ.";
 
-        $this->kirimKePeran('wadir_2', $judul, $pesan, 'verifikasi', $permohonan->nomor_surat);
+        // Cek status keputusan Wadir 2 & PPK di verifikasi_paralel
+        $wadirAcc = VerifikasiParalel::where('nomor_surat', $permohonan->nomor_surat)
+            ->where('role_verifikator', VerifikasiParalel::ROLE_WADIR_2)
+            ->where('status_keputusan', 'disetujui')
+            ->exists();
 
-        if ($permohonan->id_user_ppk_awal) {
+        $ppkAcc = VerifikasiParalel::where('nomor_surat', $permohonan->nomor_surat)
+            ->where('role_verifikator', VerifikasiParalel::ROLE_PPK)
+            ->where('status_keputusan', 'disetujui')
+            ->exists();
+
+        // Hanya kirim notifikasi ke verifikator yang belum menyetujui (status menunggu)
+        if (! $wadirAcc) {
+            $this->kirimKePeran('wadir_2', $judul, $pesan, 'verifikasi', $permohonan->nomor_surat);
+        }
+
+        if (! $ppkAcc && $permohonan->id_user_ppk_awal) {
             $this->kirimKeUser($permohonan->id_user_ppk_awal, $judul, $pesan, 'verifikasi', $permohonan->nomor_surat);
         }
     }

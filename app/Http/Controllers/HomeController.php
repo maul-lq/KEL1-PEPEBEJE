@@ -725,6 +725,19 @@ class HomeController extends Controller
         $selisih = $nominalBaru - $nominalLama;
         $revisiKe = ($induk->revisi_ke ?? 0) + 1;
 
+        $hasMak = ! empty($induk->kode_mak);
+        $targetStatus = $hasMak
+            ? PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN
+            : PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2;
+
+        // Ambil riwayat verifikasi paralel sebelum revisi
+        $oldVerifWadir = VerifikasiParalel::where('nomor_surat', $oldNomorSurat)
+            ->where('role_verifikator', VerifikasiParalel::ROLE_WADIR_2)
+            ->first();
+        $oldVerifPpk = VerifikasiParalel::where('nomor_surat', $oldNomorSurat)
+            ->where('role_verifikator', VerifikasiParalel::ROLE_PPK)
+            ->first();
+
         // Cek dan kelola saldo MAK agar tidak terjadi pemotongan ganda
         $mak = $induk->kode_mak ? AnggaranMAK::find($induk->kode_mak) : null;
         $alokasiLama = $induk->kode_mak
@@ -748,7 +761,7 @@ class HomeController extends Controller
             // ==========================================
             // KASUS 1: In-Place Update pada Surat Sama
             // ==========================================
-            DB::transaction(function () use ($induk, $validated, $nominalBaru, $fileKakPath, $revisiKe, $alokasiLama) {
+            DB::transaction(function () use ($induk, $validated, $nominalBaru, $fileKakPath, $revisiKe, $alokasiLama, $targetStatus) {
                 if ($alokasiLama) {
                     $alokasiLama->update(['nominal_alokasi' => $nominalBaru]);
                 }
@@ -760,8 +773,8 @@ class HomeController extends Controller
                     'anggaran_diajukan' => $nominalBaru,
                     'estimasi_total_pagu' => $nominalBaru,
                     'file_kak' => $fileKakPath,
-                    'status_permohonan' => PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
-                    'status' => PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
+                    'status_permohonan' => $targetStatus,
+                    'status' => $targetStatus,
                     'revisi_ke' => $revisiKe,
                     'tanggal_revisi' => now(),
                     'alasan_revisi' => $validated['keterangan_revisi'] ?? 'Perbaikan dokumen KAK dan spesifikasi',
@@ -773,7 +786,7 @@ class HomeController extends Controller
             // ==========================================
             // KASUS 2: Surat Baru dengan Pewarisan MAK
             // ==========================================
-            $activePermohonan = DB::transaction(function () use ($induk, $targetNomorSurat, $validated, $nominalBaru, $fileKakPath, $revisiKe, $user, $alokasiLama) {
+            $activePermohonan = DB::transaction(function () use ($induk, $targetNomorSurat, $validated, $nominalBaru, $fileKakPath, $revisiKe, $user, $alokasiLama, $targetStatus) {
                 $revisi = PermohonanPengadaan::create([
                     'nomor_surat' => $targetNomorSurat,
                     'judul_pengadaan' => $validated['perihal'],
@@ -787,8 +800,8 @@ class HomeController extends Controller
                     'file_permohonan' => $induk->file_permohonan ?? 'permohonan/dummy.pdf',
                     'file_surat_permohonan' => $induk->file_surat_permohonan ?? $induk->file_permohonan ?? 'permohonan/dummy.pdf',
                     'file_kak' => $fileKakPath,
-                    'status_permohonan' => PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
-                    'status' => PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
+                    'status_permohonan' => $targetStatus,
+                    'status' => $targetStatus,
                     'revisi_ke' => $revisiKe,
                     'nomor_surat_revisi' => $induk->nomor_surat,
                     'tanggal_revisi' => now(),
@@ -822,7 +835,97 @@ class HomeController extends Controller
             });
         }
 
-        // Inisialisasi antrean awal kembali di Staf Bidang 2
+        if ($hasMak) {
+            // Staf Bidang II telah menyetujui pada tahapan sebelumnya
+            VerifikasiParalel::updateOrCreate(
+                ['nomor_surat' => $activePermohonan->nomor_surat, 'role_verifikator' => VerifikasiParalel::ROLE_STAFF_BIDANG_2],
+                [
+                    'id_user' => $user->id_user,
+                    'status_keputusan' => 'disetujui',
+                    'catatan_alasan' => 'Diverifikasi Staf Bidang II sebelum siklus revisi',
+                    'tanggal_keputusan' => now(),
+                ]
+            );
+
+            // Antrean masuk ke Bagian Perencanaan untuk konfirmasi MAK
+            VerifikasiParalel::updateOrCreate(
+                ['nomor_surat' => $activePermohonan->nomor_surat, 'role_verifikator' => VerifikasiParalel::ROLE_PERENCANAAN],
+                [
+                    'status_keputusan' => 'menunggu',
+                    'catatan_alasan' => null,
+                    'tanggal_keputusan' => null,
+                ]
+            );
+
+            // WADIR 2: Jika sudah disetujui, TETAP disetujui beserta memo dan file fisiknya!
+            if ($oldVerifWadir && $oldVerifWadir->status_keputusan === 'disetujui') {
+                VerifikasiParalel::updateOrCreate(
+                    ['nomor_surat' => $activePermohonan->nomor_surat, 'role_verifikator' => VerifikasiParalel::ROLE_WADIR_2],
+                    [
+                        'id_user' => $oldVerifWadir->id_user,
+                        'status_keputusan' => 'disetujui',
+                        'nomor_memo' => $oldVerifWadir->nomor_memo,
+                        'file_memo' => $oldVerifWadir->file_memo,
+                        'catatan_alasan' => $oldVerifWadir->catatan_alasan,
+                        'tanggal_keputusan' => $oldVerifWadir->tanggal_keputusan,
+                    ]
+                );
+            } else {
+                VerifikasiParalel::updateOrCreate(
+                    ['nomor_surat' => $activePermohonan->nomor_surat, 'role_verifikator' => VerifikasiParalel::ROLE_WADIR_2],
+                    [
+                        'id_user' => $oldVerifWadir?->id_user ?? $user->id_user,
+                        'status_keputusan' => $oldVerifWadir?->status_keputusan ?? 'menunggu',
+                        'catatan_alasan' => $oldVerifWadir?->catatan_alasan,
+                    ]
+                );
+            }
+
+            // PPK: Jika sudah disetujui, TETAP disetujui beserta memo dan file fisiknya!
+            if ($oldVerifPpk && $oldVerifPpk->status_keputusan === 'disetujui') {
+                VerifikasiParalel::updateOrCreate(
+                    ['nomor_surat' => $activePermohonan->nomor_surat, 'role_verifikator' => VerifikasiParalel::ROLE_PPK],
+                    [
+                        'id_user' => $oldVerifPpk->id_user,
+                        'status_keputusan' => 'disetujui',
+                        'nomor_memo' => $oldVerifPpk->nomor_memo,
+                        'file_memo' => $oldVerifPpk->file_memo,
+                        'catatan_alasan' => $oldVerifPpk->catatan_alasan,
+                        'tanggal_keputusan' => $oldVerifPpk->tanggal_keputusan,
+                    ]
+                );
+            } else {
+                VerifikasiParalel::updateOrCreate(
+                    ['nomor_surat' => $activePermohonan->nomor_surat, 'role_verifikator' => VerifikasiParalel::ROLE_PPK],
+                    [
+                        'id_user' => $oldVerifPpk?->id_user ?? $activePermohonan->id_user_ppk_awal,
+                        'status_keputusan' => $oldVerifPpk?->status_keputusan ?? 'menunggu',
+                        'catatan_alasan' => $oldVerifPpk?->catatan_alasan,
+                    ]
+                );
+            }
+
+            // Catat jejak audit revisi
+            AuditLog::catat(
+                $user->id_user,
+                'REVISI_PERMOHONAN_PASCA_MAK',
+                'permohonan_pengadaan',
+                $activePermohonan->nomor_surat,
+                $oldNomorSurat !== $activePermohonan->nomor_surat ? $oldNomorSurat : null,
+                PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN,
+                "Revisi usulan permohonan ke-{$revisiKe} ({$activePermohonan->nomor_surat}) pasca alokasi MAK diteruskan ke Bagian Perencanaan."
+            );
+
+            // Memicu notifikasi ke Bagian Perencanaan
+            $this->notificationService->notifyRevisiKePerencanaan($activePermohonan);
+
+            return redirect()->route('permohonan.index')->with(
+                'success',
+                "Usulan permohonan nomor {$activePermohonan->nomor_surat} berhasil direvisi (Revisi ke-{$activePermohonan->revisi_ke}) dan diajukan kembali ke Bagian Perencanaan untuk konfirmasi MAK."
+            );
+        }
+
+        // Inisialisasi antrean awal kembali di Staf Bidang 2 jika belum memiliki MAK
         VerifikasiParalel::updateOrCreate(
             ['nomor_surat' => $activePermohonan->nomor_surat, 'role_verifikator' => VerifikasiParalel::ROLE_STAFF_BIDANG_2],
             [
@@ -1240,8 +1343,8 @@ class HomeController extends Controller
 
         if ($validated['keputusan'] === 'ditolak') {
             $statusLama = $permohonan->status_permohonan;
-            $permohonan->status = 'ditolak';
-            $permohonan->status_permohonan = PermohonanPengadaan::STATUS_DITOLAK;
+            $permohonan->status = 'perlu_revisi';
+            $permohonan->status_permohonan = 'perlu_revisi';
             $permohonan->alasan_revisi = $validated['catatan_alasan'];
             $permohonan->save();
 
@@ -1251,15 +1354,15 @@ class HomeController extends Controller
                 'permohonan_pengadaan',
                 $permohonan->nomor_surat,
                 $statusLama,
-                'ditolak',
-                "PPK ({$user->nama}) menolak usulan awal permohonan: {$validated['catatan_alasan']}"
+                'perlu_revisi',
+                "PPK ({$user->nama}) mengembalikan usulan permohonan untuk perbaikan: {$validated['catatan_alasan']}"
             );
 
             $this->notificationService->notifyKeputusanPpkAwal($permohonan, 'ditolak', $validated['catatan_alasan']);
 
             return redirect()->back()->with(
                 'success',
-                "Keputusan penolakan usulan {$permohonan->nomor_surat} oleh PPK telah disimpan."
+                "Keputusan penolakan/permintaan revisi usulan {$permohonan->nomor_surat} oleh PPK telah disimpan dan dikembalikan ke pengusul."
             );
         }
 
@@ -1467,10 +1570,11 @@ class HomeController extends Controller
     public function verifikasiPerencanaan(): View
     {
         // 1. Antrean usulan yang menunggu penetapan alokasi MAK DIPA
-        $permohonanAntrean = PermohonanPengadaan::with(['unit', 'user', 'ppkAwal'])
+        $permohonanAntrean = PermohonanPengadaan::with(['unit', 'user', 'ppkAwal', 'verifikasiParalel.user', 'anggaranMak'])
             ->whereNotIn('status_permohonan', [
                 PermohonanPengadaan::STATUS_DITOLAK,
                 PermohonanPengadaan::STATUS_SELESAI,
+                'digantikan_oleh_revisi',
             ])
             ->where(function ($q) {
                 $q->whereNull('kode_mak')
@@ -1487,11 +1591,12 @@ class HomeController extends Controller
             ->get();
 
         // 2. Daftar usulan yang telah memiliki MAK DIPA (untuk monitoring & penyesuaian MAK - BPMN Lane 2)
-        $permohonanSudahMak = PermohonanPengadaan::with(['unit', 'user', 'anggaranMak', 'ppkAwal'])
+        $permohonanSudahMak = PermohonanPengadaan::with(['unit', 'user', 'anggaranMak', 'ppkAwal', 'verifikasiParalel.user'])
             ->whereNotNull('kode_mak')
             ->where('kode_mak', '!=', '')
             ->whereNotIn('status_permohonan', [
                 PermohonanPengadaan::STATUS_DITOLAK,
+                'digantikan_oleh_revisi',
             ])
             ->latest('updated_at')
             ->get();
@@ -1712,19 +1817,53 @@ class HomeController extends Controller
         $permohonan->nomor_memo_ketersediaan_mak = $nomorMemoMak;
         $permohonan->catatan_memo_ketersediaan_mak = $validated['catatan_anggaran'] ?? 'MAK tersedia di DIPA kampus.';
 
-        // Aktifkan antrean persetujuan bagi Wadir 2 dan PPK terpilih
-        VerifikasiParalel::firstOrCreate(
-            ['nomor_surat' => $permohonan->nomor_surat, 'role_verifikator' => VerifikasiParalel::ROLE_WADIR_2],
-            ['id_user' => $user->id_user, 'status_keputusan' => 'menunggu']
-        );
+        // Penanganan Verifikasi Wadir 2:
+        // Jika Wadir 2 sudah menyetujui pada putaran sebelumnya, status 'disetujui' tetap dipertahankan.
+        // Jika belum disetujui (misal meminta revisi, ditolak, atau baru), set ke 'menunggu'.
+        $verifWadir = VerifikasiParalel::where('nomor_surat', $permohonan->nomor_surat)
+            ->where('role_verifikator', VerifikasiParalel::ROLE_WADIR_2)
+            ->first();
 
+        if (! $verifWadir) {
+            VerifikasiParalel::create([
+                'nomor_surat' => $permohonan->nomor_surat,
+                'role_verifikator' => VerifikasiParalel::ROLE_WADIR_2,
+                'id_user' => $user->id_user,
+                'status_keputusan' => 'menunggu',
+            ]);
+        } elseif ($verifWadir->status_keputusan !== 'disetujui') {
+            $verifWadir->status_keputusan = 'menunggu';
+            $verifWadir->save();
+        }
+
+        // Penanganan Verifikasi PPK:
         if ($idPpkAwal) {
-            $verifPpk = VerifikasiParalel::firstOrCreate(
-                ['nomor_surat' => $permohonan->nomor_surat, 'role_verifikator' => VerifikasiParalel::ROLE_PPK],
-                ['id_user' => $idPpkAwal, 'status_keputusan' => 'menunggu']
-            );
-            if ($verifPpk->status_keputusan === 'menunggu') {
+            $verifPpk = VerifikasiParalel::where('nomor_surat', $permohonan->nomor_surat)
+                ->where('role_verifikator', VerifikasiParalel::ROLE_PPK)
+                ->first();
+
+            // Cek apakah akun PPK diganti oleh Perencanaan
+            $isGantiPpk = $verifPpk && ((int) $verifPpk->id_user !== (int) $idPpkAwal);
+
+            if (! $verifPpk) {
+                VerifikasiParalel::create([
+                    'nomor_surat' => $permohonan->nomor_surat,
+                    'role_verifikator' => VerifikasiParalel::ROLE_PPK,
+                    'id_user' => $idPpkAwal,
+                    'status_keputusan' => 'menunggu',
+                ]);
+            } elseif ($isGantiPpk) {
+                // Akun PPK baru harus berstatus 'menunggu'
                 $verifPpk->id_user = $idPpkAwal;
+                $verifPpk->status_keputusan = 'menunggu';
+                $verifPpk->nomor_memo = null;
+                $verifPpk->file_memo = null;
+                $verifPpk->catatan_alasan = null;
+                $verifPpk->tanggal_keputusan = null;
+                $verifPpk->save();
+            } elseif ($verifPpk->status_keputusan !== 'disetujui') {
+                $verifPpk->id_user = $idPpkAwal;
+                $verifPpk->status_keputusan = 'menunggu';
                 $verifPpk->save();
             }
         }
@@ -1774,15 +1913,24 @@ class HomeController extends Controller
             $permohonan->nomor_surat,
             $statusLama,
             PermohonanPengadaan::STATUS_MENUNGGU_ACC_WADIR_PPK,
-            "Perencanaan menerbitkan Memo Ketersediaan MAK ({$nomorMemoMak}) pada {$mak->kode_mak} ke Bidang 2 (Wadir 2) dan PPK."
+            "Perencanaan menerbitkan Memo Ketersediaan MAK ({$nomorMemoMak}) pada {$mak->kode_mak} ke verifikator terkait."
         );
 
-        // Memicu notifikasi Memo Ketersediaan MAK ke Wadir 2 dan PPK terpilih
+        // Memicu notifikasi Memo Ketersediaan MAK ke verifikator yang belum menyetujui
         $this->notificationService->notifyAlokasiMak($permohonan, $mak, 'setuju', $validated['catatan_anggaran'] ?? null);
+
+        $pihakMenunggu = [];
+        if (! $wadirAcc) {
+            $pihakMenunggu[] = 'Wadir II';
+        }
+        if (! $ppkAcc) {
+            $pihakMenunggu[] = 'PPK terpilih';
+        }
+        $infoTujuan = implode(' serta ', $pihakMenunggu);
 
         return redirect()->route('verifikasi.perencanaan')->with(
             'success',
-            "MAK {$mak->kode_mak} tersedia dan Memo Ketersediaan MAK ({$nomorMemoMak}) telah dikirimkan ke Wadir II serta PPK terpilih untuk disetujui."
+            "MAK {$mak->kode_mak} tersedia dan Memo Ketersediaan MAK ({$nomorMemoMak}) telah dikirimkan ke {$infoTujuan} untuk disetujui."
         );
     }
 
