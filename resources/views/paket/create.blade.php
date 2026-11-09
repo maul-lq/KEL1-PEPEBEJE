@@ -141,20 +141,20 @@
 
                 <div class="flex-1 min-w-0">
                     <div class="flex flex-wrap items-center gap-2">
-                        <span class="text-xs font-bold uppercase tracking-wider">Deteksi Otomatis Jalur Routing HPS:</span>
+                        <span class="text-xs font-bold uppercase tracking-wider">Routing HPS:</span>
                         <template x-if="routing() === 'langsung'">
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-100 text-teal-800">
-                                &le; Rp 50 Juta &bull; Belanja Langsung (Dropdown Terkunci)
+                                &le; Rp 50 Juta &bull; Belanja Langsung
                             </span>
                         </template>
                         <template x-if="routing() === 'pp'">
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
-                                &gt; Rp 50 Jt s.d &le; Rp 200 Jt &bull; Pejabat Pengadaan (PP)
+                                &gt; Rp 50 Jt s.d &le; Rp 200 Jt &bull;
                             </span>
                         </template>
                         <template x-if="routing() === 'ppk'">
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-800">
-                                &gt; Rp 200 Juta &bull; PPK Mandiri (1 dari 4 Akun)
+                                &gt; Rp 200 Juta &bull; PPK Mandiri
                             </span>
                         </template>
                         <template x-if="routing() === null">
