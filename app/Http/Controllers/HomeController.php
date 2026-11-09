@@ -2630,7 +2630,7 @@ class HomeController extends Controller
         $totalPaguPp = (float) PaketPengadaan::where('jalur_routing', PaketPengadaan::ROUTING_PP)->sum('nilai_hps');
         $totalNegosiasiPp = (float) PaketPengadaan::where('jalur_routing', PaketPengadaan::ROUTING_PP)->whereNotNull('nilai_hasil_negosiasi')->sum('nilai_hasil_negosiasi');
         $pejabatPpList = User::where('role', 'pp')
-            ->orWhereHas('permissions', fn ($q) => $q->where('name', 'reviu.pp'))
+            ->orWhereHas('roleEntity.permissions', fn ($q) => $q->where('nama_permission', 'reviu.pp'))
             ->get();
 
         return view('pp.monitoring', compact(
@@ -3215,7 +3215,7 @@ class HomeController extends Controller
 
         // Bentuk memo bertingkat: Level 1 (Wadir II) & Level 2 (PPK) (BPMN Pembayaran)
         $wadir = User::where('role', 'wadir_2')
-            ->orWhereHas('permissions', fn ($q) => $q->where('name', 'pembayaran.memo_wadir2'))
+            ->orWhereHas('roleEntity.permissions', fn ($q) => $q->where('nama_permission', 'pembayaran.memo_wadir2'))
             ->first();
         $memoLevel1 = MemoBayar::create([
             'id_user' => $wadir?->id_user,
@@ -3226,7 +3226,7 @@ class HomeController extends Controller
         ]);
 
         $defaultPpk = User::where('role', 'ppk')
-            ->orWhereHas('permissions', fn ($q) => $q->where('name', 'pembayaran.memo_ppk'))
+            ->orWhereHas('roleEntity.permissions', fn ($q) => $q->where('nama_permission', 'pembayaran.memo_ppk'))
             ->first();
         $ppkUserId = $paket->id_user_ppk ?? $paket->permohonan?->id_user_ppk_awal ?? $defaultPpk?->id_user ?? $user->id_user;
         MemoBayar::create([
