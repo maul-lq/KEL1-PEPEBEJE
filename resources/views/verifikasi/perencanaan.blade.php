@@ -9,7 +9,6 @@
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
             <div class="flex items-center gap-2.5">
-                <span class="rounded-lg bg-teal-100 text-teal-800 px-2.5 py-1 text-xs font-bold font-mono">FR 6.1 - FR 6.3</span>
                 <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight text-[#213153]">
                     Verifikasi Anggaran MAK &amp; Penetapan Pagu DIPA
                 </h1>
@@ -463,7 +462,7 @@
         @endif
     </div>
 
-    <!-- 5. SECTION 2: FORM PEMOTONGAN / PEMECAHAN (SPLIT MAK) BERDASARKAN POS REKENING (FR 6.3) -->
+    <!-- 5. SECTION 2: FORM PEMOTONGAN / PEMECAHAN (SPLIT MAK) BERDASARKAN POS REKENING -->
     <div class="rounded-2xl border border-slate-200/80 bg-white p-6 md:p-7 shadow-xs space-y-6"
          x-data="splitMakManager({ 
              permohonanList: {{ json_encode($permohonanAntrean) }}, 
@@ -472,10 +471,7 @@
         
         <div class="pb-4 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-2">
             <div>
-                <div class="flex items-center gap-2">
-                    <span class="rounded-lg bg-indigo-100 text-indigo-800 px-2 py-0.5 text-xs font-bold font-mono">FR 6.3</span>
-                    <h2 class="text-lg font-bold text-[#213153]">Pemecahan (Split) Usulan Permohonan Berdasarkan Pos MAK</h2>
-                </div>
+                <h2 class="text-lg font-bold text-[#213153]">Pemecahan (Split) Usulan Permohonan Berdasarkan Pos MAK</h2>
                 <p class="text-xs text-slate-500 mt-0.5">
                     Pisahkan pembebanan anggaran usulan tunggal ke beberapa pos rekening MAK DIPA yang berbeda dengan nomor pecahan baru.
                 </p>
@@ -511,7 +507,7 @@
                 </div>
 
                 <div class="space-y-1">
-                    <label class="block text-xs font-bold text-slate-700">Alasan Pemecahan Pos MAK (FR 6.3) <span class="text-rose-500">*</span></label>
+                    <label class="block text-xs font-bold text-slate-700">Alasan Pemecahan Pos MAK <span class="text-rose-500">*</span></label>
                     <input type="text" 
                            name="alasan_pemecahan" 
                            required 
@@ -630,7 +626,7 @@
 
     </div>
 
-    <!-- 6. SECTION 3: KATALOG MASTER REKENING MAK DIPA & MODAL TAMBAH MAK (FR 6.1) -->
+    <!-- 6. SECTION 3: KATALOG MASTER REKENING MAK DIPA & MODAL TAMBAH MAK -->
     <div class="rounded-2xl border border-slate-200/80 bg-white p-6 md:p-7 shadow-xs space-y-6">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
             <div>
@@ -715,7 +711,7 @@
         </div>
     </div>
 
-    <!-- 7. MODAL TAMBAH REKENING MAK DIPA BARU (FR 6.1) -->
+    <!-- 7. MODAL TAMBAH REKENING MAK DIPA BARU -->
     <x-modal id="modal-tambah-mak" title="Tambah Master Rekening MAK DIPA" subtitle="Pendaftaran pos akun anggaran DIPA baru Kampus PNJ" maxWidth="2xl">
         <form action="{{ route('verifikasi.perencanaan.mak.store') }}" method="POST" class="space-y-4">
             @csrf

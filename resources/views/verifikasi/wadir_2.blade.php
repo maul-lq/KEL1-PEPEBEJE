@@ -301,7 +301,7 @@
                                         <span class="text-xs font-extrabold text-rose-800">TOLAK USULAN</span>
                                     </div>
                                     <p class="text-[11px] text-slate-500 mt-2 leading-relaxed">
-                                        Usulan ditolak permanen dari pengadaan. <strong>Catatan alasan wajib (FR 5.3)</strong>.
+                                        Usulan ditolak permanen dari pengadaan. <strong>Catatan alasan wajib diisi</strong>.
                                     </p>
                                 </label>
 
@@ -344,7 +344,7 @@
                                 <label for="catatan_alasan_{{ $p->nomor_surat }}" class="block text-xs font-bold text-slate-700">
                                     Catatan / Instruksi Disposisi Wadir II 
                                     <span x-show="!isMandatory" class="text-slate-400 font-normal">(Opsional untuk Persetujuan)</span>
-                                    <span x-show="isMandatory" class="text-rose-600 font-bold">(Wajib Diisi - FR 5.3)</span>
+                                    <span x-show="isMandatory" class="text-rose-600 font-bold">(Wajib Diisi)</span>
                                 </label>
                                 <textarea id="catatan_alasan_{{ $p->nomor_surat }}" 
                                           name="catatan_alasan" 

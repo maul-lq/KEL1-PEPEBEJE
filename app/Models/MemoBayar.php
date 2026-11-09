@@ -48,7 +48,6 @@ class MemoBayar extends Model
         'id_user',
         'nomor_pembayaran',
         'role_approver',
-        'urutan_level',
         'status_memo',
         'catatan_memo',
         'nomor_memo',
@@ -57,14 +56,13 @@ class MemoBayar extends Model
     ];
 
     /**
-     * Atribut yang harus dikonversi ke tipe data numerik dan tanggal.
+     * Atribut yang harus dikonversi ke tipe data tanggal.
      *
      * @return array<string, string>
      */
     protected function casts(): array
     {
         return [
-            'urutan_level' => 'integer',
             'tanggal_acc' => 'datetime',
         ];
     }

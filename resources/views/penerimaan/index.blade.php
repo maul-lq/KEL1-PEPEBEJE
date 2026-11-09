@@ -16,7 +16,7 @@
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-50 text-teal-800 border border-teal-200">
                         Siklus 7: Penerimaan &amp; BAST Fisik
                     </span>
-                    <span class="text-xs text-slate-400 font-mono">FR 14 &bull; HMAC SHA-256</span>
+                    <span class="text-xs text-slate-400 font-mono">Autentikasi HMAC SHA-256</span>
                 </div>
                 <h1 class="text-2xl font-bold text-[#213153] mt-1">Penerimaan Barang &amp; Penerbitan BAST</h1>
                 <p class="text-xs text-slate-500 mt-0.5">
@@ -74,7 +74,7 @@
         />
     </div>
 
-    {{-- 4. Formulir Pemeriksaan Barang & Penerbitan BAST (FR 14) --}}
+    {{-- 4. Formulir Pemeriksaan Barang & Penerbitan BAST --}}
     <div class="rounded-2xl bg-white p-6 md:p-8 shadow-sm border border-slate-200/80">
         <div class="border-b border-slate-100 pb-4 mb-6">
             <h2 class="text-base font-bold text-[#213153]">Formulir Pemeriksaan Fisik &amp; Pengesahan BAST</h2>
@@ -161,14 +161,22 @@
                 </div>
 
                 <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">
-                        Status Verifikasi Fisik Barang <span class="text-emerald-600">*</span>
+                    <label for="status_fisik" class="block text-xs font-bold text-slate-700 mb-1">
+                        Status Verifikasi Fisik Barang <span class="text-rose-500">*</span>
                     </label>
-                    <input type="hidden" name="status_fisik" value="terima">
-                    <div class="h-11 rounded-xl border border-emerald-200 bg-emerald-50/70 px-3 flex items-center gap-2 text-xs font-semibold text-emerald-800">
-                        <svg class="size-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        <span>Diterima Lengkap (Sesuai Spesifikasi 100%) &mdash; Siap Terbit BAST</span>
-                    </div>
+                    <select
+                        id="status_fisik"
+                        name="status_fisik"
+                        required
+                        class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20"
+                    >
+                        <option value="terima" {{ old('status_fisik', 'terima') === 'terima' ? 'selected' : '' }}>
+                            Terima &mdash; Diterima Lengkap (Sesuai Spesifikasi 100%, Siap Bayar)
+                        </option>
+                        <option value="pending" {{ old('status_fisik') === 'pending' ? 'selected' : '' }}>
+                            Pending &mdash; Belum Lengkap / Cacat / Perlu Klarifikasi Rekanan
+                        </option>
+                    </select>
                 </div>
 
                 <div>
@@ -183,7 +191,7 @@
 
                 <div>
                     <label for="foto_barang" class="block text-xs font-bold text-slate-700 mb-1">
-                        Unggah Foto Dokumentasi Fisik Barang <span class="text-slate-400 font-normal">(Multi-Foto / Fleksibel)</span>
+                        Unggah Foto Dokumentasi Fisik Barang <span class="text-slate-400 font-normal">(Multi-Foto Fleksibel)</span>
                     </label>
                     <input
                         type="file"
@@ -193,7 +201,22 @@
                         multiple
                         class="w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da] hover:file:bg-blue-100"
                     />
-                    <p class="text-[11px] text-slate-400 mt-1">Dapat memilih lebih dari satu foto untuk membuktikan kondisi fisik barang.</p>
+                    <p class="text-[11px] text-slate-400 mt-1">Jumlah foto fleksibel asal seluruh item terlihat jelas.</p>
+                </div>
+
+                <div>
+                    <label for="keterangan_foto" class="block text-xs font-bold text-slate-700 mb-1">
+                        Keterangan Foto Dokumentasi Fisik <span class="text-slate-400 font-normal">(Opsional)</span>
+                    </label>
+                    <input
+                        type="text"
+                        id="keterangan_foto"
+                        name="keterangan_foto"
+                        value="{{ old('keterangan_foto') }}"
+                        placeholder="Contoh: Tampak depan item, label nomor seri, & segel kemasan..."
+                        class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20"
+                    />
+                    <p class="text-[11px] text-slate-400 mt-1">Catatan penjelasan kondisi foto saat inspeksi fisik barang.</p>
                 </div>
 
                 <div>
@@ -236,6 +259,17 @@
                     ></textarea>
                 </div>
 
+            </div>
+
+            <div class="rounded-xl border border-blue-100 bg-blue-50/50 p-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs text-slate-700">
+                <div class="flex items-center gap-2">
+                    <svg class="size-4 text-[#0969da] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <span><strong>Waktu Selesai Inspeksi:</strong> Dicatat otomatis secara presisi saat pengesahan BAST final untuk bukti audit SPI/BPK.</span>
+                </div>
+                <div class="flex items-center gap-1.5 font-mono text-[11px] text-[#0969da] font-semibold">
+                    <svg class="size-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                    <span>Finalisasi TTD Digital HMAC SHA-256</span>
+                </div>
             </div>
 
             <div class="flex items-center justify-end gap-3 pt-6 border-t border-slate-100">
@@ -291,7 +325,12 @@
                                 </td>
 
                                 <td class="px-5 py-4 text-slate-600">
-                                    {{ $b->tanggal_penerimaan ? \Carbon\Carbon::parse($b->tanggal_penerimaan)->format('d/m/Y') : '-' }}
+                                    <div class="font-medium text-slate-800">{{ $b->tanggal_penerimaan ? \Carbon\Carbon::parse($b->tanggal_penerimaan)->format('d/m/Y') : '-' }}</div>
+                                    @if($b->waktu_selesai_inspeksi)
+                                        <div class="text-[10px] text-slate-400 font-mono mt-0.5" title="Waktu Selesai Pemeriksaan Fisik">
+                                            Selesai: {{ \Carbon\Carbon::parse($b->waktu_selesai_inspeksi)->format('H:i') }} WIB
+                                        </div>
+                                    @endif
                                 </td>
 
                                 <td class="px-5 py-4">
@@ -319,9 +358,9 @@
                                                     type="button"
                                                     @click="lightboxImg = '{{ asset('storage/' . $fotoPath) }}'"
                                                     class="size-8 rounded-lg border border-slate-200 overflow-hidden hover:opacity-80 transition shrink-0"
-                                                    title="Pratinjau Foto"
+                                                    title="{{ $foto->keterangan_foto ?: 'Pratinjau Foto' }}"
                                                 >
-                                                    <img src="{{ asset('storage/' . $fotoPath) }}" alt="Foto Barang" class="size-full object-cover">
+                                                    <img src="{{ asset('storage/' . $fotoPath) }}" alt="{{ $foto->keterangan_foto ?: 'Foto Barang' }}" class="size-full object-cover">
                                                 </button>
                                             @endforeach
                                             @if($b->fotoDokumentasi->count() > 3)

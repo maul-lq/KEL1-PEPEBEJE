@@ -551,7 +551,7 @@
                         @endforeach
                     </select>
                     <p class="text-[11px] text-slate-400 mt-1">
-                        Sistem membatasi penugasan PPK pada 4 akun PPK definitif (NFR 4).
+                        Sistem membatasi penugasan PPK pada akun PPK definitif aktif.
                     </p>
                 </div>
 

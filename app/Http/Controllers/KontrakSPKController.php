@@ -215,7 +215,6 @@ class KontrakSPKController extends Controller
                 ['nama_vendor' => trim($validated['nama_vendor'])],
                 [
                     'file_dokumen_legalitas' => $legalitasPath,
-                    'is_active' => true,
                 ]
             );
             if ($legalitasPath && empty($vendor->file_dokumen_legalitas)) {

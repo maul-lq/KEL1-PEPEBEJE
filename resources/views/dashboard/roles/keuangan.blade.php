@@ -149,6 +149,8 @@
                             $judulRem = $rem instanceof \App\Models\NotifikasiUser ? $rem->judul : ($rem->judul_alert ?? 'Pemberitahuan Sistem');
                             $pesanRem = $rem instanceof \App\Models\NotifikasiUser ? $rem->pesan : ($rem->pesan_alert ?? '-');
                             $waktuRem = $rem->created_at ?? ($rem->waktu_trigger ?? now());
+                            $waktuTrigger = $rem instanceof \App\Models\NotifikasiUser ? $rem->reminder?->waktu_trigger : $rem->waktu_trigger;
+                            $intervalBulan = $rem instanceof \App\Models\NotifikasiUser ? $rem->reminder?->interval_bulan : $rem->interval_bulan;
                         @endphp
                         <div class="p-3 rounded-xl bg-white border border-slate-200/80 shadow-sm text-xs space-y-1">
                             <div class="flex items-center justify-between gap-2">
@@ -156,6 +158,18 @@
                                 <span class="text-[10px] text-slate-400 whitespace-nowrap">{{ \Carbon\Carbon::parse($waktuRem)->diffForHumans() }}</span>
                             </div>
                             <p class="text-[11px] text-slate-600 line-clamp-2">{{ $pesanRem }}</p>
+                            @if($waktuTrigger || $intervalBulan)
+                                <div class="flex items-center gap-2 pt-1 text-[10px] text-slate-500">
+                                    @if($waktuTrigger)
+                                        <span>Trigger: <strong class="font-mono text-slate-700">{{ \Carbon\Carbon::parse($waktuTrigger)->format('d/m/Y') }}</strong></span>
+                                    @endif
+                                    @if($intervalBulan)
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-[#0969da] border border-blue-200">
+                                            Berkala ({{ $intervalBulan }} Bulan)
+                                        </span>
+                                    @endif
+                                </div>
+                            @endif
                         </div>
                     @empty
                         <div class="p-4 text-center rounded-xl bg-white border border-slate-200/80 shadow-sm text-xs text-slate-400">

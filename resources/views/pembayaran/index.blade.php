@@ -16,7 +16,7 @@
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
                         Siklus 8: Tagihan, SPP &amp; SP2D Cair
                     </span>
-                    <span class="text-xs text-slate-400 font-mono">FR 15 &bull; FR 18</span>
+                    <span class="text-xs text-slate-400 font-mono">Verifikasi Keuangan &amp; SP2D</span>
                 </div>
                 <h1 class="text-2xl font-bold text-[#213153] mt-1">Alur Pembayaran Tagihan &amp; Pencairan SP2D</h1>
                 <p class="text-xs text-slate-500 mt-0.5">
@@ -71,7 +71,7 @@
         />
     </div>
 
-    {{-- 4. PANEL PENGAJUAN BERKAS PEMBAYARAN OLEH PPBJ (FR 15) --}}
+    {{-- 4. PANEL PENGAJUAN BERKAS PEMBAYARAN OLEH PPBJ --}}
     @if(Auth::user()->hasRole('admin') || Auth::user()->hasPermission('pembayaran.pengajuan'))
     <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80">
         <div class="border-b border-slate-100 pb-4 mb-5">
@@ -225,11 +225,6 @@
                         </div>
                     </div>
 
-                    <div>
-                        <label for="nomor_memo_fe" class="block text-xs font-bold text-slate-700 mb-1">Nomor Pengantar Pembayaran Internal</label>
-                        <input type="text" id="nomor_memo_fe" name="nomor_memo" value="MEMO/BHP/{{ date('Y') }}/{{ rand(10, 99) }}" class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 font-mono focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
-                    </div>
-
                     {{-- Kelengkapan Berkas Tagihan Resmi (Kwitansi & Invoice) --}}
                     <div class="rounded-xl border border-blue-100 bg-blue-50/40 p-4 space-y-4">
                         <h4 class="text-xs font-bold text-[#213153] uppercase tracking-wider flex items-center gap-1.5">
@@ -259,21 +254,9 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 mb-1">Invoice Rekanan / Tagihan Tambahan (PDF/Gambar)</label>
-                            <input type="file" name="file_tagihan_vendor" accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da]">
-                        </div>
-
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 mb-1">Dokumen Penunjang (PDF/Gambar)</label>
-                            <input type="file" name="file_dokumen_penunjang" accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da]">
-                        </div>
-
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 mb-1">Berkas Fisik Memo (PDF)</label>
-                            <input type="file" name="file_memo" accept=".pdf" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da]">
-                        </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Dokumen Penunjang Pembayaran (PDF/Gambar)</label>
+                        <input type="file" name="file_dokumen_penunjang" accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da]">
                     </div>
 
                     <div class="flex items-center justify-end pt-3 border-t border-slate-100">
@@ -384,10 +367,6 @@
                                     <label class="block text-xs font-bold text-slate-700 mb-1">Unggah Dokumen Perikatan / SPK Revisi</label>
                                     <input type="file" name="file_dokumen_perikatan" accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da]">
                                 </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-700 mb-1">Unggah Berkas Memo Revisi (PDF)</label>
-                                    <input type="file" name="file_memo" accept=".pdf" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da]">
-                                </div>
                             </div>
 
                             <div>
@@ -411,7 +390,7 @@
     </div>
     @endif
 
-    {{-- 5. PANEL PERSETUJUAN MEMO PEMBAYARAN BERTINGKAT (PPK & WADIR II - FR 16) --}}
+    {{-- 5. PANEL PERSETUJUAN MEMO PEMBAYARAN BERTINGKAT (PPK & WADIR II) --}}
     @if(Auth::user()->hasRole('admin') || Auth::user()->hasAnyPermission(['pembayaran.memo_ppk', 'pembayaran.memo_wadir2']))
     <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80">
         <div class="border-b border-slate-100 pb-4 mb-5">
@@ -434,7 +413,7 @@
                             <div class="flex items-center gap-2">
                                 <span class="font-mono font-bold text-xs text-[#0969da]">{{ $memo->nomor_memo ?: 'Belum Ada No. Memo' }}</span>
                                 <span class="px-2 py-0.5 rounded-full text-[10px] font-bold {{ $memo->role_approver === 'wadir_2' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800' }}">
-                                    Level {{ $memo->urutan_level }} ({{ $memo->role_approver === 'wadir_2' ? 'WADIR II' : 'PPK' }})
+                                    {{ $memo->role_approver === 'wadir_2' ? 'WADIR II' : 'PPK' }}
                                 </span>
                             </div>
                             <h4 class="text-xs font-bold text-slate-800">Paket: {{ $memo->pembayaran->nomor_paket ?? '-' }}</h4>
@@ -490,7 +469,7 @@
     </div>
     @endif
 
-    {{-- 6. PANEL PENERBITAN SPP OLEH PPBJ (FR 17) --}}
+    {{-- 6. PANEL PENERBITAN SPP OLEH PPBJ --}}
     @if(Auth::user()->hasRole('admin') || Auth::user()->hasPermission('pembayaran.pengajuan'))
     <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80">
         <div class="border-b border-slate-100 pb-4 mb-5">
@@ -601,32 +580,18 @@
                                     <svg class="size-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
                                     <span>Form Kelengkapan Legalitas Vendor &amp; Berkas SPP</span>
                                 </h4>
-                                <p class="text-[11px] text-slate-500 mt-0.5">Periksa dan mutakhirkan data identitas perbankan serta berkas legalitas rekanan sebelum paket diserahkan ke Bagian Keuangan.</p>
+                                <p class="text-[11px] text-slate-500 mt-0.5">Periksa NPWP serta unggah berkas legalitas rekanan sebelum paket diserahkan ke Bagian Keuangan.</p>
                             </div>
 
-                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                                 <div>
                                     <label class="block text-[11px] font-bold text-slate-700 mb-1">NPWP Penyedia Rekanan</label>
                                     <input type="text" name="npwp_vendor" value="{{ old('npwp_vendor', $sVendor->npwp ?? '') }}" placeholder="Contoh: 01.234.567.8-012.000" class="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-mono focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
                                 </div>
-                                <div>
-                                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Bank Penampung Rekanan</label>
-                                    <input type="text" name="nama_bank" value="{{ old('nama_bank', $sVendor->nama_bank ?? 'Bank Mandiri') }}" placeholder="Contoh: Bank Mandiri / BRI / BNI" class="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
-                                </div>
-                                <div>
-                                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Nomor Rekening</label>
-                                    <input type="text" name="nomor_rekening" value="{{ old('nomor_rekening', $sVendor->nomor_rekening ?? '') }}" placeholder="Nomor rekening aktif" class="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-mono focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
-                                </div>
-                                <div>
-                                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Atas Nama Rekening</label>
-                                    <input type="text" name="atas_nama" value="{{ old('atas_nama', $sVendor->atas_nama ?? ($sVendor->nama_vendor ?? '')) }}" placeholder="Nama pemilik rekening" class="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
-                                </div>
-                            </div>
 
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
                                 <div>
                                     <label class="block text-[11px] font-bold text-slate-700 mb-1">
-                                        Unggah Dokumen Legalitas Rekanan (NIB / NPWP / SIUP)
+                                        Unggah Dokumen Legalitas Rekanan (NIB / SIUP / NPWP)
                                     </label>
                                     <div class="space-y-1">
                                         <input type="file" name="file_legalitas_vendor" accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
@@ -665,7 +630,7 @@
     </div>
     @endif
 
-    {{-- 7. PANEL PENCAIRAN SP2D OLEH KEUANGAN (BPMN N59, N62, N66, N70, N72 & FR 18) --}}
+    {{-- 7. PANEL PENCAIRAN SP2D OLEH KEUANGAN --}}
     @if(Auth::user()->hasRole(['admin', 'keuangan']) || Auth::user()->hasPermission('pembayaran.pencairan_sp2d'))
     <div id="panel-pencairan-keuangan" class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80 space-y-6">
         <div class="border-b border-slate-100 pb-4">
@@ -774,7 +739,6 @@
                                     <td class="px-4 py-3.5 align-top space-y-1">
                                         <div class="font-bold text-slate-800">{{ $scVendor->nama_vendor ?? 'Penyedia Rekanan' }}</div>
                                         <div class="text-[10px] text-slate-500">NPWP: <span class="font-mono">{{ $scVendor->npwp ?? '-' }}</span></div>
-                                        <div class="text-[10px] text-slate-500">Bank: <span class="font-medium text-slate-700">{{ $scVendor->nama_bank ?? 'Bank Penampung' }}</span> (No: {{ $scVendor->nomor_rekening ?? '-' }})</div>
                                         @if(!empty($scVendor?->file_dokumen_legalitas))
                                             <div>
                                                 <a href="{{ asset('storage/' . $scVendor->file_dokumen_legalitas) }}" target="_blank" class="inline-flex items-center gap-1 text-[10px] font-bold text-[#0969da] hover:underline mt-0.5">
@@ -815,7 +779,7 @@
                                     <td class="px-4 py-3.5 align-top text-center">
                                         <button
                                             type="button"
-                                            onclick="pilihSppUntukCair('{{ $sc->nomor_pembayaran }}', '{{ $sc->nominal_pengajuan }}', '{{ addslashes($scVendor->nama_bank ?? 'Bank Mandiri KCP PNJ') }}')"
+                                            onclick="pilihSppUntukCair('{{ $sc->nomor_pembayaran }}', '{{ $sc->nominal_pengajuan }}')"
                                             class="px-3 py-1.5 rounded-lg bg-[#0969da] text-[11px] font-bold text-white hover:bg-blue-700 shadow-sm transition whitespace-nowrap"
                                         >
                                             Pilih &amp; Eksekusi &darr;
@@ -848,13 +812,9 @@
                             <select id="nomor_pembayaran_cair" name="nomor_pembayaran" required class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
                                 <option value="">-- Pilih SPP Siap Cair --</option>
                                 @foreach($siapCairKeuangan as $sc)
-                                    @php
-                                        $scV = $sc->paket->kontrakSpk->vendor ?? ($sc->paket->kontrak->vendor ?? ($sc->paket->vendor ?? null));
-                                    @endphp
                                     <option
                                         value="{{ $sc->nomor_pembayaran }}"
                                         data-nominal="{{ $sc->nominal_pengajuan }}"
-                                        data-bank="{{ $scV->nama_bank ?? 'Bank Mandiri KCP PNJ' }}"
                                     >
                                         [{{ $sc->nomor_pembayaran }}] Paket: {{ $sc->nomor_paket }} &bull; Rp {{ number_format($sc->nominal_pengajuan, 0, ',', '.') }}
                                     </option>
@@ -908,7 +868,7 @@
             </div>
 
             <script>
-                function pilihSppUntukCair(nomorPembayaran, nominal, bank) {
+                function pilihSppUntukCair(nomorPembayaran, nominal) {
                     const sel = document.getElementById('nomor_pembayaran_cair');
                     if (sel) {
                         sel.value = nomorPembayaran;
@@ -916,10 +876,6 @@
                     const nomInput = document.getElementById('nominal_cair');
                     if (nomInput && nominal) {
                         nomInput.value = nominal;
-                    }
-                    const bankInput = document.getElementById('bank_tujuan');
-                    if (bankInput && bank) {
-                        bankInput.value = bank;
                     }
                     const formEl = document.getElementById('form-pencairan-sp2d');
                     if (formEl) {
@@ -934,12 +890,8 @@
                             const opt = sel.options[sel.selectedIndex];
                             if (opt) {
                                 const nom = opt.getAttribute('data-nominal');
-                                const bank = opt.getAttribute('data-bank');
                                 if (nom) {
                                     document.getElementById('nominal_cair').value = nom;
-                                }
-                                if (bank) {
-                                    document.getElementById('bank_tujuan').value = bank;
                                 }
                             }
                         });

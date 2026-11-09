@@ -130,22 +130,17 @@ class PaketPengadaan extends Model
         'alokasi_pagu_paket',
         'file_dokumen_pengadaan',
         'status_paket',
-        'id_paket_lkpp',
         'nomor_surat',
         'tanggal_registrasi_paket',
         'nomor_memo_ppbj',
         'id_user_ppbj',
         'id_user_ppk',
-        'tanggal_penugasan_ppk',
-        'status_penugasan_ppk',
         'alasan_pengalihan_ppk',
         'id_user_pp',
-        'tanggal_penugasan_pp',
         'nilai_hasil_negosiasi',
         'nominal_harga_akhir',
         'catatan_verifikasi_pp',
         'id_vendor',
-        'tanggal_penunjukan_vendor',
         'dieksekusi_belanja_oleh',
         'tanggal_eksekusi_belanja',
         'nomor_kwitansi_belanja',
@@ -166,9 +161,6 @@ class PaketPengadaan extends Model
             'nilai_hasil_negosiasi' => 'decimal:2',
             'nominal_harga_akhir' => 'decimal:2',
             'tanggal_registrasi_paket' => 'datetime',
-            'tanggal_penugasan_ppk' => 'datetime',
-            'tanggal_penugasan_pp' => 'datetime',
-            'tanggal_penunjukan_vendor' => 'datetime',
             'tanggal_eksekusi_belanja' => 'datetime',
         ];
     }
@@ -222,8 +214,6 @@ class PaketPengadaan extends Model
                 $permohonanAsal = PermohonanPengadaan::find($model->nomor_surat);
                 if ($permohonanAsal && $permohonanAsal->id_user_ppk_awal) {
                     $model->id_user_ppk = $permohonanAsal->id_user_ppk_awal;
-                    $model->tanggal_penugasan_ppk = $model->tanggal_penugasan_ppk ?? now();
-                    $model->status_penugasan_ppk = $model->status_penugasan_ppk ?? 'aktif';
                 }
             }
 

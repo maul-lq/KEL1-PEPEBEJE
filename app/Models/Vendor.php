@@ -12,9 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * Merepresentasikan perusahaan atau penyedia barang/jasa yang bermitra dengan institusi.
  * Diselaraskan ke struktur minimalis dan operasional:
  * - Identitas: id (primary key auto-increment), nama_vendor
- * - Legalitas: file_dokumen_legalitas (unggah PDF/gambar berkas izin/NIB/SIUP)
- * - Rekening Bayar (BPMN N69/N71): npwp, nama_bank, nomor_rekening, atas_nama
- * - Status: is_active (status keaktifan bermitra)
+ * - Legalitas: npwp, file_dokumen_legalitas (unggah PDF/gambar berkas izin/NIB/SIUP)
  */
 class Vendor extends Model
 {
@@ -56,24 +54,8 @@ class Vendor extends Model
     protected $fillable = [
         'nama_vendor',
         'file_dokumen_legalitas',
-        'is_active',
         'npwp',
-        'nama_bank',
-        'nomor_rekening',
-        'atas_nama',
     ];
-
-    /**
-     * Konfigurasi type casting untuk boolean status keaktifan rekanan.
-     *
-     * @return array<string, string>
-     */
-    protected function casts(): array
-    {
-        return [
-            'is_active' => 'boolean',
-        ];
-    }
 
     /**
      * Accessor alias id_vendor untuk primary key id.

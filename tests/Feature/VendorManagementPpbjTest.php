@@ -107,7 +107,6 @@ class VendorManagementPpbjTest extends TestCase
         $vendor = Vendor::create([
             'nama_vendor' => 'CV Minimalis Sukses Perkasa',
             'file_dokumen_legalitas' => 'vendor_legalitas/sample_izin.pdf',
-            'is_active' => true,
         ]);
 
         $this->assertDatabaseHas('vendors', [

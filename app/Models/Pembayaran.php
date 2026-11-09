@@ -70,17 +70,12 @@ class Pembayaran extends Model
         'tanggal_pengajuan',
         'jatuh_tempo',
         'status_pembayaran',
-        'file_tagihan_vendor',
         'file_dokumen_penunjang',
         'nomor_kwitansi',
         'file_kwitansi',
         'nomor_invoice',
         'file_invoice',
-        'nomor_memo',
-        'file_memo',
-        'id_user_reviu',
         'tanggal_perintah_bayar',
-        'status_reviu_akhir',
         'catatan_reviu_akhir',
     ];
 
@@ -142,16 +137,6 @@ class Pembayaran extends Model
     public function pengaju(): BelongsTo
     {
         return $this->belongsTo(User::class, 'id_user_pengaju', 'id_user');
-    }
-
-    /**
-     * Relasi many-to-one ke User pereviu akhir / verifikator keuangan.
-     *
-     * @return BelongsTo Relasi ke model User
-     */
-    public function reviuUser(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'id_user_reviu', 'id_user');
     }
 
     /**

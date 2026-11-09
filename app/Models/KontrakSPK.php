@@ -131,7 +131,6 @@ class KontrakSPK extends Model
                     ],
                     [
                         'waktu_trigger' => $spk->jadwal_pengiriman->startOfDay(),
-                        'is_recurring' => ($spk->sifat_kontrak === 'termin_bulanan' || $spk->sifat_kontrak === 'kontrak_tahunan'),
                         'interval_bulan' => ($spk->sifat_kontrak === 'termin_bulanan') ? 1 : null,
                         'judul_alert' => 'Jadwal Pengiriman Barang: '.($paket->nama_paket ?? $spk->nomor_spk),
                         'pesan_alert' => 'Pengingat otomatis jadwal pengiriman barang sesuai kontrak/SPK '.$spk->nomor_spk,
@@ -146,7 +145,6 @@ class KontrakSPK extends Model
                     ],
                     [
                         'waktu_trigger' => now(),
-                        'is_recurring' => false,
                         'interval_bulan' => null,
                         'judul_alert' => 'Tembusan SPK Terbit: '.$spk->nomor_spk,
                         'pesan_alert' => "Dokumen Kontrak/SPK {$spk->nomor_spk} untuk paket {$spk->nomor_paket} senilai Rp ".number_format((float) $spk->nilai_kontrak, 0, ',', '.').' telah diterbitkan.',

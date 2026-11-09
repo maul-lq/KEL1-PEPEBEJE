@@ -461,7 +461,7 @@
                     <svg class="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 </div>
                 <div class="text-xs leading-relaxed">
-                    <h4 class="font-bold text-sm text-[#213153]">Pemberitahuan Otomatis Tembusan SPK (Feature 27 &bull; FR 11)</h4>
+                    <h4 class="font-bold text-sm text-[#213153]">Pemberitahuan Otomatis Tembusan SPK</h4>
                     <p class="mt-0.5">
                         Saat Kontrak / Surat Perintah Kerja (SPK) ini sah diterbitkan:
                     </p>

@@ -47,7 +47,6 @@ class AuditLog extends Model
         'nilai_lama',
         'nilai_baru',
         'alasan',
-        'ip_address',
     ];
 
     /**
@@ -111,7 +110,6 @@ class AuditLog extends Model
             'nilai_lama' => $nilaiLama,
             'nilai_baru' => $nilaiBaru,
             'alasan' => $alasan,
-            'ip_address' => request()->ip(),
         ]);
     }
 

@@ -65,7 +65,6 @@ class Reminder extends Model
         'nomor_paket',
         'tipe_reminder',
         'waktu_trigger',
-        'is_recurring',
         'interval_bulan',
         'judul_alert',
         'pesan_alert',
@@ -80,7 +79,6 @@ class Reminder extends Model
     {
         return [
             'waktu_trigger' => 'datetime',
-            'is_recurring' => 'boolean',
             'interval_bulan' => 'integer',
         ];
     }

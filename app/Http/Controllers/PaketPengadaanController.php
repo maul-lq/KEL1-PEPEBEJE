@@ -171,12 +171,12 @@ class PaketPengadaanController extends Controller
             $anak->nomor_surat,
             $induk->nomor_surat,
             PermohonanPengadaan::STATUS_DISETUJUI,
-            'Pemecahan berkas oleh PPBJ berdasarkan jenis pengadaan '.$validated['jenis_pengadaan_split'].' (FR 7.2): '.$validated['alasan_pemecahan']
+            'Pemecahan berkas oleh PPBJ berdasarkan jenis pengadaan '.$validated['jenis_pengadaan_split'].': '.$validated['alasan_pemecahan']
         );
 
         return redirect()->route('paket.index')->with(
             'success',
-            "Berkas berhasil dipecah menjadi surat baru {$anak->nomor_surat} untuk jenis pengadaan ".strtoupper($validated['jenis_pengadaan_split']).' (FR 7.2).'
+            "Berkas berhasil dipecah menjadi surat baru {$anak->nomor_surat} untuk jenis pengadaan ".strtoupper($validated['jenis_pengadaan_split']).'.'
         );
     }
 
@@ -202,7 +202,7 @@ class PaketPengadaanController extends Controller
 
         $ppkUsers = User::where('role', 'ppk')->where('status_aktif', true)->take(4)->get();
         $ppUsers = User::where('role', 'pp')->where('status_aktif', true)->get();
-        $vendors = Vendor::where('is_active', true)->orderBy('nama_vendor')->get();
+        $vendors = Vendor::orderBy('nama_vendor')->get();
 
         return view('paket.create', compact('permohonanDisetujui', 'ppkUsers', 'ppUsers', 'vendors'));
     }
@@ -272,7 +272,7 @@ class PaketPengadaanController extends Controller
         $inheritedPpk = $validated['id_user_ppk'] ?? $permohonan->id_user_ppk_awal;
 
         if ($jalur === PaketPengadaan::ROUTING_PPK && empty($inheritedPpk)) {
-            return back()->withErrors(['id_user_ppk' => 'Nilai HPS > Rp 200 Juta wajib menugaskan salah satu dari 4 akun PPK (NFR 4).'])->withInput();
+            return back()->withErrors(['id_user_ppk' => 'Nilai HPS > Rp 200 Juta wajib menugaskan salah satu dari 4 akun PPK aktif.'])->withInput();
         }
 
         $nomorMemoPpbj = ($jalur === PaketPengadaan::ROUTING_PPK)
@@ -306,7 +306,7 @@ class PaketPengadaanController extends Controller
 
         $idVendor = $validated['id_vendor'] ?? null;
         if (! empty($validated['nama_vendor'])) {
-            $v = Vendor::firstOrCreate(['nama_vendor' => trim($validated['nama_vendor'])], ['is_active' => true]);
+            $v = Vendor::firstOrCreate(['nama_vendor' => trim($validated['nama_vendor'])]);
             $idVendor = $v->id;
         }
 
@@ -416,7 +416,6 @@ class PaketPengadaanController extends Controller
                 ['nama_vendor' => trim($validated['nama_vendor'])],
                 [
                     'file_dokumen_legalitas' => $legalitasPath,
-                    'is_active' => true,
                 ]
             );
             if ($legalitasPath && empty($vendor->file_dokumen_legalitas)) {
@@ -485,6 +484,7 @@ class PaketPengadaanController extends Controller
 
         $ppkLama = $paket->id_user_ppk;
         $paket->id_user_ppk = $ppkBaru->id_user;
+        $paket->alasan_pengalihan_ppk = $validated['alasan_pengalihan'];
         $paket->save();
 
         AuditLog::catat(
@@ -532,7 +532,7 @@ class PaketPengadaanController extends Controller
 
         $ppkUsers = User::where('role', 'ppk')->where('status_aktif', true)->take(4)->get();
         $ppUsers = User::where('role', 'pp')->where('status_aktif', true)->get();
-        $vendors = Vendor::where('is_active', true)->orderBy('nama_vendor')->get();
+        $vendors = Vendor::orderBy('nama_vendor')->get();
 
         return view('paket.edit', compact('paket', 'ppkUsers', 'ppUsers', 'vendors'));
     }
@@ -598,7 +598,7 @@ class PaketPengadaanController extends Controller
 
         $idVendor = $validated['id_vendor'] ?? $paket->id_vendor;
         if (! empty($validated['nama_vendor'])) {
-            $v = Vendor::firstOrCreate(['nama_vendor' => trim($validated['nama_vendor'])], ['is_active' => true]);
+            $v = Vendor::firstOrCreate(['nama_vendor' => trim($validated['nama_vendor'])]);
             $idVendor = $v->id;
         }
 

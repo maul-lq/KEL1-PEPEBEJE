@@ -635,9 +635,7 @@ class PermohonanPengadaan extends Model
                 }
 
                 $pembayaranFiles = [
-                    $pembayaran->file_tagihan_vendor,
                     $pembayaran->file_dokumen_penunjang,
-                    $pembayaran->file_memo,
                     $pembayaran->file_kwitansi,
                     $pembayaran->file_invoice,
                 ];

@@ -636,12 +636,12 @@
         @endif
     </div>
 
-    {{-- 5. Tabel Jejak Audit Mutasi & Penugasan PPK (FR 13) --}}
+    {{-- 5. Tabel Jejak Audit Mutasi & Penugasan PPK --}}
     <div class="rounded-2xl bg-white shadow-sm border border-slate-200/80 overflow-hidden">
         <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
             <div>
                 <h3 class="text-sm font-bold text-[#213153]">Riwayat Mutasi &amp; Penugasan PPK (Audit Trail)</h3>
-                <p class="text-xs text-slate-400 mt-0.5">Catatan riwayat perpindahan penugasan paket antar akun PPK aktif (FR 13 &bull; NFR 4.2)</p>
+                <p class="text-xs text-slate-400 mt-0.5">Catatan riwayat perpindahan penugasan paket antar akun PPK aktif</p>
             </div>
             <span class="text-xs font-bold text-slate-400 font-mono">{{ $riwayatPenugasan->count() }} Transaksi</span>
         </div>
@@ -693,8 +693,8 @@
         @endif
     </div>
 
-    {{-- 6. Interactive Modal: Split Jenis Pengadaan (FR 7.2) --}}
-    <x-modal id="modal-split-jenis" title="Pemecahan Jenis Pengadaan (Split Jenis)" subtitle="Memecah usulan pengadaan disetujui berdasarkan jenis (Barang / Jasa / Konstruksi) - FR 7.2" maxWidth="2xl">
+    {{-- 6. Interactive Modal: Split Jenis Pengadaan --}}
+    <x-modal id="modal-split-jenis" title="Pemecahan Jenis Pengadaan (Split Jenis)" subtitle="Memecah usulan pengadaan disetujui berdasarkan jenis (Barang / Jasa / Konstruksi)" maxWidth="2xl">
         <form action="{{ route('paket.split-jenis') }}" method="POST" class="space-y-4">
             @csrf
 
@@ -765,8 +765,8 @@
         </form>
     </x-modal>
 
-    {{-- 7. Interactive Modal: Alih Tugas Penugasan PPK (FR 13) --}}
-    <x-modal id="modal-reassign-ppk" title="Alih Tugas Penugasan PPK" subtitle="Pengalihan berkas paket pengadaan ke akun PPK baru dengan pencatatan audit - FR 13" maxWidth="lg">
+    {{-- 7. Interactive Modal: Alih Tugas Penugasan PPK --}}
+    <x-modal id="modal-reassign-ppk" title="Alih Tugas Penugasan PPK" subtitle="Pengalihan berkas paket pengadaan ke akun PPK baru dengan pencatatan audit" maxWidth="lg">
         <form action="{{ route('paket.reassign-ppk') }}" method="POST" class="space-y-4">
             @csrf
 
@@ -796,7 +796,7 @@
                         </option>
                     @endforeach
                 </select>
-                <p class="text-[11px] text-slate-400 mt-1">Hanya 4 akun PPK aktif yang berwenang menerima pendelegasian paket (NFR 4).</p>
+                <p class="text-[11px] text-slate-400 mt-1">Hanya akun PPK aktif yang berwenang menerima pendelegasian paket.</p>
             </div>
 
             <div>
@@ -818,7 +818,7 @@
     </x-modal>
 
     {{-- 8. Modal Belanja Langsung <= 50jt (PPBJ) --}}
-    <x-modal id="modal-belanja-langsung" title="Eksekusi Belanja Langsung (&le; Rp 50 Juta)" subtitle="Pencatatan pembelian langsung dengan output Kwitansi sah (tanpa SPK/Kontrak) - FR 7.1" maxWidth="lg">
+    <x-modal id="modal-belanja-langsung" title="Eksekusi Belanja Langsung (&le; Rp 50 Juta)" subtitle="Pencatatan pembelian langsung dengan output Kwitansi sah (tanpa SPK/Kontrak)" maxWidth="lg">
         <form action="{{ route('paket.belanja-langsung') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
             @csrf
             <input type="hidden" name="nomor_paket" x-model="selectedPaket">

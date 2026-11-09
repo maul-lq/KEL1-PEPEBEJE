@@ -83,6 +83,7 @@ class PenerimaanBarangController extends Controller
             'kategori_belanja' => ['nullable', 'string', 'in:belanja_barang,belanja_modal'],
             'foto_barang' => ['nullable'],
             'foto_barang.*' => ['nullable', DokumenUploadRule::pdfOrImage()],
+            'keterangan_foto' => ['nullable', 'string', 'max:255'],
             'file_bast_signed' => ['nullable', DokumenUploadRule::pdfOrImage()],
             'file_penerimaan_pihak3' => ['nullable', DokumenUploadRule::pdfOrImage()],
             'catatan_pemeriksaan' => ['nullable', 'string'],
@@ -128,21 +129,25 @@ class PenerimaanBarangController extends Controller
         ]);
 
         // 5. Simpan foto dokumentasi fisik barang (BPMN N46 & N49)
+        $keteranganInput = $validated['keterangan_foto'] ?? null;
         if ($request->hasFile('foto_barang')) {
             $files = is_array($request->file('foto_barang')) ? $request->file('foto_barang') : [$request->file('foto_barang')];
+            $totalFiles = count($files);
             foreach ($files as $idx => $f) {
                 $path = $f->store('dokumentasi_barang', 'public');
                 DokumentasiPenerimaanBarang::create([
                     'id_penerimaan' => $penerimaan->id_penerimaan,
                     'foto_dokumentasi' => $path,
-                    'keterangan_foto' => 'Foto fisik barang #'.($idx + 1),
+                    'keterangan_foto' => $keteranganInput
+                        ? ($keteranganInput.($totalFiles > 1 ? ' (#'.($idx + 1).')' : ''))
+                        : ('Foto fisik barang #'.($idx + 1)),
                 ]);
             }
         } else {
             DokumentasiPenerimaanBarang::create([
                 'id_penerimaan' => $penerimaan->id_penerimaan,
                 'foto_dokumentasi' => 'dokumentasi_barang/item_default.jpg',
-                'keterangan_foto' => 'Foto fisik barang item terlihat',
+                'keterangan_foto' => $keteranganInput ?? 'Foto fisik barang item terlihat',
             ]);
         }
 
@@ -150,7 +155,7 @@ class PenerimaanBarangController extends Controller
         $paket = PaketPengadaan::find($nomorPaket);
         $isTerima = in_array($kondisi, ['terima', 'diterima_lengkap', 'sesuai'], true);
         if ($paket) {
-            $paket->status_paket = 'penerimaan_selesai';
+            $paket->status_paket = $isTerima ? 'penerimaan_selesai' : 'penerimaan_pending';
             $paket->save();
         }
 

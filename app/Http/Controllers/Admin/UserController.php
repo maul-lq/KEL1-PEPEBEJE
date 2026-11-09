@@ -146,7 +146,7 @@ class UserController extends Controller
             $existingPP = User::where('role', 'pp')->where('status_aktif', true)->exists();
             if ($existingPP) {
                 throw ValidationException::withMessages([
-                    'role' => 'Batasan sistem: Hanya diizinkan 1 akun Pejabat Pengadaan (PP) aktif di institusi (FR 2.1).',
+                    'role' => 'Batasan sistem: Hanya diizinkan 1 akun Pejabat Pengadaan (PP) aktif di institusi.',
                 ]);
             }
         }
@@ -239,7 +239,7 @@ class UserController extends Controller
                 ->exists();
             if ($existingPP) {
                 throw ValidationException::withMessages([
-                    'role' => 'Batasan sistem: Hanya diizinkan 1 akun Pejabat Pengadaan (PP) aktif di institusi (FR 2.1).',
+                    'role' => 'Batasan sistem: Hanya diizinkan 1 akun Pejabat Pengadaan (PP) aktif di institusi.',
                 ]);
             }
         }

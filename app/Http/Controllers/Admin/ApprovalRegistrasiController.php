@@ -92,7 +92,7 @@ class ApprovalRegistrasiController extends Controller
 
             if ($existingActivePP) {
                 throw ValidationException::withMessages([
-                    'role' => 'Batasan institusi: Hanya diizinkan 1 akun Pejabat Pengadaan (PP) aktif di institusi (FR 2.1).',
+                    'role' => 'Batasan institusi: Hanya diizinkan 1 akun Pejabat Pengadaan (PP) aktif di institusi.',
                 ]);
             }
         }

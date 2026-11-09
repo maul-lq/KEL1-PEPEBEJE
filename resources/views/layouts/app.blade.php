@@ -646,9 +646,16 @@
                                         <p class="line-clamp-2 text-[14px] sm:text-[15px] font-medium leading-snug {{ !$notif->is_read ? 'text-black' : 'text-[#6e6e6e]' }}">
                                             {{ $notif->judul }}
                                         </p>
-                                        <span class="mt-1 block text-[11px] font-semibold text-[#aaaaaa]">
-                                            {{ $notif->created_at ? $notif->created_at->translatedFormat('d M Y, H:i') : 'Baru saja' }}
-                                        </span>
+                                        <div class="mt-1 flex items-center gap-2 flex-wrap">
+                                            <span class="text-[11px] font-semibold text-[#aaaaaa]">
+                                                {{ $notif->created_at ? $notif->created_at->translatedFormat('d M Y, H:i') : 'Baru saja' }}
+                                            </span>
+                                            @if($notif->reminder?->interval_bulan)
+                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-[#0969da] border border-blue-200">
+                                                    Berkala {{ $notif->reminder->interval_bulan }} bln
+                                                </span>
+                                            @endif
+                                        </div>
                                     </div>
 
                                     <!-- Titik Biru Belum Dibaca (Figma 753:7912) -->

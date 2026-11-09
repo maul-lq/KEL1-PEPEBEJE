@@ -165,7 +165,7 @@ class VerifikasiParalelController extends Controller
             'nomor_memo' => ['nullable', 'string', 'max:100'],
             'file_memo' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,doc,docx', 'max:5120'],
         ], [
-            'catatan_alasan.required_if' => 'Catatan alasan penolakan/revisi wajib diisi saat Wadir 2 menolak atau meminta revisi usulan (FR 5.3).',
+            'catatan_alasan.required_if' => 'Catatan alasan penolakan/revisi wajib diisi saat Wadir 2 menolak atau meminta revisi usulan.',
         ]);
 
         $permohonan = PermohonanPengadaan::findOrFail($validated['nomor_surat']);
@@ -605,14 +605,14 @@ class VerifikasiParalelController extends Controller
                 $permohonan->nomor_surat,
                 $statusLama,
                 PermohonanPengadaan::STATUS_PENDING_ANGGARAN,
-                'Perencanaan menahan (Hold/Pending) usulan karena anggaran belum tersedia (FR 6.2): '.($validated['catatan_anggaran'] ?? 'Anggaran belum siap')
+                'Perencanaan menahan (Hold/Pending) usulan karena anggaran belum tersedia: '.($validated['catatan_anggaran'] ?? 'Anggaran belum siap')
             );
 
             $this->notificationService->notifyAlokasiMak($permohonan, $mak, 'tahan', $validated['catatan_anggaran'] ?? null);
 
             return redirect()->route('verifikasi.perencanaan')->with(
                 'error',
-                "Usulan {$permohonan->nomor_surat} ditandai pending anggaran (Hold) oleh Bagian Perencanaan (FR 6.2)."
+                "Usulan {$permohonan->nomor_surat} ditandai pending anggaran (Hold) oleh Bagian Perencanaan."
             );
         }
 
@@ -877,7 +877,7 @@ class VerifikasiParalelController extends Controller
                         $anak->nomor_surat,
                         $induk->nomor_surat,
                         PermohonanPengadaan::STATUS_REVIU_PARALEL,
-                        "Pemecahan usulan MAK {$item['kode_mak']} (FR 6.3): {$validated['alasan_pemecahan']}"
+                        "Pemecahan usulan MAK {$item['kode_mak']}: {$validated['alasan_pemecahan']}"
                     );
                 }
             });
@@ -958,7 +958,7 @@ class VerifikasiParalelController extends Controller
                 $anak->nomor_surat,
                 $induk->nomor_surat,
                 PermohonanPengadaan::STATUS_REVIU_PARALEL,
-                'Pemecahan usulan permohonan oleh Perencanaan berdasarkan MAK '.$validated['kode_mak'].' (FR 6.3 & NFR 9): '.$validated['alasan_pemecahan']
+                'Pemecahan usulan permohonan oleh Perencanaan berdasarkan MAK '.$validated['kode_mak'].': '.$validated['alasan_pemecahan']
             );
 
             return $anak;
@@ -966,7 +966,7 @@ class VerifikasiParalelController extends Controller
 
         return redirect()->route('verifikasi.perencanaan')->with(
             'success',
-            "Permohonan berhasil dipecah menjadi surat baru {$anak->nomor_surat} dengan alokasi MAK {$validated['kode_mak']} (FR 6.3)."
+            "Permohonan berhasil dipecah menjadi surat baru {$anak->nomor_surat} dengan alokasi MAK {$validated['kode_mak']}."
         );
     }
 }

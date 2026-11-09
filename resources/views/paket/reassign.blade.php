@@ -9,7 +9,7 @@
             <div>
                 <div class="flex items-center gap-2">
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                        Feature 25 &bull; FR 13
+                        Penugasan Pejabat
                     </span>
                 </div>
                 <h1 class="text-xl font-bold text-[#213153] mt-1">Alih Tugas Penugasan PPK</h1>
@@ -59,7 +59,7 @@
                         </option>
                     @endforeach
                 </select>
-                <p class="text-[11px] text-slate-400 mt-1">Sistem mengunci penugasan pada 4 akun PPK aktif untuk menjaga tata kelola dan isolasi berkas (NFR 4).</p>
+                <p class="text-[11px] text-slate-400 mt-1">Sistem mengunci penugasan pada akun PPK aktif untuk menjaga tata kelola dan isolasi berkas.</p>
             </div>
 
             <div>

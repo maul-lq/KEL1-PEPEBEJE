@@ -178,6 +178,11 @@
                         <dd class="font-bold text-[#213153]">
                             {{ $paket->ppkUser->nama ?? ($paket->jalur_routing === 'langsung_sd_50jt' ? '(Pengadaan Langsung PPBJ)' : 'Belum Ditugaskan') }}
                         </dd>
+                        @if($paket->alasan_pengalihan_ppk)
+                            <div class="mt-1 text-[11px] text-amber-700 bg-amber-50 rounded-md p-1.5 border border-amber-200">
+                                <span class="font-bold">Alasan Alih Tugas:</span> {{ $paket->alasan_pengalihan_ppk }}
+                            </div>
+                        @endif
                     </div>
                 </dl>
             </div>

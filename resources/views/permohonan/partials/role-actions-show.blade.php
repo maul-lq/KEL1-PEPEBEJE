@@ -91,7 +91,7 @@
         <div>
             <label class="{{ $label }}">Catatan / Alasan Keputusan Wadir 2</label>
             <textarea name="catatan_alasan" rows="3" placeholder="Isi arahan disposisi, catatan efisiensi, atau alasan jika menolak/minta revisi..." class="{{ $field }}"></textarea>
-            <p class="mt-1 text-[11px] text-slate-400">Wajib diisi jika menolak atau meminta revisi usulan (FR 5.3).</p>
+            <p class="mt-1 text-[11px] text-slate-400">Wajib diisi jika menolak atau meminta revisi usulan.</p>
         </div>
 
         <div class="flex flex-wrap items-center justify-end gap-2">

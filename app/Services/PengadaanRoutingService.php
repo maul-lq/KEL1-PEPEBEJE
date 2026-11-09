@@ -43,7 +43,6 @@ class PengadaanRoutingService
             ],
             [
                 'waktu_trigger' => now(),
-                'is_recurring' => false,
                 'interval_bulan' => null,
                 'judul_alert' => 'Belanja Langsung Selesai: '.$paket->nama_paket,
                 'pesan_alert' => 'Belanja Langsung (Kwitansi '.($paket->nomor_kwitansi_belanja ?? '-').') senilai Rp '.number_format($nominal, 0, ',', '.').' telah dieksekusi oleh PPBJ tanpa Kontrak/SPK. Menunggu pemeriksaan fisik dan BAST Perlengkapan.',
@@ -77,7 +76,6 @@ class PengadaanRoutingService
                 ],
                 [
                     'waktu_trigger' => $jadwalCarbon->copy()->startOfDay(),
-                    'is_recurring' => false,
                     'interval_bulan' => null,
                     'judul_alert' => 'Jadwal Pengiriman Belanja Langsung: '.$paket->nama_paket,
                     'pesan_alert' => 'Target kedatangan barang Belanja Langsung pada '.$jadwalCarbon->format('d M Y').'.',
@@ -91,7 +89,6 @@ class PengadaanRoutingService
                 ],
                 [
                     'waktu_trigger' => $jadwalCarbon->copy()->subDays(2)->startOfDay(),
-                    'is_recurring' => false,
                     'interval_bulan' => null,
                     'judul_alert' => 'H-2 Pengiriman Belanja Langsung: '.$paket->nama_paket,
                     'pesan_alert' => 'Memasuki H-2 target kedatangan barang Belanja Langsung ('.$jadwalCarbon->format('d M Y').').',
@@ -116,7 +113,6 @@ class PengadaanRoutingService
             ],
             [
                 'waktu_trigger' => now(),
-                'is_recurring' => false,
                 'interval_bulan' => null,
                 'judul_alert' => 'Tembusan SPK: '.$paket->nama_paket,
                 'pesan_alert' => 'Tembusan SPK nomor '.($spk?->nomor_spk ?? '-').' dengan nilai kontrak Rp '.number_format($nominal, 0, ',', '.').' untuk persiapan penerimaan barang dan pencatatan komitmen anggaran.',
@@ -160,7 +156,6 @@ class PengadaanRoutingService
                 ],
                 [
                     'waktu_trigger' => $jadwalCarbon->copy()->startOfDay(),
-                    'is_recurring' => in_array($spk?->sifat_kontrak, ['termin_bulanan', 'kontrak_tahunan']),
                     'interval_bulan' => ($spk?->sifat_kontrak === 'termin_bulanan') ? 1 : null,
                     'judul_alert' => 'Jadwal Pengiriman Barang: '.$paket->nama_paket,
                     'pesan_alert' => 'Tanggal target pengiriman barang oleh penyedia adalah '.$jadwalCarbon->format('d M Y').'.',
@@ -174,7 +169,6 @@ class PengadaanRoutingService
                 ],
                 [
                     'waktu_trigger' => $jadwalCarbon->copy()->subDays(2)->startOfDay(),
-                    'is_recurring' => false,
                     'interval_bulan' => null,
                     'judul_alert' => 'H-2 Pengiriman Barang: '.$paket->nama_paket,
                     'pesan_alert' => 'Pengadaan memasuki H-2 batas waktu pengiriman barang ('.$jadwalCarbon->format('d M Y').'). Mohon koordinasi dengan vendor.',

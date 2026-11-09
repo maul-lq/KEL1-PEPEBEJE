@@ -152,29 +152,18 @@ class PembayaranController extends Controller
             'nominal_pengajuan' => ['required', 'numeric', 'min:1'],
             'tanggal_pengajuan' => ['required', 'date'],
             'jatuh_tempo' => ['nullable', 'date'],
-            'nomor_memo' => ['nullable', 'string', 'max:100'],
             'nomor_kwitansi' => ['nullable', 'string', 'max:100'],
             'file_kwitansi' => ['nullable', DokumenUploadRule::pdfOrImage()],
             'nomor_invoice' => ['nullable', 'string', 'max:100'],
             'file_invoice' => ['nullable', DokumenUploadRule::pdfOrImage()],
-            'file_tagihan_vendor' => ['nullable', DokumenUploadRule::pdfOrImage()],
             'file_dokumen_penunjang' => ['nullable', DokumenUploadRule::pdfOrImage()],
-            'file_memo' => ['nullable', DokumenUploadRule::pdfOnly()],
         ]);
 
         $paket = PaketPengadaan::findOrFail($validated['nomor_paket']);
 
-        $tagihanPath = $request->hasFile('file_tagihan_vendor')
-            ? $request->file('file_tagihan_vendor')->store('tagihan', 'public')
-            : 'tagihan/invoice_dummy.pdf';
-
         $penunjangPath = $request->hasFile('file_dokumen_penunjang')
             ? $request->file('file_dokumen_penunjang')->store('penunjang', 'public')
             : 'penunjang/resume_kontrak.pdf';
-
-        $memoPath = $request->hasFile('file_memo')
-            ? $request->file('file_memo')->store('memo', 'public')
-            : 'memo/memo_pembayaran.pdf';
 
         $kwitansiPath = $request->hasFile('file_kwitansi')
             ? $request->file('file_kwitansi')->store('kwitansi', 'public')
@@ -182,7 +171,7 @@ class PembayaranController extends Controller
 
         $invoicePath = $request->hasFile('file_invoice')
             ? $request->file('file_invoice')->store('invoice', 'public')
-            : $tagihanPath;
+            : 'tagihan/invoice_dummy.pdf';
 
         $nomorKwitansi = $validated['nomor_kwitansi']
             ?? $paket->nomor_kwitansi_belanja
@@ -204,16 +193,13 @@ class PembayaranController extends Controller
             'file_kwitansi' => $kwitansiPath,
             'nomor_invoice' => $nomorInvoice,
             'file_invoice' => $invoicePath,
-            'file_tagihan_vendor' => $tagihanPath,
             'file_dokumen_penunjang' => $penunjangPath,
-            'nomor_memo' => $validated['nomor_memo'] ?? 'MEMO/BHP/'.date('Ymd'),
-            'file_memo' => $memoPath,
         ]);
 
         $paket->status_paket = 'pengajuan_pembayaran';
         $paket->save();
 
-        // Bentuk memo bertingkat: Level 1 (PPK) & Level 2 (Wadir II)
+        // Bentuk memo persetujuan: PPK & Wadir II
         $defaultPpk = User::where('role', 'ppk')
             ->orWhereHas('roleEntity.permissions', fn ($q) => $q->where('nama_permission', 'pembayaran.memo_ppk'))
             ->first();
@@ -222,7 +208,6 @@ class PembayaranController extends Controller
             'id_user' => $ppkUserId,
             'nomor_pembayaran' => $pembayaran->nomor_pembayaran,
             'role_approver' => 'ppk',
-            'urutan_level' => 1,
             'status_memo' => 'menunggu',
         ]);
 
@@ -233,7 +218,6 @@ class PembayaranController extends Controller
             'id_user' => $wadir?->id_user,
             'nomor_pembayaran' => $pembayaran->nomor_pembayaran,
             'role_approver' => 'wadir_2',
-            'urutan_level' => 2,
             'status_memo' => 'menunggu',
         ]);
 
@@ -270,10 +254,6 @@ class PembayaranController extends Controller
             'file_dokumen_perikatan' => ['nullable', DokumenUploadRule::pdfOrImage()],
             'file_kwitansi' => ['nullable', DokumenUploadRule::pdfOrImage()],
             'file_invoice' => ['nullable', DokumenUploadRule::pdfOrImage()],
-            'file_memo' => ['nullable', DokumenUploadRule::pdfOnly()],
-            'nomor_rekening_tujuan' => ['nullable', 'string', 'max:100'],
-            'nama_bank_tujuan' => ['nullable', 'string', 'max:100'],
-            'nama_penerima_tujuan' => ['nullable', 'string', 'max:150'],
             'catatan_perbaikan_ppbj' => ['nullable', 'string'],
         ]);
 
@@ -286,9 +266,6 @@ class PembayaranController extends Controller
         if ($request->hasFile('file_invoice')) {
             $pembayaran->file_invoice = $request->file('file_invoice')->store('invoice_pembayaran', 'public');
         }
-        if ($request->hasFile('file_memo')) {
-            $pembayaran->file_memo = $request->file('file_memo')->store('memo_pembayaran', 'public');
-        }
 
         if ($request->filled('nomor_surat_pesanan')) {
             $pembayaran->nomor_surat_pesanan = $validated['nomor_surat_pesanan'];
@@ -298,15 +275,6 @@ class PembayaranController extends Controller
         }
         if ($request->filled('nomor_invoice')) {
             $pembayaran->nomor_invoice = $validated['nomor_invoice'];
-        }
-        if ($request->filled('nomor_rekening_tujuan')) {
-            $pembayaran->nomor_rekening_tujuan = $validated['nomor_rekening_tujuan'];
-        }
-        if ($request->filled('nama_bank_tujuan')) {
-            $pembayaran->nama_bank_tujuan = $validated['nama_bank_tujuan'];
-        }
-        if ($request->filled('nama_penerima_tujuan')) {
-            $pembayaran->nama_penerima_tujuan = $validated['nama_penerima_tujuan'];
         }
 
         $pembayaran->status_pembayaran = 'reviu_memo';
@@ -443,9 +411,6 @@ class PembayaranController extends Controller
             'file_spp' => ['nullable', DokumenUploadRule::pdfOrImage()],
             'file_legalitas_vendor' => ['nullable', DokumenUploadRule::pdfOrImage()],
             'npwp_vendor' => ['nullable', 'string', 'max:50'],
-            'nama_bank' => ['nullable', 'string', 'max:100'],
-            'nomor_rekening' => ['nullable', 'string', 'max:50'],
-            'atas_nama' => ['nullable', 'string', 'max:150'],
         ]);
 
         $pembayaran = Pembayaran::where('nomor_pembayaran', $validated['nomor_pembayaran'])->firstOrFail();
@@ -467,21 +432,10 @@ class PembayaranController extends Controller
             if ($request->filled('npwp_vendor')) {
                 $vendor->npwp = $validated['npwp_vendor'];
             }
-            if ($request->filled('nama_bank')) {
-                $vendor->nama_bank = $validated['nama_bank'];
-            }
-            if ($request->filled('nomor_rekening')) {
-                $vendor->nomor_rekening = $validated['nomor_rekening'];
-            }
-            if ($request->filled('atas_nama')) {
-                $vendor->atas_nama = $validated['atas_nama'];
-            }
             $vendor->save();
         }
 
-        $pembayaran->id_user_reviu = $user->id_user;
         $pembayaran->tanggal_perintah_bayar = now();
-        $pembayaran->status_reviu_akhir = 'disetujui';
         $pembayaran->catatan_reviu_akhir = $validated['catatan_reviu_akhir'] ?? 'Dokumen pembayaran dan legalitas vendor lengkap dan sah';
         $pembayaran->status_pembayaran = 'perintah_bayar';
         $pembayaran->save();
@@ -535,7 +489,7 @@ class PembayaranController extends Controller
 
         $alreadyDisbursed = TransaksiPencairan::where('nomor_pembayaran', $pembayaran->nomor_pembayaran)->exists();
         if ($alreadyDisbursed || $pembayaran->status_pembayaran === 'lunas') {
-            return back()->withErrors(['nomor_pembayaran' => 'Tagihan pembayaran ini sudah dicairkan sebelumnya dan berstatus Lunas (NFR 8).']);
+            return back()->withErrors(['nomor_pembayaran' => 'Tagihan pembayaran ini sudah dicairkan sebelumnya dan berstatus Lunas.']);
         }
 
         $filePath = $request->file('file_bukti_transfer')->store('transfer', 'public');

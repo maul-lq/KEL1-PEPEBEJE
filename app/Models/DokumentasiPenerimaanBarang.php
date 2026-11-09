@@ -40,19 +40,16 @@ class DokumentasiPenerimaanBarang extends Model
         'id_penerimaan',
         'foto_dokumentasi',
         'keterangan_foto',
-        'uploaded_at',
     ];
 
     /**
-     * Konfigurasi type casting atribut waktu unggah foto.
+     * Konfigurasi type casting atribut.
      *
      * @return array<string, string>
      */
     protected function casts(): array
     {
-        return [
-            'uploaded_at' => 'datetime',
-        ];
+        return [];
     }
 
     /**

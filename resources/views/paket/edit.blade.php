@@ -124,7 +124,6 @@
                             <span class="size-6 rounded-lg bg-blue-50 text-[#0969da] flex items-center justify-center text-xs font-bold">1</span>
                             Informasi Paket &amp; Penetapan Ulang HPS
                         </h2>
-                        <span class="text-xs text-slate-400 font-mono">FR 7.1</span>
                     </div>
 
                     {{-- Nama Paket --}}

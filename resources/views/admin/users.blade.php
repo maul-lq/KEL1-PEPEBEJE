@@ -391,7 +391,7 @@
                             @foreach($availableRoles as $r)
                                 <option value="{{ $r->nama_role }}" {{ old('role') == $r->nama_role ? 'selected' : '' }}>
                                     {{ $r->label ?? ucfirst(str_replace('_', ' ', $r->nama_role)) }}
-                                    @if($r->nama_role === 'pp') (Maksimal 1 akun aktif - FR 2.1) @endif
+                                    @if($r->nama_role === 'pp') (Maksimal 1 akun aktif) @endif
                                 </option>
                             @endforeach
                         </select>
@@ -505,7 +505,7 @@
                             @foreach($availableRoles as $r)
                                 <option value="{{ $r->nama_role }}">
                                     {{ $r->label ?? ucfirst(str_replace('_', ' ', $r->nama_role)) }}
-                                    @if($r->nama_role === 'pp') (Maksimal 1 akun aktif - FR 2.1) @endif
+                                    @if($r->nama_role === 'pp') (Maksimal 1 akun aktif) @endif
                                 </option>
                             @endforeach
                         </select>
