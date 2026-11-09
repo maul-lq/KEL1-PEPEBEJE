@@ -533,7 +533,7 @@
                                                     <span class="px-2 py-1 rounded-lg bg-teal-50 border border-teal-200 text-[11px] font-bold text-teal-800">
                                                         Kwitansi Sah
                                                     </span>
-                                                @elseif(in_array($pkt->status_paket, [\App\Models\PaketPengadaan::STATUS_MENUNGGU_APPROVAL_PPK, 'terdaftar']))
+                                                @elseif($pkt->status_paket === \App\Models\PaketPengadaan::STATUS_MENUNGGU_APPROVAL_PPK)
                                                     <span class="px-2 py-1 rounded-lg bg-amber-50 border border-amber-200 text-[11px] font-bold text-amber-800" title="Menunggu persetujuan dokumen pengadaan oleh PPK (BPMN N30-N35)">
                                                         Menunggu ACC PPK
                                                     </span>
