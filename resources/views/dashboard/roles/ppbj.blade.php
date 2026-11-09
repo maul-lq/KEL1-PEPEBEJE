@@ -100,6 +100,48 @@
                     </div>
                 @endforelse
             </div>
+
+            {{-- Antrean BAST Masuk Siap Dokumen Pembayaran (BPMN N51 & N53) --}}
+            @if(!empty($roleData['bast_siap_bayar']) && $roleData['bast_siap_bayar']->isNotEmpty())
+                <div class="space-y-3 pt-4 border-t border-slate-200">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span class="size-2 rounded-full bg-emerald-600 animate-pulse"></span>
+                            <h3 class="text-sm font-bold text-[#213153]">BAST Masuk Siap Dokumen Bayar</h3>
+                        </div>
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono">
+                            {{ $roleData['bast_siap_bayar']->count() }} Paket
+                        </span>
+                    </div>
+
+                    <div class="space-y-2.5">
+                        @foreach($roleData['bast_siap_bayar'] as $bast)
+                            <div class="p-3.5 rounded-xl bg-emerald-50/40 border border-emerald-200 shadow-xs hover:border-emerald-300 transition-colors space-y-2">
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="min-w-0 flex-1">
+                                        <div class="flex items-center gap-1.5">
+                                            <span class="font-mono text-[11px] font-bold text-[#0969da]">{{ $bast->nomor_bast }}</span>
+                                            <span class="text-[10px] text-slate-400 font-mono">&bull; Paket: {{ $bast->nomor_paket }}</span>
+                                        </div>
+                                        <p class="text-[11px] font-medium text-slate-700 mt-0.5 line-clamp-1" title="{{ $bast->paket?->nama_paket }}">
+                                            {{ $bast->paket?->nama_paket ?? '-' }}
+                                        </p>
+                                    </div>
+                                    <x-status-badge status="bast_terbit" text="BAST Sah" size="xs" />
+                                </div>
+                                <div class="pt-2 border-t border-emerald-100 flex items-center justify-between text-xs">
+                                    <span class="font-bold text-emerald-800">
+                                        Rp {{ number_format((float) ($bast->paket?->nominal_harga_akhir ?: ($bast->paket?->nilai_hps ?: 0)), 0, ',', '.') }}
+                                    </span>
+                                    <a href="{{ route('pembayaran.index', ['nomor_paket' => $bast->nomor_paket]) }}" class="px-2.5 py-1 rounded-lg text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 shadow-xs transition-colors">
+                                        Dokumen Bayar &rarr;
+                                    </a>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
         </div>
 
         {{-- KOLOM KANAN (7 Cols): Tabel Monitoring Paket & Jalur Routing --}}

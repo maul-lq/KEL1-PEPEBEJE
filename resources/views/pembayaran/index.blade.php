@@ -87,97 +87,202 @@
                 Tidak ada paket pengadaan dengan BAST selesai yang siap diajukan pembayaran saat ini.
             </div>
         @else
-            <form action="{{ route('pembayaran.pengajuan') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
-                @csrf
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label for="nomor_paket_fe" class="block text-xs font-bold text-slate-700 mb-1">Pilih Paket Pengadaan (BAST Selesai) <span class="text-rose-500">*</span></label>
-                        <select id="nomor_paket_fe" name="nomor_paket" required class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
-                            <option value="">-- Pilih Paket Hasil Penerimaan Barang --</option>
-                            @foreach($bastSiapBayar as $b)
-                                <option value="{{ $b->nomor_paket }}">
-                                    [{{ $b->nomor_bast }}] Paket: {{ $b->nomor_paket }} &bull; Tgl: {{ $b->tanggal_penerimaan ? \Carbon\Carbon::parse($b->tanggal_penerimaan)->format('d/m/Y') : '-' }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
+            @php
+                $bastJsonData = $bastSiapBayar->mapWithKeys(function($b) {
+                    $pkt = $b->paket;
+                    $vendorName = $pkt?->vendor?->nama_vendor ?? ($pkt?->kontrakSpk?->vendor?->nama_vendor ?? '-');
+                    return [$b->nomor_paket => [
+                        'nomor_paket' => $b->nomor_paket,
+                        'nama_paket' => $pkt?->nama_paket ?? '-',
+                        'nomor_bast' => $b->nomor_bast,
+                        'tanggal_penerimaan' => $b->tanggal_penerimaan ? \Carbon\Carbon::parse($b->tanggal_penerimaan)->format('d/m/Y') : '-',
+                        'file_bast_signed' => $b->file_bast_signed ? asset('storage/' . $b->file_bast_signed) : null,
+                        'foto_dokumentasi' => $b->fotoDokumentasi->map(fn($f) => asset('storage/' . ($f->foto_dokumentasi ?? $f->file_foto)))->all(),
+                        'nominal' => (float)($pkt?->nominal_harga_akhir ?: ($pkt?->nilai_hps ?: 0)),
+                        'nomor_kwitansi' => $pkt?->nomor_kwitansi_belanja ?: '',
+                        'file_kwitansi' => $pkt?->file_kwitansi_belanja ? asset('storage/' . $pkt->file_kwitansi_belanja) : null,
+                        'vendor_nama' => $vendorName,
+                    ]];
+                });
+            @endphp
 
-                    <div>
-                        <label for="nomor_pembayaran_fe" class="block text-xs font-bold text-slate-700 mb-1">Nomor Pengajuan SPP <span class="text-rose-500">*</span></label>
-                        <input type="text" id="nomor_pembayaran_fe" name="nomor_pembayaran" value="SPP/PNJ/{{ date('Y') }}/{{ rand(100, 999) }}" required class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 font-mono focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div>
-                        <label for="tahap_termin_fe" class="block text-xs font-bold text-slate-700 mb-1">Tahap Pembayaran / Termin <span class="text-rose-500">*</span></label>
-                        <input type="number" id="tahap_termin_fe" name="tahap_termin" value="1" min="1" max="12" required class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 font-mono focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
-                    </div>
-
-                    <div>
-                        <label for="nominal_pengajuan_fe" class="block text-xs font-bold text-slate-700 mb-1">Nominal Tagihan (Rp) <span class="text-rose-500">*</span></label>
-                        <div class="relative">
-                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-xs font-bold text-slate-400 pointer-events-none">Rp</span>
-                            <input type="number" id="nominal_pengajuan_fe" name="nominal_pengajuan" step="0.01" min="1" required placeholder="Contoh: 150000000" class="w-full h-11 rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-xs font-mono font-bold text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
-                        </div>
-                    </div>
-
-                    <div>
-                        <label for="jatuh_tempo_fe" class="block text-xs font-bold text-slate-700 mb-1">Batas Jatuh Tempo Termin <span class="text-rose-500">*</span></label>
-                        <input type="date" id="jatuh_tempo_fe" name="jatuh_tempo" value="{{ date('Y-m-d', strtotime('+30 days')) }}" required class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
-                    </div>
-                </div>
-
-                <div>
-                    <label for="nomor_memo_fe" class="block text-xs font-bold text-slate-700 mb-1">Nomor Memo Pembayaran Internal</label>
-                    <input type="text" id="nomor_memo_fe" name="nomor_memo" value="MEMO/BHP/{{ date('Y') }}/{{ rand(10, 99) }}" class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 font-mono focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
-                </div>
-
-                {{-- Kelengkapan Berkas Tagihan Resmi (Kwitansi & Invoice) --}}
-                <div class="rounded-xl border border-blue-100 bg-blue-50/40 p-4 space-y-4">
-                    <h4 class="text-xs font-bold text-[#213153] uppercase tracking-wider flex items-center gap-1.5">
-                        <svg class="size-4 text-[#0969da]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                        Informasi Dokumen Pembayaran (Kwitansi &amp; Invoice Tagihan Rekanan)
-                    </h4>
+            <div x-data="{
+                selectedPaket: '{{ request('nomor_paket', '') }}',
+                bastMap: {{ Js::from($bastJsonData) }},
+                nominal: '',
+                nomorKwitansi: '',
+                hasExistingKwitansi: false,
+                existingKwitansiUrl: '',
+                hasExistingBast: false,
+                existingBastUrl: '',
+                fotoList: [],
+                onPaketChange() {
+                    const data = this.bastMap[this.selectedPaket];
+                    if (data) {
+                        this.nominal = data.nominal || '';
+                        this.nomorKwitansi = data.nomor_kwitansi || '{{ 'KWT/PNJ/' . date('Y') . '/' . rand(100, 999) }}';
+                        this.hasExistingKwitansi = !!data.file_kwitansi;
+                        this.existingKwitansiUrl = data.file_kwitansi || '';
+                        this.hasExistingBast = !!data.file_bast_signed;
+                        this.existingBastUrl = data.file_bast_signed || '';
+                        this.fotoList = data.foto_dokumentasi || [];
+                    } else {
+                        this.nominal = '';
+                        this.nomorKwitansi = '';
+                        this.hasExistingKwitansi = false;
+                        this.existingKwitansiUrl = '';
+                        this.hasExistingBast = false;
+                        this.existingBastUrl = '';
+                        this.fotoList = [];
+                    }
+                },
+                init() {
+                    if (this.selectedPaket && this.bastMap[this.selectedPaket]) {
+                        this.onPaketChange();
+                    }
+                }
+            }">
+                <form action="{{ route('pembayaran.pengajuan') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+                    @csrf
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label for="nomor_kwitansi" class="block text-xs font-bold text-slate-700 mb-1">Nomor Kwitansi Pembayaran</label>
-                            <input type="text" id="nomor_kwitansi" name="nomor_kwitansi" value="KWT/PNJ/{{ date('Y') }}/{{ rand(100, 999) }}" class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-mono text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20" />
+                            <label for="nomor_paket_fe" class="block text-xs font-bold text-slate-700 mb-1">Pilih Paket Pengadaan (BAST Selesai) <span class="text-rose-500">*</span></label>
+                            <select id="nomor_paket_fe" name="nomor_paket" x-model="selectedPaket" @change="onPaketChange()" required class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
+                                <option value="">-- Pilih Paket Hasil Penerimaan Barang --</option>
+                                @foreach($bastSiapBayar as $b)
+                                    <option value="{{ $b->nomor_paket }}">
+                                        [{{ $b->nomor_bast }}] {{ $b->paket?->nama_paket ?? $b->nomor_paket }} &bull; Rp {{ number_format((float)($b->paket?->nominal_harga_akhir ?: ($b->paket?->nilai_hps ?: 0)), 0, ',', '.') }}
+                                    </option>
+                                @endforeach
+                            </select>
                         </div>
+
                         <div>
-                            <label for="file_kwitansi" class="block text-xs font-bold text-slate-700 mb-1">Unggah Berkas Kwitansi (PDF/Gambar)</label>
-                            <input type="file" id="file_kwitansi" name="file_kwitansi" accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da]" />
+                            <label for="nomor_pembayaran_fe" class="block text-xs font-bold text-slate-700 mb-1">Nomor Pengajuan SPP <span class="text-rose-500">*</span></label>
+                            <input type="text" id="nomor_pembayaran_fe" name="nomor_pembayaran" value="SPP/PNJ/{{ date('Y') }}/{{ rand(100, 999) }}" required class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 font-mono focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
                         </div>
+                    </div>
+
+                    {{-- Pratinjau Dokumen BAST & Dokumentasi Barang dari Perlengkapan (BPMN N51 & N52) --}}
+                    <div x-show="selectedPaket && bastMap[selectedPaket]" x-cloak class="p-4 rounded-xl border border-emerald-200 bg-emerald-50/50 space-y-2.5">
+                        <div class="flex items-center justify-between text-xs font-bold text-emerald-950">
+                            <span class="flex items-center gap-1.5">
+                                <svg class="size-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                <span>Penerimaan Fisik Barang &amp; BAST Terverifikasi (BPMN N51)</span>
+                            </span>
+                            <template x-if="hasExistingBast">
+                                <a :href="existingBastUrl" target="_blank" class="text-[#0969da] hover:underline font-bold inline-flex items-center gap-1">
+                                    <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                    <span>Buka Dokumen BAST Resmi &rarr;</span>
+                                </a>
+                            </template>
+                        </div>
+                        <div class="text-[11px] text-emerald-900 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            <div>Nomor BAST: <span class="font-mono font-bold" x-text="bastMap[selectedPaket]?.nomor_bast"></span></div>
+                            <div>Tanggal BAST: <span class="font-medium" x-text="bastMap[selectedPaket]?.tanggal_penerimaan"></span></div>
+                            <div>Penyedia: <span class="font-bold" x-text="bastMap[selectedPaket]?.vendor_nama"></span></div>
+                        </div>
+                        <template x-if="fotoList.length > 0">
+                            <div class="pt-2 border-t border-emerald-100">
+                                <span class="text-[10px] font-bold text-emerald-900 block mb-1">Dokumentasi Foto Fisik Barang (Unit Perlengkapan):</span>
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <template x-for="(foto, idx) in fotoList" :key="idx">
+                                        <a :href="foto" target="_blank" class="size-10 rounded-lg border border-emerald-200 overflow-hidden hover:opacity-80 transition inline-block shadow-xs">
+                                            <img :src="foto" alt="Dokumentasi Barang" class="size-full object-cover">
+                                        </a>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                        <template x-if="hasExistingKwitansi">
+                            <div class="pt-2 border-t border-emerald-100 text-[11px] text-emerald-900 flex items-center justify-between">
+                                <span>Kwitansi Belanja Langsung Tersimpan: <strong class="font-mono" x-text="bastMap[selectedPaket]?.nomor_kwitansi"></strong></span>
+                                <a :href="existingKwitansiUrl" target="_blank" class="text-[#0969da] hover:underline font-bold inline-flex items-center gap-1">
+                                    <svg class="size-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                    <span>Lihat File Kwitansi Belanja</span>
+                                </a>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div>
-                            <label for="nomor_invoice" class="block text-xs font-bold text-slate-700 mb-1">Nomor Invoice Tagihan Rekanan</label>
-                            <input type="text" id="nomor_invoice" name="nomor_invoice" value="INV/PNJ/{{ date('Y') }}/{{ rand(100, 999) }}" class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-mono text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20" />
+                            <label for="tahap_termin_fe" class="block text-xs font-bold text-slate-700 mb-1">Tahap Pembayaran / Termin <span class="text-rose-500">*</span></label>
+                            <input type="number" id="tahap_termin_fe" name="tahap_termin" value="1" min="1" max="12" required class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 font-mono focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
                         </div>
+
                         <div>
-                            <label for="file_invoice" class="block text-xs font-bold text-slate-700 mb-1">Unggah Berkas Invoice Tagihan (PDF/Gambar)</label>
-                            <input type="file" id="file_invoice" name="file_invoice" accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da]" />
+                            <label for="nominal_pengajuan_fe" class="block text-xs font-bold text-slate-700 mb-1">Nominal Tagihan (Rp) <span class="text-rose-500">*</span></label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-xs font-bold text-slate-400 pointer-events-none">Rp</span>
+                                <input type="number" id="nominal_pengajuan_fe" name="nominal_pengajuan" x-model="nominal" step="0.01" min="1" required placeholder="Contoh: 150000000" class="w-full h-11 rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-xs font-mono font-bold text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="jatuh_tempo_fe" class="block text-xs font-bold text-slate-700 mb-1">Batas Jatuh Tempo Termin <span class="text-rose-500">*</span></label>
+                            <input type="date" id="jatuh_tempo_fe" name="jatuh_tempo" value="{{ date('Y-m-d', strtotime('+30 days')) }}" required class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
                         </div>
                     </div>
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">Invoice Rekanan / Tagihan Tambahan (PDF/Gambar)</label>
-                        <input type="file" name="file_tagihan_vendor" accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da]">
-                    </div>
 
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">Dokumen Penunjang (PDF/Gambar)</label>
-                        <input type="file" name="file_dokumen_penunjang" accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da]">
+                        <label for="nomor_memo_fe" class="block text-xs font-bold text-slate-700 mb-1">Nomor Pengantar Pembayaran Internal</label>
+                        <input type="text" id="nomor_memo_fe" name="nomor_memo" value="MEMO/BHP/{{ date('Y') }}/{{ rand(10, 99) }}" class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 font-mono focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
                     </div>
 
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">Berkas Fisik Memo (PDF)</label>
-                        <input type="file" name="file_memo" accept=".pdf" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da]">
+                    {{-- Kelengkapan Berkas Tagihan Resmi (Kwitansi & Invoice) --}}
+                    <div class="rounded-xl border border-blue-100 bg-blue-50/40 p-4 space-y-4">
+                        <h4 class="text-xs font-bold text-[#213153] uppercase tracking-wider flex items-center gap-1.5">
+                            <svg class="size-4 text-[#0969da]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            Informasi Dokumen Pembayaran (Kwitansi &amp; Invoice Tagihan Rekanan)
+                        </h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="nomor_kwitansi" class="block text-xs font-bold text-slate-700 mb-1">Nomor Kwitansi Pembayaran</label>
+                                <input type="text" id="nomor_kwitansi" name="nomor_kwitansi" x-model="nomorKwitansi" class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-mono text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20" />
+                            </div>
+                            <div>
+                                <label for="file_kwitansi" class="block text-xs font-bold text-slate-700 mb-1">
+                                    Berkas Kwitansi (PDF/Gambar)
+                                    <span x-show="hasExistingKwitansi" class="text-emerald-600 font-normal text-[11px] ml-1">(Telah tersimpan dari belanja langsung)</span>
+                                </label>
+                                <input type="file" id="file_kwitansi" name="file_kwitansi" accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da]" />
+                            </div>
+                            <div>
+                                <label for="nomor_invoice" class="block text-xs font-bold text-slate-700 mb-1">Nomor Invoice Tagihan Rekanan</label>
+                                <input type="text" id="nomor_invoice" name="nomor_invoice" value="INV/PNJ/{{ date('Y') }}/{{ rand(100, 999) }}" class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-mono text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20" />
+                            </div>
+                            <div>
+                                <label for="file_invoice" class="block text-xs font-bold text-slate-700 mb-1">Unggah Berkas Invoice Tagihan (PDF/Gambar)</label>
+                                <input type="file" id="file_invoice" name="file_invoice" accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da]" />
+                            </div>
+                        </div>
                     </div>
-                </div>
 
-                <div class="flex items-center justify-end pt-3 border-t border-slate-100">
-                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-[#0969da] text-xs font-bold text-white hover:bg-blue-700 shadow-sm transition inline-flex items-center gap-1.5">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">Invoice Rekanan / Tagihan Tambahan (PDF/Gambar)</label>
+                            <input type="file" name="file_tagihan_vendor" accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da]">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">Dokumen Penunjang (PDF/Gambar)</label>
+                            <input type="file" name="file_dokumen_penunjang" accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da]">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">Berkas Fisik Memo (PDF)</label>
+                            <input type="file" name="file_memo" accept=".pdf" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da]">
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-end pt-3 border-t border-slate-100">
+                        <button type="submit" class="px-5 py-2.5 rounded-xl bg-[#0969da] text-xs font-bold text-white hover:bg-blue-700 shadow-sm transition inline-flex items-center gap-1.5">
+                            <span>Kirim Dokumen Pembayaran ke Wadir II &amp; PPK (BPMN N55 Paralel) &rarr;</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
                         Kirim Berkas Pengajuan ke PPK &amp; Wadir II &rarr;
                     </button>
                 </div>
@@ -401,85 +506,160 @@
                 Tidak ada berkas yang telah disetujui memo-nya secara lengkap untuk penerbitan SPP.
             </div>
         @else
-            <div class="overflow-x-auto">
-                <table class="w-full text-left text-xs border-collapse">
-                    <thead>
-                        <tr class="bg-slate-50 border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                            <th class="px-4 py-3">Nomor SPP</th>
-                            <th class="px-4 py-3">Paket Pengadaan</th>
-                            <th class="px-4 py-3">Penyedia Vendor</th>
-                            <th class="px-4 py-3">Memo Disposisi (Wadir II &amp; PPK)</th>
-                            <th class="px-4 py-3">Nominal Tagihan</th>
-                            <th class="px-4 py-3">Pengesahan &amp; Teruskan ke Keuangan</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100">
-                        @foreach($siapTerbitkanSpp as $s)
-                            @php
-                                $memoWadir = $s->memoBayar->firstWhere('role_approver', 'wadir_2');
-                                $memoPpk = $s->memoBayar->firstWhere('role_approver', 'ppk');
-                            @endphp
-                            <tr class="hover:bg-slate-50/50">
-                                <td class="px-4 py-3 font-mono font-bold text-[#0969da]">{{ $s->nomor_pembayaran }}</td>
-                                <td class="px-4 py-3">
-                                    <div class="font-mono text-slate-800">{{ $s->nomor_paket }}</div>
-                                    <div class="text-[11px] text-slate-500 line-clamp-1">{{ $s->paket->nama_paket ?? '-' }}</div>
-                                </td>
-                                <td class="px-4 py-3">{{ $s->paket->kontrak->vendor->nama_vendor ?? ($s->paket->vendor->nama_vendor ?? '-') }}</td>
-                                <td class="px-4 py-3">
-                                    <div class="space-y-1.5">
-                                        {{-- Memo Wadir 2 (Level 1) --}}
-                                        <div class="p-1.5 rounded-lg bg-purple-50/60 border border-purple-100 text-[11px]">
-                                            <div class="flex items-center justify-between gap-1 font-bold text-purple-900">
-                                                <span>1. Wadir II:</span>
-                                                <span class="font-mono text-[10px] text-purple-700">{{ $memoWadir?->nomor_memo ?: 'Telah ACC' }}</span>
-                                            </div>
-                                            @if(!empty($memoWadir?->file_memo))
-                                                <a href="{{ asset('storage/' . $memoWadir->file_memo) }}" target="_blank" class="inline-flex items-center gap-1 font-bold text-[#0969da] hover:underline text-[10px] mt-0.5">
-                                                    <svg class="size-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                                                    <span>Berkas Fisik Memo Wadir</span>
-                                                </a>
-                                            @endif
-                                        </div>
+            <div class="space-y-6">
+                @foreach($siapTerbitkanSpp as $s)
+                    @php
+                        $memoWadir = $s->memoBayar->firstWhere('role_approver', 'wadir_2');
+                        $memoPpk = $s->memoBayar->firstWhere('role_approver', 'ppk');
+                        $sVendor = $s->paket->kontrakSpk->vendor ?? ($s->paket->kontrak->vendor ?? ($s->paket->vendor ?? null));
+                        $bastS = $s->paket->penerimaanBarang->first();
+                    @endphp
+                    <div class="rounded-xl border border-indigo-200 bg-indigo-50/20 p-5 shadow-xs space-y-5">
+                        {{-- Ringkasan Paket & Verifikasi Memo (BPMN N65) --}}
+                        <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4 border-b border-indigo-100 pb-4">
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200 font-mono">
+                                        {{ $s->nomor_pembayaran }}
+                                    </span>
+                                    <span class="text-xs font-mono text-slate-600">{{ $s->nomor_paket }}</span>
+                                </div>
+                                <h3 class="text-sm font-bold text-[#213153] mt-1">{{ $s->paket->nama_paket ?? '-' }}</h3>
+                                <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 mt-1">
+                                    <span>Penyedia: <strong class="text-slate-700">{{ $sVendor->nama_perusahaan ?? ($sVendor->nama_vendor ?? 'Penyedia Rekanan') }}</strong></span>
+                                    @if($bastS)
+                                        <span>BAST: <strong class="text-emerald-700 font-mono">{{ $bastS->nomor_bast }}</strong></span>
+                                    @endif
+                                </div>
+                            </div>
+                            <div class="text-left md:text-right">
+                                <span class="text-[11px] text-slate-400 block">Nominal Tagihan SPP</span>
+                                <span class="text-lg font-mono font-bold text-emerald-600">Rp {{ number_format($s->nominal_pengajuan, 0, ',', '.') }}</span>
+                            </div>
+                        </div>
 
-                                        {{-- Memo PPK (Level 2) --}}
-                                        <div class="p-1.5 rounded-lg bg-blue-50/60 border border-blue-100 text-[11px]">
-                                            <div class="flex items-center justify-between gap-1 font-bold text-blue-900">
-                                                <span>2. PPK:</span>
-                                                <span class="font-mono text-[10px] text-blue-700">{{ $memoPpk?->nomor_memo ?: 'Telah ACC' }}</span>
-                                            </div>
-                                            @if(!empty($memoPpk?->file_memo))
-                                                <a href="{{ asset('storage/' . $memoPpk->file_memo) }}" target="_blank" class="inline-flex items-center gap-1 font-bold text-[#0969da] hover:underline text-[10px] mt-0.5">
-                                                    <svg class="size-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                                                    <span>Berkas Fisik Memo PPK</span>
-                                                </a>
-                                            @endif
+                        {{-- Tinjauan 2 Berkas Memo Fisik yang Telah Disetujui (BPMN N65) --}}
+                        <div class="bg-white rounded-xl p-4 border border-slate-200/80 space-y-2">
+                            <h4 class="text-xs font-bold text-[#213153] flex items-center gap-1.5 uppercase tracking-wider">
+                                <svg class="size-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                <span>Tinjauan Naskah Memo Persetujuan Diterima (BPMN N65: Wadir II &amp; PPK)</span>
+                            </h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                                {{-- Memo Wadir 2 --}}
+                                <div class="p-3 rounded-lg bg-purple-50/60 border border-purple-100 flex items-center justify-between gap-2">
+                                    <div>
+                                        <div class="text-xs font-bold text-purple-900 flex items-center gap-1">
+                                            <span>1. Memo Wadir II:</span>
+                                            <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-semibold">Telah Disetujui</span>
                                         </div>
+                                        <div class="text-[11px] font-mono text-purple-700 mt-0.5">{{ $memoWadir?->nomor_memo ?: 'Memo/Wadir2/Disetujui' }}</div>
+                                        @if(!empty($memoWadir?->catatan_reviu))
+                                            <div class="text-[10px] text-slate-500 italic mt-0.5">"{{ $memoWadir->catatan_reviu }}"</div>
+                                        @endif
                                     </div>
-                                </td>
-                                <td class="px-4 py-3 font-mono font-bold text-emerald-600">Rp {{ number_format($s->nominal_pengajuan, 0, ',', '.') }}</td>
-                                <td class="px-4 py-3">
-                                    <form action="{{ route('pembayaran.terbitkan-spp') }}" method="POST" enctype="multipart/form-data" class="flex flex-wrap items-center gap-2">
-                                        @csrf
-                                        <input type="hidden" name="nomor_pembayaran" value="{{ $s->nomor_pembayaran }}">
-                                        <input type="text" name="catatan_reviu_akhir" placeholder="Catatan reviu akhir..." class="h-8 rounded-lg border border-slate-200 bg-white px-2 text-[11px] w-36">
-                                        <div class="flex flex-col">
-                                            <span class="text-[9px] text-slate-400 font-bold">Berkas SPP (.pdf):</span>
-                                            <input type="file" name="file_spp" accept=".pdf" class="text-[10px] w-32">
+                                    @if(!empty($memoWadir?->file_memo))
+                                        <a href="{{ asset('storage/' . $memoWadir->file_memo) }}" target="_blank" class="px-2.5 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-bold inline-flex items-center gap-1 shrink-0 transition">
+                                            <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                            <span>Unduh Memo Wadir</span>
+                                        </a>
+                                    @else
+                                        <span class="text-[10px] text-slate-400 italic">Disetujui digital</span>
+                                    @endif
+                                </div>
+
+                                {{-- Memo PPK --}}
+                                <div class="p-3 rounded-lg bg-blue-50/60 border border-blue-100 flex items-center justify-between gap-2">
+                                    <div>
+                                        <div class="text-xs font-bold text-blue-900 flex items-center gap-1">
+                                            <span>2. Memo PPK:</span>
+                                            <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-semibold">Telah Disetujui</span>
                                         </div>
-                                        <div class="flex flex-col">
-                                            <span class="text-[9px] text-slate-400 font-bold">Legalitas Vendor (NIB/NPWP):</span>
-                                            <input type="file" name="file_legalitas_vendor" accept=".pdf,image/*" class="text-[10px] w-32">
-                                        </div>
-                                        <button type="submit" class="h-8 px-3 rounded-lg bg-indigo-600 text-[11px] font-bold text-white hover:bg-indigo-700 transition shrink-0 mt-3">
-                                            Terbitkan SPP &rarr;
-                                        </button>
-                                    </form>
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+                                        <div class="text-[11px] font-mono text-blue-700 mt-0.5">{{ $memoPpk?->nomor_memo ?: 'Memo/PPK/Disetujui' }}</div>
+                                        @if(!empty($memoPpk?->catatan_reviu))
+                                            <div class="text-[10px] text-slate-500 italic mt-0.5">"{{ $memoPpk->catatan_reviu }}"</div>
+                                        @endif
+                                    </div>
+                                    @if(!empty($memoPpk?->file_memo))
+                                        <a href="{{ asset('storage/' . $memoPpk->file_memo) }}" target="_blank" class="px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold inline-flex items-center gap-1 shrink-0 transition">
+                                            <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                            <span>Unduh Memo PPK</span>
+                                        </a>
+                                    @else
+                                        <span class="text-[10px] text-slate-400 italic">Disetujui digital</span>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Form Terpadu Input Legalitas Vendor (BPMN N69) & Penerbitan SPP (BPMN N71) --}}
+                        <form action="{{ route('pembayaran.terbitkan-spp') }}" method="POST" enctype="multipart/form-data" class="bg-white rounded-xl p-5 border border-slate-200/80 space-y-4">
+                            @csrf
+                            <input type="hidden" name="nomor_pembayaran" value="{{ $s->nomor_pembayaran }}">
+
+                            <div class="border-b border-slate-100 pb-2">
+                                <h4 class="text-xs font-bold text-[#213153] flex items-center gap-1.5 uppercase tracking-wider">
+                                    <svg class="size-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                                    <span>Form Kelengkapan Legalitas Vendor (BPMN N69) &amp; Berkas SPP (BPMN N71)</span>
+                                </h4>
+                                <p class="text-[11px] text-slate-500 mt-0.5">Periksa dan mutakhirkan data identitas perbankan serta berkas legalitas rekanan sebelum paket diserahkan ke Bagian Keuangan.</p>
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                                <div>
+                                    <label class="block text-[11px] font-bold text-slate-700 mb-1">NPWP Penyedia Rekanan</label>
+                                    <input type="text" name="npwp_vendor" value="{{ old('npwp_vendor', $sVendor->npwp ?? '') }}" placeholder="Contoh: 01.234.567.8-012.000" class="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-mono focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Bank Penampung Rekanan</label>
+                                    <input type="text" name="nama_bank" value="{{ old('nama_bank', $sVendor->nama_bank ?? 'Bank Mandiri') }}" placeholder="Contoh: Bank Mandiri / BRI / BNI" class="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Nomor Rekening</label>
+                                    <input type="text" name="nomor_rekening" value="{{ old('nomor_rekening', $sVendor->nomor_rekening ?? '') }}" placeholder="Nomor rekening aktif" class="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-mono focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Atas Nama Rekening</label>
+                                    <input type="text" name="atas_nama" value="{{ old('atas_nama', $sVendor->atas_nama ?? ($sVendor->nama_perusahaan ?? ($sVendor->nama_vendor ?? ''))) }}" placeholder="Nama pemilik rekening" class="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                                <div>
+                                    <label class="block text-[11px] font-bold text-slate-700 mb-1">
+                                        Unggah Dokumen Legalitas Rekanan (N69: NIB / NPWP / SIUP)
+                                    </label>
+                                    <div class="space-y-1">
+                                        <input type="file" name="file_legalitas_vendor" accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                                        @if(!empty($sVendor?->file_dokumen_legalitas))
+                                            <div class="text-[10px] text-slate-500">
+                                                Berkas saat ini: <a href="{{ asset('storage/' . $sVendor->file_dokumen_legalitas) }}" target="_blank" class="text-indigo-600 font-bold hover:underline">Lihat Dokumen Legalitas Tersimpan</a>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="block text-[11px] font-bold text-slate-700 mb-1">
+                                        Unggah Berkas Naskah SPP Resmi (.pdf) <span class="text-slate-400 font-normal">(Opsional)</span>
+                                    </label>
+                                    <input type="file" name="file_spp" accept=".pdf" class="w-full text-xs text-slate-600 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-700 mb-1">Catatan Reviu Akhir PPBJ (Opsional)</label>
+                                <input type="text" name="catatan_reviu_akhir" placeholder="Catatan reviu kelengkapan berkas untuk Bagian Keuangan..." class="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+                            </div>
+
+                            <div class="flex items-center justify-end pt-2 border-t border-slate-100">
+                                <button type="submit" class="px-5 py-2.5 rounded-xl bg-indigo-600 text-xs font-bold text-white hover:bg-indigo-700 shadow-sm transition inline-flex items-center gap-2 cursor-pointer">
+                                    <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+                                    <span>Sahkan SPP &amp; Kirim Paket ke Bagian Keuangan (BPMN N71 &rarr; N59)</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                @endforeach
             </div>
         @endif
     </div>
@@ -709,8 +889,8 @@
                     </div>
 
                     <div>
-                        <label for="file_bukti_transfer" class="block text-xs font-bold text-slate-700 mb-1">Unggah Slip Bukti Transfer Bank / SP2D (PDF/JPG, Maks 10MB) <span class="text-slate-400 font-normal">(BPMN N66: Input Bukti Pembayaran)</span></label>
-                        <input type="file" id="file_bukti_transfer" name="file_bukti_transfer" accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-100 file:text-emerald-800">
+                        <label for="file_bukti_transfer" class="block text-xs font-bold text-slate-700 mb-1">Unggah Slip Bukti Transfer Bank / SP2D (PDF/JPG, Maks 10MB) <span class="text-rose-500">*</span> <span class="text-slate-400 font-normal">(BPMN N66: Input Bukti Pembayaran)</span></label>
+                        <input type="file" id="file_bukti_transfer" name="file_bukti_transfer" required accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-100 file:text-emerald-800">
                     </div>
 
                     <div>

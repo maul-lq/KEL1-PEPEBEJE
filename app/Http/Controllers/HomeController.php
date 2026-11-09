@@ -253,7 +253,14 @@ class HomeController extends Controller
                     'pp_siap_belanja' => PaketPengadaan::where('jalur_routing', PaketPengadaan::ROUTING_PP)
                         ->whereIn('status_paket', [PaketPengadaan::STATUS_DISETUJUI_PPK_SIAP_BELANJA_PP, 'reviu_dokumen_disetujui'])
                         ->count(),
+                    'bast_siap_bayar_count' => PenerimaanBarang::where('status_fisik', 'terima')->whereDoesntHave('paket.pembayaran')->count(),
                 ],
+                'bast_siap_bayar' => PenerimaanBarang::with(['paket.vendor', 'paket.permohonan.unit', 'fotoDokumentasi'])
+                    ->where('status_fisik', 'terima')
+                    ->whereDoesntHave('paket.pembayaran')
+                    ->latest('tanggal_penerimaan')
+                    ->take(5)
+                    ->get(),
                 'siap_paket' => PermohonanPengadaan::with('unit')
                     ->where('status_permohonan', 'disetujui')
                     ->whereDoesntHave('paketPengadaan')
@@ -3190,7 +3197,7 @@ class HomeController extends Controller
             $penerimaan->nomor_bast,
             null,
             $penerimaan->status_fisik,
-            "Unit Perlengkapan menerbitkan BAST {$penerimaan->nomor_bast} paket {$nomorPaket} dan mengirimkan dokumentasi ke PPBJ (BPMN N48 - N50)."
+            "Unit Perlengkapan menerbitkan BAST {$penerimaan->nomor_bast} paket {$nomorPaket} dan mengirimkan dokumentasi ke PPBJ."
         );
 
         // Memicu notifikasi pengiriman BAST & dokumentasi ke PPBJ (BPMN N50 -> N51)
@@ -3200,7 +3207,7 @@ class HomeController extends Controller
 
         return redirect()->route('penerimaan.index')->with(
             'success',
-            "Berita Acara Serah Terima (BAST) nomor {$penerimaan->nomor_bast} dan foto dokumentasi berhasil diterbitkan & dikirim ke PPBJ (BPMN N48 - N50)."
+            "Berita Acara Serah Terima (BAST) nomor {$penerimaan->nomor_bast} dan foto dokumentasi berhasil diterbitkan & dikirim ke PPBJ."
         );
     }
 
@@ -3211,12 +3218,12 @@ class HomeController extends Controller
     /**
      * Menampilkan antrean dan riwayat alur pembayaran bertingkat beserta Informasi Dokumen Pembayaran.
      */
-    public function pembayaranIndex(): View
+    public function pembayaranIndex(Request $request): View
     {
         $user = Auth::user();
 
         // 1. Paket dengan BAST selesai yang siap diajukan berkas pembayaran oleh PPBJ (BPMN N51 -> N52)
-        $bastSiapBayar = PenerimaanBarang::with(['paket.kontrakSpk', 'paket.kontrak', 'fotoDokumentasi'])
+        $bastSiapBayar = PenerimaanBarang::with(['paket.kontrakSpk.vendor', 'paket.kontrak.vendor', 'paket.vendor', 'paket.permohonan.unit', 'fotoDokumentasi'])
             ->where('status_fisik', 'terima')
             ->whereDoesntHave('paket.pembayaran')
             ->latest('tanggal_penerimaan')
@@ -3227,7 +3234,7 @@ class HomeController extends Controller
             ->latest('tanggal_pengajuan')
             ->paginate(15);
 
-        // 3. Disposisi memo menunggu persetujuan (Wadir II Level 1 & PPK Level 2 - FR 16 & BPMN N55/N54)
+        // 3. Disposisi memo menunggu persetujuan (Wadir II & PPK Paralel - BPMN N55 -> N56 & N57)
         $memoMenungguReview = collect();
         if ($user) {
             if ($user->hasRole('admin')) {
@@ -3244,19 +3251,14 @@ class HomeController extends Controller
                         ->where(function ($query) use ($canWadir, $canPpk, $user) {
                             if ($canWadir) {
                                 $query->orWhere(function ($sub) {
-                                    $sub->where('role_approver', 'wadir_2')
-                                        ->where('urutan_level', 1);
+                                    $sub->where('role_approver', 'wadir_2');
                                 });
                             }
                             if ($canPpk) {
                                 $query->orWhere(function ($sub) use ($user) {
                                     $sub->where('role_approver', 'ppk')
-                                        ->where('urutan_level', 2)
                                         ->where(function ($idQ) use ($user) {
                                             $idQ->where('id_user', $user->id_user)->orWhereNull('id_user');
-                                        })
-                                        ->whereHas('pembayaran.memoBayar', function ($parentQ) {
-                                            $parentQ->where('role_approver', 'wadir_2')->where('status_memo', 'disetujui');
                                         });
                                 });
                             }
@@ -3390,26 +3392,26 @@ class HomeController extends Controller
         $paket->status_paket = 'pengajuan_pembayaran';
         $paket->save();
 
-        // Bentuk memo bertingkat: Level 1 (Wadir II) & Level 2 (PPK) (BPMN Pembayaran)
-        $wadir = User::where('role', 'wadir_2')
-            ->orWhereHas('roleEntity.permissions', fn ($q) => $q->where('nama_permission', 'pembayaran.memo_wadir2'))
-            ->first();
-        $memoLevel1 = MemoBayar::create([
-            'id_user' => $wadir?->id_user,
-            'nomor_pembayaran' => $pembayaran->nomor_pembayaran,
-            'role_approver' => 'wadir_2',
-            'urutan_level' => 1,
-            'status_memo' => 'menunggu',
-        ]);
-
+        // Bentuk memo bertingkat: Level 1 (PPK) & Level 2 (Wadir II) (BPMN Pembayaran)
         $defaultPpk = User::where('role', 'ppk')
             ->orWhereHas('roleEntity.permissions', fn ($q) => $q->where('nama_permission', 'pembayaran.memo_ppk'))
             ->first();
         $ppkUserId = $paket->id_user_ppk ?? $paket->permohonan?->id_user_ppk_awal ?? $defaultPpk?->id_user ?? $user->id_user;
-        MemoBayar::create([
+        $memoLevel1 = MemoBayar::create([
             'id_user' => $ppkUserId,
             'nomor_pembayaran' => $pembayaran->nomor_pembayaran,
             'role_approver' => 'ppk',
+            'urutan_level' => 1,
+            'status_memo' => 'menunggu',
+        ]);
+
+        $wadir = User::where('role', 'wadir_2')
+            ->orWhereHas('roleEntity.permissions', fn ($q) => $q->where('nama_permission', 'pembayaran.memo_wadir2'))
+            ->first();
+        $memoLevel2 = MemoBayar::create([
+            'id_user' => $wadir?->id_user,
+            'nomor_pembayaran' => $pembayaran->nomor_pembayaran,
+            'role_approver' => 'wadir_2',
             'urutan_level' => 2,
             'status_memo' => 'menunggu',
         ]);
@@ -3424,12 +3426,12 @@ class HomeController extends Controller
             "PPBJ mengajukan berkas pembayaran {$pembayaran->nomor_pembayaran} (Kwitansi: {$nomorKwitansi}, Invoice: {$nomorInvoice}) termin {$pembayaran->tahap_termin} Rp ".number_format($pembayaran->nominal_pengajuan)
         );
 
-        // Memicu notifikasi pengajuan memo bayar ke Wadir II (Level 1)
-        $this->notificationService->notifyPengajuanBayar($pembayaran, $memoLevel1);
+        // Memicu notifikasi pengajuan memo bayar ke Wadir II dan PPK secara paralel (BPMN N55 -> N56 & N57)
+        $this->notificationService->notifyPengajuanBayar($pembayaran, $memoLevel1, $memoLevel2);
 
         return redirect()->route('pembayaran.index')->with(
             'success',
-            "Berkas pembayaran {$pembayaran->nomor_pembayaran} lengkap dengan Kwitansi & Invoice berhasil diajukan ke Wakil Direktur II (Level 1) serta PPK (Level 2) untuk peninjauan memo bertingkat."
+            "Berkas dokumen pembayaran {$pembayaran->nomor_pembayaran} berhasil diajukan secara paralel ke Wakil Direktur II dan Pejabat Pembuat Komitmen (PPK) untuk penerbitan memo persetujuan."
         );
     }
 
@@ -3491,12 +3493,14 @@ class HomeController extends Controller
         $pembayaran->catatan_reviu_akhir = 'Diperbaiki oleh PPBJ: '.($validated['catatan_perbaikan_ppbj'] ?? 'Dokumen pembayaran dan bukti perikatan telah disesuaikan.');
         $pembayaran->save();
 
-        // Reset Memo Bayar Wadir 2 (Level 1) & PPK (Level 2) menjadi status 'menunggu' untuk penelaahan ulang
+        // Reset HANYA memo bayar yang sebelumnya berstatus 'ditolak' (pihak yang sudah ACC tetap dipertahankan)
         foreach ($pembayaran->memoBayar as $memo) {
-            $memo->status_memo = 'menunggu';
-            $memo->tanggal_acc = null;
-            $memo->catatan_memo = null;
-            $memo->save();
+            if ($memo->status_memo === 'ditolak') {
+                $memo->status_memo = 'menunggu';
+                $memo->tanggal_acc = null;
+                $memo->catatan_memo = null;
+                $memo->save();
+            }
         }
 
         AuditLog::catat(
@@ -3506,17 +3510,16 @@ class HomeController extends Controller
             $pembayaran->nomor_pembayaran,
             'ditolak',
             'reviu_memo',
-            "PPBJ mengajukan ulang berkas pembayaran {$pembayaran->nomor_pembayaran} ke Wadir II (Level 1) & PPK (Level 2) [BPMN N52/N56]"
+            "PPBJ mengajukan ulang berkas pembayaran {$pembayaran->nomor_pembayaran} ke Wadir II / PPK terkait yang meminta perbaikan (BPMN N53 -> N56)"
         );
 
-        $memoLevel1 = $pembayaran->memoBayar->where('urutan_level', 1)->first();
-        if ($memoLevel1) {
-            $this->notificationService->notifyPengajuanBayar($pembayaran, $memoLevel1);
-        }
+        $memoLevel1 = $pembayaran->memoBayar->where('role_approver', 'wadir_2')->first();
+        $memoLevel2 = $pembayaran->memoBayar->where('role_approver', 'ppk')->first();
+        $this->notificationService->notifyPengajuanBayar($pembayaran, $memoLevel1, $memoLevel2);
 
         return redirect()->route('pembayaran.index')->with(
             'success',
-            "Berkas pembayaran {$pembayaran->nomor_pembayaran} berhasil diperbaiki dan diteruskan kembali ke Wadir II & PPK (BPMN N56)."
+            "Berkas dokumen pembayaran {$pembayaran->nomor_pembayaran} berhasil diperbaiki dan diteruskan kembali untuk penelaahan memo."
         );
     }
 
@@ -3557,15 +3560,14 @@ class HomeController extends Controller
             abort(403, 'Akses Ditolak: Anda hanya berhak menyetujui memo pada paket yang ditugaskan kepada Anda.');
         }
 
-        // Aturan berjenjang: Level 2 (PPK) hanya bisa di-ACC jika Level 1 (Wadir 2) sudah disetujui
-        if ($memo->urutan_level === 2 && $validated['status_memo'] === 'disetujui') {
-            $level1Disetujui = MemoBayar::where('nomor_pembayaran', $memo->nomor_pembayaran)
-                ->where('urutan_level', 1)
-                ->where('status_memo', 'disetujui')
-                ->exists();
-            if (! $level1Disetujui) {
-                return back()->withErrors(['status_memo' => 'Persetujuan Level 2 (PPK) hanya dapat disahkan setelah Level 1 (Wadir II) disetujui terlebih dahulu.']);
-            }
+        // Validasi wajib upload naskah memo fisik jika menyetujui
+        if ($validated['status_memo'] === 'disetujui' && ! $request->hasFile('file_memo') && empty($memo->file_memo)) {
+            return back()->withErrors(['file_memo' => 'Wajib mengunggah berkas naskah memo persetujuan pembayaran (PDF/Gambar).'])->withInput();
+        }
+
+        // Validasi wajib catatan jika menolak
+        if ($validated['status_memo'] === 'ditolak' && empty($validated['catatan_memo'])) {
+            return back()->withErrors(['catatan_memo' => 'Wajib mencantumkan alasan/catatan penolakan dokumen pembayaran.'])->withInput();
         }
 
         $memo->status_memo = $validated['status_memo'];
@@ -3573,7 +3575,7 @@ class HomeController extends Controller
         if ($request->filled('nomor_memo')) {
             $memo->nomor_memo = $validated['nomor_memo'];
         } elseif ($validated['status_memo'] === 'disetujui' && empty($memo->nomor_memo)) {
-            $memo->nomor_memo = 'MEMO-BAYAR-LVL'.$memo->urutan_level.'/'.date('Ymd').'/'.rand(100, 999);
+            $memo->nomor_memo = 'MEMO-BAYAR-'.strtoupper($memo->role_approver).'/'.date('Ymd').'/'.rand(100, 999);
         }
         if ($request->hasFile('file_memo')) {
             $memo->file_memo = $request->file('file_memo')->store('memo_bayar', 'public');
@@ -3581,14 +3583,12 @@ class HomeController extends Controller
         $memo->tanggal_acc = ($validated['status_memo'] === 'disetujui') ? now() : null;
         $memo->save();
 
-        // Jika ditolak, kembalikan dokumen pembayaran ke PPBJ (BPMN N60/N61 -> Tidak -> N52)
-        if ($validated['status_memo'] === 'ditolak') {
-            $pembayaran = $memo->pembayaran;
-            if ($pembayaran) {
-                $pembayaran->status_pembayaran = 'ditolak';
-                $pembayaran->catatan_reviu_akhir = ($memo->role_approver === 'wadir_2' ? 'Wadir II: ' : 'PPK: ').($validated['catatan_memo'] ?? 'Dokumen pembayaran ditolak pada tahap disposisi memo bayar.');
-                $pembayaran->save();
-            }
+        // Jika ditolak, kembalikan dokumen pembayaran ke PPBJ (BPMN N60/N61 -> Tidak -> N53)
+        $pembayaran = $memo->pembayaran;
+        if ($validated['status_memo'] === 'ditolak' && $pembayaran) {
+            $pembayaran->status_pembayaran = 'ditolak';
+            $pembayaran->catatan_reviu_akhir = ($memo->role_approver === 'wadir_2' ? 'Catatan Wadir II: ' : 'Catatan PPK: ').($validated['catatan_memo'] ?? 'Dokumen pembayaran ditolak pada tahap disposisi memo bayar.');
+            $pembayaran->save();
         }
 
         AuditLog::catat(
@@ -3598,15 +3598,15 @@ class HomeController extends Controller
             (string) $memo->id,
             null,
             $memo->status_memo,
-            "Persetujuan memo pembayaran tingkat {$memo->urutan_level} ({$memo->role_approver}) ditetapkan menjadi {$memo->status_memo}".($memo->nomor_memo ? " [{$memo->nomor_memo}]" : '')
+            "Persetujuan memo pembayaran ({$memo->role_approver}) ditetapkan menjadi {$memo->status_memo}".($memo->nomor_memo ? " [{$memo->nomor_memo}]" : '')
         );
 
-        // Memicu notifikasi alur disposisi memo bayar (ke PPK, PPBJ, atau Pengaju)
+        // Memicu notifikasi alur disposisi memo bayar ke PPBJ dan approver
         $this->notificationService->notifyApproveMemoBayar($memo);
 
         return redirect()->route('pembayaran.index')->with(
             'success',
-            "Memo pembayaran tingkat {$memo->urutan_level} (".($memo->role_approver === 'wadir_2' ? 'Wadir II' : 'PPK').') berhasil di-'.strtoupper($memo->status_memo).'.'
+            'Memo persetujuan pembayaran ('.($memo->role_approver === 'wadir_2' ? 'Wadir II' : 'PPK').') berhasil di-'.strtoupper($memo->status_memo).'.'
         );
     }
 
@@ -3622,11 +3622,15 @@ class HomeController extends Controller
             'catatan_reviu_akhir' => ['nullable', 'string'],
             'file_spp' => ['nullable', DokumenUploadRule::pdfOrImage()],
             'file_legalitas_vendor' => ['nullable', DokumenUploadRule::pdfOrImage()],
+            'npwp_vendor' => ['nullable', 'string', 'max:50'],
+            'nama_bank' => ['nullable', 'string', 'max:100'],
+            'nomor_rekening' => ['nullable', 'string', 'max:50'],
+            'atas_nama' => ['nullable', 'string', 'max:150'],
         ]);
 
         $pembayaran = Pembayaran::where('nomor_pembayaran', $validated['nomor_pembayaran'])->firstOrFail();
 
-        // Validasi seluruh memo harus disetujui lengkap
+        // Validasi seluruh memo harus disetujui lengkap oleh Wadir 2 dan PPK
         $pendingCount = $pembayaran->memoBayar()->where('status_memo', '!=', 'disetujui')->count();
         if ($pendingCount > 0) {
             return back()->withErrors(['nomor_pembayaran' => 'Perintah pembayaran belum dapat diterbitkan karena memo bayar belum disetujui lengkap oleh PPK dan Wadir 2.']);
@@ -3637,20 +3641,31 @@ class HomeController extends Controller
             $pembayaran->file_dokumen_penunjang = $request->file('file_spp')->store('spp', 'public');
         }
 
-        // Simpan kelengkapan legalitas vendor sesuai alur BPMN PPBJ
-        if ($request->hasFile('file_legalitas_vendor')) {
-            $legalitasPath = $request->file('file_legalitas_vendor')->store('vendor_legalitas', 'public');
-            $vendor = $pembayaran->paket?->vendor ?? $pembayaran->paket?->kontrakSpk?->vendor;
-            if ($vendor) {
-                $vendor->file_dokumen_legalitas = $legalitasPath;
-                $vendor->save();
+        // Simpan / perbarui kelengkapan data & legalitas vendor sesuai alur BPMN PPBJ (N69)
+        $vendor = $pembayaran->paket?->vendor ?? $pembayaran->paket?->kontrakSpk?->vendor;
+        if ($vendor) {
+            if ($request->hasFile('file_legalitas_vendor')) {
+                $vendor->file_dokumen_legalitas = $request->file('file_legalitas_vendor')->store('vendor_legalitas', 'public');
             }
+            if ($request->filled('npwp_vendor')) {
+                $vendor->npwp = $validated['npwp_vendor'];
+            }
+            if ($request->filled('nama_bank')) {
+                $vendor->nama_bank = $validated['nama_bank'];
+            }
+            if ($request->filled('nomor_rekening')) {
+                $vendor->nomor_rekening = $validated['nomor_rekening'];
+            }
+            if ($request->filled('atas_nama')) {
+                $vendor->atas_nama = $validated['atas_nama'];
+            }
+            $vendor->save();
         }
 
         $pembayaran->id_user_reviu = $user->id_user;
         $pembayaran->tanggal_perintah_bayar = now();
         $pembayaran->status_reviu_akhir = 'disetujui';
-        $pembayaran->catatan_reviu_akhir = $validated['catatan_reviu_akhir'] ?? 'Dokumen pembayaran lengkap dan sah';
+        $pembayaran->catatan_reviu_akhir = $validated['catatan_reviu_akhir'] ?? 'Dokumen pembayaran dan legalitas vendor lengkap dan sah';
         $pembayaran->status_pembayaran = 'perintah_bayar';
         $pembayaran->save();
 
@@ -3667,15 +3682,15 @@ class HomeController extends Controller
             $pembayaran->nomor_pembayaran,
             'reviu_memo',
             'perintah_bayar',
-            "PPBJ menerbitkan Surat Perintah Pembayaran (SPP) {$pembayaran->nomor_pembayaran} ke Bagian Keuangan"
+            "PPBJ menerbitkan Surat Perintah Pembayaran (SPP) {$pembayaran->nomor_pembayaran} beserta Dokumen Pembayaran dan Legalitas Vendor ke Bagian Keuangan"
         );
 
-        // Memicu notifikasi penerbitan SPP ke Bagian Keuangan
+        // Memicu notifikasi penerbitan SPP ke Bagian Keuangan (BPMN N71 -> N59)
         $this->notificationService->notifyTerbitkanSpp($pembayaran);
 
         return redirect()->route('pembayaran.index')->with(
             'success',
-            "Surat Perintah Pembayaran (SPP) {$pembayaran->nomor_pembayaran} berhasil diterbitkan ke Bagian Keuangan."
+            "Surat Perintah Pembayaran (SPP) {$pembayaran->nomor_pembayaran} beserta Dokumen Pembayaran, Legalitas Vendor, dan Memo Persetujuan berhasil diteruskan ke Bagian Keuangan (BPMN N71)."
         );
     }
 
@@ -3696,7 +3711,7 @@ class HomeController extends Controller
             'tanggal_cair' => ['required', 'date'],
             'nominal_cair' => ['required', 'numeric', 'min:1'],
             'bank_tujuan' => ['required', 'string'],
-            'file_bukti_transfer' => ['nullable', DokumenUploadRule::pdfOrImage()],
+            'file_bukti_transfer' => ['required', DokumenUploadRule::pdfOrImage()],
             'keterangan_cair' => ['nullable', 'string'],
         ]);
 
@@ -3708,9 +3723,7 @@ class HomeController extends Controller
             return back()->withErrors(['nomor_pembayaran' => 'Tagihan pembayaran ini sudah dicairkan sebelumnya dan berstatus Lunas (NFR 8).']);
         }
 
-        $filePath = $request->hasFile('file_bukti_transfer')
-            ? $request->file('file_bukti_transfer')->store('transfer', 'public')
-            : 'transfer/slip_'.time().'.pdf';
+        $filePath = $request->file('file_bukti_transfer')->store('transfer', 'public');
 
         $transaksi = TransaksiPencairan::create([
             'nomor_transaksi_bank' => $validated['nomor_transaksi'],
@@ -3729,15 +3742,15 @@ class HomeController extends Controller
             $transaksi->nomor_transaksi_bank,
             'perintah_bayar',
             'lunas',
-            "Keuangan mencairkan dana SP2D {$transaksi->nomor_transaksi_bank} sebesar Rp ".number_format($transaksi->nominal_transfer).' dan seluruh siklus pengadaan selesai.'
+            "Keuangan mencairkan dana SP2D {$transaksi->nomor_transaksi_bank} sebesar Rp ".number_format($transaksi->nominal_transfer).' dengan bukti transfer sah. Seluruh siklus pengadaan selesai.'
         );
 
-        // Memicu notifikasi penyelesaian pencairan SP2D ke Pengusul dan PPBJ
+        // Memicu notifikasi penutup pencairan SP2D ke seluruh role terkait pengadaan (BPMN N70)
         $this->notificationService->notifyPencairanSp2d($transaksi);
 
         return redirect()->route('pembayaran.index')->with(
             'success',
-            "Pencairan dana SP2D nomor {$transaksi->nomor_transaksi_bank} berhasil diselesaikan. Seluruh siklus pengadaan kini berstatus SELESAI 100%!"
+            "Pencairan dana SP2D nomor {$transaksi->nomor_transaksi_bank} berhasil diselesaikan dengan bukti transfer sah. Seluruh siklus pengadaan kini berstatus SELESAI 100%!"
         );
     }
 

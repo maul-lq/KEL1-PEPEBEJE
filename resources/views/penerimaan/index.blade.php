@@ -244,7 +244,7 @@
                     class="px-6 py-2.5 rounded-xl bg-[#0969da] text-xs font-bold text-white hover:bg-blue-700 shadow-sm transition inline-flex items-center gap-2"
                 >
                     <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
-                    <span>Sahkan BAST &amp; Kirim Dokumentasi ke PPBJ (BPMN N48 &rarr; N50 &rarr; N51)</span>
+                    <span>Sahkan BAST &amp; Kirim Dokumentasi ke PPBJ</span>
                 </button>
             </div>
         </form>

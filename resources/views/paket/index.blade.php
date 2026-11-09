@@ -530,12 +530,40 @@
                                                         Belanja &rarr;
                                                     </button>
                                                 @elseif($pkt->status_paket === \App\Models\PaketPengadaan::STATUS_BELANJA_LANGSUNG_SELESAI)
-                                                    <span class="px-2 py-1 rounded-lg bg-teal-50 border border-teal-200 text-[11px] font-bold text-teal-800">
+                                                    <span class="px-2 py-1 rounded-lg bg-teal-50 border border-teal-200 text-[11px] font-bold text-teal-800" title="Kwitansi sah. Menunggu pemeriksaan barang & BAST oleh Perlengkapan">
                                                         Kwitansi Sah
                                                     </span>
                                                 @elseif($pkt->status_paket === \App\Models\PaketPengadaan::STATUS_MENUNGGU_APPROVAL_PPK)
                                                     <span class="px-2 py-1 rounded-lg bg-amber-50 border border-amber-200 text-[11px] font-bold text-amber-800" title="Menunggu persetujuan dokumen pengadaan oleh PPK (BPMN N30-N35)">
                                                         Menunggu ACC PPK
+                                                    </span>
+                                                @elseif($pkt->status_paket === 'penerimaan_selesai')
+                                                    <a
+                                                        href="{{ route('pembayaran.index', ['nomor_paket' => $pkt->nomor_paket]) }}"
+                                                        class="px-2.5 py-1 rounded-lg bg-[#0969da] text-xs font-semibold text-white hover:bg-blue-700 transition shadow-xs inline-flex items-center gap-1"
+                                                        title="BAST Diterbitkan. Buat Dokumen Pembayaran (BPMN N51 & N53)"
+                                                    >
+                                                        Dokumen Bayar &rarr;
+                                                    </a>
+                                                @elseif(in_array($pkt->status_paket, ['pengajuan_pembayaran', 'reviu_memo']))
+                                                    <a
+                                                        href="{{ route('pembayaran.index') }}"
+                                                        class="px-2 py-1 rounded-lg bg-indigo-50 border border-indigo-200 text-[11px] font-bold text-indigo-700 hover:bg-indigo-100 transition"
+                                                        title="Dokumen pembayaran dalam reviu memo Wadir 2 & PPK"
+                                                    >
+                                                        Reviu Memo &rarr;
+                                                    </a>
+                                                @elseif($pkt->status_paket === 'perintah_bayar')
+                                                    <a
+                                                        href="{{ route('pembayaran.index') }}"
+                                                        class="px-2 py-1 rounded-lg bg-amber-50 border border-amber-200 text-[11px] font-bold text-amber-700 hover:bg-amber-100 transition"
+                                                        title="SPP Terbit. Menunggu pencairan SP2D oleh Keuangan"
+                                                    >
+                                                        Siap Cair &rarr;
+                                                    </a>
+                                                @elseif(in_array($pkt->status_paket, ['lunas', 'selesai']))
+                                                    <span class="px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-[11px] font-bold text-emerald-800">
+                                                        Selesai 100%
                                                     </span>
                                                 @endif
                                             @endif
@@ -556,6 +584,34 @@
                                                 >
                                                     Terbitkan SPK &rarr;
                                                 </a>
+                                            @elseif($pkt->status_paket === 'penerimaan_selesai')
+                                                <a
+                                                    href="{{ route('pembayaran.index', ['nomor_paket' => $pkt->nomor_paket]) }}"
+                                                    class="px-2.5 py-1 rounded-lg bg-[#0969da] text-xs font-semibold text-white hover:bg-blue-700 transition shadow-xs inline-flex items-center gap-1"
+                                                    title="BAST Diterbitkan. Buat Dokumen Pembayaran (BPMN N51 & N53)"
+                                                >
+                                                    Dokumen Bayar &rarr;
+                                                </a>
+                                            @elseif(in_array($pkt->status_paket, ['pengajuan_pembayaran', 'reviu_memo']))
+                                                <a
+                                                    href="{{ route('pembayaran.index') }}"
+                                                    class="px-2 py-1 rounded-lg bg-indigo-50 border border-indigo-200 text-[11px] font-bold text-indigo-700 hover:bg-indigo-100 transition"
+                                                    title="Dokumen pembayaran dalam reviu memo Wadir 2 & PPK"
+                                                >
+                                                    Reviu Memo &rarr;
+                                                </a>
+                                            @elseif($pkt->status_paket === 'perintah_bayar')
+                                                <a
+                                                    href="{{ route('pembayaran.index') }}"
+                                                    class="px-2 py-1 rounded-lg bg-amber-50 border border-amber-200 text-[11px] font-bold text-amber-700 hover:bg-amber-100 transition"
+                                                    title="SPP Terbit. Menunggu pencairan SP2D oleh Keuangan"
+                                                >
+                                                    Siap Cair &rarr;
+                                                </a>
+                                            @elseif(in_array($pkt->status_paket, ['lunas', 'selesai']))
+                                                <span class="px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-[11px] font-bold text-emerald-800">
+                                                    Selesai 100%
+                                                </span>
                                             @else
                                                 <a
                                                     href="{{ route('kontrak.index') }}"

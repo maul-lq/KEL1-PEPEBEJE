@@ -22,10 +22,16 @@
             'surat_pesanan_terbit' => 5,
             'surat_kontrak_terbit' => 5,
             'pengiriman' => 6,
+            'penerimaan_pending' => 6,
             'bast_terbit' => 7,
+            'penerimaan_selesai' => 7,
+            'pengajuan_pembayaran' => 8,
+            'reviu_memo' => 8,
+            'perintah_bayar' => 8,
             'spp_terbit' => 8,
             'pencairan' => 8,
             'sp2d_lunas' => 8,
+            'lunas' => 8,
             'selesai' => 8,
         ];
         $currentStep = $stepMap[$paket->status_paket] ?? 3;

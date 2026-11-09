@@ -439,26 +439,35 @@ class PengadaanNotificationService
      * Event 11: PPBJ Membuat Pengajuan Pembayaran (Memo Bayar Level 1: Wadir II).
      * Notifikasi dikirimkan ke: Wakil Direktur II (Level 1) peninjau awal pembayaran.
      */
-    public function notifyPengajuanBayar(Pembayaran $pembayaran, MemoBayar $memoLevel1): void
+    public function notifyPengajuanBayar(Pembayaran $pembayaran, ?MemoBayar $memoLevel1 = null, ?MemoBayar $memoLevel2 = null): void
     {
         $namaPaket = $pembayaran->paket?->nama_paket ?? 'Pengadaan';
         $nominal = number_format($pembayaran->nominal_pengajuan ?? 0, 0, ',', '.');
 
-        $judul = "Pengajuan Pembayaran Termin {$pembayaran->tahap_termin}: {$pembayaran->nomor_pembayaran}";
-        $pesan = "PPBJ mengajukan pembayaran termin ke-{$pembayaran->tahap_termin} untuk paket '{$namaPaket}' sebesar Rp {$nominal}. Menunggu telaah dan persetujuan Memo Bayar Tingkat 1 (Wadir II).";
+        $judul = "Pengajuan Dokumen Pembayaran: {$pembayaran->nomor_pembayaran}";
+        $pesan = "PPBJ mengajukan dokumen pembayaran termin ke-{$pembayaran->tahap_termin} untuk paket '{$namaPaket}' sebesar Rp {$nominal}. Menunggu telaah dan penerbitan Memo Persetujuan.";
 
-        if ($memoLevel1->id_user) {
-            $this->kirimKeUser($memoLevel1->id_user, $judul, $pesan, 'pembayaran', $pembayaran->nomor_paket);
+        // 1. Notifikasi ke Wadir II
+        $wadirUserId = $memoLevel1?->id_user ?? User::where('role', 'wadir_2')->where('status_aktif', true)->first()?->id_user;
+        if ($wadirUserId) {
+            $this->kirimKeUser($wadirUserId, $judul, $pesan, 'pembayaran', $pembayaran->nomor_paket);
         } else {
             $this->kirimKePeran('wadir_2', $judul, $pesan, 'pembayaran', $pembayaran->nomor_paket);
+        }
+
+        // 2. Notifikasi ke PPK (Paralel)
+        $ppkUserId = $memoLevel2?->id_user ?? $pembayaran->paket?->id_user_ppk ?? $pembayaran->paket?->permohonan?->id_user_ppk_awal;
+        if ($ppkUserId) {
+            $this->kirimKeUser($ppkUserId, $judul, $pesan, 'pembayaran', $pembayaran->nomor_paket);
+        } else {
+            $this->kirimKePeran('ppk', $judul, $pesan, 'pembayaran', $pembayaran->nomor_paket);
         }
     }
 
     /**
-     * Event 12: Persetujuan / Disposisi Memo Bayar Bertingkat.
-     * Jika Level 1 (Wadir 2) Setuju: Notifikasi ke PPK (Level 2).
-     * Jika Level 2 (PPK) Setuju: Notifikasi ke PPBJ bahwa seluruh memo telah di-ACC dan siap terbitkan SPP.
-     * Jika Ditolak: Notifikasi ke PPBJ dan User Pengaju.
+     * Event 12: Persetujuan / Disposisi Memo Bayar Paralel.
+     * Jika kedua memo (Wadir 2 & PPK) telah disetujui: Notifikasi ke PPBJ bahwa memo lengkap dan siap input legalitas vendor & terbitkan SPP.
+     * Jika Ditolak: Notifikasi ke PPBJ untuk perbaikan dokumen pembayaran.
      */
     public function notifyApproveMemoBayar(MemoBayar $memo): void
     {
@@ -467,8 +476,8 @@ class PengadaanNotificationService
 
         if ($memo->status_memo === 'ditolak') {
             $approverLabel = $memo->role_approver === 'wadir_2' ? 'Wakil Direktur II' : 'PPK';
-            $judul = "Memo Pembayaran Ditolak: {$approverLabel}";
-            $pesan = "Memo pembayaran untuk paket '{$namaPaket}' ditolak oleh {$approverLabel}. Alasan: ".($memo->catatan_memo ?: 'Perlu perbaikan berkas tagihan').'.';
+            $judul = "Dokumen Pembayaran Ditolak: {$approverLabel}";
+            $pesan = "Dokumen pembayaran untuk paket '{$namaPaket}' ditolak oleh {$approverLabel}. Alasan: ".($memo->catatan_memo ?: 'Perlu perbaikan berkas tagihan').'. Silakan perbaiki dokumen pembayaran.';
             $this->kirimKePeran('ppbj', $judul, $pesan, 'pembayaran', $pembayaran?->nomor_paket);
 
             $idPengaju = $pembayaran?->id_user_pengaju ?? $pembayaran?->paket?->permohonan?->id_user;
@@ -479,20 +488,19 @@ class PengadaanNotificationService
             return;
         }
 
-        if ($memo->urutan_level === 1) {
-            // Wadir 2 telah ACC (Level 1), teruskan notifikasi ke PPK (Level 2)
-            $judulPpk = "Memo Pembayaran Level 2: {$pembayaran?->nomor_pembayaran}";
-            $pesanPpk = "Wakil Direktur II telah menyetujui memo bayar untuk paket '{$namaPaket}'. Menunggu telaah dan persetujuan akhir (ACC Level 2) oleh PPK.";
-            $ppkId = $pembayaran?->paket?->id_user_ppk ?? $pembayaran?->paket?->permohonan?->id_user_ppk_awal;
-            if ($ppkId) {
-                $this->kirimKeUser($ppkId, $judulPpk, $pesanPpk, 'pembayaran', $pembayaran?->nomor_paket);
-            } else {
-                $this->kirimKePeran('ppk', $judulPpk, $pesanPpk, 'pembayaran', $pembayaran?->nomor_paket);
-            }
-        } elseif ($memo->urutan_level === 2) {
-            // PPK telah ACC (Level 2), beri tahu PPBJ untuk menerbitkan Surat Perintah Pembayaran (SPP)
-            $judulPpbj = "Memo Bayar Disetujui Lengkap: {$pembayaran?->nomor_pembayaran}";
-            $pesanPpbj = "Persetujuan berjenjang Wadir II dan PPK telah lengkap untuk paket '{$namaPaket}'. Silakan terbitkan Surat Perintah Pembayaran (SPP) ke Bagian Keuangan.";
+        // Cek apakah seluruh memo (Wadir 2 dan PPK) telah disetujui lengkap
+        $allApproved = $pembayaran && $pembayaran->memoBayar()->count() >= 2
+            && $pembayaran->memoBayar()->where('status_memo', '!=', 'disetujui')->count() === 0;
+
+        if ($allApproved) {
+            $judulPpbj = "Memo Pembayaran Disetujui Lengkap: {$pembayaran->nomor_pembayaran}";
+            $pesanPpbj = "Seluruh memo persetujuan (Wadir II dan PPK) telah disetujui lengkap beserta naskah fisik untuk paket '{$namaPaket}'. Silakan periksa legalitas vendor dan terbitkan Surat Perintah Pembayaran (SPP) ke Bagian Keuangan.";
+            $this->kirimKePeran('ppbj', $judulPpbj, $pesanPpbj, 'pembayaran', $pembayaran->nomor_paket);
+        } else {
+            // Beri tahu PPBJ progres memo yang baru saja di-ACC
+            $approverLabel = $memo->role_approver === 'wadir_2' ? 'Wakil Direktur II' : 'PPK';
+            $judulPpbj = "Memo {$approverLabel} Disetujui: {$pembayaran?->nomor_pembayaran}";
+            $pesanPpbj = "{$approverLabel} telah menyetujui memo pembayaran untuk paket '{$namaPaket}' (No Memo: {$memo->nomor_memo}). Menunggu persetujuan pihak lainnya.";
             $this->kirimKePeran('ppbj', $judulPpbj, $pesanPpbj, 'pembayaran', $pembayaran?->nomor_paket);
         }
     }
@@ -507,42 +515,75 @@ class PengadaanNotificationService
         $nominal = number_format($pembayaran->nominal_pengajuan ?? 0, 0, ',', '.');
 
         $judul = "Surat Perintah Pembayaran (SPP) Terbit: {$pembayaran->nomor_pembayaran}";
-        $pesan = "PPBJ telah menerbitkan SPP nomor {$pembayaran->nomor_pembayaran} untuk paket '{$namaPaket}' senilai Rp {$nominal}. Menunggu verifikasi berkas dan penerbitan SP2D oleh Bagian Keuangan.";
+        $pesan = "PPBJ telah menerbitkan SPP nomor {$pembayaran->nomor_pembayaran} beserta Dokumen Pembayaran dan Legalitas Vendor untuk paket '{$namaPaket}' senilai Rp {$nominal}. Siap pencairan dana SP2D.";
 
         $this->kirimKePeran('keuangan', $judul, $pesan, 'pembayaran', $pembayaran->nomor_paket);
     }
 
     /**
      * Event 14: Pencairan Dana SP2D oleh Bagian Keuangan (Siklus Selesai).
-     * Notifikasi dikirimkan ke:
-     * 1. Pengusul (User) bahwa dana pengadaan telah cair dan siklus tuntas.
-     * 2. PPBJ bahwa pencairan SP2D telah selesai.
+     * Notifikasi dikirimkan ke aktor yang terlibat langsung pada paket pengadaan ini:
+     * - Pengusul awal (User)
+     * - Koordinator PPBJ pembuat paket
+     * - PPK penanggung jawab paket
+     * - Pejabat Pengadaan (PP) jika ada
+     * - Petugas Perlengkapan penerbit BAST
+     * - Wadir 2, Perencanaan, dan Keuangan
      */
     public function notifyPencairanSp2d(TransaksiPencairan $transaksi): void
     {
         $nomorTransaksi = $transaksi->nomor_transaksi_bank;
         $nominal = number_format($transaksi->nominal_transfer ?? 0, 0, ',', '.');
         $namaPaket = $transaksi->pembayaran?->paket?->nama_paket ?? 'Pengadaan Barang/Jasa';
+        $paket = $transaksi->pembayaran?->paket;
+        $permohonan = $paket?->permohonan;
 
-        // 1. Notifikasi ke Pengusul (User)
-        $idUserPengaju = $transaksi->pembayaran?->paket?->permohonan?->id_user;
-        if ($idUserPengaju) {
-            $judulUser = "Pencairan Dana SP2D Selesai: {$nomorTransaksi}";
-            $pesanUser = "Kabar gembira! Pembayaran untuk usulan '{$namaPaket}' telah resmi dicairkan oleh Bagian Keuangan sebesar Rp {$nominal} (Bukti: {$nomorTransaksi}). Seluruh siklus pengadaan selesai.";
-            $this->kirimKeUser($idUserPengaju, $judulUser, $pesanUser, 'pembayaran', $transaksi->pembayaran?->nomor_paket);
+        $targetUserIds = collect();
+
+        // 1. Pengusul awal usulan pengadaan
+        if ($permohonan?->id_user) {
+            $targetUserIds->push($permohonan->id_user);
         }
 
-        // 2. Notifikasi ke PPBJ
-        $judulPpbj = "Pencairan SP2D Tuntas: {$nomorTransaksi}";
-        $pesanPpbj = "Bagian Keuangan telah menyelesaikan pencairan SP2D nomor {$nomorTransaksi} sebesar Rp {$nominal} untuk paket '{$namaPaket}'.";
-        $this->kirimKePeran('ppbj', $judulPpbj, $pesanPpbj, 'pembayaran', $transaksi->pembayaran?->nomor_paket);
+        // 2. Koordinator PPBJ pembuat paket
+        if ($paket?->id_user_ppbj) {
+            $targetUserIds->push($paket->id_user_ppbj);
+        } else {
+            $targetUserIds = $targetUserIds->merge(User::where('role', 'ppbj')->where('status_aktif', true)->pluck('id_user'));
+        }
 
-        // 3. Notifikasi Untuk Seluruh Role Terkait (Sesuai Node BPMN N70: Mengirim Notifikasi Untuk Seluruh Role)
-        $rolesNotif = ['ppk', 'wadir_2', 'perencanaan', 'perlengkapan', 'staff_bidang_2', 'pp', 'keuangan', 'admin'];
-        $judulAll = "Pencairan SP2D Selesai: {$nomorTransaksi}";
-        $pesanAll = "Bagian Keuangan telah menyelesaikan pembayaran SP2D {$nomorTransaksi} untuk paket '{$namaPaket}' sebesar Rp {$nominal}. Siklus pengadaan selesai.";
-        foreach ($rolesNotif as $roleTarget) {
-            $this->kirimKePeran($roleTarget, $judulAll, $pesanAll, 'pembayaran', $transaksi->pembayaran?->nomor_paket);
+        // 3. PPK yang bertanggung jawab atas paket
+        if ($paket?->id_user_ppk) {
+            $targetUserIds->push($paket->id_user_ppk);
+        } elseif ($permohonan?->id_user_ppk_awal) {
+            $targetUserIds->push($permohonan->id_user_ppk_awal);
+        }
+
+        // 4. Pejabat Pengadaan (PP) jika ada
+        if ($paket?->id_user_pp) {
+            $targetUserIds->push($paket->id_user_pp);
+        }
+
+        // 5. Petugas Perlengkapan penerbit BAST
+        $bastUser = $paket?->penerimaanBarang?->first()?->id_user;
+        if ($bastUser) {
+            $targetUserIds->push($bastUser);
+        } else {
+            $targetUserIds = $targetUserIds->merge(User::where('role', 'perlengkapan')->where('status_aktif', true)->pluck('id_user'));
+        }
+
+        // 6. Wadir 2 & Perencanaan & Keuangan pelaksana
+        $wadir = User::where('role', 'wadir_2')->where('status_aktif', true)->pluck('id_user');
+        $perencanaan = User::where('role', 'perencanaan')->where('status_aktif', true)->pluck('id_user');
+        $keuangan = User::where('role', 'keuangan')->where('status_aktif', true)->pluck('id_user');
+
+        $targetUserIds = $targetUserIds->merge($wadir)->merge($perencanaan)->merge($keuangan)->unique()->filter();
+
+        $judul = "Pencairan Dana SP2D Selesai: {$nomorTransaksi}";
+        $pesan = "Kabar gembira! Pembayaran untuk paket '{$namaPaket}' telah resmi dicairkan oleh Bagian Keuangan sebesar Rp {$nominal} (Nomor Transaksi: {$nomorTransaksi}) dengan bukti transfer sah. Seluruh proses pengadaan dinyatakan SELESAI 100%.";
+
+        foreach ($targetUserIds as $uId) {
+            $this->kirimKeUser($uId, $judul, $pesan, 'pembayaran', $paket?->nomor_paket);
         }
     }
 
