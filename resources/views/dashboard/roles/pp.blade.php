@@ -15,7 +15,7 @@
         />
 
         <x-stat-card
-            title="Antrean Review Dokumen (BPMN N24)"
+            title="Antrean Review Dokumen"
             :value="$stats['paket_negosiasi'] ?? 0"
             color="amber"
             icon="bell"
@@ -25,7 +25,7 @@
 
         <div class="relative">
             <x-stat-card
-                title="Verifikasi Selesai (BPMN N31)"
+                title="Verifikasi Selesai"
                 :value="$stats['paket_spk'] ?? 0"
                 color="blue"
                 icon="document"
@@ -49,7 +49,7 @@
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div class="flex items-center gap-2">
                 <span class="size-2 rounded-full bg-amber-500 animate-pulse"></span>
-                <h2 class="text-lg font-bold text-[#213153]">Antrean Paket Menunggu Review Dokumen Pengadaan (BPMN N24)</h2>
+                <h2 class="text-lg font-bold text-[#213153]">Antrean Paket Menunggu Review Dokumen Pengadaan</h2>
             </div>
             <a href="{{ route('kontrak.index') }}" class="text-xs font-bold text-[#0969da] hover:underline flex items-center gap-1">
                 Buka Ruang Kerja SPK

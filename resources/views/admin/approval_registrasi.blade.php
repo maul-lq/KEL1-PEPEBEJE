@@ -12,7 +12,7 @@
                 <div class="flex items-center gap-2">
                     <span class="text-xs text-slate-400 font-mono">Modul Administrator</span>
                 </div>
-                <h1 class="text-2xl font-bold text-[#213153] mt-1">Persetujuan Registrasi Pengguna Baru</h1>
+                <h1 class="text-2xl font-bold text-primary mt-1">Persetujuan Registrasi Pengguna Baru</h1>
                 <p class="text-xs text-slate-500 mt-0.5">
                     Verifikasi identitas sivitas kampus PNJ, tetapkan hak peran sistem, atau tolak pendaftaran yang tidak memenuhi syarat tata kelola.
                 </p>
@@ -105,7 +105,7 @@
     <div class="rounded-2xl bg-white shadow-sm border border-slate-200/80 overflow-hidden">
         <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
             <div>
-                <h3 class="text-sm font-bold text-[#213153]">Antrean Pendaftar Menunggu Verifikasi Admin</h3>
+                <h3 class="text-sm font-bold text-primary">Antrean Pendaftar Menunggu Verifikasi Admin</h3>
                 <p class="text-xs text-slate-400 mt-0.5">Penetapan peran definitif sistem PBJ PNJ</p>
             </div>
             <span class="text-xs font-bold text-slate-400 font-mono">{{ $pendingUsers->total() }} Antrean</span>

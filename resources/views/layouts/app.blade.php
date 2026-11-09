@@ -295,6 +295,33 @@
             </a>
         @endif
 
+        <!-- 10.B. PPK: Persetujuan Dokumen Pengadaan (BPMN N30-N36) -->
+        @if($isAdmin || $u->hasPermission('reviu.ppk'))
+            @php
+                $ppkPaketCount = \App\Models\PaketPengadaan::where('id_user_ppk', $u->id_user)
+                    ->where('status_paket', \App\Models\PaketPengadaan::STATUS_MENUNGGU_APPROVAL_PPK)
+                    ->count();
+                $aPPKDokumen = request()->routeIs('ppk.persetujuan-dokumen*');
+            @endphp
+            <a href="{{ route('ppk.persetujuan-dokumen.index') }}" 
+               title="Persetujuan Dokumen Pengadaan (BPMN N30-N36)" 
+               class="relative flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aPPKDokumen ? $menuOn : $menuOff }}">
+                <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                </svg>
+                <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Persetujuan Dokumen</span>
+                @if($ppkPaketCount > 0)
+                    <span x-show="!sidebarExpanded" class="absolute top-2 right-2 flex size-2.5">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full size-2.5 bg-teal-400"></span>
+                    </span>
+                    <span x-show="sidebarExpanded" x-cloak class="ml-auto rounded-full bg-teal-400/20 px-2 py-0.5 text-[10px] font-bold text-teal-300">
+                        {{ $ppkPaketCount }}
+                    </span>
+                @endif
+            </a>
+        @endif
+
         <!-- 11. KONTRAK SPK / DOKUMEN PERIKATAN (PPBJ / PPK / PP / Admin) -->
         @if($isAdmin || $u->hasRole(['ppbj', 'ppk', 'pp']) || $u->hasAnyPermission(['spk.create', 'reviu.ppk', 'reviu.pp']))
             @php $aKontrakSPK = request()->routeIs('kontrak.*') && request('tab') !== 'reviu'; @endphp
