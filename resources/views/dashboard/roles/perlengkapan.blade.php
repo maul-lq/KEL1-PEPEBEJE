@@ -6,7 +6,7 @@
     {{-- 1. 4-COLUMN KPI STAT CARDS --}}
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <x-stat-card
-            title="SPK &amp; Kwitansi Masuk (N42)"
+            title="SPK &amp; Kwitansi Masuk"
             :value="$stats['spk_masuk'] ?? 0"
             color="navy"
             icon="document"
@@ -24,7 +24,7 @@
         />
 
         <x-stat-card
-            title="BAST Terkirim ke PPBJ (N50)"
+            title="BAST Terkirim ke PPBJ"
             :value="$stats['total_bast'] ?? 0"
             color="emerald"
             icon="check"
@@ -49,7 +49,7 @@
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
                     <span class="size-2 rounded-full bg-blue-600 animate-pulse"></span>
-                    <h2 class="text-lg font-bold text-[#213153]">Antrean Penerimaan Barang (BPMN N42)</h2>
+                    <h2 class="text-lg font-bold text-[#213153]">Antrean Penerimaan Barang</h2>
                 </div>
                 <a href="{{ route('penerimaan.index') }}" class="text-xs font-bold text-[#0969da] hover:underline flex items-center gap-1">
                     Kelola Semua
@@ -80,7 +80,7 @@
                                 Batas Kirim: <span class="font-bold text-[#213153]">{{ $spkKirim->tanggal_selesai ? date('d M Y', strtotime($spkKirim->tanggal_selesai)) : ($spkKirim->tanggal_spk ? date('d M Y', strtotime($spkKirim->tanggal_spk)) : '-') }}</span>
                             </span>
                             <a href="{{ route('penerimaan.index') }}" class="px-2.5 py-1 rounded-lg text-xs font-bold text-white bg-[#0969da] hover:bg-blue-700 shadow-sm transition-colors">
-                                Input BAST (N48) &rarr;
+                                Input BAST &rarr;
                             </a>
                         </div>
                     </div>
@@ -98,7 +98,7 @@
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
                     <span class="size-2 rounded-full bg-emerald-500"></span>
-                    <h2 class="text-lg font-bold text-[#213153]">BAST Terkirim ke PPBJ (BPMN N50)</h2>
+                    <h2 class="text-lg font-bold text-[#213153]">BAST Terkirim ke PPBJ</h2>
                 </div>
                 <a href="{{ route('penerimaan.index') }}" class="text-xs font-bold text-[#0969da] hover:underline flex items-center gap-1">
                     Arsip BAST

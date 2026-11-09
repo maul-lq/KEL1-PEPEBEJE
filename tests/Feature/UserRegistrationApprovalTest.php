@@ -53,7 +53,6 @@ class UserRegistrationApprovalTest extends TestCase
             'jabatan' => 'Dosen Laboratorium Komputer',
             'kode_unit' => $this->unit->kode_unit,
             'no_hp' => '081234567899',
-            'no_telp_kantor' => '0217270099',
         ];
 
         $response = $this->post(route('register'), $payload);

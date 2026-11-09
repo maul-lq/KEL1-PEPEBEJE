@@ -140,9 +140,6 @@
                                     <div><span class="font-semibold text-slate-500">Email:</span> {{ $user->email }}</div>
                                     <div><span class="font-semibold text-slate-500">Username:</span> {{ $user->username }}</div>
                                     <div class="text-slate-600 font-mono">HP: {{ $user->no_hp }}</div>
-                                    @if($user->no_telp_kantor)
-                                        <div class="text-slate-400 font-mono text-[11px]">Telp: {{ $user->no_telp_kantor }}</div>
-                                    @endif
                                 </td>
                                 <td class="px-5 py-4 align-top text-xs">
                                     <div class="font-bold text-[#213153]">{{ $user->unit->nama_unit ?? $user->kode_unit }}</div>

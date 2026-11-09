@@ -50,7 +50,7 @@
             </div>
             <div class="mt-2 text-[11px] text-slate-500 flex items-center gap-1.5">
                 <span class="inline-block size-1.5 rounded-full bg-[#0969da]"></span>
-                <span>Gateway BPMN N28</span>
+                <span>Jalur Pengadaan Langsung</span>
             </div>
         </div>
 
@@ -68,7 +68,7 @@
             </div>
             <div class="mt-2 text-[11px] text-slate-500 flex items-center gap-1.5">
                 <span class="inline-block size-1.5 rounded-full bg-amber-500"></span>
-                <span>Verifikasi spek &amp; negosiasi (N21)</span>
+                <span>Verifikasi spek &amp; negosiasi</span>
             </div>
         </div>
 
@@ -86,7 +86,7 @@
             </div>
             <div class="mt-2 text-[11px] text-slate-500 flex items-center gap-1.5">
                 <span class="inline-block size-1.5 rounded-full bg-[#087F79]"></span>
-                <span>Diteruskan ke PPK (N31 &rarr; N30)</span>
+                <span>Diteruskan ke PPK</span>
             </div>
         </div>
 
@@ -139,8 +139,8 @@
                     <option value="">-- Semua Status --</option>
                     <option value="terdaftar" {{ request('status') === 'terdaftar' ? 'selected' : '' }}>Terdaftar (Menunggu PP)</option>
                     <option value="reviu_dokumen" {{ request('status') === 'reviu_dokumen' ? 'selected' : '' }}>Sedang Direviu PP</option>
-                    <option value="perlu_perbaikan" {{ request('status') === 'perlu_perbaikan' ? 'selected' : '' }}>Perlu Perbaikan (N27)</option>
-                    <option value="menunggu_approval_ppk" {{ request('status') === 'menunggu_approval_ppk' ? 'selected' : '' }}>Menunggu Approval PPK (N30)</option>
+                    <option value="perlu_perbaikan" {{ request('status') === 'perlu_perbaikan' ? 'selected' : '' }}>Perlu Perbaikan</option>
+                    <option value="menunggu_approval_ppk" {{ request('status') === 'menunggu_approval_ppk' ? 'selected' : '' }}>Menunggu Approval PPK</option>
                     <option value="disetujui_ppk_siap_belanja_pp" {{ request('status') === 'disetujui_ppk_siap_belanja_pp' ? 'selected' : '' }}>Disetujui PPK (Siap Belanja PP)</option>
                     <option value="spk_terbit" {{ request('status') === 'spk_terbit' ? 'selected' : '' }}>SPK / Kontrak Terbit</option>
                     <option value="penerimaan_selesai" {{ request('status') === 'penerimaan_selesai' ? 'selected' : '' }}>Penerimaan Selesai (BAST)</option>
@@ -186,7 +186,7 @@
                 </div>
                 <h3 class="text-sm font-bold text-slate-700">Belum Ada Paket Pada Jalur PP</h3>
                 <p class="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-                    Paket dengan pagu di antara Rp 50.000.001 s.d. Rp 200.000.000 yang diterbitkan PPBJ akan otomatis diarahkan ke Pejabat Pengadaan (PP) dan muncul di sini (BPMN N28).
+                    Paket dengan pagu di antara Rp 50.000.001 s.d. Rp 200.000.000 yang diterbitkan PPBJ akan otomatis diarahkan ke Pejabat Pengadaan (PP) dan muncul di sini.
                 </p>
             </div>
         @else
@@ -283,11 +283,11 @@
                                 <td class="py-3 px-4">
                                     @if($paket->status_paket === 'perlu_perbaikan')
                                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                                            Perlu Perbaikan (N27/N35)
+                                            Perlu Perbaikan
                                         </span>
                                     @elseif($paket->status_paket === 'menunggu_approval_ppk')
                                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                                            Menunggu Approval PPK (N30)
+                                            Menunggu Approval PPK
                                         </span>
                                     @elseif($paket->status_paket === 'disetujui_ppk_siap_belanja_pp')
                                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200">
@@ -332,7 +332,7 @@
                                             <a
                                                 href="{{ route('paket.edit', $paket->nomor_paket) }}"
                                                 class="px-2.5 py-1 rounded-lg bg-amber-500 text-xs font-semibold text-white hover:bg-amber-600 shadow-xs transition"
-                                                title="Perbaiki Dokumen Pengadaan (BPMN N18)"
+                                                title="Perbaiki Dokumen Pengadaan"
                                             >
                                                 Perbaiki
                                             </a>

@@ -9,7 +9,7 @@
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
             <div class="flex items-center gap-2.5">
-                <span class="rounded-lg bg-teal-100 text-[#087F79] px-2.5 py-1 text-xs font-bold font-mono">BPMN N30 - N36 &bull; Tahap 4</span>
+                <span class="rounded-lg bg-teal-100 text-[#087F79] px-2.5 py-1 text-xs font-bold font-mono">Tahap 4 &bull; Telaah Komitmen</span>
                 <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight text-[#213153]">
                     Persetujuan Dokumen Pengadaan (PPK)
                 </h1>
@@ -34,17 +34,17 @@
     <div class="grid gap-4 sm:grid-cols-3">
         <x-stat-card title="Antrean Review Dokumen" 
                      :value="$paketAntrean->count()" 
-                     subtitle="Menunggu persetujuan Anda (N30)" 
+                     subtitle="Menunggu persetujuan Anda" 
                      color="amber" />
 
         <x-stat-card title="Dokumen Telah Disetujui" 
                      :value="$riwayatDisetujui->count()" 
-                     subtitle="Diteruskan ke PPBJ (N36)" 
+                     subtitle="Diteruskan ke PPBJ" 
                      color="emerald" />
 
         <x-stat-card title="Dikembalikan ke PPBJ" 
                      :value="$riwayatDitolak->count()" 
-                     subtitle="Perlu susun ulang (N18)" 
+                     subtitle="Perlu perbaikan" 
                      color="rose" />
     </div>
 
@@ -201,20 +201,20 @@
                                     </div>
                                 </div>
 
-                                <!-- Box Telaah Khusus Jalur PP (50-200 Juta: BPMN N27 & N31) -->
+                                <!-- Box Telaah Khusus Jalur PP (50-200 Juta) -->
                                 @if(in_array($pkt->jalur_routing, ['pp_50jt_sd_200jt', 'pp_50_sd_200jt']))
                                     <div class="rounded-xl border border-blue-200 bg-blue-50/60 p-4 space-y-2">
                                         <div class="flex items-center justify-between">
                                             <span class="text-xs font-bold text-blue-900 flex items-center gap-1.5">
                                                 <svg class="size-4 text-blue-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                                Hasil Verifikasi Dokumen oleh Pejabat Pengadaan (PP) &bull; BPMN N27 &amp; N31
+                                                Hasil Verifikasi Dokumen oleh Pejabat Pengadaan (PP)
                                             </span>
                                             <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">Verifikasi Berhasil</span>
                                         </div>
                                         <div class="text-xs text-slate-700 space-y-1">
                                             <div>Pejabat Pengadaan (PP): <strong>{{ $pkt->ppUser->nama ?? ($lastPpReviu->user->nama ?? 'PP Bertugas') }}</strong></div>
                                             <p class="italic bg-white p-2.5 rounded-lg border border-blue-100 text-slate-700 mt-1">
-                                                "{{ $lastPpReviu?->catatan_perbaikan ?: ($pkt->catatan_verifikasi_pp ?: 'Spesifikasi teknis dan kewajaran HPS telah diverifikasi oleh PP (BPMN N27: Iya). Berkas diteruskan ke PPK (N31 -> N30).') }}"
+                                                "{{ $lastPpReviu?->catatan_perbaikan ?: ($pkt->catatan_verifikasi_pp ?: 'Spesifikasi teknis dan kewajaran HPS telah diverifikasi oleh PP. Berkas diteruskan ke PPK.') }}"
                                             </p>
                                         </div>
                                     </div>
@@ -226,18 +226,18 @@
                                 @else
                                     <div class="rounded-xl border border-purple-200 bg-purple-50/50 p-3 text-xs text-purple-900 flex items-center gap-2">
                                         <svg class="size-4 text-purple-700 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                        <span>Paket Tender / Seleksi (&gt; Rp 200 Juta): Pengadaan strategis langsung berada di bawah pengawasan dan persetujuan PPK (N28 &rarr; N30).</span>
+                                        <span>Paket Tender / Seleksi (&gt; Rp 200 Juta): Pengadaan strategis langsung berada di bawah pengawasan dan persetujuan PPK.</span>
                                     </div>
                                 @endif
                             </div>
 
-                            <!-- Kolom Kanan: Form Keputusan Persetujuan PPK (BPMN N35 & N36) -->
+                            <!-- Kolom Kanan: Form Keputusan Persetujuan PPK -->
                             <div class="rounded-xl bg-slate-50 p-5 border border-slate-200 space-y-4"
                                  x-data="{ keputusan: 'disetujui' }">
                                 <div class="border-b border-slate-200 pb-3">
                                     <h4 class="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
                                         <svg class="size-4 text-[#087F79]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-                                        Keputusan PPK (BPMN N35)
+                                        Keputusan Persetujuan PPK
                                     </h4>
                                     <p class="text-[11px] text-slate-500 mt-0.5">Tentukan persetujuan dokumen pengadaan</p>
                                 </div>

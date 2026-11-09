@@ -190,7 +190,7 @@
         <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80 space-y-4">
             <div class="flex items-center justify-between pb-3 border-b border-slate-100">
                 <div>
-                    <h3 class="text-sm font-bold text-[#213153]">Dasar Berkas Permohonan Masuk (BPMN: Form Pengadaan, MAK &amp; Memo)</h3>
+                    <h3 class="text-sm font-bold text-[#213153]">Dasar Berkas Permohonan Masuk (Form Pengadaan, MAK &amp; Memo)</h3>
                     <p class="text-xs text-slate-400 mt-0.5">Dokumen usulan dan disposisi persetujuan pimpinan yang mendasari paket pengadaan ini</p>
                 </div>
                 <a

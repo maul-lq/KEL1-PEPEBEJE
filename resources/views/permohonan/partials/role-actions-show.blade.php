@@ -1,5 +1,5 @@
 {{-- resources/views/permohonan/partials/role-actions-show.blade.php
-     Panel Aksi Dinamis Berbasis Hak Akses RBAC & Permissions (Figma & BPMN Compliant).
+     Panel Aksi Dinamis Berbasis Hak Akses RBAC & Permissions.
      Mendukung 2 mode penggunaan:
      1) Mode Alpine (di permohonan/index.blade.php) -> memanfaatkan selectedItem secara reaktif
      2) Mode Server (di permohonan/show.blade.php)  -> menggunakan parameter $nomorSurat, $pagu, $statusLabel --}}

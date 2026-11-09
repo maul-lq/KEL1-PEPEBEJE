@@ -14,7 +14,7 @@
             <div>
                 <div class="flex items-center gap-2">
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-50 text-teal-800 border border-teal-200">
-                        Siklus 7: Penerimaan &amp; BAST Fisik (BPMN N42 - N50)
+                        Siklus 7: Penerimaan &amp; BAST Fisik
                     </span>
                     <span class="text-xs text-slate-400 font-mono">FR 14 &bull; HMAC SHA-256</span>
                 </div>
@@ -162,12 +162,12 @@
 
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1">
-                        Status Verifikasi Fisik Barang (BPMN: Alur Lurus Sukses) <span class="text-emerald-600">*</span>
+                        Status Verifikasi Fisik Barang <span class="text-emerald-600">*</span>
                     </label>
                     <input type="hidden" name="status_fisik" value="terima">
                     <div class="h-11 rounded-xl border border-emerald-200 bg-emerald-50/70 px-3 flex items-center gap-2 text-xs font-semibold text-emerald-800">
                         <svg class="size-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        <span>Diterima Lengkap (Sesuai Spesifikasi 100%) &mdash; Siap Terbit BAST (BPMN N48)</span>
+                        <span>Diterima Lengkap (Sesuai Spesifikasi 100%) &mdash; Siap Terbit BAST</span>
                     </div>
                 </div>
 
@@ -183,7 +183,7 @@
 
                 <div>
                     <label for="foto_barang" class="block text-xs font-bold text-slate-700 mb-1">
-                        Unggah Foto Dokumentasi Fisik Barang (BPMN N46 &amp; N49) <span class="text-slate-400 font-normal">(Multi-Foto / Fleksibel)</span>
+                        Unggah Foto Dokumentasi Fisik Barang <span class="text-slate-400 font-normal">(Multi-Foto / Fleksibel)</span>
                     </label>
                     <input
                         type="file"

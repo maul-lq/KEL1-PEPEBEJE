@@ -100,7 +100,7 @@
                 @endforelse
             </div>
 
-            {{-- Antrean BAST Masuk Siap Dokumen Pembayaran (BPMN N51 & N53) --}}
+            {{-- Antrean BAST Masuk Siap Dokumen Pembayaran --}}
             @if(!empty($roleData['bast_siap_bayar']) && $roleData['bast_siap_bayar']->isNotEmpty())
                 <div class="space-y-3 pt-4 border-t border-slate-200">
                     <div class="flex items-center justify-between">

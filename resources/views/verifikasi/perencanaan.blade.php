@@ -342,12 +342,12 @@
         @endif
     </div>
 
-    <!-- 4b. SECTION 1B: DAFTAR USULAN YANG TELAH MEMILIKI MAK (BPMN: Memperbaiki Jenis MAK yang Digunakan) -->
+    <!-- 4b. SECTION 1B: DAFTAR USULAN YANG TELAH MEMILIKI MAK -->
     <div class="rounded-2xl border border-slate-200/80 bg-white p-6 md:p-7 shadow-xs space-y-6" x-data="{ expandedSurat: null }">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-slate-100">
             <div>
                 <h2 class="text-lg font-bold text-[#213153]">Daftar Usulan yang Telah Memiliki MAK DIPA</h2>
-                <p class="text-xs text-slate-500">Daftar usulan yang telah dialokasikan MAK DIPA. Bagian Perencanaan dapat menyesuaikan kembali pos MAK jika diperlukan (BPMN: Memperbaiki Jenis MAK yang Digunakan).</p>
+                <p class="text-xs text-slate-500">Daftar usulan yang telah dialokasikan MAK DIPA. Bagian Perencanaan dapat menyesuaikan kembali pos MAK jika diperlukan.</p>
             </div>
             <span class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800 self-start sm:self-auto">
                 {{ $permohonanSudahMak->count() }} usulan

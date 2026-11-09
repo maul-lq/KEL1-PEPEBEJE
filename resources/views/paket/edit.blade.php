@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Perbaikan Dokumen Pengadaan (BPMN N18) - ' . $paket->nomor_paket)
+@section('title', 'Perbaikan Dokumen Pengadaan - ' . $paket->nomor_paket)
 
 @section('content')
 @php
@@ -55,13 +55,13 @@
             <div>
                 <div class="flex items-center gap-2">
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                        Titik Kembali BPMN N18
+                        Status: Perlu Perbaikan
                     </span>
                     <span class="text-xs text-slate-400 font-mono">{{ $paket->nomor_paket }}</span>
                 </div>
                 <h1 class="text-2xl font-bold text-[#213153] mt-2">Penyusunan Ulang Dokumen Pengadaan</h1>
                 <p class="text-xs text-slate-500 mt-1">
-                    Paket dikembalikan oleh Pejabat Pengadaan (PP - N27) atau PPK (N35) untuk penyesuaian spesifikasi, HPS, atau dokumen teknis sebelum diteruskan kembali ke jalur pengadaan (BPMN N22 &rarr; N25 &rarr; N28).
+                    Paket dikembalikan oleh Pejabat Pengadaan (PP) atau PPK untuk penyesuaian spesifikasi, HPS, atau dokumen teknis sebelum diteruskan kembali ke alur pengadaan.
                 </p>
             </div>
 
@@ -323,10 +323,10 @@
             {{-- Kolom Kanan: Preview Gateway BPMN N28 & Berkas Usulan --}}
             <div class="space-y-6">
 
-                {{-- Status Gateway Routing BPMN N28 --}}
+                {{-- Status Klasifikasi Alur Pengadaan --}}
                 <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80 space-y-4">
                     <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                        Gateway BPMN N28: Total Anggaran
+                        Klasifikasi Alur Berdasarkan Nilai HPS
                     </h3>
 
                     {{-- Jalur 1: <= 50 Juta --}}
@@ -342,7 +342,7 @@
                             <span class="text-xs font-bold text-slate-800">&le; Rp 50.000.000</span>
                         </div>
                         <p class="text-[11px] text-slate-600 mt-2 leading-relaxed">
-                            <strong>Belanja Langsung (N41):</strong> Eksekusi Kwitansi langsung oleh PPBJ tanpa review PP maupun persetujuan PPK.
+                            <strong>Belanja Langsung:</strong> Eksekusi Kwitansi langsung oleh PPBJ tanpa review PP maupun persetujuan PPK.
                         </p>
                     </div>
 
@@ -359,7 +359,7 @@
                             <span class="text-xs font-bold text-slate-800">&gt; Rp 50 Jt s.d. Rp 200 Jt</span>
                         </div>
                         <p class="text-[11px] text-slate-600 mt-2 leading-relaxed">
-                            <strong>Jalur PP (N21):</strong> Direview Pejabat Pengadaan (PP) terlebih dahulu. Jika verifikasi berhasil (N27: Iya), PP meneruskan ke PPK (N31 &rarr; N30).
+                            <strong>Jalur PP:</strong> Ditelaah oleh Pejabat Pengadaan (PP) terlebih dahulu sebelum diteruskan ke PPK.
                         </p>
                     </div>
 
@@ -376,7 +376,7 @@
                             <span class="text-xs font-bold text-slate-800">&gt; Rp 200.000.000</span>
                         </div>
                         <p class="text-[11px] text-slate-600 mt-2 leading-relaxed">
-                            <strong>Jalur PPK (N30):</strong> Langsung ke antrean verifikasi &amp; Approval PPK tanpa melalui Pejabat Pengadaan (PP).
+                            <strong>Jalur PPK:</strong> Langsung ke antrean verifikasi &amp; Approval PPK tanpa melalui Pejabat Pengadaan (PP).
                         </p>
                     </div>
                 </div>
@@ -411,7 +411,7 @@
                         class="w-full h-11 rounded-xl bg-[#0969da] text-xs font-bold text-white hover:bg-blue-700 shadow-sm hover:shadow transition flex items-center justify-center gap-2"
                     >
                         <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                        Simpan &amp; Teruskan Ulang Dokumen (BPMN N25)
+                        Simpan &amp; Teruskan Ulang Dokumen
                     </button>
                     <a
                         href="{{ route('paket.index') }}"

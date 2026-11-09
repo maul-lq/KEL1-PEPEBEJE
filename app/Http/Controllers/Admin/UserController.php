@@ -121,7 +121,6 @@ class UserController extends Controller
             'status_aktif' => ['nullable', 'boolean'],
             'status_registrasi' => ['nullable', 'string', 'in:menunggu_persetujuan,disetujui,ditolak'],
             'no_hp' => ['required', 'string', 'max:20'],
-            'no_telp_kantor' => ['nullable', 'string', 'max:20'],
             'kode_unit' => ['nullable', 'string', 'exists:units,kode_unit'],
         ]);
 
@@ -219,7 +218,6 @@ class UserController extends Controller
             'status_aktif' => ['nullable', 'boolean'],
             'status_registrasi' => ['nullable', 'string', 'in:menunggu_persetujuan,disetujui,ditolak'],
             'no_hp' => ['required', 'string', 'max:20'],
-            'no_telp_kantor' => ['nullable', 'string', 'max:20'],
             'kode_unit' => ['nullable', 'string', 'exists:units,kode_unit'],
         ]);
 

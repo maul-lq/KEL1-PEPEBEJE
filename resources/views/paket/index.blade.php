@@ -143,12 +143,12 @@
                 <div>
                     <div class="flex items-center gap-2">
                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#0969da] text-white">
-                            BPMN Siklus 3 - PPBJ
+                            Siklus Pemaketan
                         </span>
                         <h3 class="text-sm font-bold text-[#213153]">Antrean Usulan Masuk dari Wadir 2 &amp; PPK</h3>
                     </div>
                     <p class="text-xs text-slate-500 mt-0.5">
-                        Node BPMN: <em>Menerima Form Pengadaan, MAK, dan Memo Permohonan</em> yang telah disetujui penuh oleh Perencanaan, Wadir 2, dan PPK Awal.
+                        Usulan telah disetujui lengkap oleh Subbagian Perencanaan, Wadir 2, dan PPK Awal, siap didaftarkan menjadi paket pengadaan.
                     </p>
                 </div>
 
@@ -176,7 +176,7 @@
                                 <th class="px-5 py-3.5">Judul Pengadaan</th>
                                 <th class="px-5 py-3.5">MAK &amp; Pagu Disetujui</th>
                                 <th class="px-5 py-3.5">Memo &amp; PPK Awal</th>
-                                <th class="px-5 py-3.5">Kelengkapan Dokumen BPMN</th>
+                                <th class="px-5 py-3.5">Kelengkapan Dokumen Usulan</th>
                                 <th class="px-5 py-3.5 text-center">Tindakan</th>
                             </tr>
                         </thead>
@@ -311,12 +311,12 @@
                 <div>
                     <div class="flex items-center gap-2">
                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500 text-white">
-                            BPMN N18 - Titik Kembali
+                            Perlu Perbaikan PPBJ
                         </span>
                         <h3 class="text-sm font-bold text-amber-900">Antrean Perbaikan Dokumen Pengadaan</h3>
                     </div>
                     <p class="text-xs text-amber-800/80 mt-0.5">
-                        Paket yang dikembalikan oleh Pejabat Pengadaan (PP - N27) atau PPK (N35). PPBJ wajib menyusun ulang dokumen pengadaan &amp; HPS sebelum diteruskan kembali (N22 &rarr; N25 &rarr; N28).
+                        Paket yang dikembalikan oleh Pejabat Pengadaan (PP) atau PPK. PPBJ wajib menyusun ulang dokumen pengadaan &amp; HPS sebelum diteruskan kembali.
                     </p>
                 </div>
 
@@ -501,7 +501,7 @@
                                             <a
                                                 href="{{ route('paket.edit', $pkt->nomor_paket) }}"
                                                 class="px-2.5 py-1 rounded-lg bg-amber-500 text-xs font-semibold text-white hover:bg-amber-600 transition shadow-xs"
-                                                title="Perbaiki Dokumen Pengadaan (BPMN N18)"
+                                                title="Perbaiki Dokumen Pengadaan"
                                             >
                                                 Perbaiki
                                             </a>
@@ -534,14 +534,14 @@
                                                         Kwitansi Sah
                                                     </span>
                                                 @elseif($pkt->status_paket === \App\Models\PaketPengadaan::STATUS_MENUNGGU_APPROVAL_PPK)
-                                                    <span class="px-2 py-1 rounded-lg bg-amber-50 border border-amber-200 text-[11px] font-bold text-amber-800" title="Menunggu persetujuan dokumen pengadaan oleh PPK (BPMN N30-N35)">
+                                                    <span class="px-2 py-1 rounded-lg bg-amber-50 border border-amber-200 text-[11px] font-bold text-amber-800" title="Menunggu persetujuan dokumen pengadaan oleh PPK">
                                                         Menunggu ACC PPK
                                                     </span>
                                                 @elseif($pkt->status_paket === 'penerimaan_selesai')
                                                     <a
                                                         href="{{ route('pembayaran.index', ['nomor_paket' => $pkt->nomor_paket]) }}"
                                                         class="px-2.5 py-1 rounded-lg bg-[#0969da] text-xs font-semibold text-white hover:bg-blue-700 transition shadow-xs inline-flex items-center gap-1"
-                                                        title="BAST Diterbitkan. Buat Dokumen Pembayaran (BPMN N51 & N53)"
+                                                        title="BAST Diterbitkan. Buat Dokumen Pembayaran"
                                                     >
                                                         Dokumen Bayar &rarr;
                                                     </a>
@@ -569,7 +569,7 @@
                                             @endif
                                         @else
                                             @if($pkt->status_paket === \App\Models\PaketPengadaan::STATUS_MENUNGGU_APPROVAL_PPK)
-                                                <span class="px-2 py-1 rounded-lg bg-amber-50 border border-amber-200 text-[11px] font-bold text-amber-800" title="Menunggu persetujuan dokumen pengadaan oleh PPK (BPMN N30-N35)">
+                                                <span class="px-2 py-1 rounded-lg bg-amber-50 border border-amber-200 text-[11px] font-bold text-amber-800" title="Menunggu persetujuan dokumen pengadaan oleh PPK">
                                                     Menunggu ACC PPK
                                                 </span>
                                             @elseif(in_array($pkt->status_paket, ['terdaftar', 'reviu_dokumen']))
@@ -588,7 +588,7 @@
                                                 <a
                                                     href="{{ route('pembayaran.index', ['nomor_paket' => $pkt->nomor_paket]) }}"
                                                     class="px-2.5 py-1 rounded-lg bg-[#0969da] text-xs font-semibold text-white hover:bg-blue-700 transition shadow-xs inline-flex items-center gap-1"
-                                                    title="BAST Diterbitkan. Buat Dokumen Pembayaran (BPMN N51 & N53)"
+                                                    title="BAST Diterbitkan. Buat Dokumen Pembayaran"
                                                 >
                                                     Dokumen Bayar &rarr;
                                                 </a>

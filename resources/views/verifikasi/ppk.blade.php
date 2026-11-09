@@ -278,10 +278,10 @@
 
                             </div>
 
-                            <!-- Kelengkapan Berkas Fisik Memo Persetujuan Usulan PPK (BPMN Fase 1) -->
+                            <!-- Kelengkapan Berkas Fisik Memo Persetujuan Usulan PPK -->
                             <div x-show="keputusan === 'disetujui'" class="p-4 rounded-xl bg-teal-50/60 border border-teal-200/80 space-y-3">
                                 <div class="flex items-center gap-2">
-                                    <span class="rounded-md bg-teal-200/80 text-teal-900 px-2 py-0.5 text-[10px] font-bold font-mono">BPMN PPK</span>
+                                    <span class="rounded-md bg-teal-200/80 text-teal-900 px-2 py-0.5 text-[10px] font-bold font-mono">Disposisi PPK</span>
                                     <h4 class="text-xs font-bold text-teal-950">Memo Persetujuan Usulan Awal PPK</h4>
                                 </div>
                                 <p class="text-[11px] text-slate-600">

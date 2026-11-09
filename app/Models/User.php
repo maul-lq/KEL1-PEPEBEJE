@@ -87,7 +87,6 @@ class User extends Authenticatable
         'id_admin_approval',
         'tanggal_approval',
         'no_hp',
-        'no_telp_kantor',
         'kode_unit',
         'google_id',
         'google_email',

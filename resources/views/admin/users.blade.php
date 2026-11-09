@@ -410,18 +410,10 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">Nomor WhatsApp / HP Aktif <span class="text-rose-500">*</span></label>
-                        <input type="text" name="no_hp" value="{{ old('no_hp') }}" required placeholder="Contoh: 081234567890"
-                               class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-1 focus:ring-[#0969da]">
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">Nomor Telepon Kantor (Opsional)</label>
-                        <input type="text" name="no_telp_kantor" value="{{ old('no_telp_kantor') }}" placeholder="Contoh: 021-7270036 ext 123"
-                               class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-1 focus:ring-[#0969da]">
-                    </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Nomor WhatsApp / HP Aktif <span class="text-rose-500">*</span></label>
+                    <input type="text" name="no_hp" value="{{ old('no_hp') }}" required placeholder="Contoh: 081234567890"
+                           class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-1 focus:ring-[#0969da]">
                 </div>
 
                 <div class="pt-2 border-t border-slate-100 flex items-center justify-between">
@@ -532,18 +524,10 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">Nomor WhatsApp / HP Aktif <span class="text-rose-500">*</span></label>
-                        <input type="text" name="no_hp" x-model="editUser.no_hp" required
-                               class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-1 focus:ring-[#0969da]">
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">Nomor Telepon Kantor (Opsional)</label>
-                        <input type="text" name="no_telp_kantor" x-model="editUser.no_telp_kantor"
-                               class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-1 focus:ring-[#0969da]">
-                    </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Nomor WhatsApp / HP Aktif <span class="text-rose-500">*</span></label>
+                    <input type="text" name="no_hp" x-model="editUser.no_hp" required
+                           class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-1 focus:ring-[#0969da]">
                 </div>
 
                 <div class="pt-2 border-t border-slate-100 flex items-center justify-between">

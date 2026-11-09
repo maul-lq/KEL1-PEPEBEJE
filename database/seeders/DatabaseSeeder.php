@@ -83,7 +83,6 @@ class DatabaseSeeder extends Seeder
                 'role' => 'admin',
                 'status_aktif' => true,
                 'no_hp' => '081100000001',
-                'no_telp_kantor' => '0217270000',
                 'kode_unit' => 'PST',
             ],
 
@@ -98,7 +97,6 @@ class DatabaseSeeder extends Seeder
                 'role' => 'user',
                 'status_aktif' => true,
                 'no_hp' => '081234567890',
-                'no_telp_kantor' => '0217270001',
                 'kode_unit' => 'TIK',
             ],
 
@@ -113,7 +111,6 @@ class DatabaseSeeder extends Seeder
                 'role' => 'staff_bidang_2',
                 'status_aktif' => true,
                 'no_hp' => '081298765431',
-                'no_telp_kantor' => '0217270002',
                 'kode_unit' => 'B2',
             ],
 
@@ -128,7 +125,6 @@ class DatabaseSeeder extends Seeder
                 'role' => 'wadir_2',
                 'status_aktif' => true,
                 'no_hp' => '081298765432',
-                'no_telp_kantor' => '0217270002',
                 'kode_unit' => 'B2',
             ],
 
@@ -143,7 +139,6 @@ class DatabaseSeeder extends Seeder
                 'role' => 'perencanaan',
                 'status_aktif' => true,
                 'no_hp' => '081377889900',
-                'no_telp_kantor' => '0217270003',
                 'kode_unit' => 'REN',
             ],
 
@@ -158,7 +153,6 @@ class DatabaseSeeder extends Seeder
                 'role' => 'ppbj',
                 'status_aktif' => true,
                 'no_hp' => '081512345678',
-                'no_telp_kantor' => '0217270004',
                 'kode_unit' => 'PPBJ',
             ],
 
@@ -173,7 +167,6 @@ class DatabaseSeeder extends Seeder
                 'role' => 'pp',
                 'status_aktif' => true,
                 'no_hp' => '081623456789',
-                'no_telp_kantor' => '0217270005',
                 'kode_unit' => 'PPBJ',
             ],
 
@@ -188,7 +181,6 @@ class DatabaseSeeder extends Seeder
                 'role' => 'ppk',
                 'status_aktif' => true,
                 'no_hp' => '081734567891',
-                'no_telp_kantor' => '0217270006',
                 'kode_unit' => 'PPK',
             ],
 
@@ -203,7 +195,6 @@ class DatabaseSeeder extends Seeder
                 'role' => 'ppk',
                 'status_aktif' => true,
                 'no_hp' => '081734567892',
-                'no_telp_kantor' => '0217270006',
                 'kode_unit' => 'PPK',
             ],
 
@@ -218,7 +209,6 @@ class DatabaseSeeder extends Seeder
                 'role' => 'ppk',
                 'status_aktif' => true,
                 'no_hp' => '081734567893',
-                'no_telp_kantor' => '0217270006',
                 'kode_unit' => 'PPK',
             ],
 
@@ -233,7 +223,6 @@ class DatabaseSeeder extends Seeder
                 'role' => 'ppk',
                 'status_aktif' => true,
                 'no_hp' => '081734567894',
-                'no_telp_kantor' => '0217270006',
                 'kode_unit' => 'PPK',
             ],
 
@@ -248,7 +237,6 @@ class DatabaseSeeder extends Seeder
                 'role' => 'perlengkapan',
                 'status_aktif' => true,
                 'no_hp' => '081845678912',
-                'no_telp_kantor' => '0217270007',
                 'kode_unit' => 'LKP',
             ],
 
@@ -263,7 +251,6 @@ class DatabaseSeeder extends Seeder
                 'role' => 'keuangan',
                 'status_aktif' => true,
                 'no_hp' => '081956789023',
-                'no_telp_kantor' => '0217270008',
                 'kode_unit' => 'KEU',
             ],
         ];

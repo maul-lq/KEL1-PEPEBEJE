@@ -295,7 +295,7 @@
             </a>
         @endif
 
-        <!-- 10.B. PPK: Persetujuan Dokumen Pengadaan (BPMN N30-N36) -->
+        <!-- 10.B. PPK: Persetujuan Dokumen Pengadaan -->
         @if($isAdmin || $u->hasPermission('reviu.ppk'))
             @php
                 $ppkPaketCount = \App\Models\PaketPengadaan::where('id_user_ppk', $u->id_user)
@@ -304,7 +304,7 @@
                 $aPPKDokumen = request()->routeIs('ppk.persetujuan-dokumen*');
             @endphp
             <a href="{{ route('ppk.persetujuan-dokumen.index') }}" 
-               title="Persetujuan Dokumen Pengadaan (BPMN N30-N36)" 
+               title="Persetujuan Dokumen Pengadaan" 
                class="relative flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aPPKDokumen ? $menuOn : $menuOff }}">
                 <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />

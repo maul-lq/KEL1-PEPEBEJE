@@ -45,7 +45,7 @@
             :value="$stats['antrean_dokumen_pengadaan'] ?? 0"
             color="amber"
             icon="document"
-            badge="BPMN N30"
+            badge="Persetujuan"
             subtitle="Dokumen pengadaan siap review"
             :href="route('ppk.persetujuan-dokumen.index')"
         />
@@ -144,7 +144,7 @@
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
                 <span class="size-2 rounded-full bg-amber-500 animate-pulse"></span>
-                <h2 class="text-lg font-bold text-[#213153]">Antrean Dokumen Pengadaan Menunggu Persetujuan PPK (BPMN N30-N36)</h2>
+                <h2 class="text-lg font-bold text-[#213153]">Antrean Dokumen Pengadaan Menunggu Persetujuan PPK</h2>
             </div>
             <a href="{{ route('ppk.persetujuan-dokumen.index') }}" class="text-xs font-bold text-amber-700 hover:underline flex items-center gap-1">
                 Lihat Seluruh Dokumen Antrean ({{ $stats['antrean_dokumen_pengadaan'] ?? 0 }})

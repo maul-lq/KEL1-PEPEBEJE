@@ -248,25 +248,25 @@
                                 @if(Auth::user()->hasRole('pp') || Auth::user()->hasPermission('reviu.pp'))
                                     <label class="flex items-center text-xs text-slate-800 cursor-pointer gap-2">
                                         <input type="radio" name="status_reviu" value="terverifikasi_pp" checked class="text-[#0969da] focus:ring-[#0969da]">
-                                        <span><strong>Verifikasi Berhasil (BPMN N27: Iya)</strong> &mdash; Spesifikasi teknis &amp; HPS telah sesuai. Teruskan dokumen pengadaan ke PPK (N31 &rarr; N30).</span>
+                                        <span><strong>Verifikasi Berhasil</strong> &mdash; Spesifikasi teknis &amp; HPS telah sesuai. Teruskan dokumen pengadaan ke PPK.</span>
                                     </label>
                                     <label class="flex items-center text-xs text-slate-800 cursor-pointer gap-2">
                                         <input type="radio" name="status_reviu" value="perlu_perbaikan" class="text-rose-600 focus:ring-rose-500">
-                                        <span><strong>Verifikasi Gagal / Perlu Perbaikan (BPMN N27: Tidak)</strong> &mdash; Kembalikan berkas ke PPBJ untuk disusun ulang (N18).</span>
+                                        <span><strong>Perlu Perbaikan</strong> &mdash; Kembalikan berkas ke PPBJ untuk disusun ulang.</span>
                                     </label>
                                 @elseif(Auth::user()->hasRole('ppk') || Auth::user()->hasPermission('reviu.ppk'))
                                     <label class="flex items-center text-xs text-slate-800 cursor-pointer gap-2">
                                         <input type="radio" name="status_reviu" value="disetujui" checked class="text-[#087F79] focus:ring-[#087F79]">
-                                        <span><strong>Disetujui (BPMN N35: Iya)</strong> &mdash; Dokumen pengadaan disetujui, siap pelaksanaan pengadaan &amp; penerbitan perikatan oleh PPBJ (N36 &rarr; N32).</span>
+                                        <span><strong>Disetujui</strong> &mdash; Dokumen pengadaan disetujui, siap pelaksanaan pengadaan &amp; penerbitan perikatan oleh PPBJ.</span>
                                     </label>
                                     <label class="flex items-center text-xs text-slate-800 cursor-pointer gap-2">
                                         <input type="radio" name="status_reviu" value="perlu_perbaikan" class="text-rose-600 focus:ring-rose-500">
-                                        <span><strong>Perlu Perbaikan (BPMN N35: Tidak)</strong> &mdash; Kembalikan berkas ke PPBJ untuk disusun ulang (N18).</span>
+                                        <span><strong>Perlu Perbaikan</strong> &mdash; Kembalikan berkas ke PPBJ untuk disusun ulang.</span>
                                     </label>
                                 @endif
                             </div>
 
-                            {{-- PP: Info Box Spesifikasi Teknis & Pagu HPS BPMN N24 (Murni Telaah Tanpa Input Vendor) --}}
+                            {{-- PP: Info Box Spesifikasi Teknis & Pagu HPS (Murni Telaah Tanpa Input Vendor) --}}
                             @if(Auth::user()->hasRole('pp') || Auth::user()->hasPermission('reviu.pp'))
                                 <div class="p-4 rounded-xl bg-amber-50/60 border border-amber-200/80 space-y-3">
                                     <div class="flex items-center justify-between pb-2 border-b border-amber-200/60">
@@ -353,9 +353,9 @@
                                 class="px-6 py-2.5 rounded-xl bg-[#213153] text-xs font-bold text-white hover:bg-slate-800 shadow-sm transition"
                             >
                                 @if(Auth::user()->hasRole('pp') || Auth::user()->hasPermission('reviu.pp'))
-                                    Kirim Keputusan Verifikasi PP (BPMN N31)
+                                    Kirim Keputusan Verifikasi PP
                                 @elseif(Auth::user()->hasRole('ppk') || Auth::user()->hasPermission('reviu.ppk'))
-                                    Kirim Persetujuan Dokumen (BPMN N35)
+                                    Kirim Persetujuan Dokumen PPK
                                 @endif
                             </button>
                         </div>

@@ -12,7 +12,7 @@
                     K
                 </span>
                 <div>
-                    <h3 class="font-bold text-[#213153] text-sm">Alur Bisnis BPMN: Bagian Keuangan (Fase Pembayaran &amp; Penutup)</h3>
+                    <h3 class="font-bold text-[#213153] text-sm">Alur Operasional: Bagian Keuangan (Pencairan Kas &amp; Pembayaran)</h3>
                     <p class="text-[11px] text-slate-500">Menerima reminder operasional dan mengeksekusi pencairan kas final pengadaan barang dan jasa.</p>
                 </div>
             </div>
@@ -22,32 +22,32 @@
     {{-- 2. 4-COLUMN KPI STAT CARDS (SESUAI BPMN KEUANGAN) --}}
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <x-stat-card
-            title="Reminder Masuk (N44)"
+            title="Pengingat Masuk"
             :value="$stats['reminder_masuk'] ?? 0"
             color="amber"
             icon="bell"
-            badge="BPMN N44"
+            badge="Operasional"
             badgeColor="bg-amber-50 text-amber-800 border-amber-200"
-            subtitle="Reminder SPK dari PPBJ (N43)"
+            subtitle="Pengingat batas termin dari PPBJ"
         />
 
         <x-stat-card
-            title="Paket Masuk dari PPBJ (N59)"
+            title="Paket Masuk dari PPBJ"
             :value="$stats['paket_masuk_ppbj'] ?? ($stats['sp2d_siap_cair'] ?? 0)"
             color="blue"
             icon="document"
-            badge="BPMN N59"
+            badge="Siap Bayar"
             badgeColor="bg-blue-50 text-[#0969da] border-blue-200"
             subtitle="Dokumen Pembayaran, Vendor & Memo"
             :href="route('pembayaran.index')"
         />
 
         <x-stat-card
-            title="Realisasi Selesai (N66 & N72)"
+            title="Pencairan Kas Selesai"
             :value="$stats['transaksi_lunas'] ?? 0"
             color="emerald"
             icon="check"
-            badge="End N72"
+            badge="Lunas SP2D"
             badgeColor="bg-emerald-50 text-emerald-800 border-emerald-200"
             subtitle="Siklus pengadaan selesai 100%"
             :href="route('pembayaran.index')"
@@ -70,7 +70,7 @@
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
                     <span class="size-2 rounded-full bg-blue-500 animate-pulse"></span>
-                    <h2 class="text-lg font-bold text-[#213153]">Paket Masuk dari PPBJ Siap Cair (BPMN N59)</h2>
+                    <h2 class="text-lg font-bold text-[#213153]">Paket Masuk dari PPBJ Siap Cair</h2>
                 </div>
                 <a href="{{ route('pembayaran.index') }}" class="text-xs font-bold text-[#0969da] hover:underline flex items-center gap-1">
                     Buka Kasir SP2D
@@ -138,9 +138,9 @@
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-2">
                         <span class="size-2 rounded-full bg-amber-500"></span>
-                        <h2 class="text-base font-bold text-[#213153]">Reminder Masuk dari PPBJ (BPMN N44)</h2>
+                        <h2 class="text-base font-bold text-[#213153]">Pengingat Masuk dari PPBJ</h2>
                     </div>
-                    <span class="text-[11px] font-mono text-slate-400">Node N44</span>
+                    <span class="text-[11px] font-medium text-slate-400">Antrean Aktif</span>
                 </div>
 
                 <div class="space-y-2">
@@ -170,7 +170,7 @@
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-2">
                         <span class="size-2 rounded-full bg-emerald-500"></span>
-                        <h2 class="text-base font-bold text-[#213153]">Riwayat Pencairan SP2D (BPMN N66 &amp; N72: End)</h2>
+                        <h2 class="text-base font-bold text-[#213153]">Riwayat Pencairan SP2D Selesai</h2>
                     </div>
                     <a href="{{ route('pembayaran.index') }}" class="text-xs font-bold text-[#0969da] hover:underline flex items-center gap-1">
                         Lihat Pembukuan

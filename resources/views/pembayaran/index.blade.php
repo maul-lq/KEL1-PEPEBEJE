@@ -168,7 +168,7 @@
                         <div class="flex items-center justify-between text-xs font-bold text-emerald-950">
                             <span class="flex items-center gap-1.5">
                                 <svg class="size-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                <span>Penerimaan Fisik Barang &amp; BAST Terverifikasi (BPMN N51)</span>
+                                <span>Penerimaan Fisik Barang &amp; BAST Terverifikasi</span>
                             </span>
                             <template x-if="hasExistingBast">
                                 <a :href="existingBastUrl" target="_blank" class="text-[#0969da] hover:underline font-bold inline-flex items-center gap-1">
@@ -278,7 +278,7 @@
 
                     <div class="flex items-center justify-end pt-3 border-t border-slate-100">
                         <button type="submit" class="px-5 py-2.5 rounded-xl bg-[#0969da] text-xs font-bold text-white hover:bg-blue-700 shadow-sm transition inline-flex items-center gap-1.5">
-                            <span>Kirim Dokumen Pembayaran ke Wadir II &amp; PPK (BPMN N55 Paralel) &rarr;</span>
+                            <span>Kirim Dokumen Pembayaran ke Wadir II &amp; PPK &rarr;</span>
                         </button>
                     </div>
                 </form>
@@ -298,12 +298,12 @@
             <div>
                 <div class="flex items-center gap-2">
                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-500 text-white">
-                        BPMN N52 - Titik Kembali
+                        Perlu Perbaikan
                     </span>
                     <h2 class="text-base font-bold text-rose-950">Berkas Pembayaran Ditolak (Perlu Perbaikan Dokumen)</h2>
                 </div>
                 <p class="text-xs text-rose-700/80 mt-0.5">
-                    Berkas pengajuan pembayaran dikembalikan oleh Wakil Direktur II (N60) atau PPK (N61). PPBJ wajib memperbaiki dokumen tagihan/kwitansi/invoice/perikatan dan mengajukan kembali memo (N52 &rarr; N53 &rarr; N56).
+                    Berkas pengajuan pembayaran dikembalikan oleh Wakil Direktur II atau PPK. PPBJ wajib memperbaiki dokumen tagihan/kwitansi/invoice/perikatan dan mengajukan kembali memo persetujuan pembayaran.
                 </p>
             </div>
             <span class="px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200 self-start sm:self-auto">
@@ -337,7 +337,7 @@
                             class="px-3.5 py-1.5 rounded-xl bg-rose-600 text-xs font-bold text-white hover:bg-rose-700 shadow-sm transition inline-flex items-center gap-1.5 self-start md:self-auto"
                         >
                             <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                            <span x-text="openEdit ? 'Tutup Form' : 'Perbaiki &amp; Ajukan Ulang (N52)'"></span>
+                            <span x-text="openEdit ? 'Tutup Form' : 'Perbaiki &amp; Ajukan Ulang'"></span>
                         </button>
                     </div>
 
@@ -400,7 +400,7 @@
                                     Batal
                                 </button>
                                 <button type="submit" class="px-4 py-1.5 rounded-xl bg-[#0969da] text-xs font-bold text-white hover:bg-blue-700 shadow-sm transition">
-                                    Ajukan Ulang ke Wadir II &amp; PPK (BPMN N56) &rarr;
+                                    Ajukan Ulang ke Wadir II &amp; PPK &rarr;
                                 </button>
                             </div>
                         </form>
@@ -542,7 +542,7 @@
                         <div class="bg-white rounded-xl p-4 border border-slate-200/80 space-y-2">
                             <h4 class="text-xs font-bold text-[#213153] flex items-center gap-1.5 uppercase tracking-wider">
                                 <svg class="size-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                                <span>Tinjauan Naskah Memo Persetujuan Diterima (BPMN N65: Wadir II &amp; PPK)</span>
+                                <span>Tinjauan Naskah Memo Persetujuan Diterima (Wadir II &amp; PPK)</span>
                             </h4>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
                                 {{-- Memo Wadir 2 --}}
@@ -599,7 +599,7 @@
                             <div class="border-b border-slate-100 pb-2">
                                 <h4 class="text-xs font-bold text-[#213153] flex items-center gap-1.5 uppercase tracking-wider">
                                     <svg class="size-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
-                                    <span>Form Kelengkapan Legalitas Vendor (BPMN N69) &amp; Berkas SPP (BPMN N71)</span>
+                                    <span>Form Kelengkapan Legalitas Vendor &amp; Berkas SPP</span>
                                 </h4>
                                 <p class="text-[11px] text-slate-500 mt-0.5">Periksa dan mutakhirkan data identitas perbankan serta berkas legalitas rekanan sebelum paket diserahkan ke Bagian Keuangan.</p>
                             </div>
@@ -626,7 +626,7 @@
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
                                 <div>
                                     <label class="block text-[11px] font-bold text-slate-700 mb-1">
-                                        Unggah Dokumen Legalitas Rekanan (N69: NIB / NPWP / SIUP)
+                                        Unggah Dokumen Legalitas Rekanan (NIB / NPWP / SIUP)
                                     </label>
                                     <div class="space-y-1">
                                         <input type="file" name="file_legalitas_vendor" accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
@@ -654,7 +654,7 @@
                             <div class="flex items-center justify-end pt-2 border-t border-slate-100">
                                 <button type="submit" class="px-5 py-2.5 rounded-xl bg-indigo-600 text-xs font-bold text-white hover:bg-indigo-700 shadow-sm transition inline-flex items-center gap-2 cursor-pointer">
                                     <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
-                                    <span>Sahkan SPP &amp; Kirim Paket ke Bagian Keuangan (BPMN N71 &rarr; N59)</span>
+                                    <span>Sahkan SPP &amp; Kirim Paket ke Bagian Keuangan &rarr;</span>
                                 </button>
                             </div>
                         </form>
@@ -673,7 +673,7 @@
                 <div>
                     <div class="flex items-center gap-2">
                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                            BPMN N59 &bull; N62 &bull; N66 &bull; N70 &bull; N72 End
+                            Pencairan Kas SP2D
                         </span>
                         <span class="text-xs text-slate-400 font-mono">Bagian Keuangan</span>
                     </div>
@@ -681,11 +681,11 @@
                         <span>4. Pencairan Dana SP2D &amp; Input Bukti Pembayaran</span>
                     </h2>
                     <p class="text-xs text-slate-500 mt-0.5">
-                        Menerima Dokumen Pembayaran, Legalitas Vendor, dan Memo dari PPBJ (N59), mengeksekusi pencairan kas (N62), menginput bukti transfer resmi (N66), dan menerbitkan notifikasi penutup ke seluruh role (N70 &rarr; N72: End).
+                        Menerima Dokumen Pembayaran, Legalitas Rekanan, dan Memo dari PPBJ, mengeksekusi pencairan kas, menginput bukti transfer resmi, dan menerbitkan notifikasi penutup ke seluruh pihak terkait.
                     </p>
                 </div>
                 <div class="text-xs font-semibold text-slate-500">
-                    Siklus: <span class="text-emerald-700 font-bold">Penutup Pengadaan (End)</span>
+                    Siklus: <span class="text-emerald-700 font-bold">Penyelesaian Pengadaan</span>
                 </div>
             </div>
         </div>
@@ -695,12 +695,12 @@
                 Tidak ada paket pembayaran dari PPBJ yang berstatus siap cair saat ini.
             </div>
         @else
-            {{-- TABEL PAKET PEMBAYARAN LENGKAP YANG DITERIMA DARI PPBJ (BPMN N59) --}}
+            {{-- TABEL PAKET PEMBAYARAN LENGKAP YANG DITERIMA DARI PPBJ --}}
             <div class="space-y-3">
                 <div class="flex items-center justify-between">
                     <h3 class="text-xs font-bold text-[#213153] uppercase tracking-wider flex items-center gap-1.5">
                         <svg class="size-4 text-[#0969da]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                        Paket Diterima dari PPBJ (BPMN N59: Dokumen Pembayaran, Legalitas Vendor, dan Memo)
+                        Paket Diterima dari PPBJ (Dokumen Pembayaran, Legalitas Rekanan, dan Memo)
                     </h3>
                     <span class="text-[11px] text-slate-400 font-mono">{{ $siapCairKeuangan->count() }} Paket Siap Cair</span>
                 </div>
@@ -710,9 +710,9 @@
                         <thead>
                             <tr class="bg-slate-50 border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                                 <th class="px-4 py-3">No. SPP &amp; Paket</th>
-                                <th class="px-4 py-3">Dokumen Pembayaran (N59)</th>
-                                <th class="px-4 py-3">Legalitas Rekanan (N59 &amp; N69)</th>
-                                <th class="px-4 py-3">Memo Persetujuan (N59 &amp; N67/68)</th>
+                                <th class="px-4 py-3">Dokumen Pembayaran</th>
+                                <th class="px-4 py-3">Legalitas Rekanan</th>
+                                <th class="px-4 py-3">Memo Persetujuan</th>
                                 <th class="px-4 py-3">Nominal Siap Cair</th>
                                 <th class="px-4 py-3 text-center">Tindakan</th>
                             </tr>
@@ -779,7 +779,7 @@
                                             <div>
                                                 <a href="{{ asset('storage/' . $scVendor->file_dokumen_legalitas) }}" target="_blank" class="inline-flex items-center gap-1 text-[10px] font-bold text-[#0969da] hover:underline mt-0.5">
                                                     <svg class="size-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                                                    <span>Berkas Legalitas Vendor (N69)</span>
+                                                    <span>Berkas Legalitas Vendor</span>
                                                 </a>
                                             </div>
                                         @endif
@@ -833,7 +833,7 @@
                 <div class="border-b border-emerald-100 pb-3">
                     <h3 class="text-xs font-bold text-emerald-950 uppercase tracking-wider flex items-center gap-1.5">
                         <svg class="size-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-                        Form Eksekusi Pencairan Dana SP2D &amp; Input Bukti Pembayaran (BPMN N62 &amp; N66)
+                        Form Eksekusi Pencairan Dana SP2D &amp; Input Bukti Pembayaran
                     </h3>
                     <p class="text-[11px] text-emerald-800 mt-0.5">
                         Lakukan pemindahbukuan/transfer kas negara ke rekening penyedia, masukkan rincian nomor transaksi bank SP2D, dan unggah slip bukti transfer.
@@ -889,7 +889,7 @@
                     </div>
 
                     <div>
-                        <label for="file_bukti_transfer" class="block text-xs font-bold text-slate-700 mb-1">Unggah Slip Bukti Transfer Bank / SP2D (PDF/JPG, Maks 10MB) <span class="text-rose-500">*</span> <span class="text-slate-400 font-normal">(BPMN N66: Input Bukti Pembayaran)</span></label>
+                        <label for="file_bukti_transfer" class="block text-xs font-bold text-slate-700 mb-1">Unggah Slip Bukti Transfer Bank / SP2D (PDF/JPG, Maks 10MB) <span class="text-rose-500">*</span></label>
                         <input type="file" id="file_bukti_transfer" name="file_bukti_transfer" required accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-100 file:text-emerald-800">
                     </div>
 
@@ -901,7 +901,7 @@
                     <div class="flex items-center justify-end pt-3 border-t border-emerald-100">
                         <button type="submit" class="px-6 py-2.5 rounded-xl bg-emerald-600 text-xs font-bold text-white hover:bg-emerald-700 shadow-sm transition inline-flex items-center gap-2">
                             <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                            <span>Cairkan Dana &amp; Kirim Notifikasi Penutup ke Seluruh Role (BPMN N70 &rarr; N72 End)</span>
+                            <span>Cairkan Dana &amp; Selesaikan Pembayaran</span>
                         </button>
                     </div>
                 </form>

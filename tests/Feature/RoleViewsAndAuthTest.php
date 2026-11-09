@@ -84,7 +84,6 @@ class RoleViewsAndAuthTest extends TestCase
             'kode_unit' => 'TIK',
             'role' => 'user',
             'no_hp' => '081299887711',
-            'no_telp_kantor' => '0217270001',
         ];
 
         $response = $this->post('/register', $registrationData);

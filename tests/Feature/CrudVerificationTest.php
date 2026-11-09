@@ -36,7 +36,6 @@ class CrudVerificationTest extends TestCase
             'role' => User::ROLE_USER_PENGAJU,
             'status_aktif' => true,
             'no_hp' => '081234567890',
-            'no_telp_kantor' => '021-1234567',
         ]);
 
         $createResponse->assertStatus(201)

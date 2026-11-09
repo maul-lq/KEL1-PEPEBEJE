@@ -313,22 +313,6 @@
                         @enderror
                     </label>
 
-                    <!-- Telepon Kantor (Penyesuaian nama="no_telp_kantor") -->
-                    <label class="flex flex-col gap-[8px]">
-                        <span class="text-base font-medium text-black">
-                            Telepon Kantor <span class="text-[14px] text-gray-500">(Opsional)</span>
-                        </span>
-                        <input
-                            type="tel"
-                            name="no_telp_kantor"
-                            value="{{ old('no_telp_kantor', old('office_phone')) }}"
-                            placeholder="021-xxxxxxxxx"
-                            class="h-[55px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] px-[22px] text-base text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6]"
-                        />
-                        @error('no_telp_kantor')
-                            <span class="text-xs text-rose-600 font-medium">{{ $message }}</span>
-                        @enderror
-                    </label>
 
                     <!-- Password -->
                     <label class="flex flex-col gap-[8px]">

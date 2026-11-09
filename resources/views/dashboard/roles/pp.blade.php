@@ -44,7 +44,7 @@
         />
     </div>
 
-    {{-- 2. MAIN OPERATION: ANTREAN REVIEW DOKUMEN PENGADAAN (BPMN N24) --}}
+    {{-- 2. MAIN OPERATION: ANTREAN REVIEW DOKUMEN PENGADAAN --}}
     <div class="space-y-4">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div class="flex items-center gap-2">

@@ -223,7 +223,7 @@
                                     </div>
                                     <div>
                                         <h3 class="text-xs font-extrabold uppercase tracking-wider text-[#213153]">
-                                            Kelengkapan Berkas Diterima PPBJ (BPMN Node: Form Pengadaan, MAK &amp; Memo)
+                                            Kelengkapan Berkas Usulan Masuk (Form Pengadaan, MAK &amp; Memo Permohonan)
                                         </h3>
                                         <p class="text-[11px] text-slate-500">
                                             Berkas usulan permohonan telah disetujui lengkap oleh Subbagian Perencanaan, Wadir II, dan PPK Penanggung Jawab.

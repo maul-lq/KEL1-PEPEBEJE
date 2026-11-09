@@ -57,9 +57,6 @@ class AuthController extends Controller
         if ($request->filled('phone') && ! $request->filled('no_hp')) {
             $request->merge(['no_hp' => $request->phone]);
         }
-        if ($request->filled('office_phone') && ! $request->filled('no_telp_kantor')) {
-            $request->merge(['no_telp_kantor' => $request->office_phone]);
-        }
         if ($request->filled('unit_kerja') && ! $request->filled('kode_unit')) {
             $unit = Unit::where('kode_unit', $request->unit_kerja)
                 ->orWhere('nama_unit', 'like', "%{$request->unit_kerja}%")
@@ -79,7 +76,6 @@ class AuthController extends Controller
             'jabatan' => ['required', 'string', 'max:100'],
             'kode_unit' => ['required', 'string', 'exists:units,kode_unit'],
             'no_hp' => ['required', 'string', 'max:20'],
-            'no_telp_kantor' => ['nullable', 'string', 'max:20'],
         ]);
 
         // 3. Status awal pendaftaran: Tidak aktif dan menunggu persetujuan Administrator
