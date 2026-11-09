@@ -301,11 +301,20 @@ class HomeController extends Controller
                             PermohonanPengadaan::STATUS_REVIU_PARALEL,
                         ])
                         ->count(),
+                    'antrean_dokumen_pengadaan' => PaketPengadaan::where('id_user_ppk', $user->id_user)
+                        ->where('status_paket', PaketPengadaan::STATUS_MENUNGGU_APPROVAL_PPK)
+                        ->count(),
                     'total_paket_ppk' => PaketPengadaan::where('id_user_ppk', $user->id_user)->count(),
                     'tender_aktif' => PaketPengadaan::where('id_user_ppk', $user->id_user)->where('jalur_routing', 'ppk_diatas_200jt')->whereIn('status_paket', ['terdaftar', 'proses'])->count(),
                     'spk_aktif' => PaketPengadaan::where('id_user_ppk', $user->id_user)->whereHas('kontrakSpk')->count(),
                     'memo_bayar_pending' => MemoBayar::where('role_approver', 'ppk')->whereIn('status_memo', ['diajukan', 'menunggu'])->whereHas('pembayaran.paket', fn ($q) => $q->where('id_user_ppk', $user->id_user))->count(),
                 ],
+                'antrean_dokumen_pengadaan_list' => PaketPengadaan::with(['permohonan.unit', 'vendor', 'ppUser', 'reviuDokumen.user'])
+                    ->where('id_user_ppk', $user->id_user)
+                    ->where('status_paket', PaketPengadaan::STATUS_MENUNGGU_APPROVAL_PPK)
+                    ->latest('tanggal_registrasi_paket')
+                    ->take(5)
+                    ->get(),
                 'antrean_persetujuan_awal_list' => PermohonanPengadaan::with(['unit', 'user', 'verifikasiParalel'])
                     ->where('id_user_ppk_awal', $user->id_user)
                     ->whereIn('status_permohonan', [
@@ -1303,6 +1312,144 @@ class HomeController extends Controller
         );
     }
 
+    /**
+     * Menampilkan antrean penerimaan dan verifikasi dokumen pengadaan oleh PPK (BPMN N30-N36).
+     * Menerima berkas dari:
+     * - Jalur <= 50jt: PPBJ Belanja Langsung (BPMN N28 -> N30)
+     * - Jalur 50-200jt: Pejabat Pengadaan (PP) setelah verifikasi berhasil (BPMN N31 -> N30)
+     * - Jalur > 200jt: PPBJ Tender/Seleksi (BPMN N28 -> N30)
+     */
+    public function persetujuanDokumenPpkIndex(Request $request): View
+    {
+        $user = Auth::user();
+        if (! $user->hasPermission('reviu.ppk') && ! $user->hasRole('admin')) {
+            abort(403, 'Akses Ditolak: Anda tidak memiliki hak akses persetujuan dokumen pengadaan.');
+        }
+
+        $query = PaketPengadaan::with([
+            'permohonan.unit',
+            'permohonan.user',
+            'ppUser',
+            'ppkUser',
+            'vendor',
+            'reviuDokumen.user',
+        ]);
+
+        if (! $user->hasRole('admin')) {
+            $query->where('id_user_ppk', $user->id_user);
+        }
+
+        $paketAntrean = (clone $query)
+            ->where('status_paket', PaketPengadaan::STATUS_MENUNGGU_APPROVAL_PPK)
+            ->latest('tanggal_registrasi_paket')
+            ->get();
+
+        $riwayatDisetujui = (clone $query)
+            ->whereIn('status_paket', [
+                PaketPengadaan::STATUS_SIAP_UPLOAD_DOKUMEN_PPBJ,
+                PaketPengadaan::STATUS_BELANJA_LANGSUNG_SELESAI,
+                'spk_terbit',
+                'penerimaan_selesai',
+                'selesai',
+            ])
+            ->latest('updated_at')
+            ->take(15)
+            ->get();
+
+        $riwayatDitolak = (clone $query)
+            ->where('status_paket', 'perlu_perbaikan')
+            ->latest('updated_at')
+            ->take(15)
+            ->get();
+
+        return view('ppk.persetujuan-dokumen', compact('paketAntrean', 'riwayatDisetujui', 'riwayatDitolak', 'user'));
+    }
+
+    /**
+     * Memproses keputusan persetujuan dokumen pengadaan oleh PPK (BPMN N35 & N36).
+     * - Disetujui (N35: Iya -> N36): Berkas diteruskan ke PPBJ untuk belanja / perikatan (N32 & N37).
+     * - Ditolak (N35: Tidak): Berkas dikembalikan ke PPBJ untuk disusun ulang (N18).
+     */
+    public function keputusanDokumenPpk(Request $request): RedirectResponse
+    {
+        $user = Auth::user();
+        if (! $user->hasPermission('reviu.ppk') && ! $user->hasRole('admin')) {
+            abort(403, 'Akses Ditolak: Anda tidak memiliki hak akses persetujuan dokumen pengadaan.');
+        }
+
+        $validated = $request->validate([
+            'nomor_paket' => ['required', 'exists:paket_pengadaan,nomor_paket'],
+            'keputusan' => ['required', 'in:disetujui,ditolak'],
+            'catatan_alasan' => ['required_if:keputusan,ditolak', 'nullable', 'string'],
+        ], [
+            'catatan_alasan.required_if' => 'Catatan alasan penolakan wajib diisi saat PPK menolak / mengembalikan dokumen pengadaan ke PPBJ.',
+        ]);
+
+        $paket = PaketPengadaan::with(['permohonan', 'reviuDokumen'])->where('nomor_paket', $validated['nomor_paket'])->firstOrFail();
+
+        // Isolasi 4 akun PPK jika bukan admin
+        if (! $user->hasRole('admin') && (int) $paket->id_user_ppk !== (int) $user->id_user) {
+            abort(403, 'Akses Ditolak: Anda tidak berhak memproses paket yang ditugaskan ke akun PPK lain.');
+        }
+
+        $statusLama = $paket->status_paket;
+        $nextRound = (ReviuDokumen::where('nomor_paket', $paket->nomor_paket)->max('putaran_ke') ?? 0) + 1;
+        $isDisetujui = ($validated['keputusan'] === 'disetujui');
+        $catatan = $validated['catatan_alasan'] ?: 'Dokumen pengadaan disetujui oleh PPK (BPMN N36); berkas diteruskan ke PPBJ.';
+
+        ReviuDokumen::create([
+            'nomor_paket' => $paket->nomor_paket,
+            'id_user' => $user->id_user,
+            'putaran_ke' => $nextRound,
+            'role_reviewer' => 'ppk',
+            'status_reviu' => $isDisetujui ? 'disetujui' : 'perlu_perbaikan',
+            'catatan_perbaikan' => $catatan,
+            'tanggal_reviu' => now(),
+        ]);
+
+        if ($isDisetujui) {
+            $paket->status_paket = PaketPengadaan::STATUS_SIAP_UPLOAD_DOKUMEN_PPBJ;
+            $paket->save();
+
+            AuditLog::catat(
+                $user->id_user,
+                'APPROVAL_DOKUMEN_PENGADAAN_PPK',
+                'paket_pengadaan',
+                $paket->nomor_paket,
+                $statusLama,
+                $paket->status_paket,
+                "PPK ({$user->nama}) menyetujui dokumen pengadaan paket {$paket->nomor_paket} (BPMN N35: Iya -> N36); diteruskan ke PPBJ untuk belanja/perikatan."
+            );
+
+            $this->notificationService->notifySiapUploadDokumenPpbj($paket, 'ppk');
+
+            return redirect()->route('ppk.persetujuan-dokumen.index')->with(
+                'success',
+                "Dokumen pengadaan paket {$paket->nomor_paket} BERHASIL DISETUJUI oleh PPK (BPMN N36). PPBJ dapat melanjutkan pelaksanaan pengadaan."
+            );
+        }
+
+        // Penolakan PPK (BPMN N35: Tidak -> N18 PPBJ Susun Ulang)
+        $paket->status_paket = 'perlu_perbaikan';
+        $paket->catatan_verifikasi_pp = "Catatan Penolakan PPK ({$user->nama}): ".$catatan;
+        $paket->save();
+
+        AuditLog::catat(
+            $user->id_user,
+            'PENOLAKAN_DOKUMEN_PENGADAAN_PPK',
+            'paket_pengadaan',
+            $paket->nomor_paket,
+            $statusLama,
+            'perlu_perbaikan',
+            "PPK ({$user->nama}) mengembalikan dokumen pengadaan paket {$paket->nomor_paket} ke PPBJ (BPMN N35: Tidak -> N18): {$catatan}"
+        );
+
+        return redirect()->route('ppk.persetujuan-dokumen.index')->with(
+            'success',
+            "Dokumen pengadaan paket {$paket->nomor_paket} telah DIKEMBALIKAN ke PPBJ untuk disusun ulang (BPMN N18)."
+        );
+    }
+
     // =========================================================================
     // MODUL 3: VERIFIKASI ANGGARAN MAK & OTORITAS TUNGGAL LOCK/UNLOCK (PERENCANAAN)
     // =========================================================================
@@ -2098,6 +2245,7 @@ class HomeController extends Controller
 
         if ($jalur === PaketPengadaan::ROUTING_LANGSUNG) {
             $metodePengadaan = PaketPengadaan::METODE_BELANJA_LANGSUNG;
+            $idUserPpk = $inheritedPpk ?? User::where('role', 'ppk')->where('status_aktif', true)->first()?->id_user;
         } elseif ($jalur === PaketPengadaan::ROUTING_PP) {
             $idUserPp = $validated['id_user_pp'] ?? User::where('role', 'pp')->where('status_aktif', true)->first()?->id_user;
             $idUserPpk = $inheritedPpk ?? User::where('role', 'ppk')->where('status_aktif', true)->first()?->id_user;
@@ -2126,6 +2274,11 @@ class HomeController extends Controller
             $npwpVendor = $v->npwp;
         }
 
+        // Jalur 50-200jt masuk ke verifikasi teknis PP terlebih dahulu; jalur lainnya langsung ke antrean Approval PPK (BPMN N30)
+        $statusAwal = ($jalur === PaketPengadaan::ROUTING_PP)
+            ? 'terdaftar'
+            : PaketPengadaan::STATUS_MENUNGGU_APPROVAL_PPK;
+
         $paket = PaketPengadaan::create([
             'kode_paket' => $validated['kode_paket'],
             'nomor_paket' => $validated['kode_paket'],
@@ -2148,7 +2301,7 @@ class HomeController extends Controller
             'id_user_ppk' => $idUserPpk,
             'id_user_pp' => $idUserPp,
             'tanggal_registrasi_paket' => now(),
-            'status_paket' => 'terdaftar',
+            'status_paket' => $statusAwal,
         ]);
 
         AuditLog::catat(
@@ -2195,6 +2348,17 @@ class HomeController extends Controller
         if ($paket->jalur_routing !== PaketPengadaan::ROUTING_LANGSUNG) {
             return back()->withErrors([
                 'nomor_paket' => 'Eksekusi Belanja Langsung (Kwitansi tanpa Kontrak/SPK) hanya berlaku untuk paket <= Rp 50.000.000.',
+            ])->withInput();
+        }
+
+        // Dokumen pengadaan wajib disetujui PPK (BPMN N30-N35) sebelum belanja langsung
+        if (! in_array($paket->status_paket, [
+            PaketPengadaan::STATUS_SIAP_UPLOAD_DOKUMEN_PPBJ,
+            'disetujui',
+            PaketPengadaan::STATUS_BELANJA_LANGSUNG_SELESAI,
+        ], true)) {
+            return back()->withErrors([
+                'nomor_paket' => 'Dokumen pengadaan paket ini belum disetujui oleh PPK (BPMN N30-N35). PPBJ baru dapat mengunggah kwitansi belanja setelah persetujuan PPK.',
             ])->withInput();
         }
 
@@ -2423,9 +2587,10 @@ class HomeController extends Controller
         };
 
         // Reset status paket sesuai rute BPMN N28
-        $statusBaru = ($jalur === PaketPengadaan::ROUTING_PPK)
-            ? PaketPengadaan::STATUS_MENUNGGU_APPROVAL_PPK
-            : 'terdaftar';
+        // Jalur 50-200jt kembali ke verifikasi PP (terdaftar); Jalur Belanja Langsung (<=50jt) dan Tender (>200jt) langsung kembali ke persetujuan PPK (menunggu_approval_ppk)
+        $statusBaru = ($jalur === PaketPengadaan::ROUTING_PP)
+            ? 'terdaftar'
+            : PaketPengadaan::STATUS_MENUNGGU_APPROVAL_PPK;
 
         $paket->update([
             'nama_paket' => $validated['nama_paket'],
@@ -2678,6 +2843,18 @@ class HomeController extends Controller
         if ($paket->jalur_routing === PaketPengadaan::ROUTING_LANGSUNG || $nominalPaket <= 50000000) {
             return back()->withErrors([
                 'kode_paket' => 'Paket di bawah atau sama dengan Rp 50.000.000 adalah Belanja Langsung (output Kwitansi, tidak ada Kontrak/SPK/Surat Pesanan).',
+            ])->withInput();
+        }
+
+        // Dokumen pengadaan wajib disetujui PPK (BPMN N35: Iya -> N36) sebelum menerbitkan kontrak/SPK
+        if (! in_array($paket->status_paket, [
+            PaketPengadaan::STATUS_SIAP_UPLOAD_DOKUMEN_PPBJ,
+            PaketPengadaan::STATUS_DISETUJUI_PPK_SIAP_BELANJA_PP,
+            'disetujui',
+            'spk_terbit',
+        ], true)) {
+            return back()->withErrors([
+                'kode_paket' => 'Dokumen pengadaan paket ini belum disetujui oleh PPK (BPMN N30-N35). PPBJ baru dapat menerbitkan dokumen perikatan setelah persetujuan PPK.',
             ])->withInput();
         }
 

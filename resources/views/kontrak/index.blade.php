@@ -108,7 +108,7 @@
             class="px-4 py-2.5 rounded-xl text-xs font-bold transition inline-flex items-center gap-2"
         >
             <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-            <span>1. Review Dokumen Pengadaan (BPMN N24) {{ Auth::user()?->canMonitorPp() ? '(Monitoring PP & PPK)' : '(PP & PPK)' }}</span>
+            <span>1. Review Dokumen Pengadaan {{ Auth::user()?->canMonitorPp() ? '(Monitoring PP & PPK)' : '(PP & PPK)' }}</span>
             <span class="px-2 py-0.5 rounded-full text-[10px] font-bold"
                   :class="activeTab === 'reviu' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800'">
                 {{ $paketReviu->count() }}
@@ -183,9 +183,9 @@
             {{-- Form Penelaahan Dokumen & Negosiasi --}}
             <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80">
                 <div class="border-b border-slate-100 pb-4 mb-5">
-                    <h2 class="text-base font-bold text-[#213153]">Form Review Dokumen Pengadaan (BPMN N24)</h2>
+                    <h2 class="text-base font-bold text-[#213153]">Form Review Dokumen Pengadaan</h2>
                     <p class="text-xs text-slate-500 mt-0.5">
-                        Pejabat Pengadaan (PP) menelaah kelayakan spesifikasi teknis dan HPS (BPMN N24); PPK menyetujui dokumen pengadaan (BPMN N30-N35) sebelum pelaksanaan pengadaan oleh PPBJ.
+                        Pejabat Pengadaan (PP) menelaah kelayakan spesifikasi teknis dan HPS; PPK menyetujui dokumen pengadaan sebelum pelaksanaan pengadaan oleh PPBJ.
                     </p>
                 </div>
 
@@ -272,7 +272,7 @@
                                     <div class="flex items-center justify-between pb-2 border-b border-amber-200/60">
                                         <span class="text-xs font-bold text-amber-900 flex items-center gap-1.5">
                                             <svg class="size-4 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                                            Ringkasan Dokumen Pengadaan yang Ditelaah (BPMN N24)
+                                            Ringkasan Dokumen Pengadaan yang Ditelaah
                                         </span>
                                         <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">Jalur 50 - 200 Juta</span>
                                     </div>

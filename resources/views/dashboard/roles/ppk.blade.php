@@ -41,11 +41,13 @@
         />
 
         <x-stat-card
-            title="Tender Aktif (>200jt)"
-            :value="$stats['tender_aktif'] ?? 0"
+            title="Antrean Dokumen Pengadaan"
+            :value="$stats['antrean_dokumen_pengadaan'] ?? 0"
             color="amber"
-            icon="bell"
-            subtitle="Paket komitmen strategis"
+            icon="document"
+            badge="BPMN N30"
+            subtitle="Dokumen pengadaan siap review"
+            :href="route('ppk.persetujuan-dokumen.index')"
         />
 
         <x-stat-card
@@ -126,6 +128,83 @@
                             <tr>
                                 <td colspan="6" class="px-4 py-6 text-center text-slate-400">
                                     Tidak ada permohonan baru yang menunggu keputusan persetujuan awal Anda.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    {{-- SECTION ANTREAN PERSETUJUAN DOKUMEN PENGADAAN (BPMN N30 & N35) --}}
+    @if(($stats['antrean_dokumen_pengadaan'] ?? 0) > 0 || !empty($roleData['antrean_dokumen_pengadaan_list']))
+    <div class="space-y-4">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <span class="size-2 rounded-full bg-amber-500 animate-pulse"></span>
+                <h2 class="text-lg font-bold text-[#213153]">Antrean Dokumen Pengadaan Menunggu Persetujuan PPK (BPMN N30-N36)</h2>
+            </div>
+            <a href="{{ route('ppk.persetujuan-dokumen.index') }}" class="text-xs font-bold text-amber-700 hover:underline flex items-center gap-1">
+                Lihat Seluruh Dokumen Antrean ({{ $stats['antrean_dokumen_pengadaan'] ?? 0 }})
+                <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
+        </div>
+
+        <div class="overflow-hidden rounded-2xl border border-amber-200/80 bg-white shadow-xs">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                    <thead>
+                        <tr class="bg-amber-50/70 text-amber-950 font-bold border-b border-amber-100">
+                            <th class="px-4 py-3">Nomor Paket</th>
+                            <th class="px-4 py-3">Nama Paket Pengadaan</th>
+                            <th class="px-4 py-3">Jalur Routing</th>
+                            <th class="px-4 py-3">Pagu HPS</th>
+                            <th class="px-4 py-3">Status Verifikasi PP</th>
+                            <th class="px-4 py-3 text-right">Aksi PPK</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 font-medium text-slate-700">
+                        @forelse($roleData['antrean_dokumen_pengadaan_list'] ?? [] as $pktDok)
+                            <tr class="hover:bg-amber-50/30 transition-colors">
+                                <td class="px-4 py-3.5 font-mono font-bold text-amber-900">{{ $pktDok->nomor_paket }}</td>
+                                <td class="px-4 py-3.5">
+                                    <div class="font-bold text-slate-800">{{ $pktDok->nama_paket }}</div>
+                                    <div class="text-[11px] text-slate-400 mt-0.5">Surat: {{ $pktDok->nomor_surat }} &bull; Unit: {{ $pktDok->permohonan->unit->nama_unit ?? '-' }}</div>
+                                </td>
+                                <td class="px-4 py-3.5">
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold {{ $pktDok->jalur_routing === 'langsung_sd_50jt' ? 'bg-teal-100 text-teal-800' : ($pktDok->jalur_routing === 'ppk_diatas_200jt' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800') }}">
+                                        {{ strtoupper(str_replace('_', ' ', $pktDok->jalur_routing)) }}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3.5 font-mono font-bold text-slate-900">
+                                    Rp {{ number_format($pktDok->nilai_hps, 0, ',', '.') }}
+                                </td>
+                                <td class="px-4 py-3.5">
+                                    @if($pktDok->jalur_routing === 'pp_50jt_sd_200jt' || $pktDok->jalur_routing === 'pp_50_sd_200jt')
+                                        <span class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700">
+                                            <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                            Lolos Telaah PP
+                                        </span>
+                                    @elseif($pktDok->jalur_routing === 'langsung_sd_50jt')
+                                        <span class="text-[11px] text-slate-500 italic">Belanja Langsung (PPBJ)</span>
+                                    @else
+                                        <span class="text-[11px] text-purple-700 font-semibold">Tender Strategis PPK</span>
+                                    @endif
+                                </td>
+                                <td class="px-4 py-3.5 text-right">
+                                    <a href="{{ route('ppk.persetujuan-dokumen.index') }}" 
+                                       class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] shadow-xs transition">
+                                        <span>Periksa &amp; ACC</span>
+                                        <svg class="size-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                    </a>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="6" class="px-4 py-6 text-center text-slate-400">
+                                    Tidak ada dokumen pengadaan yang menunggu persetujuan Anda saat ini.
                                 </td>
                             </tr>
                         @endforelse

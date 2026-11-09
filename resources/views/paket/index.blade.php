@@ -376,7 +376,7 @@
                                         class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-500 text-xs font-bold text-white hover:bg-amber-600 shadow-sm transition whitespace-nowrap"
                                     >
                                         <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                                        <span>Perbaiki Dokumen (N18)</span>
+                                        <span>Perbaiki Dokumen</span>
                                     </a>
                                 </td>
                             </tr>
@@ -520,23 +520,51 @@
 
                                         @if($pkt->jalur_routing === 'langsung_sd_50jt' || (float)($pkt->nilai_hps ?: $pkt->alokasi_pagu_paket) <= 50000000)
                                             @if(Auth::user() && (Auth::user()->hasRole('admin') || Auth::user()->hasPermission('paket.create')))
-                                                <button
-                                                    type="button"
-                                                    @click="selectedPaket = '{{ $pkt->nomor_paket }}'; $dispatch('open-modal', 'modal-belanja-langsung')"
-                                                    class="px-2.5 py-1 rounded-lg bg-teal-600 text-xs font-semibold text-white hover:bg-teal-700 transition shadow-xs"
-                                                    title="Eksekusi Belanja Langsung (Kwitansi)"
-                                                >
-                                                    Belanja &rarr;
-                                                </button>
+                                                @if(in_array($pkt->status_paket, [\App\Models\PaketPengadaan::STATUS_SIAP_UPLOAD_DOKUMEN_PPBJ, 'disetujui']))
+                                                    <button
+                                                        type="button"
+                                                        @click="selectedPaket = '{{ $pkt->nomor_paket }}'; $dispatch('open-modal', 'modal-belanja-langsung')"
+                                                        class="px-2.5 py-1 rounded-lg bg-teal-600 text-xs font-semibold text-white hover:bg-teal-700 transition shadow-xs"
+                                                        title="Dokumen Disetujui PPK. Eksekusi Belanja Langsung (Kwitansi)"
+                                                    >
+                                                        Belanja &rarr;
+                                                    </button>
+                                                @elseif($pkt->status_paket === \App\Models\PaketPengadaan::STATUS_BELANJA_LANGSUNG_SELESAI)
+                                                    <span class="px-2 py-1 rounded-lg bg-teal-50 border border-teal-200 text-[11px] font-bold text-teal-800">
+                                                        Kwitansi Sah
+                                                    </span>
+                                                @elseif(in_array($pkt->status_paket, [\App\Models\PaketPengadaan::STATUS_MENUNGGU_APPROVAL_PPK, 'terdaftar']))
+                                                    <span class="px-2 py-1 rounded-lg bg-amber-50 border border-amber-200 text-[11px] font-bold text-amber-800" title="Menunggu persetujuan dokumen pengadaan oleh PPK (BPMN N30-N35)">
+                                                        Menunggu ACC PPK
+                                                    </span>
+                                                @endif
                                             @endif
                                         @else
-                                            <a
-                                                href="{{ route('kontrak.index') }}"
-                                                class="px-2.5 py-1 rounded-lg bg-[#213153] text-xs font-semibold text-white hover:bg-slate-800 transition shadow-xs"
-                                                title="Ke Modul Dokumen Perikatan / SPK"
-                                            >
-                                                Perikatan &rarr;
-                                            </a>
+                                            @if($pkt->status_paket === \App\Models\PaketPengadaan::STATUS_MENUNGGU_APPROVAL_PPK)
+                                                <span class="px-2 py-1 rounded-lg bg-amber-50 border border-amber-200 text-[11px] font-bold text-amber-800" title="Menunggu persetujuan dokumen pengadaan oleh PPK (BPMN N30-N35)">
+                                                    Menunggu ACC PPK
+                                                </span>
+                                            @elseif(in_array($pkt->status_paket, ['terdaftar', 'reviu_dokumen']))
+                                                <span class="px-2 py-1 rounded-lg bg-blue-50 border border-blue-200 text-[11px] font-bold text-blue-800" title="Menunggu review teknis & HPS oleh Pejabat Pengadaan (PP)">
+                                                    Review PP
+                                                </span>
+                                            @elseif(in_array($pkt->status_paket, [\App\Models\PaketPengadaan::STATUS_SIAP_UPLOAD_DOKUMEN_PPBJ, \App\Models\PaketPengadaan::STATUS_DISETUJUI_PPK_SIAP_BELANJA_PP, 'disetujui']))
+                                                <a
+                                                    href="{{ route('kontrak.index') }}"
+                                                    class="px-2.5 py-1 rounded-lg bg-[#087F79] text-xs font-semibold text-white hover:bg-[#06635e] transition shadow-xs"
+                                                    title="Dokumen Disetujui PPK. Terbitkan Dokumen Perikatan / SPK"
+                                                >
+                                                    Terbitkan SPK &rarr;
+                                                </a>
+                                            @else
+                                                <a
+                                                    href="{{ route('kontrak.index') }}"
+                                                    class="px-2.5 py-1 rounded-lg bg-[#213153] text-xs font-semibold text-white hover:bg-slate-800 transition shadow-xs"
+                                                    title="Ke Modul Dokumen Perikatan / SPK"
+                                                >
+                                                    Perikatan &rarr;
+                                                </a>
+                                            @endif
                                         @endif
                                     </div>
                                 </td>

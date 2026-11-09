@@ -531,17 +531,16 @@
                     </p>
                 </div>
 
-                {{-- Penugasan PPK (Mandatory if > 200 Juta) --}}
-                <div x-show="routing() !== 'langsung'">
+                {{-- Penugasan PPK (BPMN N30-N36) --}}
+                <div>
                     <label for="id_user_ppk" class="block text-xs font-bold text-slate-700 mb-1">
                         Pejabat Pembuat Komitmen (PPK)
-                        <span class="text-rose-500" x-show="routing() === 'ppk'">* (Wajib untuk HPS &gt; 200 Jt)</span>
-                        <span class="text-slate-400 font-normal" x-show="routing() !== 'ppk'">(Diwarisi Otomatis)</span>
+                        <span class="text-rose-500">*</span>
+                        <span class="text-slate-400 font-normal">(Diwarisi otomatis dari persetujuan awal)</span>
                     </label>
                     <select
                         id="id_user_ppk"
                         name="id_user_ppk"
-                        :required="routing() === 'ppk'"
                         class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20"
                     >
                         <option value="">-- Pilih 1 dari 4 Akun PPK Aktif PNJ --</option>

@@ -101,6 +101,10 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:ppk')->group(function () {
         Route::get('/verifikasi/ppk', [HomeController::class, 'verifikasiPpk'])->name('verifikasi.ppk');
         Route::post('/verifikasi/ppk/keputusan', [HomeController::class, 'keputusanPpkAwal'])->name('verifikasi.ppk.keputusan');
+
+        // BPMN N30-N36: Menerima & Menyetujui Dokumen Pengadaan (setelah PPBJ susun & PP verifikasi)
+        Route::get('/reviu-pengadaan/ppk', [HomeController::class, 'persetujuanDokumenPpkIndex'])->name('ppk.persetujuan-dokumen.index');
+        Route::post('/reviu-pengadaan/ppk/keputusan', [HomeController::class, 'keputusanDokumenPpk'])->name('ppk.persetujuan-dokumen.keputusan');
     });
 
     Route::middleware('role:perencanaan')->group(function () {
