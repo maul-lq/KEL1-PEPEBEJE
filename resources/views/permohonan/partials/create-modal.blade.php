@@ -188,7 +188,7 @@
                         <label class="block text-sm font-semibold text-[#213153]">
                             Dokumen Lampiran <span class="text-rose-500">*</span>
                         </label>
-                        <span class="text-[11px] font-medium text-slate-400" x-text="files.length + '/5 Berkas (Maks 15 MB Total)'"></span>
+                        <span class="text-[11px] font-medium text-slate-400" x-text="files.length + '/5 Berkas (Maksimal 5 File • Maksimal 15 MB)'"></span>
                     </div>
 
                     <!-- PESAN ERROR VALIDASI FILE -->
@@ -231,7 +231,7 @@
                             <svg class="size-5 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
                         </div>
                         <span class="font-bold text-xs text-[#213153] block">Tarik & Taruh file dokumen ke sini</span>
-                        <span class="text-[10px] text-slate-500 block mt-0.5">Atau klik untuk memilih berkas (PDF, DOCX, XLSX, PNG, JPG)</span>
+                        <span class="text-[10px] text-slate-500 block mt-0.5">Atau klik untuk memilih berkas &bull; Maksimal 5 file, Maksimal 15 MB</span>
 
                         <!-- Input File Multiple Hidden -->
                         <input x-ref="fileInput" 

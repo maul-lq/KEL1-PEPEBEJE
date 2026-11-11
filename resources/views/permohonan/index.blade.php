@@ -1164,7 +1164,13 @@
 
             <!-- Dokumen Dropzone & Multi Dokumen Cards (Figma 737:7339 vs 737:7343) -->
             <div class="space-y-2">
-                <label class="block text-xs font-bold text-slate-700">Dokumen <span class="text-rose-500">*</span></label>
+                <div class="flex items-center justify-between">
+                    <label class="block text-xs font-bold text-slate-700">Dokumen <span class="text-rose-500">*</span></label>
+                    <span class="text-[11px] font-medium text-slate-400" x-text="(createFiles ? createFiles.length : 0) + '/5 File (Maksimal 5 File • Maksimal 15 MB)'"></span>
+                </div>
+
+                <!-- Error Message Validasi File Modal -->
+                <div x-show="createFileError" x-text="createFileError" class="p-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-600 text-xs font-medium"></div>
 
                 <!-- Daftar Berkas Terpilih / Multi Dokumen (Figma 737:7343 / Frame 380) -->
                 <template x-if="createFiles.length > 0">
@@ -1196,15 +1202,19 @@
                 </template>
 
                 <!-- Dropzone Unggah (Figma 737:7339 & 737:7343) -->
-                <div @click="document.getElementById('input-file-create').click()"
-                     class="h-[115px] bg-[#ebf5ff] border border-[#3b82f6] rounded-[5px] flex flex-col items-center justify-center text-center cursor-pointer hover:bg-blue-100/50 transition-all select-none">
+                <div @dragover.prevent="isDraggingCreate = true"
+                     @dragleave.prevent="isDraggingCreate = false"
+                     @drop.prevent="isDraggingCreate = false; handleCreateFilesDrop($event)"
+                     @click="document.getElementById('input-file-create').click()"
+                     :class="isDraggingCreate ? 'border-[#3b82f6] bg-blue-100 scale-[0.99]' : 'border-[#3b82f6] bg-[#ebf5ff] hover:bg-blue-100/50'"
+                     class="h-[115px] border rounded-[5px] flex flex-col items-center justify-center text-center cursor-pointer transition-all select-none">
                     <div class="size-10 rounded-full shadow-[0px_4px_10px_1px_rgba(59,130,246,0.5)] flex items-center justify-center mb-1 bg-gradient-to-br from-[#3b82f6] to-white text-[#3b82f6]">
                         <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
                         </svg>
                     </div>
                     <span class="font-bold text-[15px] text-black">Taruh file disini</span>
-                    <span class="font-normal text-[8px] sm:text-[10px] text-[#657a7c]">Atau klik untuk memilih file</span>
+                    <span class="font-normal text-[8px] sm:text-[10px] text-[#657a7c]">Atau klik untuk memilih file &bull; Maksimal 5 file, Maksimal 15 MB</span>
                     <input type="file" id="input-file-create" name="file_surat_permohonan" accept=".pdf" multiple class="hidden" @change="onCreateFilesChange($event)">
                 </div>
             </div>

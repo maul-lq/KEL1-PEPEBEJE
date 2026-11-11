@@ -105,6 +105,10 @@ export function trackingManager(initialItems = null) {
         // ==================== MODAL 2: BUAT PERMOHONAN BARU (737:7343 & 737:7339) ====================
         createFiles: [], // Multi Dokumen: array of { id, name, size, formattedSize, file, pageCount }
         createNominal: '',
+        isDraggingCreate: false,
+        createFileError: '',
+        maxCreateFiles: 5,
+        maxCreateTotalSizeMB: 15,
 
         // ==================== MODAL 3: REVISI PERMOHONAN (744:7706 & 744:7705) ====================
         revisiExistingFiles: [], // Multi Dokumen Berkas Lama: array of { id, name, formattedSize, pageCount, isExisting }
@@ -547,30 +551,73 @@ export function trackingManager(initialItems = null) {
         openCreateModal() {
             this.createFiles = [];
             this.createNominal = '';
+            this.createFileError = '';
+            this.isDraggingCreate = false;
+            const input = document.getElementById('input-file-create');
+            if (input) input.value = '';
             window.dispatchEvent(new CustomEvent('open-modal', { detail: 'modal-create-permohonan' }));
+        },
+
+        handleCreateFilesDrop(event) {
+            const files = event.dataTransfer?.files;
+            if (files && files.length > 0) {
+                this.processIncomingCreateFiles(files);
+            }
         },
 
         onCreateFilesChange(event) {
             if (event.target.files && event.target.files.length > 0) {
-                Array.from(event.target.files).forEach((file, idx) => {
-                    this.createFiles.push({
-                        id: Date.now() + '_' + idx + '_' + Math.random().toString(36).substring(2, 7),
-                        name: file.name,
-                        size: file.size,
-                        formattedSize: this.formatFileSize(file.size),
-                        file: file,
-                        pageCount: 2,
-                    });
+                this.processIncomingCreateFiles(event.target.files);
+            }
+        },
+
+        processIncomingCreateFiles(incomingList) {
+            this.createFileError = '';
+            const incomingFiles = Array.from(incomingList);
+
+            if (this.createFiles.length + incomingFiles.length > this.maxCreateFiles) {
+                this.createFileError = `Maksimal hanya dapat mengunggah ${this.maxCreateFiles} berkas.`;
+                return;
+            }
+
+            const currentTotalBytes = this.createFiles.reduce((acc, f) => acc + (f.size || 0), 0);
+            const incomingTotalBytes = incomingFiles.reduce((acc, f) => acc + (f.size || 0), 0);
+            const totalMB = (currentTotalBytes + incomingTotalBytes) / (1024 * 1024);
+
+            if (totalMB > this.maxCreateTotalSizeMB) {
+                this.createFileError = `Total ukuran seluruh berkas melebihi batas ${this.maxCreateTotalSizeMB} MB.`;
+                return;
+            }
+
+            incomingFiles.forEach((file, idx) => {
+                this.createFiles.push({
+                    id: Date.now() + '_' + idx + '_' + Math.random().toString(36).substring(2, 7),
+                    name: file.name,
+                    size: file.size,
+                    formattedSize: this.formatFileSize(file.size),
+                    file: file,
+                    pageCount: 2,
                 });
+            });
+
+            this.syncCreateFileInput();
+        },
+
+        syncCreateFileInput() {
+            const input = document.getElementById('input-file-create');
+            if (input) {
+                const dt = new DataTransfer();
+                this.createFiles.forEach(f => {
+                    if (f.file) dt.items.add(f.file);
+                });
+                input.files = dt.files;
             }
         },
 
         removeCreateFile(index) {
             this.createFiles.splice(index, 1);
-            if (this.createFiles.length === 0) {
-                const input = document.getElementById('input-file-create');
-                if (input) input.value = '';
-            }
+            this.createFileError = '';
+            this.syncCreateFileInput();
         },
 
         previewLocalCreateFile(fileItem) {
