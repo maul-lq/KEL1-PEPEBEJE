@@ -750,7 +750,7 @@
 
             {{-- Banner Notifikasi OS Desktop --}}
             @auth
-            <div x-data="desktopNotificationManager()"
+            <div x-data="typeof desktopNotificationManager === 'function' ? desktopNotificationManager() : { showBanner: false, init() {} }"
                  x-init="init()"
                  x-show="showBanner"
                  x-cloak
