@@ -297,6 +297,136 @@
         <!-- KOLOM KANAN (1 COL): CATATAN VERIFIKASI & SILSILAH BERKAS -->
         <div class="space-y-6">
 
+            <!-- DOKUMEN LAMPIRAN PENGADAAN (1 s.d. 5 DOKUMEN) -->
+            <div class="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-4">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div class="flex items-center gap-2">
+                        <svg class="size-5 text-[#0969da]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        <h3 class="text-base font-bold text-[#213153]">Dokumen Lampiran Pengadaan</h3>
+                    </div>
+                    @php
+                        $dokList = $permohonan->dokumen_lampiran_list;
+                        $fotoList = $permohonan->foto_dokumentasi_barang_list;
+                        $buktiBayarList = $permohonan->bukti_pembayaran_list;
+                    @endphp
+                    <span class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-[#0969da]">
+                        {{ count($dokList) }} Dokumen
+                    </span>
+                </div>
+
+                @if(count($dokList) > 0)
+                    <div class="space-y-2.5">
+                        @foreach($dokList as $doc)
+                            <div class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                                <div class="{{ $doc['colorClass'] ?? 'bg-rose-600' }} size-10 rounded-lg text-white flex items-center justify-center shrink-0 font-bold text-[10px] shadow-xs">
+                                    {{ $doc['type'] ?? 'PDF' }}
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <div class="font-bold text-xs text-[#213153] truncate">{{ $doc['name'] }}</div>
+                                    <div class="text-[11px] text-slate-500 truncate">{{ $doc['type'] ?? 'Berkas' }} &bull; {{ $doc['size'] ?? 'Lampiran' }}</div>
+                                </div>
+                                <div class="flex items-center gap-2 shrink-0">
+                                    @if(strtoupper($doc['type'] ?? '') === 'PDF')
+                                        <button type="button"
+                                                @click="$dispatch('open-preview-doc', { title: '{{ addslashes($doc['name']) }}', url: '{{ $doc['url'] }}', size: '{{ $doc['size'] ?? '' }}' })"
+                                                class="h-8 px-3.5 text-xs font-bold text-[#0969da] border border-[#0969da] bg-white rounded-lg hover:bg-blue-50 transition-colors inline-flex items-center justify-center cursor-pointer">
+                                            Lihat
+                                        </button>
+                                    @else
+                                        <a href="{{ $doc['url'] }}" download
+                                           class="h-8 px-3.5 text-xs font-bold text-slate-700 border border-slate-300 bg-white rounded-lg hover:bg-slate-50 transition-colors inline-flex items-center justify-center">
+                                            Unduh
+                                        </a>
+                                    @endif
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @else
+                    <p class="text-xs text-slate-400 italic">Tidak ada dokumen lampiran yang diunggah.</p>
+                @endif
+            </div>
+
+            <!-- FOTO DOKUMENTASI FISIK BARANG (UNIT PERLENGKAPAN) -->
+            @if(count($fotoList) > 0)
+                <div class="rounded-2xl border border-emerald-200 bg-white p-6 shadow-xs space-y-4">
+                    <div class="flex items-center justify-between pb-3 border-b border-emerald-100">
+                        <div class="flex items-center gap-2">
+                            <svg class="size-5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                            <h3 class="text-base font-bold text-emerald-950">Foto Dokumentasi Barang (Perlengkapan)</h3>
+                        </div>
+                        <span class="rounded-full bg-emerald-100 text-emerald-800 font-bold text-xs px-2.5 py-1">
+                            {{ count($fotoList) }} Foto
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        @foreach($fotoList as $idx => $foto)
+                            <a href="{{ $foto['url'] }}" target="_blank" class="group relative block rounded-xl overflow-hidden border border-emerald-200 hover:border-emerald-500 shadow-xs transition-all">
+                                <img src="{{ $foto['url'] }}" alt="{{ $foto['keterangan'] ?? 'Foto Barang' }}" class="w-full h-28 object-cover group-hover:scale-105 transition-transform duration-200">
+                                <div class="p-2 bg-white/95 border-t border-slate-100">
+                                    <p class="text-[11px] text-slate-800 font-bold truncate">{{ $foto['keterangan'] ?? ('Foto Dokumentasi ' . ($idx + 1)) }}</p>
+                                    @if(!empty($foto['nomor_bast']))
+                                        <p class="text-[10px] text-slate-400 font-mono truncate">{{ $foto['nomor_bast'] }}</p>
+                                    @endif
+                                </div>
+                            </a>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+
+            <!-- BUKTI PEMBAYARAN & REALISASI KAS (SP2D / KWITANSI) -->
+            @if(count($buktiBayarList) > 0)
+                <div class="rounded-2xl border border-teal-200 bg-white p-6 shadow-xs space-y-4">
+                    <div class="flex items-center justify-between pb-3 border-b border-teal-100">
+                        <div class="flex items-center gap-2">
+                            <svg class="size-5 text-teal-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
+                            </svg>
+                            <h3 class="text-base font-bold text-teal-950">Bukti Bayar & Realisasi Kas (SP2D / Kwitansi)</h3>
+                        </div>
+                        <span class="rounded-full bg-teal-100 text-teal-800 font-bold text-xs px-2.5 py-1">
+                            {{ count($buktiBayarList) }} Berkas
+                        </span>
+                    </div>
+
+                    <div class="space-y-2.5">
+                        @foreach($buktiBayarList as $bukti)
+                            <div class="flex items-center justify-between p-3 rounded-xl border border-teal-100 bg-teal-50/40 hover:bg-teal-50/80 transition-colors">
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex items-center gap-2">
+                                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider {{ $bukti['tipe'] === 'sp2d' ? 'bg-emerald-600 text-white' : 'bg-teal-700 text-white' }}">
+                                            {{ $bukti['tipe'] === 'sp2d' ? 'SP2D' : strtoupper($bukti['tipe']) }}
+                                        </span>
+                                        <p class="text-xs font-bold text-slate-800 truncate">{{ $bukti['label'] }}</p>
+                                    </div>
+                                    <div class="mt-1 flex items-center gap-3 text-[11px] text-slate-500">
+                                        @if(!empty($bukti['nomor']))
+                                            <span class="font-mono">{{ $bukti['nomor'] }}</span>
+                                        @endif
+                                        @if(!empty($bukti['nominal']))
+                                            <span class="font-bold text-teal-700">Rp {{ number_format($bukti['nominal'], 0, ',', '.') }}</span>
+                                        @endif
+                                        @if(!empty($bukti['tanggal']))
+                                            <span>&bull; {{ $bukti['tanggal'] }}</span>
+                                        @endif
+                                    </div>
+                                </div>
+                                <a href="{{ $bukti['url'] }}" target="_blank" rel="noopener"
+                                   class="h-8 px-3 text-xs font-bold text-teal-700 border border-teal-300 bg-white rounded-lg hover:bg-teal-50 transition-colors inline-flex items-center justify-center shrink-0 ml-3">
+                                    Lihat
+                                </a>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+
             <!-- CATATAN VERIFIKASI TIGA PIHAK -->
             <div class="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-4">
                 <div class="flex items-center gap-2 pb-3 border-b border-slate-100">

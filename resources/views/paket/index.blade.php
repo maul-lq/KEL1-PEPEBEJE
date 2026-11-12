@@ -265,24 +265,24 @@
 
                                     <td class="px-5 py-4">
                                         <div class="flex flex-wrap items-center gap-1.5">
-                                            <a href="{{ route('dokumen.pdf', ['jenis' => 'permohonan', 'id' => $p->nomor_surat]) }}" target="_blank"
-                                               class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-semibold border border-slate-200 transition"
-                                               title="Unduh / Pratinjau Surat Permohonan">
-                                                <svg class="size-3 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-                                                Form (PDF)
-                                            </a>
-                                            @if($p->file_kak)
-                                                <a href="{{ asset('storage/' . $p->file_kak) }}" target="_blank"
-                                                   class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-semibold border border-slate-200 transition">
-                                                    KAK
-                                                </a>
-                                            @endif
-                                            @if($p->file_spesifikasi_teknis)
-                                                <a href="{{ asset('storage/' . $p->file_spesifikasi_teknis) }}" target="_blank"
-                                                   class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-semibold border border-slate-200 transition">
-                                                    Spek Teknis
-                                                </a>
-                                            @endif
+                                            @foreach($p->dokumen_lampiran_list as $doc)
+                                                @if(strtoupper($doc['type'] ?? '') === 'PDF')
+                                                    <button type="button" 
+                                                            @click="$dispatch('open-preview-doc', { title: '{{ addslashes($doc['name']) }}', url: '{{ $doc['url'] }}', size: '{{ $doc['size'] ?? '' }}' })"
+                                                            class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-semibold border border-slate-200 transition cursor-pointer"
+                                                            title="{{ $doc['name'] }}">
+                                                        <svg class="size-3 text-rose-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                                                        <span class="truncate max-w-[110px]">{{ $doc['name'] }}</span>
+                                                    </button>
+                                                @else
+                                                    <a href="{{ $doc['url'] }}" download
+                                                       class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-semibold border border-slate-200 transition"
+                                                       title="{{ $doc['name'] }}">
+                                                        <span class="truncate max-w-[110px]">{{ $doc['name'] }}</span>
+                                                        <span class="text-[9px] text-slate-400">Unduh</span>
+                                                    </a>
+                                                @endif
+                                            @endforeach
                                         </div>
                                     </td>
 

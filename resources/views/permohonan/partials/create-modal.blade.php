@@ -108,6 +108,7 @@
         <form action="{{ route('permohonan.store') }}" method="POST" enctype="multipart/form-data" class="px-8 pb-8 space-y-6">
             @csrf
             <input type="hidden" name="kode_unit" value="{{ Auth::user()->kode_unit ?? 'TIK' }}">
+            <input type="hidden" name="tanggal_pengajuan" value="{{ date('Y-m-d') }}">
 
             <!-- CONTAINER SCROLLABLE FORM FIELD -->
             <div class="space-y-4 max-h-[480px] overflow-y-auto pr-1">
@@ -207,9 +208,16 @@
                                     </div>
                                 </div>
                                 <div class="flex items-center gap-2 shrink-0">
-                                    <a :href="file.url" target="_blank" class="px-2.5 py-1 bg-blue-50 text-[#0969da] hover:bg-blue-100 font-bold text-[11px] rounded-md transition-colors">
-                                        Lihat
-                                    </a>
+                                    <template x-if="file.type === 'PDF'">
+                                        <button type="button" @click="$dispatch('open-preview-doc', { title: file.name, url: file.url, size: file.size })" class="px-2.5 py-1 bg-blue-50 text-[#0969da] hover:bg-blue-100 font-bold text-[11px] rounded-md transition-colors cursor-pointer">
+                                            Lihat
+                                        </button>
+                                    </template>
+                                    <template x-if="file.type !== 'PDF'">
+                                        <a :href="file.url" download class="px-2.5 py-1 bg-slate-100 text-slate-700 hover:bg-slate-200 font-bold text-[11px] rounded-md transition-colors">
+                                            Unduh
+                                        </a>
+                                    </template>
                                     <button @click="removeFile(index)" type="button" class="p-1 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-md transition-colors cursor-pointer">
                                         <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                     </button>

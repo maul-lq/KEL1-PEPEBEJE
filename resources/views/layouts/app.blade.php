@@ -810,5 +810,8 @@
 
     </div>
 
+    <!-- Modal Pratinjau Dokumen PDF Global -->
+    <x-doc-preview-modal />
+
 </body>
 </html>

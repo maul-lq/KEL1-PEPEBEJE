@@ -96,6 +96,7 @@ class PermohonanPengadaan extends Model
         'file_surat_permohonan',
         'file_kak',
         'file_spesifikasi_teknis',
+        'dokumen_lampiran',
         'anggaran_diajukan',
         'estimasi_total_pagu',
         'status',
@@ -132,6 +133,7 @@ class PermohonanPengadaan extends Model
         return [
             'revisi_ke' => 'integer',
             'estimasi_total_pagu' => 'decimal:2',
+            'dokumen_lampiran' => 'array',
             'tanggal_pengajuan' => 'datetime',
             'tanggal_pemecahan' => 'datetime',
             'tanggal_revisi' => 'datetime',
@@ -450,7 +452,7 @@ class PermohonanPengadaan extends Model
      * 5: Pembelian & Pembuatan Surat Kontrak (SPK / Kontrak / Kwitansi Belanja Langsung)
      * 6: Penerimaan Barang/Jasa (Pengiriman & Pemeriksaan Fisik di Gudang)
      * 7: Pembayaran (Penerbitan BAST & Pengajuan SPP)
-     * 8: Selesai (Pencairan Dana SP2D Lunas)
+     * 8: Selesai (Pencairan Dana Pembayaran)
      *
      * @return int Nomor tahap siklus aktif (1 - 8)
      */
@@ -469,7 +471,7 @@ class PermohonanPengadaan extends Model
             : ($this->paket ?? $this->paketPengadaan()->first());
 
         if ($paket) {
-            // Tahap 8: Cek Pembayaran Selesai / Pencairan SP2D Lunas
+            // Tahap 8: Cek Pembayaran Selesai / Pencairan Pembayaran
             $pembayaran = $paket->relationLoaded('pembayaran')
                 ? $paket->pembayaran->first()
                 : $paket->pembayaran()->first();
@@ -722,10 +724,196 @@ class PermohonanPengadaan extends Model
             $this->file_kak,
             $this->file_spesifikasi_teknis,
         ];
+
+        if (! empty($this->dokumen_lampiran) && is_array($this->dokumen_lampiran)) {
+            foreach ($this->dokumen_lampiran as $doc) {
+                if (! empty($doc['path'])) {
+                    $permohonanFiles[] = $doc['path'];
+                }
+            }
+        }
+
         foreach ($permohonanFiles as $filePath) {
             if (! empty($filePath) && Storage::disk('public')->exists($filePath)) {
                 Storage::disk('public')->delete($filePath);
             }
         }
+    }
+
+    /**
+     * Mengambil daftar seluruh dokumen lampiran permohonan (maksimal 5 berkas).
+     *
+     * @return array<int, array{name: string, path: string, url: string, type: string, size: string, label: string}>
+     */
+    public function getDokumenLampiranListAttribute(): array
+    {
+        if (! empty($this->dokumen_lampiran) && is_array($this->dokumen_lampiran)) {
+            return array_map(function ($doc) {
+                $ext = strtoupper($doc['type'] ?? pathinfo($doc['path'] ?? '', PATHINFO_EXTENSION) ?: 'PDF');
+                $badgeColor = 'bg-[#0969da]';
+                if ($ext === 'PDF') {
+                    $badgeColor = 'bg-rose-600';
+                } elseif (in_array($ext, ['XLS', 'XLSX', 'CSV'], true)) {
+                    $badgeColor = 'bg-emerald-600';
+                } elseif (in_array($ext, ['PNG', 'JPG', 'JPEG', 'WEBP'], true)) {
+                    $badgeColor = 'bg-sky-500';
+                }
+
+                $fileName = $doc['name'] ?? basename($doc['path'] ?? 'Dokumen.pdf');
+
+                return [
+                    'name' => $fileName,
+                    'path' => $doc['path'] ?? '',
+                    'url' => ! empty($doc['url']) ? $doc['url'] : asset('storage/'.($doc['path'] ?? '')),
+                    'type' => $ext,
+                    'colorClass' => $badgeColor,
+                    'size' => $doc['size'] ?? 'Berkas',
+                    'label' => $fileName,
+                ];
+            }, $this->dokumen_lampiran);
+        }
+
+        $list = [];
+        if (! empty($this->file_surat_permohonan)) {
+            $name = basename($this->file_surat_permohonan);
+            $list[] = [
+                'name' => $name,
+                'path' => $this->file_surat_permohonan,
+                'url' => asset('storage/'.$this->file_surat_permohonan),
+                'type' => 'PDF',
+                'colorClass' => 'bg-rose-600',
+                'size' => 'Berkas',
+                'label' => $name,
+            ];
+        }
+        if (! empty($this->file_kak)) {
+            $name = basename($this->file_kak);
+            $list[] = [
+                'name' => $name,
+                'path' => $this->file_kak,
+                'url' => asset('storage/'.$this->file_kak),
+                'type' => 'PDF',
+                'colorClass' => 'bg-rose-600',
+                'size' => 'Berkas',
+                'label' => $name,
+            ];
+        }
+        if (! empty($this->file_spesifikasi_teknis)) {
+            $name = basename($this->file_spesifikasi_teknis);
+            $list[] = [
+                'name' => $name,
+                'path' => $this->file_spesifikasi_teknis,
+                'url' => asset('storage/'.$this->file_spesifikasi_teknis),
+                'type' => 'PDF',
+                'colorClass' => 'bg-rose-600',
+                'size' => 'Berkas',
+                'label' => $name,
+            ];
+        }
+
+        return $list;
+    }
+
+    /**
+     * Mengambil daftar foto dokumentasi fisik penerimaan barang dari Unit Perlengkapan.
+     *
+     * @return array<int, array{url: string, path: string, keterangan: string|null, nomor_bast: string|null, tanggal: string|null}>
+     */
+    public function getFotoDokumentasiBarangListAttribute(): array
+    {
+        $paketList = $this->relationLoaded('paketPengadaan')
+            ? $this->paketPengadaan
+            : $this->paketPengadaan()->with('penerimaanBarang.fotoDokumentasi')->get();
+
+        $fotoList = [];
+
+        foreach ($paketList as $paket) {
+            $penerimaanList = $paket->penerimaanBarang;
+            foreach ($penerimaanList as $penerimaan) {
+                foreach ($penerimaan->fotoDokumentasi as $foto) {
+                    $fotoList[] = [
+                        'url' => asset('storage/'.$foto->foto_dokumentasi),
+                        'path' => $foto->foto_dokumentasi,
+                        'keterangan' => $foto->keterangan_foto,
+                        'nomor_bast' => $penerimaan->nomor_bast,
+                        'tanggal' => $penerimaan->tanggal_penerimaan ? date('d/m/Y', strtotime($penerimaan->tanggal_penerimaan)) : null,
+                    ];
+                }
+            }
+        }
+
+        return $fotoList;
+    }
+
+    /**
+     * Mengambil daftar bukti pembayaran dan transfer pencairan SP2D terkait permohonan ini.
+     *
+     * @return array<int, array{url: string, path: string, label: string, nomor: string|null, nominal: float|null, tanggal: string|null, tipe: string}>
+     */
+    public function getBuktiPembayaranListAttribute(): array
+    {
+        $paketList = $this->relationLoaded('paketPengadaan')
+            ? $this->paketPengadaan
+            : $this->paketPengadaan()->with(['pembayaran.transaksiPencairan'])->get();
+
+        $buktiList = [];
+
+        foreach ($paketList as $paket) {
+            if ($paket->file_kwitansi_belanja) {
+                $buktiList[] = [
+                    'url' => asset('storage/'.$paket->file_kwitansi_belanja),
+                    'path' => $paket->file_kwitansi_belanja,
+                    'label' => 'Kwitansi Belanja Langsung',
+                    'nomor' => $paket->nomor_kwitansi_belanja,
+                    'nominal' => (float) ($paket->nominal_harga_akhir ?: $paket->nilai_hps),
+                    'tanggal' => $paket->tanggal_eksekusi_belanja ? date('d/m/Y', strtotime($paket->tanggal_eksekusi_belanja)) : null,
+                    'tipe' => 'kwitansi',
+                ];
+            }
+
+            $pembayaranList = $paket->relationLoaded('pembayaran')
+                ? $paket->pembayaran
+                : $paket->pembayaran()->with('transaksiPencairan')->get();
+
+            foreach ($pembayaranList as $pembayaran) {
+                if ($pembayaran->transaksiPencairan && $pembayaran->transaksiPencairan->file_bukti_transfer) {
+                    $buktiList[] = [
+                        'url' => asset('storage/'.$pembayaran->transaksiPencairan->file_bukti_transfer),
+                        'path' => $pembayaran->transaksiPencairan->file_bukti_transfer,
+                        'label' => 'Slip Bukti Transfer Bank / SP2D',
+                        'nomor' => $pembayaran->transaksiPencairan->nomor_transaksi_bank,
+                        'nominal' => (float) $pembayaran->transaksiPencairan->nominal_transfer,
+                        'tanggal' => $pembayaran->transaksiPencairan->tanggal_transfer ? date('d/m/Y', strtotime($pembayaran->transaksiPencairan->tanggal_transfer)) : null,
+                        'tipe' => 'sp2d',
+                    ];
+                }
+
+                if ($pembayaran->file_kwitansi) {
+                    $buktiList[] = [
+                        'url' => asset('storage/'.$pembayaran->file_kwitansi),
+                        'path' => $pembayaran->file_kwitansi,
+                        'label' => 'Kwitansi Pembayaran Termin '.$pembayaran->tahap_termin,
+                        'nomor' => $pembayaran->nomor_kwitansi,
+                        'nominal' => (float) $pembayaran->nominal_pengajuan,
+                        'tanggal' => $pembayaran->tanggal_pengajuan ? date('d/m/Y', strtotime($pembayaran->tanggal_pengajuan)) : null,
+                        'tipe' => 'kwitansi',
+                    ];
+                }
+
+                if ($pembayaran->file_invoice) {
+                    $buktiList[] = [
+                        'url' => asset('storage/'.$pembayaran->file_invoice),
+                        'path' => $pembayaran->file_invoice,
+                        'label' => 'Invoice Rekanan Penyedia',
+                        'nomor' => $pembayaran->nomor_invoice,
+                        'nominal' => (float) $pembayaran->nominal_pengajuan,
+                        'tanggal' => $pembayaran->tanggal_pengajuan ? date('d/m/Y', strtotime($pembayaran->tanggal_pengajuan)) : null,
+                        'tipe' => 'invoice',
+                    ];
+                }
+            }
+        }
+
+        return $buktiList;
     }
 }

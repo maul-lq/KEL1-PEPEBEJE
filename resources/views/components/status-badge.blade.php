@@ -242,14 +242,14 @@
             'solid' => 'bg-blue-700 text-white border-transparent',
         ],
         'sp2d_lunas' => [
-            'label' => 'SP2D Lunas',
+            'label' => 'Pembayaran',
             'dot' => 'bg-emerald-600',
             'soft' => 'bg-emerald-100 text-emerald-800 border-emerald-300',
             'outline' => 'bg-transparent text-emerald-800 border-emerald-500',
             'solid' => 'bg-emerald-700 text-white border-transparent',
         ],
         'cair' => [
-            'label' => 'SP2D Lunas',
+            'label' => 'Pembayaran',
             'dot' => 'bg-emerald-600',
             'soft' => 'bg-emerald-100 text-emerald-800 border-emerald-300',
             'outline' => 'bg-transparent text-emerald-800 border-emerald-500',

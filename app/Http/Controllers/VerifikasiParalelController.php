@@ -36,7 +36,7 @@ class VerifikasiParalelController extends Controller
      */
     public function verifikasiBidang2(Request $request): View
     {
-        $query = PermohonanPengadaan::with(['unit', 'user', 'verifikasiParalel'])
+        $query = PermohonanPengadaan::with(['unit', 'user', 'verifikasiParalel', 'paketPengadaan.penerimaanBarang.fotoDokumentasi'])
             ->where('status_permohonan', '!=', 'digantikan_oleh_revisi');
 
         if ($request->filled('keyword')) {

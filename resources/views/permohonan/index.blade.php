@@ -383,29 +383,102 @@
                                 </svg>
                                 <h3 class="font-bold text-base text-[#213153]">Surat dan Dokumen</h3>
                             </div>
-                            <span class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-[#0969da]">1 Dokumen</span>
+                            <span class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-[#0969da]" x-text="(selectedItem.dokumenList && selectedItem.dokumenList.length > 0 ? selectedItem.dokumenList.length : 1) + ' Dokumen'"></span>
                         </div>
 
-                        <div class="flex items-center gap-3 p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-colors">
-                            <div class="size-11 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 font-bold text-xs">PDF</div>
-                            <div class="min-w-0 flex-1">
-                                <div class="font-bold text-xs text-[#213153] truncate" x-text="selectedItem.judul"></div>
-                                <div class="text-[11px] text-slate-500 truncate" x-text="(selectedItem.fileName || 'Surat_Pengajuan.pdf') + ' • PDF • 1,1 MB • Revisi ' + (selectedItem.revisi_ke || 0)"></div>
-                                <div class="text-[11px] text-slate-400 mt-0.5" x-text="'Diunggah ' + (selectedItem.tanggal || '16 Jan 2026') + ', 11:00'"></div>
-                            </div>
-                            <div class="flex items-center gap-2 shrink-0">
-                                <a :href="pdfUrl(selectedItem) + '?download=1'" target="_blank" rel="noopener" title="Unduh Dokumen PDF"
-                                   class="size-8 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-[#0969da] hover:border-[#0969da] transition-colors">
-                                    <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                                    </svg>
-                                </a>
-                                <button @click="openPreview(selectedItem)" type="button"
-                                        class="h-8 px-3.5 text-xs font-bold text-[#0969da] border border-[#0969da] bg-white rounded-lg hover:bg-blue-50 transition-colors cursor-pointer">
-                                    Lihat
-                                </button>
-                            </div>
+                        <!-- DAFTAR DOKUMEN DINAMIS (1 s.d. 5 DOKUMEN) -->
+                        <div class="space-y-2.5">
+                            <template x-if="selectedItem.dokumenList && selectedItem.dokumenList.length > 0">
+                                <template x-for="(doc, dIdx) in selectedItem.dokumenList" :key="dIdx">
+                                    <div class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                                        <div :class="doc.colorClass || 'bg-rose-600'" class="size-10 rounded-lg text-white flex items-center justify-center shrink-0 font-bold text-[10px] shadow-xs" x-text="doc.type || 'PDF'"></div>
+                                        <div class="min-w-0 flex-1">
+                                            <div class="font-bold text-xs text-[#213153] truncate" x-text="doc.name"></div>
+                                            <div class="text-[11px] text-slate-500 truncate" x-text="(doc.type || 'Berkas') + ' • ' + (doc.size || 'Lampiran')"></div>
+                                        </div>
+                                        <div class="flex items-center gap-2 shrink-0">
+                                            <template x-if="String(doc.type || '').toUpperCase() === 'PDF'">
+                                                <button type="button" 
+                                                        @click="$dispatch('open-preview-doc', { title: doc.name, url: doc.url, size: doc.size })"
+                                                        class="h-8 px-3 text-xs font-bold text-[#0969da] border border-[#0969da] bg-white rounded-lg hover:bg-blue-50 transition-colors inline-flex items-center justify-center cursor-pointer">
+                                                    Lihat
+                                                </button>
+                                            </template>
+                                            <template x-if="String(doc.type || '').toUpperCase() !== 'PDF'">
+                                                <a :href="doc.url" download
+                                                   class="h-8 px-3 text-xs font-bold text-slate-700 border border-slate-300 bg-white rounded-lg hover:bg-slate-50 transition-colors inline-flex items-center justify-center">
+                                                    Unduh
+                                                </a>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </template>
+                            </template>
+
+                            <template x-if="!selectedItem.dokumenList || selectedItem.dokumenList.length === 0">
+                                <div class="flex items-center gap-3 p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                                    <div class="size-11 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 font-bold text-xs">PDF</div>
+                                    <div class="min-w-0 flex-1">
+                                        <div class="font-bold text-xs text-[#213153] truncate" x-text="selectedItem.judul"></div>
+                                        <div class="text-[11px] text-slate-500 truncate" x-text="(selectedItem.fileName || 'Surat_Pengajuan.pdf') + ' • PDF • Revisi ' + (selectedItem.revisi_ke || 0)"></div>
+                                    </div>
+                                    <div class="flex items-center gap-2 shrink-0">
+                                        <button @click="openPreview(selectedItem)" type="button"
+                                                class="h-8 px-3.5 text-xs font-bold text-[#0969da] border border-[#0969da] bg-white rounded-lg hover:bg-blue-50 transition-colors cursor-pointer">
+                                            Lihat
+                                        </button>
+                                    </div>
+                                </div>
+                            </template>
                         </div>
+
+                        <!-- GALERI FOTO DOKUMENTASI BARANG DARI PERLENGKAPAN -->
+                        <template x-if="selectedItem.fotoDokumentasiBarang && selectedItem.fotoDokumentasiBarang.length > 0">
+                            <div class="pt-4 border-t border-slate-100 space-y-2.5">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-1.5 text-xs font-bold text-emerald-950">
+                                        <svg class="size-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                        <span>Foto Dokumentasi Fisik Barang (Unit Perlengkapan)</span>
+                                    </div>
+                                    <span class="rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] px-2 py-0.5" x-text="selectedItem.fotoDokumentasiBarang.length + ' Foto'"></span>
+                                </div>
+                                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                                    <template x-for="(foto, fIdx) in selectedItem.fotoDokumentasiBarang" :key="fIdx">
+                                        <a :href="foto.url" target="_blank" class="group relative block rounded-xl overflow-hidden border border-emerald-200 hover:border-emerald-500 shadow-xs transition-all">
+                                            <img :src="foto.url" :alt="foto.keterangan || 'Foto Barang'" class="w-full h-24 object-cover group-hover:scale-105 transition-transform duration-200">
+                                            <div class="p-1.5 bg-white/95 border-t border-slate-100">
+                                                <p class="text-[10px] text-slate-700 font-medium truncate" x-text="foto.keterangan || ('Foto ' + (fIdx + 1))"></p>
+                                                <p class="text-[9px] text-slate-400 font-mono truncate" x-text="foto.nomor_bast || ''"></p>
+                                            </div>
+                                        </a>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- BUKTI PEMBAYARAN & REALISASI KAS (SP2D / KWITANSI) -->
+                        <template x-if="selectedItem.buktiPembayaran && selectedItem.buktiPembayaran.length > 0">
+                            <div class="pt-4 border-t border-slate-100 space-y-2.5">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-1.5 text-xs font-bold text-teal-950">
+                                        <svg class="size-4 text-teal-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                                        <span>Bukti Bayar & Realisasi Kas (SP2D / Kwitansi)</span>
+                                    </div>
+                                    <span class="rounded-full bg-teal-100 text-teal-800 font-bold text-[10px] px-2 py-0.5" x-text="selectedItem.buktiPembayaran.length + ' Berkas'"></span>
+                                </div>
+                                <div class="space-y-2">
+                                    <template x-for="(bukti, bIdx) in selectedItem.buktiPembayaran" :key="bIdx">
+                                        <div class="flex items-center justify-between p-2.5 rounded-xl border border-teal-100 bg-teal-50/40 text-xs">
+                                            <div class="min-w-0 flex-1">
+                                                <p class="font-bold text-slate-800 truncate" x-text="bukti.label"></p>
+                                                <p class="text-[10px] text-slate-500 font-mono" x-text="bukti.nomor ? (bukti.nomor + (bukti.nominal ? ' • Rp ' + Number(bukti.nominal).toLocaleString('id-ID') : '')) : ''"></p>
+                                            </div>
+                                            <a :href="bukti.url" target="_blank" class="h-7 px-2.5 text-[11px] font-bold text-teal-700 border border-teal-300 bg-white rounded-lg hover:bg-teal-50 transition inline-flex items-center shrink-0 ml-2">Lihat</a>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
 
                         <!-- Ringkasan Anggaran Usulan -->
                         <div class="grid grid-cols-2 gap-3 pt-2 text-xs">
@@ -560,6 +633,9 @@
                                 'currentTahap' => (int) ($item->current_tahap ?? $item->hitungTahapSiklus()),
                                 'current_tahap' => (int) ($item->current_tahap ?? $item->hitungTahapSiklus()),
                                 'fileName' => $item->file_surat_permohonan ? basename($item->file_surat_permohonan) : 'Surat_Permohonan.pdf',
+                                'dokumenList' => $item->dokumen_lampiran_list,
+                                'fotoDokumentasiBarang' => $item->foto_dokumentasi_barang_list,
+                                'buktiPembayaran' => $item->bukti_pembayaran_list,
                                 'id_user' => $item->id_user ?? $item->user_id ?? null,
                                 'revisi_ke' => $item->revisi_ke ?? 0,
                             ];
@@ -760,320 +836,6 @@
         </div>
     </template>
 
-    <!-- ========================================================================= -->
-    <!-- 4. MODAL 1: PRATINJAU DOKUMEN (Figma 715:6528 & 744:7446)               -->
-    <!-- ========================================================================= -->
-    <div x-show="showPreviewModal" x-cloak x-transition.opacity
-         @click.self="closePreview()"
-         class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-        <div class="bg-white rounded-[12px] w-full max-w-[1100px] shadow-2xl flex flex-col max-h-[94vh] overflow-hidden border border-slate-200">
-            
-            <!-- Header Modal Pratinjau (Figma 715:6537 & 744:7580) -->
-            <div class="h-[64px] border-b border-[#d2d2d2] px-7 flex items-center justify-between bg-white shrink-0">
-                <h3 class="font-semibold text-[24px] text-black">Pratinjau Dokumen</h3>
-                <button @click="closePreview()" type="button" class="text-slate-500 hover:text-black rounded-lg p-1 transition-colors cursor-pointer" title="Tutup">
-                    <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                </button>
-            </div>
-
-            <!-- Card Info Dokumen (Figma 715:6531 / 744:7447) -->
-            <div class="mx-7 my-3 px-6 py-3.5 bg-[#fbfbfb] rounded-[6px] border border-slate-100 flex flex-col justify-center shrink-0">
-                <div class="flex items-center gap-4 min-w-0">
-                    <div class="size-11 rounded bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center shrink-0 font-bold text-xs shadow-xs">
-                        <svg class="size-6 text-rose-500" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
-                        </svg>
-                    </div>
-                    <div class="min-w-0 flex-1">
-                        <h4 class="font-semibold text-[18px] text-black truncate" x-text="previewDocData.title">Surat Permohonan Pengadaan.pdf</h4>
-                        <p class="font-normal text-[14px] text-black" x-text="'PDF  •  ' + previewDocData.pages + ' halaman  •  ' + previewDocData.size">PDF  •  2 halaman  •  245 KB</p>
-                    </div>
-                </div>
-
-                <!-- Catatan Revisi (HANYA tampil saat Revisi, Figma 744:7446 line 398) -->
-                <template x-if="previewDocData.isRevision">
-                    <div class="mt-2 pt-2 border-t border-slate-200/60 flex items-center gap-2 text-[13px] text-black">
-                        <svg class="size-4 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                        <span x-text="previewDocData.note ? (previewDocData.note.toLowerCase().startsWith('catatan') ? previewDocData.note : 'Catatan revisi: ' + previewDocData.note) : 'Catatan revisi: Halaman terpotong, tidak terbaca'"></span>
-                    </div>
-                </template>
-            </div>
-
-            <!-- Viewer Area: Split Thumbnails 1 & 2 + Main Official PNJ Document Sheet (Figma 716:6548 & 744:7448) -->
-            <div class="flex-1 min-h-[520px] mx-7 mb-3 bg-[#343a40] rounded-[6px] overflow-hidden flex flex-col shadow-inner">
-                
-                <!-- PDF Viewer Top Bar (Figma 716:6549) -->
-                <div class="h-[48px] bg-[#3f464d] rounded-t-[6px] px-6 flex items-center justify-between text-xs text-slate-300 font-mono shadow-md shrink-0">
-                    <span class="truncate font-semibold text-slate-200" x-text="previewDocData.title">Surat Permohonan Pengadaan.pdf</span>
-                    <span>Halaman <strong class="text-white" x-text="activePreviewPage"></strong> / 2</span>
-                </div>
-
-                <div class="flex-1 flex overflow-hidden min-h-0">
-                    <!-- Sisi Kiri: Thumbnail Halaman (Figma 717:6717) -->
-                    <div class="w-32 bg-[#343a40] p-4 flex flex-col items-center gap-5 overflow-y-auto hidden sm:flex shrink-0 border-r border-[#3f464d]">
-                        
-                        <!-- Thumbnail 1 (Surat Permohonan) -->
-                        <div @click="setPreviewPage(1)"
-                             class="cursor-pointer transition-all flex flex-col items-center group">
-                            <div class="w-[88px] h-[124px] bg-white rounded shadow-md border p-1.5 flex flex-col justify-between text-[6px] text-slate-400 font-mono transition-all overflow-hidden"
-                                 :class="activePreviewPage === 1 ? 'ring-3 ring-[#3b82f6] border-[#3b82f6]' : 'border-slate-300 opacity-80 group-hover:opacity-100'">
-                                <div class="w-full text-center">
-                                    <span class="font-bold text-[5px] text-black block truncate">POLITEKNIK NEGERI JAKARTA</span>
-                                    <div class="w-full h-px bg-black my-0.5"></div>
-                                    <span class="block text-[4.5px] text-slate-700 font-bold truncate">SURAT PERMOHONAN</span>
-                                </div>
-                                <div class="w-full space-y-1 px-0.5">
-                                    <div class="h-1 bg-slate-200 rounded w-full"></div>
-                                    <div class="h-1 bg-slate-200 rounded w-4/5"></div>
-                                    <div class="h-1 bg-slate-200 rounded w-3/4"></div>
-                                </div>
-                                <div class="w-full text-right text-[4px] text-slate-400">Tanda Tangan</div>
-                            </div>
-                            <p class="font-bold text-[15px] text-white text-center mt-1.5"
-                               :class="activePreviewPage === 1 ? 'text-[#3b82f6]' : 'text-white'">1</p>
-                        </div>
-
-                        <!-- Thumbnail 2 (Lampiran KAK & Rincian) -->
-                        <div @click="setPreviewPage(2)"
-                             class="cursor-pointer transition-all flex flex-col items-center group">
-                            <div class="w-[88px] h-[124px] bg-white rounded shadow-md border p-1.5 flex flex-col justify-between text-[6px] text-slate-400 font-mono transition-all overflow-hidden"
-                                 :class="activePreviewPage === 2 ? 'ring-3 ring-[#3b82f6] border-[#3b82f6]' : 'border-slate-300 opacity-80 group-hover:opacity-100'">
-                                <div class="w-full text-center">
-                                    <span class="font-bold text-[5px] text-black block truncate">POLITEKNIK NEGERI JAKARTA</span>
-                                    <div class="w-full h-px bg-black my-0.5"></div>
-                                    <span class="block text-[4.5px] text-slate-700 font-bold truncate">LAMPIRAN KAK &amp; SPEK</span>
-                                </div>
-                                <div class="w-full space-y-1 px-0.5">
-                                    <div class="h-2 bg-slate-100 rounded w-full border border-slate-200"></div>
-                                    <div class="h-2 bg-slate-100 rounded w-full border border-slate-200"></div>
-                                </div>
-                                <div class="w-full text-right text-[4px] text-slate-400">Tanda Tangan</div>
-                            </div>
-                            <p class="font-bold text-[15px] text-white text-center mt-1.5"
-                               :class="activePreviewPage === 2 ? 'text-[#3b82f6]' : 'text-white'">2</p>
-                        </div>
-
-                    </div>
-
-                    <!-- Sisi Kanan: Lembar Naskah Dinas Resmi PNJ (Figma 716:6551 & 744:7452) -->
-                    <div class="flex-1 bg-[#494f57] p-6 sm:p-8 overflow-y-auto flex justify-center items-start">
-                        
-                        <!-- LEMBAR SURAT RESMI (Rectangle width 733px, shadow-2xl, bg-white) -->
-                        <div class="w-full max-w-[733px] bg-white rounded-xs shadow-2xl p-8 sm:p-10 text-slate-800 text-xs space-y-6 leading-relaxed">
-                        
-                        <!-- HALAMAN 1: SURAT PERMOHONAN PENGADAAN -->
-                        <div x-show="activePreviewPage === 1" class="space-y-6">
-                            
-                            <!-- KOP SURAT PNJ (Figma 717:6562, image 3, Line 28) -->
-                            <div class="text-center pb-3 border-b-2 border-slate-900 relative">
-                                <div class="flex items-center justify-center gap-4">
-                                    <img src="{{ asset('favicon.ico') }}" alt="Logo PNJ" class="size-16 object-contain shrink-0">
-                                    <div>
-                                        <h4 class="text-[11px] font-semibold tracking-wider text-slate-600 uppercase">KEMENTERIAN PENDIDIKAN TINGGI, SAINS, DAN TEKNOLOGI</h4>
-                                        <h2 class="text-base sm:text-lg font-black tracking-wide text-slate-900 uppercase">POLITEKNIK NEGERI JAKARTA</h2>
-                                        <p class="text-[10px] text-slate-500">Jl. Prof. Dr. G.A. Siwabessy, Kampus Universitas Indonesia, Depok 16425</p>
-                                        <p class="text-[10px] text-slate-500">Telepon (021) 7270036, Hunting, Fax (021) 7270034, Laman: www.pnj.ac.id</p>
-                                    </div>
-                                </div>
-                                <div class="mt-2 border-t border-slate-900"></div>
-                            </div>
-
-                            <!-- JUDUL SURAT (Figma 717:6572) -->
-                            <div class="text-center space-y-1">
-                                <h3 class="font-extrabold text-sm sm:text-base text-slate-900 tracking-wide uppercase underline">
-                                    SURAT PERMOHONAN PENGADAAN BARANG / JASA
-                                </h3>
-                                <p class="text-xs font-mono text-slate-600" x-text="'Nomor: ' + (previewDocData.nomor || 'PBJ-2026-0017')"></p>
-                            </div>
-
-                            <!-- KEPADA & PENGANTAR -->
-                            <div class="space-y-2 text-xs">
-                                <div class="grid grid-cols-12 gap-1">
-                                    <span class="col-span-2 font-semibold">Lampiran</span>
-                                    <span class="col-span-10">: 1 (satu) Berkas Rincian KAK &amp; Spesifikasi</span>
-                                </div>
-                                <div class="grid grid-cols-12 gap-1">
-                                    <span class="col-span-2 font-semibold">Perihal</span>
-                                    <span class="col-span-10 font-bold" x-text="': Permohonan ' + previewDocData.judul"></span>
-                                </div>
-                                
-                                <div class="pt-3">
-                                    <p>Yth. <strong>Pejabat Pembuat Komitmen (PPK)</strong></p>
-                                    <p>Politeknik Negeri Jakarta</p>
-                                    <p>di Tempat</p>
-                                </div>
-
-                                <p class="pt-2 text-justify">
-                                    Dengan hormat, sehubungan dengan kebutuhan pemenuhan sarana dan prasarana penunjang kegiatan Tridharma Perguruan Tinggi di lingkungan unit kerja <strong x-text="previewDocData.unit"></strong>, dengan ini kami mengajukan permohonan pengadaan barang/jasa sebagai berikut:
-                                </p>
-                            </div>
-
-                            <!-- TABEL RINCIAN BARANG / JASA (Figma Rectangle 158 - 169) -->
-                            <div class="border border-slate-300 rounded-lg overflow-hidden">
-                                <table class="w-full text-left text-xs border-collapse">
-                                    <thead class="bg-slate-100 text-slate-700 font-bold border-b border-slate-300">
-                                        <tr>
-                                            <th class="p-2 border-r border-slate-300 w-10 text-center">No</th>
-                                            <th class="p-2 border-r border-slate-300">Uraian Pekerjaan / Nama Barang</th>
-                                            <th class="p-2 border-r border-slate-300 text-center w-20">Volume</th>
-                                            <th class="p-2 border-r border-slate-300 text-right w-36">Estimasi Biaya</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-slate-200">
-                                        <tr>
-                                            <td class="p-2.5 text-center border-r border-slate-200">1</td>
-                                            <td class="p-2.5 border-r border-slate-200">
-                                                <strong class="block text-slate-800" x-text="previewDocData.judul"></strong>
-                                                <span class="text-[11px] text-slate-500" x-text="previewDocData.tujuan"></span>
-                                            </td>
-                                            <td class="p-2.5 text-center border-r border-slate-200">1 Paket</td>
-                                            <td class="p-2.5 text-right font-mono font-bold text-slate-800" x-text="previewDocData.nominalFormatted"></td>
-                                        </tr>
-                                    </tbody>
-                                    <tfoot class="bg-slate-50 font-bold border-t border-slate-300">
-                                        <tr>
-                                            <td colspan="3" class="p-2 text-right border-r border-slate-300">Total Usulan Anggaran:</td>
-                                            <td class="p-2 text-right font-mono text-[#0969da]" x-text="previewDocData.nominalFormatted"></td>
-                                        </tr>
-                                    </tfoot>
-                                </table>
-                            </div>
-
-                            <p class="text-justify text-xs">
-                                Demikian surat permohonan ini kami sampaikan. Atas perhatian, arahan, dan persetujuan Bapak/Ibu, kami ucapkan terima kasih.
-                            </p>
-
-                            <!-- TANDA TANGAN (Figma Rectangle 172 & 173) -->
-                            <div class="pt-4 grid grid-cols-2 gap-8 text-center text-xs">
-                                <div>
-                                    <p class="text-slate-500">Mengetahui,</p>
-                                    <p class="font-bold text-slate-800">Kepala Bagian / Pimpinan Unit</p>
-                                    <div class="h-16"></div>
-                                    <p class="font-bold underline text-slate-900">Dr. Ir. Pengusul Utama, M.T.</p>
-                                    <p class="text-[10px] text-slate-500">NIP. 197805122003121002</p>
-                                </div>
-                                <div>
-                                    <p class="text-slate-500" x-text="'Depok, ' + previewDocData.tanggal"></p>
-                                    <p class="font-bold text-slate-800">Pemohon / Pengusul,</p>
-                                    <div class="h-16"></div>
-                                    <p class="font-bold underline text-slate-900" x-text="previewDocData.pemohon"></p>
-                                    <p class="text-[10px] text-slate-500">NIP. 199001012020121001</p>
-                                </div>
-                            </div>
-
-                        </div>
-
-                        <!-- HALAMAN 2: LAMPIRAN KAK & SPESIFIKASI TEKNIS -->
-                        <div x-show="activePreviewPage === 2" class="space-y-6">
-                            
-                            <div class="text-center pb-2 border-b border-slate-300">
-                                <span class="text-[10px] font-bold tracking-widest text-slate-400 uppercase">LAMPIRAN SURAT PERMOHONAN</span>
-                                <h3 class="font-extrabold text-sm sm:text-base text-slate-900 uppercase">
-                                    KERANGKA ACUAN KERJA (KAK) &amp; SPESIFIKASI TEKNIS
-                                </h3>
-                                <p class="text-xs font-mono text-slate-500" x-text="'Nomor: ' + (previewDocData.nomor || 'PBJ-2026-0017')"></p>
-                            </div>
-
-                            <div class="space-y-3 text-xs leading-relaxed">
-                                <div>
-                                    <h4 class="font-bold text-slate-900">1. Latar Belakang &amp; Tujuan</h4>
-                                    <p class="text-slate-600 mt-0.5" x-text="previewDocData.tujuan || 'Pengadaan perangkat dalam rangka menunjang kegiatan operasional dan praktikum institusi.'"></p>
-                                </div>
-
-                                <div>
-                                    <h4 class="font-bold text-slate-900">2. Rincian Spesifikasi Kebutuhan</h4>
-                                    <div class="border border-slate-300 rounded-lg overflow-hidden mt-1.5">
-                                        <table class="w-full text-left text-xs border-collapse">
-                                            <thead class="bg-slate-100 text-slate-700 font-bold border-b border-slate-300">
-                                                <tr>
-                                                    <th class="p-2 border-r border-slate-300 w-12 text-center">Item</th>
-                                                    <th class="p-2 border-r border-slate-300">Parameter / Komponen</th>
-                                                    <th class="p-2">Spesifikasi Minimal yang Dipersyaratkan</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody class="divide-y divide-slate-200">
-                                                <tr>
-                                                    <td class="p-2 text-center border-r border-slate-200 font-mono">01</td>
-                                                    <td class="p-2 border-r border-slate-200 font-semibold">Prosesor &amp; Memori</td>
-                                                    <td class="p-2">Min. Core i7 / Ryzen 7, RAM 16 GB DDR5, SSD 512 GB NVMe</td>
-                                                </tr>
-                                                <tr>
-                                                    <td class="p-2 text-center border-r border-slate-200 font-mono">02</td>
-                                                    <td class="p-2 border-r border-slate-200 font-semibold">Layar &amp; Grafis</td>
-                                                    <td class="p-2">14-15.6 inch FHD IPS, Dedicated GPU min. 4 GB GDDR6</td>
-                                                </tr>
-                                                <tr>
-                                                    <td class="p-2 text-center border-r border-slate-200 font-mono">03</td>
-                                                    <td class="p-2 border-r border-slate-200 font-semibold">Garansi &amp; Layanan</td>
-                                                    <td class="p-2">Garansi resmi pabrikan minimal 2 (dua) tahun on-site service</td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <h4 class="font-bold text-slate-900">3. Waktu dan Tempat Pelaksanaan</h4>
-                                    <p class="text-slate-600 mt-0.5">Jangka waktu pengiriman dan instalasi maksimal 30 (tiga puluh) hari kalender terhitung sejak diterbitkannya Surat Perintah Kerja (SPK).</p>
-                                </div>
-
-                                <div>
-                                    <h4 class="font-bold text-slate-900">4. Alokasi Anggaran &amp; Sumber Dana</h4>
-                                    <p class="text-slate-600 mt-0.5 font-mono">Alokasi Pagu MAK: <strong class="text-[#0969da]" x-text="previewDocData.nominalFormatted"></strong> (Sumber Dana PNBP/BOPTN Tahun Anggaran 2026).</p>
-                                </div>
-                            </div>
-
-                            <div class="pt-6 grid grid-cols-2 gap-8 text-center text-xs">
-                                <div>
-                                    <p class="text-slate-500">Diverifikasi oleh:</p>
-                                    <p class="font-bold text-slate-800">Verifikator Anggaran MAK / PPBJ</p>
-                                    <div class="h-16"></div>
-                                    <p class="font-bold underline text-slate-900">Verifikator Pengadaan PNJ</p>
-                                </div>
-                                <div>
-                                    <p class="text-slate-500">Disusun oleh:</p>
-                                    <p class="font-bold text-slate-800">Tim Teknis / Pengusul,</p>
-                                    <div class="h-16"></div>
-                                    <p class="font-bold underline text-slate-900" x-text="previewDocData.pemohon"></p>
-                                </div>
-                            </div>
-
-                        </div>
-
-                    </div>
-                </div>
-            </div>
-        </div>
-
-            <!-- Footer Action Bar (Figma 723:6725 / 744:7583) -->
-            <div class="h-[80px] bg-white border-t border-[#d2d2d2] px-7 flex items-center justify-end gap-[25px] rounded-b-[12px] shrink-0">
-                <!-- Jika REVISI: Tombol Revisi (Figma 744:7584) -->
-                <template x-if="previewDocData.isRevision">
-                    <button @click="triggerRevisiFromPreview()" type="button"
-                            class="h-[44px] w-[120px] bg-white border-2 border-[#ffa600] text-[#eeae00] hover:bg-amber-50 rounded-[6px] font-semibold text-[16px] inline-flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs">
-                        <svg class="size-4 shrink-0 text-[#ffa600]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                        <span>Revisi</span>
-                    </button>
-                </template>
-
-                <!-- Jika BUKAN REVISI: Tombol Unduh (Figma 723:6734) -->
-                <template x-if="!previewDocData.isRevision">
-                    <a :href="previewDocData.downloadUrl" target="_blank" rel="noopener"
-                       class="h-[44px] w-[120px] bg-white border-2 border-[#3b82f6] text-[#3b82f6] hover:bg-blue-50 rounded-[6px] font-semibold text-[16px] inline-flex items-center justify-center gap-2 transition-colors shadow-xs">
-                        <svg class="size-4 shrink-0 text-[#3b82f6]" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                        <span>Unduh</span>
-                    </a>
-                </template>
-
-                <!-- Tombol Tutup (Figma 723:6736 & 744:7588) -->
-                <button @click="closePreview()" type="button"
-                        class="h-[44px] w-[100px] bg-[#3b82f6] hover:bg-blue-600 text-white rounded-[6px] font-semibold text-[16px] inline-flex items-center justify-center transition-colors cursor-pointer shadow-xs">
-                    Tutup
-                </button>
-            </div>
-
-        </div>
-    </div>
 
     {{-- Banner Notifikasi Flash Message Feedback Operasional & Verifikasi --}}
     @if(session('success'))
@@ -1187,10 +949,12 @@
                                     </div>
                                 </div>
                                 <div class="flex items-center gap-2 shrink-0">
-                                    <button type="button" @click="previewLocalCreateFile(f)"
-                                            class="h-[32px] w-[73px] rounded-[6px] bg-[#3b82f6] hover:bg-blue-600 text-white text-[15px] font-medium flex items-center justify-center transition-colors cursor-pointer">
-                                        Lihat
-                                    </button>
+                                    <template x-if="(f.name || '').split('.').pop().toLowerCase() === 'pdf'">
+                                        <button type="button" @click="previewLocalCreateFile(f)"
+                                                class="h-[32px] px-3 rounded-[6px] bg-[#3b82f6] hover:bg-blue-600 text-white text-xs font-semibold flex items-center justify-center transition-colors cursor-pointer">
+                                            Lihat
+                                        </button>
+                                    </template>
                                     <button type="button" @click="removeCreateFile(idx)"
                                             class="size-[32px] flex items-center justify-center text-slate-500 hover:text-rose-600 rounded transition-colors cursor-pointer" title="Hapus Berkas">
                                         <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
@@ -1215,7 +979,7 @@
                     </div>
                     <span class="font-bold text-[15px] text-black">Taruh file disini</span>
                     <span class="font-normal text-[8px] sm:text-[10px] text-[#657a7c]">Atau klik untuk memilih file &bull; Maksimal 5 file, Maksimal 15 MB</span>
-                    <input type="file" id="input-file-create" name="file_surat_permohonan" accept=".pdf" multiple class="hidden" @change="onCreateFilesChange($event)">
+                    <input type="file" id="input-file-create" name="dokumen_lampiran[]" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" multiple class="hidden" @change="onCreateFilesChange($event)">
                 </div>
             </div>
 
@@ -1322,10 +1086,12 @@
                                     </div>
                                 </div>
                                 <div class="flex items-center gap-2 shrink-0">
-                                    <button type="button" @click="previewRevisiExistingFile(ef)" 
-                                            class="h-[32px] w-[73px] rounded-[6px] bg-[#3b82f6] hover:bg-blue-600 text-white text-[15px] font-medium flex items-center justify-center transition-colors cursor-pointer">
-                                        Lihat
-                                    </button>
+                                    <template x-if="(ef.name || '').split('.').pop().toLowerCase() === 'pdf'">
+                                        <button type="button" @click="previewRevisiExistingFile(ef)" 
+                                                class="h-[32px] px-3 rounded-[6px] bg-[#3b82f6] hover:bg-blue-600 text-white text-xs font-semibold flex items-center justify-center transition-colors cursor-pointer">
+                                            Lihat
+                                        </button>
+                                    </template>
                                     <button type="button" @click="removeExistingRevisiFile(eIdx)" 
                                             class="size-[32px] flex items-center justify-center text-slate-500 hover:text-rose-600 rounded transition-colors cursor-pointer" title="Hapus Berkas Lama">
                                         <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>

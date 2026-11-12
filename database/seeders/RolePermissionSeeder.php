@@ -54,13 +54,13 @@ class RolePermissionSeeder extends Seeder
             [
                 'nama_role' => 'perencanaan',
                 'label' => 'Bagian Perencanaan',
-                'deskripsi' => 'Verifikator MAK DIPA, alokasi pagu, penahanan anggaran, pemecahan usulan MAK (FR 6.3), dan penguncian MAK.',
+                'deskripsi' => 'Verifikator MAK DIPA, alokasi pagu, penahanan anggaran, pemecahan usulan MAK, dan penguncian MAK.',
                 'is_system' => true,
             ],
             [
                 'nama_role' => 'ppbj',
                 'label' => 'Unit Pengadaan Barang & Jasa (PPBJ)',
-                'deskripsi' => 'Pengelola paket, pemecah jenis pengadaan (FR 7.2), auto-routing HPS, penerbit Kontrak/SPK, dan pengaju tagihan/SPP.',
+                'deskripsi' => 'Pengelola paket, pemecah jenis pengadaan, auto-routing HPS, penerbit Kontrak/SPK, dan pengaju tagihan/SPP.',
                 'is_system' => true,
             ],
             [
@@ -106,8 +106,8 @@ class RolePermissionSeeder extends Seeder
             ['nama_permission' => 'permohonan.view_own', 'label' => 'Melihat Usulan Milik Sendiri & Catatan Penolakan', 'kategori_modul' => 'Permohonan'],
             ['nama_permission' => 'permohonan.view_all', 'label' => 'Melihat Seluruh Usulan Permohonan Unit', 'kategori_modul' => 'Permohonan'],
             ['nama_permission' => 'permohonan.revisi', 'label' => 'Mengajukan Revisi Usulan yang Ditolak', 'kategori_modul' => 'Permohonan'],
-            ['nama_permission' => 'permohonan.split_mak', 'label' => 'Memecah Usulan Berdasarkan Kode MAK (FR 6.3)', 'kategori_modul' => 'Permohonan'],
-            ['nama_permission' => 'permohonan.split_jenis', 'label' => 'Memecah Berkas Berdasarkan Jenis Pengadaan (FR 7.2)', 'kategori_modul' => 'Permohonan'],
+            ['nama_permission' => 'permohonan.split_mak', 'label' => 'Memecah Usulan Berdasarkan Kode MAK', 'kategori_modul' => 'Permohonan'],
+            ['nama_permission' => 'permohonan.split_jenis', 'label' => 'Memecah Berkas Berdasarkan Jenis Pengadaan', 'kategori_modul' => 'Permohonan'],
 
             // Modul Verifikasi & Anggaran
             ['nama_permission' => 'verifikasi.bidang_2_view', 'label' => 'Melihat Antrean & Dokumen Usulan Masuk (Staf B2 Read-Only)', 'kategori_modul' => 'Verifikasi'],

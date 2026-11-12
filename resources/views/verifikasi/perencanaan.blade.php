@@ -98,6 +98,26 @@
                                         &bull; Memo B2: <strong class="text-indigo-700 font-mono">{{ $p->nomor_memo_cek_mak }}</strong>
                                     @endif
                                 </div>
+                                <div class="flex flex-wrap items-center gap-2 mt-2">
+                                    <a href="{{ route('permohonan.show', $p->nomor_surat) }}" 
+                                       class="text-[11px] font-bold text-[#0969da] hover:underline inline-flex items-center gap-1">
+                                        <span>Detail Penuh &amp; Silsilah &rarr;</span>
+                                    </a>
+                                    @foreach($p->dokumen_lampiran_list as $doc)
+                                        @if(strtoupper($doc['type'] ?? '') === 'PDF')
+                                            <button type="button" 
+                                                    @click="$dispatch('open-preview-doc', { title: '{{ addslashes($doc['name']) }}', url: '{{ $doc['url'] }}', size: '{{ $doc['size'] ?? '' }}' })"
+                                                    class="text-[11px] font-medium text-slate-600 hover:text-[#0969da] border border-slate-200 bg-white px-2 py-0.5 rounded cursor-pointer">
+                                                {{ $doc['name'] }}
+                                            </button>
+                                        @else
+                                            <a href="{{ $doc['url'] }}" download 
+                                               class="text-[11px] font-medium text-slate-600 hover:text-emerald-600 border border-slate-200 bg-white px-2 py-0.5 rounded">
+                                                {{ $doc['name'] }} (Unduh)
+                                            </a>
+                                        @endif
+                                    @endforeach
+                                </div>
                             </div>
                             <div class="text-right">
                                 <span class="text-[11px] text-slate-400 block">Estimasi Anggaran Usulan</span>

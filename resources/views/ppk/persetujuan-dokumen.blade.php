@@ -161,30 +161,38 @@
                                     <span class="text-xs font-bold text-slate-700 block">Berkas &amp; Dokumen Pengadaan:</span>
                                     <div class="flex flex-wrap items-center gap-2.5">
                                         @if($pkt->file_dokumen_pengadaan)
-                                            <a href="{{ asset('storage/' . $pkt->file_dokumen_pengadaan) }}" 
-                                               target="_blank"
-                                               class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 border border-blue-200 text-[#0969da] text-xs font-bold hover:bg-blue-100 transition shadow-xs">
+                                            <button type="button"
+                                                @click="$dispatch('open-preview-doc', { title: 'Dokumen Pengadaan (PPBJ)', url: '{{ asset('storage/' . $pkt->file_dokumen_pengadaan) }}', size: '-' })"
+                                                class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 border border-blue-200 text-[#0969da] text-xs font-bold hover:bg-blue-100 transition shadow-xs">
                                                 <svg class="size-4 text-[#0969da]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                                                 Dokumen Pengadaan (PPBJ)
-                                            </a>
+                                            </button>
                                         @endif
 
-                                        @if($pkt->permohonan && $pkt->permohonan->file_kak)
-                                            <a href="{{ asset('storage/' . $pkt->permohonan->file_kak) }}" 
-                                               target="_blank"
-                                               class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-purple-50 border border-purple-200 text-purple-700 text-xs font-bold hover:bg-purple-100 transition shadow-xs">
-                                                <svg class="size-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                                                Kerangka Acuan Kerja (KAK)
-                                            </a>
-                                        @endif
-
-                                        @if($pkt->permohonan && $pkt->permohonan->file_spesifikasi_teknis)
-                                            <a href="{{ asset('storage/' . $pkt->permohonan->file_spesifikasi_teknis) }}" 
-                                               target="_blank"
-                                               class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold hover:bg-indigo-100 transition shadow-xs">
-                                                <svg class="size-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-                                                Spesifikasi Teknis
-                                            </a>
+                                        @if($pkt->permohonan && count($pkt->permohonan->dokumen_lampiran_list) > 0)
+                                            @foreach($pkt->permohonan->dokumen_lampiran_list as $doc)
+                                                @php
+                                                    $isPdf = strtolower(pathinfo($doc['name'] ?? $doc['url'], PATHINFO_EXTENSION)) === 'pdf';
+                                                @endphp
+                                                @if($isPdf)
+                                                    <button type="button"
+                                                        @click="$dispatch('open-preview-doc', { title: '{{ addslashes($doc['name']) }}', url: '{{ $doc['url'] }}', size: '{{ $doc['size'] ?? '-' }}' })"
+                                                        class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-purple-50 border border-purple-200 text-purple-700 text-xs font-bold hover:bg-purple-100 transition shadow-xs">
+                                                        <svg class="size-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                                        <span class="max-w-[150px] truncate" title="{{ $doc['name'] }}">{{ $doc['name'] }}</span>
+                                                        <span class="text-[10px] text-blue-600 font-bold ml-0.5">Lihat</span>
+                                                    </button>
+                                                @else
+                                                    <a href="{{ $doc['url'] }}"
+                                                        download="{{ $doc['name'] }}"
+                                                        target="_blank"
+                                                        class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-100 transition shadow-xs">
+                                                        <svg class="size-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                                        <span class="max-w-[150px] truncate" title="{{ $doc['name'] }}">{{ $doc['name'] }}</span>
+                                                        <span class="text-[10px] text-slate-500 font-semibold ml-0.5">Unduh</span>
+                                                    </a>
+                                                @endif
+                                            @endforeach
                                         @endif
 
                                         <a href="{{ route('dokumen.pdf', ['jenis' => 'permohonan', 'id' => $pkt->nomor_surat]) }}" 

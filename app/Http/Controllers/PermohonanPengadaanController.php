@@ -48,7 +48,7 @@ class PermohonanPengadaanController extends Controller
             'alokasiMak.anggaranMak',
             'paketPengadaan.reviuDokumen',
             'paketPengadaan.kontrakSpk',
-            'paketPengadaan.penerimaanBarang',
+            'paketPengadaan.penerimaanBarang.fotoDokumentasi',
             'paketPengadaan.pembayaran.transaksiPencairan',
             'paketPengadaan.reminders',
         ])
@@ -98,6 +98,8 @@ class PermohonanPengadaanController extends Controller
             'unit',
             'user',
             'verifikasiParalel.user',
+            'paketPengadaan.penerimaanBarang.fotoDokumentasi',
+            'paketPengadaan.pembayaran.transaksiPencairan',
             'paket.kontrak.penerimaan',
         ])->where('nomor_surat', $id)
             ->firstOrFail();
@@ -141,12 +143,41 @@ class PermohonanPengadaanController extends Controller
             'tujuan_pengadaan_ringkas' => ['nullable', 'string', 'max:500'],
             'anggaran_diajukan' => ['required', 'numeric', 'min:1'],
             'kode_unit' => ['required', 'string', 'exists:units,kode_unit'],
-            'tanggal_pengajuan' => ['required', 'date'],
+            'tanggal_pengajuan' => ['nullable', 'date'],
+            'dokumen_lampiran' => ['nullable', 'array', 'max:5'],
+            'dokumen_lampiran.*' => ['nullable', 'file', 'max:15360', 'mimes:pdf,doc,docx,xls,xlsx,png,jpg,jpeg'],
             'file_surat_permohonan' => ['nullable', DokumenUploadRule::pdfOnly()],
             'file_kak' => ['nullable', DokumenUploadRule::pdfOnly()],
             'file_spesifikasi_teknis' => ['nullable', DokumenUploadRule::pdfOnly()],
         ]);
 
+        $dokumenLampiranList = [];
+
+        // 1. Simpan berkas dari input multiple dokumen_lampiran[] (maksimal 5 berkas)
+        if ($request->hasFile('dokumen_lampiran')) {
+            foreach ($request->file('dokumen_lampiran') as $idx => $file) {
+                if ($file && $file->isValid()) {
+                    $originalName = $file->getClientOriginalName();
+                    $ext = strtoupper($file->getClientOriginalExtension());
+                    $sizeBytes = $file->getSize();
+                    $sizeFormatted = ($sizeBytes > 1048576)
+                        ? number_format($sizeBytes / 1048576, 1).' MB'
+                        : number_format($sizeBytes / 1024, 0).' KB';
+                    $path = $file->store('lampiran_permohonan', 'public');
+
+                    $dokumenLampiranList[] = [
+                        'name' => $originalName,
+                        'path' => $path,
+                        'url' => asset('storage/'.$path),
+                        'type' => $ext,
+                        'size' => $sizeFormatted,
+                        'label' => $originalName,
+                    ];
+                }
+            }
+        }
+
+        // 2. Simpan berkas dari input spesifik individual (jika ada)
         $filePermohonanPath = $request->hasFile('file_surat_permohonan')
             ? $request->file('file_surat_permohonan')->store('permohonan', 'public')
             : null;
@@ -158,6 +189,50 @@ class PermohonanPengadaanController extends Controller
         $fileSpekPath = $request->hasFile('file_spesifikasi_teknis')
             ? $request->file('file_spesifikasi_teknis')->store('spek', 'public')
             : null;
+
+        if (empty($dokumenLampiranList)) {
+            if ($filePermohonanPath) {
+                $dokumenLampiranList[] = [
+                    'name' => $request->file('file_surat_permohonan')->getClientOriginalName(),
+                    'path' => $filePermohonanPath,
+                    'url' => asset('storage/'.$filePermohonanPath),
+                    'type' => 'PDF',
+                    'size' => 'Surat Pengantar',
+                    'label' => 'Surat Pengantar Srikandi',
+                ];
+            }
+            if ($fileKakPath) {
+                $dokumenLampiranList[] = [
+                    'name' => $request->file('file_kak')->getClientOriginalName(),
+                    'path' => $fileKakPath,
+                    'url' => asset('storage/'.$fileKakPath),
+                    'type' => 'PDF',
+                    'size' => 'Kerangka Acuan Kerja',
+                    'label' => 'Kerangka Acuan Kerja (KAK)',
+                ];
+            }
+            if ($fileSpekPath) {
+                $dokumenLampiranList[] = [
+                    'name' => $request->file('file_spesifikasi_teknis')->getClientOriginalName(),
+                    'path' => $fileSpekPath,
+                    'url' => asset('storage/'.$fileSpekPath),
+                    'type' => 'PDF',
+                    'size' => 'Spesifikasi & RAB',
+                    'label' => 'Spesifikasi Teknis & RAB',
+                ];
+            }
+        } else {
+            // Petakan 3 file pertama ke kolom individual untuk kompatibilitas ke modul lanjutan
+            if (! $filePermohonanPath && isset($dokumenLampiranList[0])) {
+                $filePermohonanPath = $dokumenLampiranList[0]['path'];
+            }
+            if (! $fileKakPath && isset($dokumenLampiranList[1])) {
+                $fileKakPath = $dokumenLampiranList[1]['path'];
+            }
+            if (! $fileSpekPath && isset($dokumenLampiranList[2])) {
+                $fileSpekPath = $dokumenLampiranList[2]['path'];
+            }
+        }
 
         $kodeUnit = $user->kode_unit ?? $validated['kode_unit'] ?? 'TIK';
 
@@ -171,11 +246,12 @@ class PermohonanPengadaanController extends Controller
             'anggaran_diajukan' => $validated['anggaran_diajukan'],
             'kode_unit' => $kodeUnit,
             'id_user' => $user->id_user,
-            'tanggal_pengajuan' => $validated['tanggal_pengajuan'],
+            'tanggal_pengajuan' => $validated['tanggal_pengajuan'] ?? now()->toDateString(),
             'file_permohonan' => $filePermohonanPath ?? 'permohonan/dummy.pdf',
             'file_surat_permohonan' => $filePermohonanPath ?? 'permohonan/dummy.pdf',
             'file_kak' => $fileKakPath,
             'file_spesifikasi_teknis' => $fileSpekPath,
+            'dokumen_lampiran' => $dokumenLampiranList,
             'status_permohonan' => PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
             'status_anggaran' => 'pending',
             'status' => PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
@@ -351,6 +427,7 @@ class PermohonanPengadaanController extends Controller
                     'id_user_ppk_awal' => $induk->id_user_ppk_awal,
                     'nomor_memo_ketersediaan_mak' => $induk->nomor_memo_ketersediaan_mak,
                     'catatan_memo_ketersediaan_mak' => $induk->catatan_memo_ketersediaan_mak,
+                    'dokumen_lampiran' => $induk->dokumen_lampiran,
                 ]);
 
                 // Transfer alokasi MAK dari surat lama ke surat baru

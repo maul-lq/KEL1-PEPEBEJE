@@ -125,11 +125,6 @@
                 </label>
 
                 <label class="flex flex-col gap-2">
-                    <span class="text-[15px] font-medium text-black">Nomor Telepon Kantor</span>
-                    <input readOnly value="{{ $user->no_telepon_kantor ?? '-' }}" class="h-[34px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] px-[14px] text-[13px] text-[#4A4A4A] outline-none" />
-                </label>
-
-                <label class="flex flex-col gap-2">
                     <span class="text-[15px] font-medium text-black">Unit Kerja / Jurusan</span>
                     <input readOnly value="{{ $user->unit->nama_unit ?? $user->kode_unit ?? '-' }}" class="h-[34px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] px-[14px] text-[13px] text-[#4A4A4A] outline-none" />
                 </label>

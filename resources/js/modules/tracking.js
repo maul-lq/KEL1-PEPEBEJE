@@ -82,6 +82,7 @@ export function trackingManager(initialItems = null) {
 
         // ==================== MODAL 1: PRATINJAU DOKUMEN (715:6528 & 744:7446) ====================
         showPreviewModal: false,
+        showModalDoc: false,
         activePreviewPage: 1, // 1: Halaman 1 (Surat Pengantar), 2: Halaman 2 (Lampiran Rincian)
         previewDocData: {
             isRevision: false,
@@ -340,12 +341,12 @@ export function trackingManager(initialItems = null) {
                 // ==========================================
                 const currentStep = Number(item.currentTahap || item.current_tahap || this.getStepNumber(statusKey));
 
-                // Tahap 8: Selesai / SP2D Lunas
+                // Tahap 8: Selesai / Pembayaran
                 if (currentStep >= 8) {
                     list.push({
                         id: 8,
                         time: tanggalStr + ' • 16:30',
-                        title: 'Pencairan dana SP2D lunas oleh Bagian Keuangan',
+                        title: 'Pencairan dana Pembayaran oleh Bagian Keuangan',
                         subtitle: 'Pengadaan telah selesai tuntas seluruh siklus',
                         badge: 'Selesai',
                         badge_type: 'success',
@@ -498,47 +499,39 @@ export function trackingManager(initialItems = null) {
             return '/dokumen-pdf/permohonan/' + id;
         },
 
-        // ==================== MODAL 1: PRATINJAU DOKUMEN (715:6528 & 744:7446) ====================
-        openPreview(item, isRevision = false, noteOverride = null) {
+        // ==================== MODAL 1: PRATINJAU DOKUMEN ASLI ====================
+        openPreview(item) {
             const target = item || this.selectedItem;
             if (!target) return;
-
-            const isRev = isRevision || ['ditolak', 'perlu_revisi', 'revisi'].includes(String(target.statusRaw || target.status_permohonan || target.status || '').toLowerCase());
-            const nom = Number(target.anggaran_diajukan || target.estimasi_total_pagu || 150000000);
-            const nomorSurat = target.nomor_surat || target.nomor || 'PBJ-2026-0017';
-
-            this.activePreviewPage = 1;
-            this.previewDocData = {
-                isRevision: isRev,
-                nomor: nomorSurat,
-                title: target.fileName || (target.file_surat_permohonan ? String(target.file_surat_permohonan).split('/').pop() : 'Surat Permohonan Pengadaan.pdf'),
-                note: noteOverride || target.alasan_revisi || 'Catatan revisi: Halaman terpotong, tidak terbaca',
-                pages: 2,
-                size: target.fileSize || '245 KB',
-                unit: (target.unit && target.unit.nama_unit) ? target.unit.nama_unit : (target.pemohon || 'Jurusan Teknik Informatika dan Komputer'),
-                judul: target.perihal || target.judul_pengadaan || target.judul || 'Pengadaan Laptop untuk Laboratorium TI',
-                tujuan: target.tujuan_pengadaan_ringkas || 'Mendukung praktikum dan proses belajar mengajar mahasiswa',
-                nominal: nom,
-                nominalFormatted: nom ? 'Rp ' + nom.toLocaleString('id-ID') : 'Rp 150.000.000',
-                pemohon: target.user?.nama || target.user?.name || target.pemohon || 'Riyan Sohibul Anam',
-                tanggal: target.tanggal || '16 Januari 2026',
-                url: this.pdfUrl(target),
-                downloadUrl: this.pdfUrl(target) + '?download=1',
-                target: target
-            };
-            this.showPreviewModal = true;
+            const url = this.pdfUrl(target);
+            const title = target.fileName || (target.file_surat_permohonan ? String(target.file_surat_permohonan).split('/').pop() : 'Surat_Permohonan.pdf');
+            window.dispatchEvent(new CustomEvent('open-preview-doc', {
+                detail: {
+                    title: title,
+                    url: url,
+                    size: target.fileSize || 'PDF'
+                }
+            }));
         },
 
-        setPreviewPage(pageNum) {
-            this.activePreviewPage = pageNum;
+        openDocPreview(doc) {
+            if (!doc) return;
+            const docUrl = doc.url || (doc.path ? '/storage/' + doc.path : '#');
+            window.dispatchEvent(new CustomEvent('open-preview-doc', {
+                detail: {
+                    title: doc.name || 'Dokumen.pdf',
+                    url: docUrl,
+                    size: doc.size || 'PDF'
+                }
+            }));
         },
 
         closePreview() {
-            this.showPreviewModal = false;
+            window.dispatchEvent(new CustomEvent('close-preview-doc'));
         },
 
         triggerRevisiFromPreview() {
-            const target = this.previewDocData.target || this.selectedItem;
+            const target = this.selectedItem;
             this.closePreview();
             this.openRevisiModal(target);
         },
@@ -621,13 +614,19 @@ export function trackingManager(initialItems = null) {
         },
 
         previewLocalCreateFile(fileItem) {
-            this.openPreview({
-                nomor_surat: 'DRAFT-' + Date.now(),
-                perihal: 'Draft Usulan Baru (' + fileItem.name + ')',
-                fileName: fileItem.name,
-                fileSize: fileItem.formattedSize,
-                statusRaw: 'diajukan',
-            }, false);
+            if (!fileItem) return;
+            const ext = (fileItem.type || fileItem.name.split('.').pop() || '').toUpperCase();
+            if (ext !== 'PDF') {
+                return;
+            }
+            const blobUrl = fileItem.file ? URL.createObjectURL(fileItem.file) : (fileItem.url || '#');
+            window.dispatchEvent(new CustomEvent('open-preview-doc', {
+                detail: {
+                    title: fileItem.name,
+                    url: blobUrl,
+                    size: fileItem.formattedSize || 'PDF'
+                }
+            }));
         },
 
         // ==================== MODAL 3: REVISI PERMOHONAN (744:7706 & 744:7705) ====================
@@ -687,7 +686,15 @@ export function trackingManager(initialItems = null) {
         },
 
         previewRevisiExistingFile(fileItem) {
-            this.openPreview(this.revisiTarget, true, this.revisiTarget?.alasan_revisi);
+            if (!fileItem) return;
+            const url = this.revisiTarget ? this.pdfUrl(this.revisiTarget) : '#';
+            window.dispatchEvent(new CustomEvent('open-preview-doc', {
+                detail: {
+                    title: fileItem.name || 'Dokumen.pdf',
+                    url: url,
+                    size: fileItem.formattedSize || 'PDF'
+                }
+            }));
         },
 
         // ==================== MODAL 4: HAPUS PENGAJUAN (744:7604) ====================

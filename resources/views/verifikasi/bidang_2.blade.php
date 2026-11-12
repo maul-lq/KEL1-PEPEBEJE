@@ -36,6 +36,7 @@
             'tanggal' => $p->tanggal_pengajuan ? date('d M Y', strtotime($p->tanggal_pengajuan)) : date('d M Y'),
             'tanggal_pengajuan' => $p->tanggal_pengajuan ?? '',
             'fileName' => $p->file_surat_permohonan ? basename($p->file_surat_permohonan) : 'Surat_Permohonan.pdf',
+            'dokumenList' => $p->dokumen_lampiran_list,
             'alasan_revisi' => $p->alasan_revisi ?? null,
             'isApproved' => in_array(strtolower($status), ['disetujui', 'selesai']),
         ];
@@ -315,26 +316,54 @@
                     <div class="bg-white rounded-xl border border-slate-200/80 p-5 shadow-sm space-y-4">
                         <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                             <h3 class="font-bold text-base text-[#213153]">Surat dan Dokumen</h3>
-                            <span class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-[#0969da]">1 Dokumen</span>
+                            <span class="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-bold text-[#0969da]" x-text="(selectedItem.dokumenList && selectedItem.dokumenList.length > 0 ? selectedItem.dokumenList.length : 1) + ' Dokumen'"></span>
                         </div>
 
-                        <div class="flex items-center gap-3 p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-colors">
-                            <div class="size-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
-                                <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V7.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 1H7a2 2 0 00-2 2v16a2 2 0 002 2z"/></svg>
-                            </div>
-                            <div class="min-w-0 flex-1">
-                                <div class="font-bold text-xs text-[#213153] truncate" x-text="selectedItem.judul"></div>
-                                <div class="text-[11px] text-slate-500 font-medium truncate" x-text="(selectedItem.fileName || 'Surat_Permohonan.pdf') + ' • PDF Resmi'"></div>
-                                <div class="text-[10px] text-slate-400 mt-0.5" x-text="'Diajukan pada ' + selectedItem.tanggal"></div>
-                            </div>
-                            <div class="flex items-center gap-2 shrink-0">
-                                <button @click="showModalDoc = true" type="button" class="px-3 py-1.5 text-xs font-bold text-[#0969da] border border-[#0969da] bg-white rounded-lg hover:bg-blue-50 transition-colors cursor-pointer">
-                                    Lihat
-                                </button>
-                                <a :href="pdfUrl(selectedItem)" target="_blank" rel="noopener" title="Unduh Berkas PDF" class="p-1.5 text-slate-500 hover:text-[#0969da] rounded-lg hover:bg-slate-100 transition-colors">
-                                    <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                                </a>
-                            </div>
+                        <!-- DAFTAR DOKUMEN DINAMIS -->
+                        <div class="space-y-2.5">
+                            <template x-if="selectedItem.dokumenList && selectedItem.dokumenList.length > 0">
+                                <template x-for="(doc, dIdx) in selectedItem.dokumenList" :key="dIdx">
+                                    <div class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                                        <div :class="doc.colorClass || 'bg-rose-600'" class="size-9 rounded-lg text-white flex items-center justify-center shrink-0 font-bold text-[10px] shadow-xs" x-text="doc.type || 'PDF'"></div>
+                                        <div class="min-w-0 flex-1">
+                                            <div class="font-bold text-xs text-[#213153] truncate" x-text="doc.name"></div>
+                                            <div class="text-[11px] text-slate-500 truncate" x-text="(doc.type || 'Berkas') + ' • ' + (doc.size || 'Lampiran')"></div>
+                                        </div>
+                                        <div class="flex items-center gap-2 shrink-0">
+                                            <template x-if="String(doc.type || '').toUpperCase() === 'PDF'">
+                                                <button type="button" 
+                                                        @click="$dispatch('open-preview-doc', { title: doc.name, url: doc.url, size: doc.size })"
+                                                        class="h-7 px-3 text-xs font-bold text-[#0969da] border border-[#0969da] bg-white rounded-lg hover:bg-blue-50 transition-colors inline-flex items-center justify-center cursor-pointer">
+                                                    Lihat
+                                                </button>
+                                            </template>
+                                            <template x-if="String(doc.type || '').toUpperCase() !== 'PDF'">
+                                                <a :href="doc.url" download
+                                                   class="h-7 px-3 text-xs font-bold text-slate-700 border border-slate-300 bg-white rounded-lg hover:bg-slate-50 transition-colors inline-flex items-center justify-center">
+                                                    Unduh
+                                                </a>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </template>
+                            </template>
+
+                            <template x-if="!selectedItem.dokumenList || selectedItem.dokumenList.length === 0">
+                                <div class="flex items-center gap-3 p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                                    <div class="size-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                                        <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V7.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 1H7a2 2 0 00-2 2v16a2 2 0 002 2z"/></svg>
+                                    </div>
+                                    <div class="min-w-0 flex-1">
+                                        <div class="font-bold text-xs text-[#213153] truncate" x-text="selectedItem.judul"></div>
+                                        <div class="text-[11px] text-slate-500 font-medium truncate" x-text="(selectedItem.fileName || 'Surat_Permohonan.pdf') + ' • PDF Resmi'"></div>
+                                    </div>
+                                    <div class="flex items-center gap-2 shrink-0">
+                                        <button @click="$dispatch('open-preview-doc', { title: selectedItem.fileName || 'Surat_Permohonan.pdf', url: pdfUrl(selectedItem), size: 'PDF' })" type="button" class="px-3 py-1.5 text-xs font-bold text-[#0969da] border border-[#0969da] bg-white rounded-lg hover:bg-blue-50 transition-colors cursor-pointer">
+                                            Lihat
+                                        </button>
+                                    </div>
+                                </div>
+                            </template>
                         </div>
 
                         <!-- Ringkasan Anggaran Usulan (fullstuck) -->
@@ -387,8 +416,9 @@
                                class="inline-flex items-center gap-1.5 rounded-xl bg-slate-100 px-4 py-2 text-xs font-bold text-[#213153] hover:bg-slate-200 transition-colors">
                                 <span>Detail Penuh &amp; Silsilah &rarr;</span>
                             </a>
-                            <a :href="pdfUrl(selectedItem)" target="_blank" rel="noopener"
-                               class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
+                            <a :href="pdfUrl(selectedItem)" 
+                               @click.prevent="$dispatch('open-preview-doc', { title: selectedItem.fileName || 'Surat_Permohonan.pdf', url: pdfUrl(selectedItem), size: 'PDF' })"
+                               class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer">
                                 <svg class="size-3.5 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
                                 <span>Buka Naskah Srikandi (PDF)</span>
                             </a>
@@ -630,43 +660,6 @@
             </div>
         </div>
     </template>
-
-    <!-- 5. MODAL POPUP PREVIEW DOKUMEN PDF (Frontend-pemula dihubungkan ke route Laravel) -->
-    <div x-show="showModalDoc" 
-         x-cloak 
-         x-transition.opacity
-         @click.self="showModalDoc = false" 
-         class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-        <div class="bg-white rounded-2xl w-full max-w-4xl shadow-2xl flex flex-col max-h-[92vh]">
-            <div class="flex items-start justify-between gap-4 p-5 border-b border-slate-100">
-                <div class="min-w-0">
-                    <h3 class="font-bold text-lg text-[#213153]">Naskah Dinas &amp; Berkas Permohonan</h3>
-                    <p class="text-xs text-slate-500 font-mono truncate" x-text="selectedItem ? (selectedItem.fileName + ' • ' + selectedItem.nomor) : ''"></p>
-                </div>
-                <button @click="showModalDoc = false" type="button" class="text-slate-400 hover:text-slate-700 transition-colors" title="Tutup">
-                    <svg class="size-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                </button>
-            </div>
-
-            <!-- Iframe Dokumen PDF Aktual -->
-            <div class="p-5 flex-1 min-h-0 bg-slate-50">
-                <template x-if="showModalDoc && selectedItem">
-                    <iframe :src="pdfUrl(selectedItem)" class="w-full h-[65vh] rounded-xl border border-slate-200 bg-white shadow-inner"></iframe>
-                </template>
-            </div>
-
-            <div class="flex items-center justify-end gap-2 p-4 border-t border-slate-100">
-                <a :href="selectedItem ? pdfUrl(selectedItem) : '#'" target="_blank" rel="noopener"
-                   class="h-9 px-4 inline-flex items-center rounded-lg border border-slate-300 bg-white text-slate-700 font-semibold text-xs hover:bg-slate-50 transition-colors">
-                    Buka di Tab Baru
-                </a>
-                <button @click="showModalDoc = false" type="button" 
-                        class="h-9 px-5 bg-[#0969da] hover:bg-blue-700 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer">
-                    Tutup
-                </button>
-            </div>
-        </div>
-    </div>
 
     <!-- 6. MODAL FORM: BUAT USULAN PERMOHONAN BARU (fullstuck) -->
     <x-modal id="modal-create-permohonan" title="Buat Usulan Permohonan Pengadaan" subtitle="Pendaftaran berkas naskah dinas Srikandi baru" maxWidth="3xl">
