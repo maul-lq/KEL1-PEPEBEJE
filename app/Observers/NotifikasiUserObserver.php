@@ -9,32 +9,35 @@ use Illuminate\Support\Facades\Log;
 /**
  * Pengamat Perubahan Model Notifikasi Pengguna (NotifikasiUserObserver)
  *
- * Bertugas mengotomatisasi pengiriman notifikasi eksternal (email) secara langsung
- * setiap kali sistem SIM-PBJ mencatat rekaman peringatan baru pada tabel `notifikasi_user`.
+ * Bertugas mengotomatisasi pengiriman email notifikasi secara langsung
+ * setiap kali rekaman `notifikasi_user` baru disimpan ke basis data,
+ * selama pengguna terkait mengaktifkan opsi pengingat email (`reminder_email_aktif`).
  */
 class NotifikasiUserObserver
 {
     /**
      * Menangani event 'created' saat satu record NotifikasiUser baru berhasil disimpan.
-     * Memicu pengiriman surel pemberitahuan ke alamat email pengguna yang dituju.
      */
     public function created(NotifikasiUser $notifikasi): void
     {
-        // 1. Pastikan relasi user penerima beserta alamat surel tersedia
         $user = $notifikasi->user ?? $notifikasi->user()->first();
 
-        if ($user && ! empty($user->email)) {
-            try {
-                // 2. Kirimkan notifikasi email via Laravel Notification System
-                $user->notify(new PengingatPengadaanNotification($notifikasi));
-            } catch (\Throwable $exception) {
-                // 3. Catat kegagalan koneksi SMTP/jaringan tanpa memutus alur transaksi sistem utama
-                Log::warning("Gagal mengirimkan email notifikasi ke {$user->email}: {$exception->getMessage()}", [
-                    'id_notifikasi_user' => $notifikasi->id,
-                    'user_id' => $user->id_user,
-                    'judul' => $notifikasi->judul,
-                ]);
-            }
+        if (! $user || empty($user->email) || ! filter_var($user->email, FILTER_VALIDATE_EMAIL)) {
+            return;
+        }
+
+        if ($user->reminder_email_aktif === false) {
+            return;
+        }
+
+        try {
+            $user->notify(new PengingatPengadaanNotification($notifikasi));
+        } catch (\Throwable $exception) {
+            Log::warning("Gagal mengirimkan email notifikasi ke {$user->email}: {$exception->getMessage()}", [
+                'id_notifikasi_user' => $notifikasi->id,
+                'user_id' => $user->id_user,
+                'judul' => $notifikasi->judul,
+            ]);
         }
     }
 }

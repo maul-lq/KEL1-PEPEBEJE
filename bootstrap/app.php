@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\CheckRole;
 use App\Http\Middleware\SessionTimeout;
+use App\Http\Middleware\TriggerDueReminders;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -23,8 +24,9 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     // 2. Konfigurasi dan Pendaftaran Middleware
     ->withMiddleware(function (Middleware $middleware): void {
-        // Menerapkan middleware batas ketidakaktifan 15 menit ke grup rute 'web' (NFR Keamanan Sesi)
+        // Menerapkan middleware batas ketidakaktifan 15 menit & pemeriksa pengingat berkala pada grup 'web'
         $middleware->appendToGroup('web', SessionTimeout::class);
+        $middleware->appendToGroup('web', TriggerDueReminders::class);
 
         // Mendaftarkan alias middleware agar dapat dipanggil langsung di file routes
         $middleware->alias([

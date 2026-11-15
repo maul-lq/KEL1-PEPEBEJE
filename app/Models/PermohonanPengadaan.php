@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Model Permohonan Pengadaan (Usulan Surat Pengadaan Barang/Jasa)
@@ -52,6 +54,11 @@ class PermohonanPengadaan extends Model
     protected $keyType = 'string';
 
     /**
+     * Penanda bahwa proses pembersihan cascade telah dilakukan untuk menghindari eksekusi ganda.
+     */
+    protected bool $cascadeCleaned = false;
+
+    /**
      * Konstanta status siklus hidup surat permohonan pengadaan.
      * Mencakup alur berantai terbaru: menunggu_bidang_2 -> cek_mak_perencanaan -> menunggu_acc_wadir_ppk -> disetujui -> diproses_ppbj -> selesai.
      */
@@ -89,6 +96,7 @@ class PermohonanPengadaan extends Model
         'file_surat_permohonan',
         'file_kak',
         'file_spesifikasi_teknis',
+        'dokumen_lampiran',
         'anggaran_diajukan',
         'estimasi_total_pagu',
         'status',
@@ -107,8 +115,10 @@ class PermohonanPengadaan extends Model
         'kode_mak',
         'nomor_memo_cek_mak',
         'catatan_memo_cek_mak',
+        'file_memo_cek_mak',
         'nomor_memo_ketersediaan_mak',
         'catatan_memo_ketersediaan_mak',
+        'file_memo_ketersediaan_mak',
         'id_user_ppk_awal',
         'jenis_pengadaan_split',
     ];
@@ -123,6 +133,7 @@ class PermohonanPengadaan extends Model
         return [
             'revisi_ke' => 'integer',
             'estimasi_total_pagu' => 'decimal:2',
+            'dokumen_lampiran' => 'array',
             'tanggal_pengajuan' => 'datetime',
             'tanggal_pemecahan' => 'datetime',
             'tanggal_revisi' => 'datetime',
@@ -151,6 +162,10 @@ class PermohonanPengadaan extends Model
                 );
                 $model->kode_unit = $unit->kode_unit;
             }
+        });
+
+        static::deleting(function (PermohonanPengadaan $model) {
+            $model->cleanupCascadeRelationsAndFiles();
         });
     }
 
@@ -427,6 +442,140 @@ class PermohonanPengadaan extends Model
     }
 
     /**
+     * Menghitung posisi tahap siklus pengadaan (1 s.d. 8) secara akurat berdasarkan
+     * relasi database dan status progres operasional yang tercatat.
+     *
+     * 1: Pengajuan Usulan Srikandi (Unit Pemohon)
+     * 2: Persetujuan 1 (Verifikasi Berantai: Bidang 2, Perencanaan, Wadir 2 & PPK)
+     * 3: Penyusunan Dokumen & Level Anggaran (Alokasi MAK & Registrasi Paket PPBJ)
+     * 4: Persetujuan 2 (Kondisional: Reviu Dokumen & HPS oleh PP/PPK)
+     * 5: Pembelian & Pembuatan Surat Kontrak (SPK / Kontrak / Kwitansi Belanja Langsung)
+     * 6: Penerimaan Barang/Jasa (Pengiriman & Pemeriksaan Fisik di Gudang)
+     * 7: Pembayaran (Penerbitan BAST & Pengajuan SPP)
+     * 8: Selesai (Pencairan Dana Pembayaran)
+     *
+     * @return int Nomor tahap siklus aktif (1 - 8)
+     */
+    public function hitungTahapSiklus(): int
+    {
+        $statusPermohonan = strtolower((string) ($this->status_permohonan ?? $this->status ?? 'diajukan'));
+
+        // Jika status permohonan sudah final selesai
+        if (in_array($statusPermohonan, ['selesai', 'sp2d_lunas', 'cair'], true)) {
+            return 8;
+        }
+
+        // Cek paket pengadaan terkait
+        $paket = $this->relationLoaded('paketPengadaan')
+            ? ($this->paketPengadaan->first() ?? $this->paket)
+            : ($this->paket ?? $this->paketPengadaan()->first());
+
+        if ($paket) {
+            // Tahap 8: Cek Pembayaran Selesai / Pencairan Pembayaran
+            $pembayaran = $paket->relationLoaded('pembayaran')
+                ? $paket->pembayaran->first()
+                : $paket->pembayaran()->first();
+
+            if ($pembayaran) {
+                $cair = $pembayaran->relationLoaded('transaksiPencairan')
+                    ? $pembayaran->transaksiPencairan
+                    : $pembayaran->transaksiPencairan()->first();
+
+                if ($cair || in_array(strtolower((string) $pembayaran->status_pembayaran), ['lunas', 'selesai', 'cair'], true)) {
+                    return 8;
+                }
+
+                // Tahap 7: Berkas pembayaran diajukan ke Keuangan
+                return 7;
+            }
+
+            // Tahap 7: BAST resmi sudah terbit dari Bagian Perlengkapan
+            $penerimaan = $paket->relationLoaded('penerimaanBarang')
+                ? $paket->penerimaanBarang->first()
+                : $paket->penerimaanBarang()->first();
+
+            if ($penerimaan && (! empty($penerimaan->nomor_bast) || ! empty($penerimaan->ttd_digital_bast))) {
+                return 7;
+            }
+
+            // Tahap 6: Pemeriksaan fisik barang di gudang / pengiriman / pengingat rekanan
+            $hasReminders = $paket->relationLoaded('reminders')
+                ? $paket->reminders->isNotEmpty()
+                : $paket->reminders()->exists();
+
+            if ($penerimaan || $hasReminders || in_array(strtolower((string) $paket->status_paket), ['pengiriman', 'pemeriksaan_fisik', 'proses_penerimaan'], true)) {
+                return 6;
+            }
+
+            // Tahap 5: Dokumen perikatan terbit (Kontrak / SPK / Surat Pesanan) atau Kwitansi Belanja Langsung (<= 50jt)
+            $spk = $paket->relationLoaded('kontrakSpk')
+                ? $paket->kontrakSpk
+                : $paket->kontrakSpk()->first();
+
+            $isBelanjaLangsungSelesai = ($paket->jalur_routing === PaketPengadaan::ROUTING_LANGSUNG || (float) ($paket->nilai_hps ?? 0) <= 50000000)
+                && ! empty($paket->nomor_kwitansi_belanja);
+
+            if ($spk || $isBelanjaLangsungSelesai || in_array(strtolower((string) $paket->status_paket), ['spk_terbit', 'belanja_langsung_selesai', 'kontrak', 'surat_pesanan_terbit', 'surat_kontrak_terbit'], true)) {
+                return 5;
+            }
+
+            // Tahap 4: Reviu dokumen teknis & evaluasi HPS oleh PP (50-200jt) atau PPK (> 200jt)
+            $reviu = $paket->relationLoaded('reviuDokumen')
+                ? $paket->reviuDokumen->first()
+                : $paket->reviuDokumen()->first();
+
+            if ($reviu || in_array(strtolower((string) $paket->status_paket), ['menunggu_approval_ppk', 'disetujui_ppk_siap_belanja_pp', 'siap_upload_dokumen_ppbj', 'reviu_dokumen', 'menunggu_reviu_pp', 'menunggu_reviu_ppk'], true)) {
+                return 4;
+            }
+
+            // Tahap 3: Paket pengadaan sudah terdaftar di PPBJ
+            return 3;
+        }
+
+        // Jika belum terbentuk paket pengadaan:
+        // Cek Tahap 3: Permohonan sudah disetujui / MAK dialokasikan / siap diproses PPBJ
+        $hasAlokasi = $this->relationLoaded('alokasiMak')
+            ? $this->alokasiMak->isNotEmpty()
+            : $this->alokasiMak()->exists();
+
+        if (in_array($statusPermohonan, ['disetujui', 'diproses_ppbj', 'paket_terdaftar', 'disetujui_wadir2_dan_ppk'], true)
+            || ! empty($this->kode_mak)
+            || $hasAlokasi) {
+            return 3;
+        }
+
+        // Cek Tahap 2: Sedang dalam telaah / verifikasi berantai / penelaahan MAK / minta revisi / ditolak
+        $hasVerifikasi = $this->relationLoaded('verifikasiParalel')
+            ? $this->verifikasiParalel->isNotEmpty()
+            : $this->verifikasiParalel()->exists();
+
+        if (in_array($statusPermohonan, [
+            'reviu_paralel',
+            'menunggu_bidang_2',
+            'cek_mak_perencanaan',
+            'menunggu_acc_wadir_ppk',
+            'pending_anggaran',
+            'hold',
+            'perlu_revisi',
+            'revisi',
+            'ditolak',
+        ], true) || $hasVerifikasi) {
+            return 2;
+        }
+
+        // Default: Tahap 1 (Pengajuan baru oleh Unit Pemohon)
+        return 1;
+    }
+
+    /**
+     * Accessor atribut current_tahap yang secara reaktif menghitung nomor tahap siklus aktif.
+     */
+    public function getCurrentTahapAttribute(): int
+    {
+        return $this->hitungTahapSiklus();
+    }
+
+    /**
      * Scope query sesuai hak akses peran pengguna.
      * Pengusul biasa (role 'user') hanya diizinkan melihat usulan permohonan yang diajukannya sendiri.
      *
@@ -436,10 +585,336 @@ class PermohonanPengadaan extends Model
      */
     public function scopeForUser($query, User $user)
     {
-        if ($user->role === 'user') {
+        if ($user->hasRole(User::ROLE_USER)) {
             return $query->where('id_user', $user->id_user);
         }
 
         return $query;
+    }
+
+    /**
+     * Menghapus seluruh relasi dan berkas terkait secara kaskade (cascade deletion) tuntas dalam transaksi database.
+     */
+    public function cascadeDelete(): void
+    {
+        DB::transaction(function () {
+            $this->cleanupCascadeRelationsAndFiles();
+            $this->delete();
+        });
+    }
+
+    /**
+     * Membersihkan seluruh relasi anak dan berkas fisik pada storage public sebelum permohonan dihapus.
+     */
+    public function cleanupCascadeRelationsAndFiles(): void
+    {
+        if ($this->cascadeCleaned) {
+            return;
+        }
+        $this->cascadeCleaned = true;
+
+        $nomorSurat = $this->nomor_surat;
+
+        // 1. Ambil seluruh paket pengadaan yang terhubung dengan permohonan ini
+        $paketList = PaketPengadaan::where('nomor_surat', $nomorSurat)->get();
+
+        foreach ($paketList as $paket) {
+            $nomorPaket = $paket->nomor_paket;
+
+            // a. Hapus Pembayaran dan relasi anaknya (MemoBayar, TransaksiPencairan, berkas)
+            $pembayaranList = Pembayaran::where('nomor_paket', $nomorPaket)->get();
+            foreach ($pembayaranList as $pembayaran) {
+                $nomorPembayaran = $pembayaran->nomor_pembayaran;
+
+                MemoBayar::where('nomor_pembayaran', $nomorPembayaran)->delete();
+
+                $pencairan = TransaksiPencairan::where('nomor_pembayaran', $nomorPembayaran)->first();
+                if ($pencairan) {
+                    if (! empty($pencairan->file_bukti_transfer) && Storage::disk('public')->exists($pencairan->file_bukti_transfer)) {
+                        Storage::disk('public')->delete($pencairan->file_bukti_transfer);
+                    }
+                    $pencairan->delete();
+                }
+
+                $pembayaranFiles = [
+                    $pembayaran->file_dokumen_penunjang,
+                    $pembayaran->file_spp,
+                    $pembayaran->file_kwitansi,
+                    $pembayaran->file_invoice,
+                ];
+                foreach ($pembayaranFiles as $filePath) {
+                    if (! empty($filePath) && Storage::disk('public')->exists($filePath)) {
+                        Storage::disk('public')->delete($filePath);
+                    }
+                }
+
+                $pembayaran->delete();
+            }
+
+            // b. Hapus PenerimaanBarang dan dokumentasi foto
+            $penerimaanList = PenerimaanBarang::where('nomor_paket', $nomorPaket)->get();
+            foreach ($penerimaanList as $penerimaan) {
+                $fotoList = DokumentasiPenerimaanBarang::where('id_penerimaan', $penerimaan->id_penerimaan)->get();
+                foreach ($fotoList as $foto) {
+                    if (! empty($foto->foto_dokumentasi) && Storage::disk('public')->exists($foto->foto_dokumentasi)) {
+                        Storage::disk('public')->delete($foto->foto_dokumentasi);
+                    }
+                    $foto->delete();
+                }
+
+                if (! empty($penerimaan->file_bast_signed) && Storage::disk('public')->exists($penerimaan->file_bast_signed)) {
+                    Storage::disk('public')->delete($penerimaan->file_bast_signed);
+                }
+                if (! empty($penerimaan->file_penerimaan_pihak3) && Storage::disk('public')->exists($penerimaan->file_penerimaan_pihak3)) {
+                    Storage::disk('public')->delete($penerimaan->file_penerimaan_pihak3);
+                }
+
+                $penerimaan->delete();
+            }
+
+            // c. Hapus KontrakSPK dan berkas
+            $kontrak = KontrakSPK::where('nomor_paket', $nomorPaket)->first();
+            if ($kontrak) {
+                if (! empty($kontrak->file_spk) && Storage::disk('public')->exists($kontrak->file_spk)) {
+                    Storage::disk('public')->delete($kontrak->file_spk);
+                }
+                $kontrak->delete();
+            }
+
+            // d. Hapus ReviuDokumen
+            ReviuDokumen::where('nomor_paket', $nomorPaket)->delete();
+
+            // f. Hapus Reminder dan NotifikasiUser
+            $reminderList = Reminder::where('nomor_paket', $nomorPaket)->get();
+            foreach ($reminderList as $reminder) {
+                NotifikasiUser::where('id_reminder', $reminder->id_reminder)->delete();
+                $reminder->delete();
+            }
+
+            // g. Bersihkan berkas paket dan hapus paket
+            if (! empty($paket->file_dokumen_pengadaan) && Storage::disk('public')->exists($paket->file_dokumen_pengadaan)) {
+                Storage::disk('public')->delete($paket->file_dokumen_pengadaan);
+            }
+            if (! empty($paket->file_kwitansi_belanja) && Storage::disk('public')->exists($paket->file_kwitansi_belanja)) {
+                Storage::disk('public')->delete($paket->file_kwitansi_belanja);
+            }
+
+            $paket->delete();
+        }
+
+        // 2. Unlink permohonan anak hasil split / revisi
+        self::where('nomor_surat_induk_split', $nomorSurat)->update(['nomor_surat_induk_split' => null]);
+        self::where('nomor_surat_revisi', $nomorSurat)->update(['nomor_surat_revisi' => null]);
+
+        // 3. Hapus VerifikasiParalel
+        VerifikasiParalel::where('nomor_surat', $nomorSurat)->delete();
+
+        // 4. Hapus AlokasiMAK dan kembalikan sisa pagu ke anggaran_mak
+        $alokasiList = AlokasiMAK::where('nomor_surat', $nomorSurat)->get();
+        foreach ($alokasiList as $alokasi) {
+            if ($mak = AnggaranMAK::find($alokasi->kode_mak)) {
+                $mak->sisa_pagu_mak = (float) $mak->sisa_pagu_mak + (float) $alokasi->nominal_alokasi;
+                $mak->save();
+            }
+            $alokasi->delete();
+        }
+
+        // 5. Bersihkan berkas permohonan
+        $permohonanFiles = [
+            $this->file_permohonan,
+            $this->file_kak,
+            $this->file_spesifikasi_teknis,
+        ];
+
+        if (! empty($this->dokumen_lampiran) && is_array($this->dokumen_lampiran)) {
+            foreach ($this->dokumen_lampiran as $doc) {
+                if (! empty($doc['path'])) {
+                    $permohonanFiles[] = $doc['path'];
+                }
+            }
+        }
+
+        foreach ($permohonanFiles as $filePath) {
+            if (! empty($filePath) && Storage::disk('public')->exists($filePath)) {
+                Storage::disk('public')->delete($filePath);
+            }
+        }
+    }
+
+    /**
+     * Mengambil daftar seluruh dokumen lampiran permohonan (maksimal 5 berkas).
+     *
+     * @return array<int, array{name: string, path: string, url: string, type: string, size: string, label: string}>
+     */
+    public function getDokumenLampiranListAttribute(): array
+    {
+        if (! empty($this->dokumen_lampiran) && is_array($this->dokumen_lampiran)) {
+            return array_map(function ($doc) {
+                $ext = strtoupper($doc['type'] ?? pathinfo($doc['path'] ?? '', PATHINFO_EXTENSION) ?: 'PDF');
+                $badgeColor = 'bg-[#0969da]';
+                if ($ext === 'PDF') {
+                    $badgeColor = 'bg-rose-600';
+                } elseif (in_array($ext, ['XLS', 'XLSX', 'CSV'], true)) {
+                    $badgeColor = 'bg-emerald-600';
+                } elseif (in_array($ext, ['PNG', 'JPG', 'JPEG', 'WEBP'], true)) {
+                    $badgeColor = 'bg-sky-500';
+                }
+
+                $fileName = $doc['name'] ?? basename($doc['path'] ?? 'Dokumen.pdf');
+
+                return [
+                    'name' => $fileName,
+                    'path' => $doc['path'] ?? '',
+                    'url' => ! empty($doc['url']) ? $doc['url'] : asset('storage/'.($doc['path'] ?? '')),
+                    'type' => $ext,
+                    'colorClass' => $badgeColor,
+                    'size' => $doc['size'] ?? 'Berkas',
+                    'label' => $fileName,
+                ];
+            }, $this->dokumen_lampiran);
+        }
+
+        $list = [];
+        if (! empty($this->file_surat_permohonan)) {
+            $name = basename($this->file_surat_permohonan);
+            $list[] = [
+                'name' => $name,
+                'path' => $this->file_surat_permohonan,
+                'url' => asset('storage/'.$this->file_surat_permohonan),
+                'type' => 'PDF',
+                'colorClass' => 'bg-rose-600',
+                'size' => 'Berkas',
+                'label' => $name,
+            ];
+        }
+        if (! empty($this->file_kak)) {
+            $name = basename($this->file_kak);
+            $list[] = [
+                'name' => $name,
+                'path' => $this->file_kak,
+                'url' => asset('storage/'.$this->file_kak),
+                'type' => 'PDF',
+                'colorClass' => 'bg-rose-600',
+                'size' => 'Berkas',
+                'label' => $name,
+            ];
+        }
+        if (! empty($this->file_spesifikasi_teknis)) {
+            $name = basename($this->file_spesifikasi_teknis);
+            $list[] = [
+                'name' => $name,
+                'path' => $this->file_spesifikasi_teknis,
+                'url' => asset('storage/'.$this->file_spesifikasi_teknis),
+                'type' => 'PDF',
+                'colorClass' => 'bg-rose-600',
+                'size' => 'Berkas',
+                'label' => $name,
+            ];
+        }
+
+        return $list;
+    }
+
+    /**
+     * Mengambil daftar foto dokumentasi fisik penerimaan barang dari Unit Perlengkapan.
+     *
+     * @return array<int, array{url: string, path: string, keterangan: string|null, nomor_bast: string|null, tanggal: string|null}>
+     */
+    public function getFotoDokumentasiBarangListAttribute(): array
+    {
+        $paketList = $this->relationLoaded('paketPengadaan')
+            ? $this->paketPengadaan
+            : $this->paketPengadaan()->with('penerimaanBarang.fotoDokumentasi')->get();
+
+        $fotoList = [];
+
+        foreach ($paketList as $paket) {
+            $penerimaanList = $paket->penerimaanBarang;
+            foreach ($penerimaanList as $penerimaan) {
+                foreach ($penerimaan->fotoDokumentasi as $foto) {
+                    $fotoList[] = [
+                        'url' => asset('storage/'.$foto->foto_dokumentasi),
+                        'path' => $foto->foto_dokumentasi,
+                        'keterangan' => $foto->keterangan_foto,
+                        'nomor_bast' => $penerimaan->nomor_bast,
+                        'tanggal' => $penerimaan->tanggal_penerimaan ? date('d/m/Y', strtotime($penerimaan->tanggal_penerimaan)) : null,
+                    ];
+                }
+            }
+        }
+
+        return $fotoList;
+    }
+
+    /**
+     * Mengambil daftar bukti pembayaran dan transfer pencairan SP2D terkait permohonan ini.
+     *
+     * @return array<int, array{url: string, path: string, label: string, nomor: string|null, nominal: float|null, tanggal: string|null, tipe: string}>
+     */
+    public function getBuktiPembayaranListAttribute(): array
+    {
+        $paketList = $this->relationLoaded('paketPengadaan')
+            ? $this->paketPengadaan
+            : $this->paketPengadaan()->with(['pembayaran.transaksiPencairan'])->get();
+
+        $buktiList = [];
+
+        foreach ($paketList as $paket) {
+            if ($paket->file_kwitansi_belanja) {
+                $buktiList[] = [
+                    'url' => asset('storage/'.$paket->file_kwitansi_belanja),
+                    'path' => $paket->file_kwitansi_belanja,
+                    'label' => 'Kwitansi Belanja Langsung',
+                    'nomor' => $paket->nomor_kwitansi_belanja,
+                    'nominal' => (float) ($paket->nominal_harga_akhir ?: $paket->nilai_hps),
+                    'tanggal' => $paket->tanggal_eksekusi_belanja ? date('d/m/Y', strtotime($paket->tanggal_eksekusi_belanja)) : null,
+                    'tipe' => 'kwitansi',
+                ];
+            }
+
+            $pembayaranList = $paket->relationLoaded('pembayaran')
+                ? $paket->pembayaran
+                : $paket->pembayaran()->with('transaksiPencairan')->get();
+
+            foreach ($pembayaranList as $pembayaran) {
+                if ($pembayaran->transaksiPencairan && $pembayaran->transaksiPencairan->file_bukti_transfer) {
+                    $buktiList[] = [
+                        'url' => asset('storage/'.$pembayaran->transaksiPencairan->file_bukti_transfer),
+                        'path' => $pembayaran->transaksiPencairan->file_bukti_transfer,
+                        'label' => 'Bukti Transfer Bank',
+                        'nomor' => $pembayaran->transaksiPencairan->nomor_transaksi_bank,
+                        'nominal' => (float) $pembayaran->transaksiPencairan->nominal_transfer,
+                        'tanggal' => $pembayaran->transaksiPencairan->tanggal_transfer ? date('d/m/Y', strtotime($pembayaran->transaksiPencairan->tanggal_transfer)) : null,
+                        'tipe' => 'sp2d',
+                    ];
+                }
+
+                if ($pembayaran->file_kwitansi) {
+                    $buktiList[] = [
+                        'url' => asset('storage/'.$pembayaran->file_kwitansi),
+                        'path' => $pembayaran->file_kwitansi,
+                        'label' => 'Kwitansi Pembayaran Termin '.$pembayaran->tahap_termin,
+                        'nomor' => $pembayaran->nomor_kwitansi,
+                        'nominal' => (float) $pembayaran->nominal_pengajuan,
+                        'tanggal' => $pembayaran->tanggal_pengajuan ? date('d/m/Y', strtotime($pembayaran->tanggal_pengajuan)) : null,
+                        'tipe' => 'kwitansi',
+                    ];
+                }
+
+                if ($pembayaran->file_invoice) {
+                    $buktiList[] = [
+                        'url' => asset('storage/'.$pembayaran->file_invoice),
+                        'path' => $pembayaran->file_invoice,
+                        'label' => 'Invoice Rekanan Penyedia',
+                        'nomor' => $pembayaran->nomor_invoice,
+                        'nominal' => (float) $pembayaran->nominal_pengajuan,
+                        'tanggal' => $pembayaran->tanggal_pengajuan ? date('d/m/Y', strtotime($pembayaran->tanggal_pengajuan)) : null,
+                        'tipe' => 'invoice',
+                    ];
+                }
+            }
+        }
+
+        return $buktiList;
     }
 }

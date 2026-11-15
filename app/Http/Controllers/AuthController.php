@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Role;
 use App\Models\Unit;
 use App\Models\User;
+use App\Services\PengadaanNotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
@@ -24,12 +27,12 @@ use Illuminate\View\View;
 class AuthController extends Controller
 {
     /**
-     * Menampilkan formulir halaman login simulasi backend.
-     * Menggunakan template murni HTML semantik tanpa CSS total (AGENTS-BACKEND.md).
+     * Menampilkan formulir halaman login institusi.
+     * Menggunakan template Blade antarmuka resmi SIM-PBJ.
      */
     public function showLoginForm(): View
     {
-        return view('auth.tes_login');
+        return view('auth.login');
     }
 
     /**
@@ -41,7 +44,7 @@ class AuthController extends Controller
         // Mengambil semua data unit kerja kampus untuk pilihan dropdown registrasi
         $units = Unit::all();
 
-        return view('auth.tes_register', compact('units'));
+        return view('auth.register', compact('units'));
     }
 
     /**
@@ -50,7 +53,23 @@ class AuthController extends Controller
      */
     public function register(Request $request): RedirectResponse
     {
-        // 1. Validasi seluruh data input pendaftaran (tanpa pemilihan role oleh pendaftar, sesuai Opsi A)
+        // 1. Normalisasi nama alias field dari formulir pendaftaran
+        if ($request->filled('name') && ! $request->filled('nama')) {
+            $request->merge(['nama' => $request->name]);
+        }
+        if ($request->filled('phone') && ! $request->filled('no_hp')) {
+            $request->merge(['no_hp' => $request->phone]);
+        }
+        if ($request->filled('unit_kerja') && ! $request->filled('kode_unit')) {
+            $unit = Unit::where('kode_unit', $request->unit_kerja)
+                ->orWhere('nama_unit', 'like', "%{$request->unit_kerja}%")
+                ->first();
+            if ($unit) {
+                $request->merge(['kode_unit' => $unit->kode_unit]);
+            }
+        }
+
+        // 2. Validasi seluruh data input pendaftaran (tanpa pemilihan role oleh pendaftar, sesuai Opsi A)
         $validated = $request->validate([
             'nip' => ['required', 'string', 'max:30', 'unique:users,nip'],
             'username' => ['required', 'string', 'max:50', 'unique:users,username'],
@@ -60,22 +79,33 @@ class AuthController extends Controller
             'jabatan' => ['required', 'string', 'max:100'],
             'kode_unit' => ['required', 'string', 'exists:units,kode_unit'],
             'no_hp' => ['required', 'string', 'max:20'],
-            'no_telp_kantor' => ['nullable', 'string', 'max:20'],
         ]);
 
-        // 2. Status awal pendaftaran: Tidak aktif dan menunggu persetujuan Administrator
+        // 3. Status awal pendaftaran: Tidak aktif dan menunggu persetujuan Administrator
         // Role definitif akan dipilihkan dan ditetapkan 100% oleh Admin saat tombol Setujui (ACC) ditekan
-        $validated['role'] = User::ROLE_USER; // Default sementara sebelum dipetakan Admin
+        $validated['id_role'] = Role::where('nama_role', User::ROLE_USER)->value('id');
         $validated['status_aktif'] = false;
         $validated['status_registrasi'] = User::STATUS_REGISTRASI_MENUNGGU;
 
-        // 3. Simpan data user baru ke database
-        User::create($validated);
+        // 4. Simpan data user baru ke database
+        $newUser = User::create($validated);
+
+        // 5. Berikan notifikasi alarm ke Administrator bahwa ada pendaftar akun baru yang menunggu verifikasi
+        try {
+            app(PengadaanNotificationService::class)->kirimKePeran(
+                'admin',
+                "Pendaftar Akun Baru: {$newUser->nama}",
+                "Pengguna baru {$newUser->nama} (NIP: {$newUser->nip}) telah mendaftar dan menunggu verifikasi serta penetapan peran (role) oleh Administrator.",
+                'verifikasi'
+            );
+        } catch (\Throwable $e) {
+            Log::warning("Gagal mengirim notifikasi pendaftar baru ke admin: {$e->getMessage()}");
+        }
 
         // Berikan pesan sukses dan alihkan pengguna ke formulir login
         return redirect()->route('login')->with(
             'success',
-            'Pendaftaran akun berhasil diajukan! Akun Anda sedang menunggu verifikasi dan persetujuan (ACC) dari Administrator sebelum dapat digunakan.'
+            'Pendaftaran akun berhasil diajukan! Akun Anda menunggu verifikasi dan persetujuan Administrator sebelum dapat digunakan.'
         );
     }
 
@@ -144,9 +174,12 @@ class AuthController extends Controller
             $request->session()->put('last_activity', time());
 
             // 5. FR 1.3: Mengalihkan pengguna ke dashboard sesuai peran masing-masing
+            $user->loadMissing('roleEntity');
+            $roleLabel = $user->roleEntity?->label ?? 'Pengguna';
+
             return redirect()->intended(route('dashboard'))->with(
                 'success',
-                "Selamat datang kembali, {$user->nama}! Masuk sebagai ".strtoupper(str_replace('_', ' ', $user->role)).'.'
+                "Selamat datang kembali, {$user->nama}! Masuk sebagai {$roleLabel}."
             );
         }
 
@@ -181,7 +214,7 @@ class AuthController extends Controller
             return view('auth.forgot-password');
         }
 
-        return redirect()->route('login')->with('info', 'Layanan reset mandiri sedang dalam persiapan oleh tim IT.');
+        return redirect()->route('login')->with('info', 'Layanan reset kata sandi belum tersedia. Silakan hubungi Administrator.');
     }
 
     /**
@@ -205,7 +238,7 @@ class AuthController extends Controller
             return view('auth.reset-password', ['token' => $token]);
         }
 
-        return redirect()->route('login')->with('info', 'Tautan pemulihan kata sandi dapat digunakan setelah modul frontend diaktifkan.');
+        return redirect()->route('login')->with('info', 'Tautan pemulihan kata sandi belum tersedia. Silakan hubungi Administrator.');
     }
 
     /**

@@ -115,7 +115,7 @@ class GoogleAuthController extends Controller
         if ($user->status_registrasi === User::STATUS_REGISTRASI_MENUNGGU) {
             return redirect()->route('login')->with(
                 'status',
-                'Akun Anda sedang menunggu verifikasi dan persetujuan (ACC) dari Administrator sebelum dapat digunakan.'
+                'Akun Anda sedang menunggu verifikasi dan persetujuan dari Admin sebelum dapat digunakan.'
             );
         }
 

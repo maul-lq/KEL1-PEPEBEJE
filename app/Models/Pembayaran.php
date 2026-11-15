@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\PengadaanRoutingService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -70,17 +71,13 @@ class Pembayaran extends Model
         'tanggal_pengajuan',
         'jatuh_tempo',
         'status_pembayaran',
-        'file_tagihan_vendor',
         'file_dokumen_penunjang',
+        'file_spp',
         'nomor_kwitansi',
         'file_kwitansi',
         'nomor_invoice',
         'file_invoice',
-        'nomor_memo',
-        'file_memo',
-        'id_user_reviu',
         'tanggal_perintah_bayar',
-        'status_reviu_akhir',
         'catatan_reviu_akhir',
     ];
 
@@ -122,6 +119,10 @@ class Pembayaran extends Model
                 $model->tanggal_pengajuan = now()->toDateString();
             }
         });
+
+        static::saved(function (Pembayaran $pembayaran): void {
+            PengadaanRoutingService::syncPembayaranSchedules($pembayaran);
+        });
     }
 
     /**
@@ -142,16 +143,6 @@ class Pembayaran extends Model
     public function pengaju(): BelongsTo
     {
         return $this->belongsTo(User::class, 'id_user_pengaju', 'id_user');
-    }
-
-    /**
-     * Relasi many-to-one ke User pereviu akhir / verifikator keuangan.
-     *
-     * @return BelongsTo Relasi ke model User
-     */
-    public function reviuUser(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'id_user_reviu', 'id_user');
     }
 
     /**
@@ -179,7 +170,7 @@ class Pembayaran extends Model
      * Menampilkan dokumen perikatan tunggal (SPK / Surat Pesanan / Surat Kontrak untuk > 50jt,
      * atau keterangan tanpa kontrak untuk <= 50jt Belanja Langsung) ditambah Kwitansi dan Invoice.
      *
-     * @return array{dokumen_perikatan: array<string, mixed>, kwitansi: array<string, mixed>, invoice: array<string, mixed>}
+     * @return array{dokumen_perikatan: array<string, mixed>, kwitansi: array<string, mixed>, invoice: array<string, mixed>, file_dokumen_penunjang: ?string, file_spp: ?string}
      */
     public function getInformasiDokumenPembayaranAttribute(): array
     {
@@ -215,6 +206,8 @@ class Pembayaran extends Model
                 'nomor_invoice' => $this->nomor_invoice,
                 'file_invoice' => $this->file_invoice,
             ],
+            'file_dokumen_penunjang' => $this->file_dokumen_penunjang,
+            'file_spp' => $this->file_spp,
         ];
     }
 }

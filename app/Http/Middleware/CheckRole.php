@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Role;
 use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
@@ -36,7 +37,6 @@ class CheckRole
         ],
         'staff_bidang_2' => [
             'verifikasi.bidang_2_view',
-            'verifikasi.bidang_2_teruskan',
         ],
         'wadir_2' => [
             'verifikasi.wadir_2_view',
@@ -54,9 +54,9 @@ class CheckRole
             'paket.create',
             'paket.view_all',
             'paket.reassign_ppk',
-            'paket.split_jenis',
+            'pp.monitoring_aktivitas',
+            'lihat_pp',
             'spk.create',
-            'reminder.manage',
             'pembayaran.pengajuan',
             'pembayaran.spp_terbitkan',
             'permohonan.split_jenis',
@@ -118,50 +118,43 @@ class CheckRole
         // 3. Periksa otorisasi peran atau hak akses fitur (permissions)
         if (! empty($roles)) {
             $isAuthorized = false;
+            $roleEntity = $user->roleEntity;
 
-            // A. Super Administrator ('admin') selalu memiliki hak akses penuh
-            if ($user->role === User::ROLE_ADMIN || ($user->roleEntity && $user->roleEntity->nama_role === User::ROLE_ADMIN)) {
-                $isAuthorized = true;
-            }
+            foreach ($roles as $requiredRole) {
+                // 1. Jika argumen rute langsung berupa nama permission yang dimiliki pengguna
+                if ($user->hasPermission($requiredRole)) {
+                    $isAuthorized = true;
+                    break;
+                }
 
-            // B. Periksa apakah nama peran pengguna cocok langsung dengan salah satu peran yang diizinkan
-            if (! $isAuthorized && $user->hasRole($roles)) {
-                $isAuthorized = true;
-            }
+                // 2. Jika argumen rute berupa nama peran standar, periksa apakah pengguna
+                // memiliki salah satu hak akses fitur yang terkait dengan peran tersebut
+                if (isset(self::ROLE_PERMISSIONS[$requiredRole]) && $user->hasAnyPermission(self::ROLE_PERMISSIONS[$requiredRole])) {
+                    $isAuthorized = true;
+                    break;
+                }
 
-            // C. Jika pengguna mengemban peran kustom (atau peran lain), periksa apakah pengguna
-            // memiliki hak akses (permission) yang setara dengan peran/modul yang dibutuhkan rute ini
-            if (! $isAuthorized) {
-                foreach ($roles as $requiredRole) {
-                    // 1. Jika argumen rute langsung berupa nama permission yang dimiliki pengguna
-                    if ($user->hasPermission($requiredRole)) {
-                        $isAuthorized = true;
-                        break;
-                    }
-
-                    // 2. Jika argumen rute berupa nama peran standar, periksa apakah pengguna
-                    // memiliki salah satu hak akses fitur yang terkait dengan peran tersebut
-                    if (isset(self::ROLE_PERMISSIONS[$requiredRole]) && $user->hasAnyPermission(self::ROLE_PERMISSIONS[$requiredRole])) {
-                        $isAuthorized = true;
-                        break;
-                    }
+                // 3. Fallback khusus bila peran pengguna belum dipetakan permission di database (mis. pengujian terisolasi)
+                if (($roleEntity?->permissions?->isEmpty() ?? true) && $user->hasRole($requiredRole)) {
+                    $isAuthorized = true;
+                    break;
                 }
             }
 
             // D. Jika tidak memiliki peran maupun hak akses yang sesuai, tolak dengan 403 Forbidden
             if (! $isAuthorized) {
-                $userRole = strtoupper(str_replace('_', ' ', $user->roleEntity ? $user->roleEntity->label : ($user->role ?? 'PENGGUNA')));
+                $userRole = strtoupper($user->roleEntity ? $user->roleEntity->label : 'PENGGUNA');
 
                 // Jika request berupa API / JSON, kirimkan format respons error HTTP 403 Forbidden
                 if ($request->expectsJson() || $request->is('api/*')) {
                     return response()->json([
                         'status' => 'error',
-                        'message' => "Akses Ditolak: Peran [{$userRole}] tidak memiliki wewenang untuk mengakses fungsi ini (FR 2 & NFR RBAC).",
+                        'message' => "Akses Ditolak: Peran [{$userRole}] tidak memiliki wewenang untuk mengakses fungsi ini.",
                     ], 403);
                 }
 
                 // Jika request berasal dari browser biasa, lempar abort 403 dengan pesan bahasa Indonesia
-                abort(403, "Akses Ditolak: Peran [{$userRole}] tidak memiliki wewenang untuk mengakses halaman ini (FR 2 & NFR RBAC).");
+                abort(403, "Akses Ditolak: Peran [{$userRole}] tidak memiliki wewenang untuk mengakses halaman ini.");
             }
         }
 

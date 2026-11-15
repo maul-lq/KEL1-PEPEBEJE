@@ -130,22 +130,17 @@ class PaketPengadaan extends Model
         'alokasi_pagu_paket',
         'file_dokumen_pengadaan',
         'status_paket',
-        'id_paket_lkpp',
         'nomor_surat',
         'tanggal_registrasi_paket',
         'nomor_memo_ppbj',
         'id_user_ppbj',
         'id_user_ppk',
-        'tanggal_penugasan_ppk',
-        'status_penugasan_ppk',
         'alasan_pengalihan_ppk',
         'id_user_pp',
-        'tanggal_penugasan_pp',
         'nilai_hasil_negosiasi',
         'nominal_harga_akhir',
         'catatan_verifikasi_pp',
-        'npwp_vendor',
-        'tanggal_penunjukan_vendor',
+        'id_vendor',
         'dieksekusi_belanja_oleh',
         'tanggal_eksekusi_belanja',
         'nomor_kwitansi_belanja',
@@ -166,9 +161,6 @@ class PaketPengadaan extends Model
             'nilai_hasil_negosiasi' => 'decimal:2',
             'nominal_harga_akhir' => 'decimal:2',
             'tanggal_registrasi_paket' => 'datetime',
-            'tanggal_penugasan_ppk' => 'datetime',
-            'tanggal_penugasan_pp' => 'datetime',
-            'tanggal_penunjukan_vendor' => 'datetime',
             'tanggal_eksekusi_belanja' => 'datetime',
         ];
     }
@@ -201,8 +193,9 @@ class PaketPengadaan extends Model
                 $model->mekanisme_pengadaan = $model->metode_pengadaan ?? 'Tender';
             }
             if (empty($model->id_user_ppbj)) {
-                $ppbjUser = User::where('role', 'ppbj')->first() ?? User::first();
+                $ppbjUser = User::withRole(User::ROLE_PPBJ)->first() ?? User::first();
                 if (! $ppbjUser) {
+                    $ppbjRoleId = Role::where('nama_role', User::ROLE_PPBJ)->value('id');
                     $ppbjUser = User::create([
                         'nip' => '198403122008121099',
                         'username' => 'system_ppbj',
@@ -210,7 +203,7 @@ class PaketPengadaan extends Model
                         'nama' => 'Staff PPBJ Default',
                         'password' => 'secret123',
                         'jabatan' => 'Staff PBJ',
-                        'role' => 'ppbj',
+                        'id_role' => $ppbjRoleId,
                         'no_hp' => '081234567899',
                     ]);
                 }
@@ -222,8 +215,6 @@ class PaketPengadaan extends Model
                 $permohonanAsal = PermohonanPengadaan::find($model->nomor_surat);
                 if ($permohonanAsal && $permohonanAsal->id_user_ppk_awal) {
                     $model->id_user_ppk = $permohonanAsal->id_user_ppk_awal;
-                    $model->tanggal_penugasan_ppk = $model->tanggal_penugasan_ppk ?? now();
-                    $model->status_penugasan_ppk = $model->status_penugasan_ppk ?? 'aktif';
                 }
             }
 
@@ -346,7 +337,7 @@ class PaketPengadaan extends Model
      */
     public function vendor(): BelongsTo
     {
-        return $this->belongsTo(Vendor::class, 'npwp_vendor', 'npwp');
+        return $this->belongsTo(Vendor::class, 'id_vendor', 'id');
     }
 
     /**
@@ -360,13 +351,14 @@ class PaketPengadaan extends Model
     }
 
     /**
-     * Relasi one-to-many ke rekam jejak pengalihan tugas PPK.
+     * Relasi one-to-many ke rekam jejak audit mutasi pengalihan tugas PPK.
      *
-     * @return HasMany Koleksi riwayat penugasan PPK
+     * @return HasMany Koleksi jejak audit log alih tugas PPK
      */
     public function riwayatPpk(): HasMany
     {
-        return $this->hasMany(RiwayatPenugasanPPK::class, 'nomor_paket', 'nomor_paket');
+        return $this->hasMany(AuditLog::class, 'id_entitas', 'nomor_paket')
+            ->where('jenis_aksi', 'REASSIGN_PPK');
     }
 
     /**
@@ -434,12 +426,17 @@ class PaketPengadaan extends Model
      */
     public function scopeForUser($query, User $user)
     {
-        if ($user->role === 'ppk') {
-            // Isolasi berkas 4 akun PPK: Hanya melihat paket yang ditugaskan ke ID akun PPK bersangkutan
-            return $query->where('id_user_ppk', $user->id_user);
+        if ($user->hasPermission('paket.view_all')) {
+            return $query;
         }
 
-        if ($user->role === 'pp') {
+        if ($user->hasPermission('reviu.ppk')) {
+            // Isolasi berkas 4 akun PPK: Hanya melihat paket yang ditugaskan ke ID akun PPK bersangkutan (>200jt / non-langsung)
+            return $query->where('id_user_ppk', $user->id_user)
+                ->where('jalur_routing', '!=', self::ROUTING_LANGSUNG);
+        }
+
+        if ($user->hasPermission('reviu.pp')) {
             // PP hanya melihat paket yang dialokasikan ke jalur PP (50jt - 200jt) atau ditugaskan kepadanya
             return $query->where(function ($q) use ($user) {
                 $q->where('jalur_routing', self::ROUTING_PP)
@@ -447,7 +444,7 @@ class PaketPengadaan extends Model
             });
         }
 
-        if ($user->role === 'user') {
+        if ($user->hasPermission('permohonan.view_own') && ! $user->hasPermission('permohonan.view_all')) {
             // Pemohon hanya melihat paket dari permohonan yang diajukannya
             return $query->whereHas('permohonan', function ($q) use ($user) {
                 $q->where('id_user', $user->id_user);

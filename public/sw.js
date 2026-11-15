@@ -54,21 +54,22 @@ self.addEventListener('push', function (event) {
 self.addEventListener('notificationclick', function (event) {
     event.notification.close();
 
-    const targetUrl = event.notification.data?.url || '/notifikasi';
+    const rawUrl = event.notification.data?.url || '/notifikasi';
+    const resolvedUrl = new URL(rawUrl, self.location.origin).href;
 
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (clientList) {
-            // Cari tab SIM-PBJ yang sedang terbuka untuk difokuskan
             for (let i = 0; i < clientList.length; i++) {
                 const client = clientList[i];
                 if ('focus' in client) {
-                    client.navigate(targetUrl);
+                    if ('navigate' in client) {
+                        client.navigate(resolvedUrl);
+                    }
                     return client.focus();
                 }
             }
-            // Jika belum ada tab yang terbuka, buka jendela peramban baru
             if (clients.openWindow) {
-                return clients.openWindow(targetUrl);
+                return clients.openWindow(resolvedUrl);
             }
         })
     );
