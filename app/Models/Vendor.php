@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * Merepresentasikan perusahaan atau penyedia barang/jasa yang bermitra dengan institusi.
  * Diselaraskan ke struktur minimalis dan operasional:
  * - Identitas: id (primary key auto-increment), nama_vendor
- * - Legalitas: npwp, file_dokumen_legalitas (unggah PDF/gambar berkas izin/NIB/SIUP)
+ * - Berkas Legalitas: file_dokumen_legalitas (unggah berkas izin usaha / legalitas penyedia)
  */
 class Vendor extends Model
 {
@@ -54,7 +54,6 @@ class Vendor extends Model
     protected $fillable = [
         'nama_vendor',
         'file_dokumen_legalitas',
-        'npwp',
     ];
 
     /**
@@ -63,22 +62,6 @@ class Vendor extends Model
     public function getIdVendorAttribute(): int|string|null
     {
         return $this->id;
-    }
-
-    /**
-     * Accessor alias nama_perusahaan untuk kompatibilitas kode legacy yang merujuk nama_vendor.
-     */
-    public function getNamaPerusahaanAttribute(): ?string
-    {
-        return $this->attributes['nama_vendor'] ?? null;
-    }
-
-    /**
-     * Mutator alias nama_perusahaan yang otomatis diarahkan ke nama_vendor.
-     */
-    public function setNamaPerusahaanAttribute(?string $value): void
-    {
-        $this->attributes['nama_vendor'] = $value;
     }
 
     /**

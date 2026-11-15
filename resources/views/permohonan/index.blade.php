@@ -73,27 +73,7 @@
         </div>
     </div>
 
-    {{-- Banner Notifikasi Flash Message Feedback Operasional & Verifikasi --}}
-    @if(session('success'))
-        <div class="rounded-xl border border-emerald-200 bg-emerald-50/90 p-4 shadow-xs flex items-center justify-between gap-3 text-emerald-800">
-            <div class="flex items-center gap-2.5">
-                <svg class="size-5 shrink-0 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                <span class="text-xs font-bold leading-relaxed">{{ session('success') }}</span>
-            </div>
-            <button type="button" @click="$el.parentElement.remove()" class="text-emerald-600 hover:text-emerald-900 text-xs font-bold px-2 py-1 rounded">✕</button>
-        </div>
-    @endif
-
-    @if(session('error'))
-        <div class="rounded-xl border border-rose-200 bg-rose-50/90 p-4 shadow-xs flex items-center justify-between gap-3 text-rose-800">
-            <div class="flex items-center gap-2.5">
-                <svg class="size-5 shrink-0 text-rose-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                <span class="text-xs font-bold leading-relaxed">{{ session('error') }}</span>
-            </div>
-            <button type="button" @click="$el.parentElement.remove()" class="text-rose-600 hover:text-rose-900 text-xs font-bold px-2 py-1 rounded">✕</button>
-        </div>
-    @endif
-
+    {{-- Banner Validasi Form --}}
     @if($errors->any())
         <div class="rounded-xl border border-rose-200 bg-rose-50/90 p-4 shadow-xs text-rose-800 space-y-1">
             <div class="flex items-center gap-2 font-bold text-xs text-rose-900">
@@ -837,42 +817,6 @@
             </div>
         </div>
     </template>
-
-
-    {{-- Banner Notifikasi Flash Message Feedback Operasional & Verifikasi --}}
-    @if(session('success'))
-        <div class="rounded-xl border border-emerald-200 bg-emerald-50/90 p-4 shadow-xs flex items-center justify-between gap-3 text-emerald-800">
-            <div class="flex items-center gap-2.5">
-                <svg class="size-5 shrink-0 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                <span class="text-xs font-bold leading-relaxed">{{ session('success') }}</span>
-            </div>
-            <button type="button" @click="$el.parentElement.remove()" class="text-emerald-600 hover:text-emerald-900 text-xs font-bold px-2 py-1 rounded">✕</button>
-        </div>
-    @endif
-
-    @if(session('error'))
-        <div class="rounded-xl border border-rose-200 bg-rose-50/90 p-4 shadow-xs flex items-center justify-between gap-3 text-rose-800">
-            <div class="flex items-center gap-2.5">
-                <svg class="size-5 shrink-0 text-rose-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                <span class="text-xs font-bold leading-relaxed">{{ session('error') }}</span>
-            </div>
-            <button type="button" @click="$el.parentElement.remove()" class="text-rose-600 hover:text-rose-900 text-xs font-bold px-2 py-1 rounded">✕</button>
-        </div>
-    @endif
-
-    @if($errors->any())
-        <div class="rounded-xl border border-rose-200 bg-rose-50/90 p-4 shadow-xs text-rose-800 space-y-1">
-            <div class="flex items-center gap-2 font-bold text-xs text-rose-900">
-                <svg class="size-4 shrink-0 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                <span>Mohon periksa kendala berikut:</span>
-            </div>
-            <ul class="list-disc list-inside text-xs space-y-0.5 pl-1">
-                @foreach($errors->all() as $err)
-                    <li>{{ $err }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
 
     <!-- ========================================================================= -->
     <!-- 5. MODAL 2: BUAT PERMOHONAN BARU MULTI-DOKUMEN (737:7343 & 737:7339)      -->

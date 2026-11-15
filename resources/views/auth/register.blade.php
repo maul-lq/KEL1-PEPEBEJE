@@ -81,20 +81,6 @@
                 >
                     @csrf
 
-                    @if($errors->any())
-                        <div class="sm:col-span-2 rounded-[8px] border border-red-300 bg-red-50 p-4 text-sm text-red-800 shadow-sm">
-                            <div class="flex items-center gap-2 font-bold mb-1.5 text-red-900">
-                                <svg class="size-4 shrink-0 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                <span>Pendaftaran gagal, mohon periksa isian formulir:</span>
-                            </div>
-                            <ul class="list-disc pl-5 space-y-0.5 text-xs text-red-700">
-                                @foreach($errors->all() as $error)
-                                    <li>{{ $error }}</li>
-                                @endforeach
-                            </ul>
-                        </div>
-                    @endif
-
                     <!-- NIP Pegawai -->
                     <label class="flex flex-col gap-[8px]">
                         <span class="text-base font-medium text-black">
@@ -131,16 +117,16 @@
                         @enderror
                     </label>
 
-                    <!-- Nama Lengkap & Gelar -->
+                    <!-- Nama Lengkap -->
                     <label class="flex flex-col gap-[8px] sm:col-span-2">
                         <span class="text-base font-medium text-black">
-                            Nama Lengkap & Gelar <span class="text-red-600">*</span>
+                            Nama Lengkap <span class="text-red-600">*</span>
                         </span>
                         <input
                             type="text"
                             name="nama"
                             value="{{ old('nama') }}"
-                            placeholder="Contoh: Dr. Budi Santoso, M.T."
+                            placeholder="Contoh: Budi Santoso"
                             required
                             class="h-[55px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] px-[22px] text-base text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6]"
                         />

@@ -9,6 +9,7 @@ use App\Models\PaketPengadaan;
 use App\Models\PenerimaanBarang;
 use App\Rules\DokumenUploadRule;
 use App\Services\PengadaanNotificationService;
+use App\Services\PengadaanRoutingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -170,6 +171,7 @@ class PenerimaanBarangController extends Controller
         );
 
         if ($isTerima) {
+            PengadaanRoutingService::deactivateForPaket($nomorPaket, true);
             $this->notificationService->notifyPenerimaanBarang($penerimaan);
         }
 

@@ -53,6 +53,8 @@ return new class extends Migration
 
         if ($driver === 'pgsql') {
             DB::statement('ALTER TABLE reminder DROP CONSTRAINT IF EXISTS reminder_nomor_paket_foreign;');
+            // Hapus baris reminder yang nomor_paket-nya NULL (contoh: notifikasi registrasi/permohonan) agar SET NOT NULL tidak gagal saat rollback
+            DB::table('reminder')->whereNull('nomor_paket')->delete();
             DB::statement('ALTER TABLE reminder ALTER COLUMN nomor_paket SET NOT NULL;');
             DB::statement('ALTER TABLE reminder ADD CONSTRAINT reminder_nomor_paket_foreign FOREIGN KEY (nomor_paket) REFERENCES paket_pengadaan(nomor_paket) ON DELETE CASCADE ON UPDATE CASCADE;');
         } elseif ($driver === 'sqlite') {

@@ -5,7 +5,7 @@
  * mendaftarkannya ke Alpine.js dan objek window, serta mengikat event global halaman.
  */
 
-import { desktopNotificationManager } from './modules/desktop_notification.js';
+import { browserNotificationControl, desktopNotificationManager } from './modules/desktop_notification.js';
 import { trackingManager } from './modules/tracking.js';
 import { splitMakManager } from './modules/split_mak.js';
 import { laporanApp } from './modules/laporan.js';
@@ -56,6 +56,7 @@ import {
 
 const alpineComponents = {
     desktopNotificationManager,
+    browserNotificationControl,
     trackingManager,
     splitMakManager,
     laporanApp,

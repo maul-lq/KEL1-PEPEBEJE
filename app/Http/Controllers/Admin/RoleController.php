@@ -193,7 +193,7 @@ class RoleController extends Controller
         }
 
         // 3. Proteksi Pengguna Aktif: Role tidak dapat dihapus jika masih ada pengguna yang menggunakannya
-        $usersCount = User::where('role', $role->nama_role)->orWhere('id_role', $role->id)->count();
+        $usersCount = User::where('id_role', $role->id)->count();
         if ($usersCount > 0) {
             $errorMsg = "Tidak dapat menghapus role [{$role->label}] karena masih digunakan oleh {$usersCount} pengguna. Alihkan peran pengguna tersebut terlebih dahulu.";
 

@@ -585,7 +585,7 @@ class PermohonanPengadaan extends Model
      */
     public function scopeForUser($query, User $user)
     {
-        if ($user->role === 'user') {
+        if ($user->hasRole(User::ROLE_USER)) {
             return $query->where('id_user', $user->id_user);
         }
 

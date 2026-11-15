@@ -84,15 +84,15 @@ class ApprovalRegistrasiController extends Controller
             : Role::where('nama_role', $validated['role'])->firstOrFail();
 
         // 2. Penegakan Aturan FR 2.1: Batasan ketat maksimal 1 akun Pejabat Pengadaan (PP) aktif
-        if ($role->nama_role === 'pp') {
-            $existingActivePP = User::where('role', 'pp')
+        if ($role->nama_role === User::ROLE_PP) {
+            $existingActivePP = User::withRole(User::ROLE_PP)
                 ->where('status_aktif', true)
                 ->where('id_user', '!=', $user->id_user)
                 ->exists();
 
             if ($existingActivePP) {
                 throw ValidationException::withMessages([
-                    'role' => 'Batasan institusi: Hanya diizinkan 1 akun Pejabat Pengadaan (PP) aktif di institusi.',
+                    'id_role' => 'Batasan institusi: Hanya diizinkan 1 akun Pejabat Pengadaan (PP) aktif di institusi.',
                 ]);
             }
         }
@@ -100,7 +100,6 @@ class ApprovalRegistrasiController extends Controller
         // 3. Mutakhirkan status pengguna menjadi aktif dan disetujui dengan peran yang ditetapkan
         $user->status_aktif = true;
         $user->status_registrasi = User::STATUS_REGISTRASI_DISETUJUI;
-        $user->role = $role->nama_role;
         $user->id_role = $role->id;
         $user->id_admin_approval = $admin?->id_user;
         $user->tanggal_approval = now();

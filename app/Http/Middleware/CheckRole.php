@@ -54,11 +54,9 @@ class CheckRole
             'paket.create',
             'paket.view_all',
             'paket.reassign_ppk',
-            'paket.split_jenis',
             'pp.monitoring_aktivitas',
             'lihat_pp',
             'spk.create',
-            'reminder.manage',
             'pembayaran.pengajuan',
             'pembayaran.spp_terbitkan',
             'permohonan.split_jenis',
@@ -120,7 +118,7 @@ class CheckRole
         // 3. Periksa otorisasi peran atau hak akses fitur (permissions)
         if (! empty($roles)) {
             $isAuthorized = false;
-            $roleEntity = $user->roleEntity ?? Role::where('nama_role', $user->role)->with('permissions')->first();
+            $roleEntity = $user->roleEntity;
 
             foreach ($roles as $requiredRole) {
                 // 1. Jika argumen rute langsung berupa nama permission yang dimiliki pengguna
@@ -136,8 +134,8 @@ class CheckRole
                     break;
                 }
 
-                // 3. Fallback khusus bila entitas Role belum tersedia di database
-                if (! $roleEntity && $user->hasRole($requiredRole)) {
+                // 3. Fallback khusus bila peran pengguna belum dipetakan permission di database (mis. pengujian terisolasi)
+                if (($roleEntity?->permissions?->isEmpty() ?? true) && $user->hasRole($requiredRole)) {
                     $isAuthorized = true;
                     break;
                 }
@@ -145,7 +143,7 @@ class CheckRole
 
             // D. Jika tidak memiliki peran maupun hak akses yang sesuai, tolak dengan 403 Forbidden
             if (! $isAuthorized) {
-                $userRole = strtoupper(str_replace('_', ' ', $user->roleEntity ? $user->roleEntity->label : ($user->role ?? 'PENGGUNA')));
+                $userRole = strtoupper($user->roleEntity ? $user->roleEntity->label : 'PENGGUNA');
 
                 // Jika request berupa API / JSON, kirimkan format respons error HTTP 403 Forbidden
                 if ($request->expectsJson() || $request->is('api/*')) {

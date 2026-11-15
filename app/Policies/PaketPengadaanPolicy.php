@@ -84,19 +84,19 @@ class PaketPengadaanPolicy
     public function update(User $user, PaketPengadaan $paket): Response
     {
         // PPBJ memiliki hak penuh sebagai koordinator pengadaan kampus untuk memperbarui data paket
-        if ($user->role === 'ppbj') {
+        if ($user->hasRole(User::ROLE_PPBJ)) {
             return Response::allow();
         }
 
         // PPK hanya diizinkan memperbarui data paket jika paket tersebut memang ditugaskan kepada ID dirinya
-        if ($user->role === 'ppk') {
+        if ($user->hasRole(User::ROLE_PPK)) {
             return (int) $paket->id_user_ppk === (int) $user->id_user
                 ? Response::allow()
                 : Response::deny('Akses Ditolak: Anda hanya berwenang memperbarui paket yang ditugaskan kepada Anda.');
         }
 
         // Pejabat Pengadaan (PP) hanya boleh mengubah data jika paket berada dalam wewenang pengadaan langsungnya
-        if ($user->role === 'pp') {
+        if ($user->hasRole(User::ROLE_PP)) {
             return ($paket->jalur_routing === PaketPengadaan::ROUTING_PP || (int) $paket->id_user_pp === (int) $user->id_user)
                 ? Response::allow()
                 : Response::deny('Akses Ditolak: Anda bukan Pejabat Pengadaan yang berwenang atas paket ini.');
@@ -113,7 +113,7 @@ class PaketPengadaanPolicy
     public function reassignPpk(User $user, PaketPengadaan $paket): Response
     {
         // Validasi apakah user memiliki peran koordinator PPBJ atau Bagian Perencanaan
-        if (in_array($user->role, ['ppbj', 'perencanaan'], true)) {
+        if ($user->hasRole([User::ROLE_PPBJ, User::ROLE_PERENCANAAN])) {
             return Response::allow();
         }
 

@@ -224,7 +224,7 @@ class PembayaranController extends Controller
         $paket->save();
 
         // Bentuk memo persetujuan: PPK & Wadir II
-        $defaultPpk = User::where('role', 'ppk')
+        $defaultPpk = User::withRole(User::ROLE_PPK)
             ->orWhereHas('roleEntity.permissions', fn ($q) => $q->where('nama_permission', 'pembayaran.memo_ppk'))
             ->first();
         $ppkUserId = $paket->id_user_ppk ?? $paket->permohonan?->id_user_ppk_awal ?? $defaultPpk?->id_user ?? $user->id_user;
@@ -235,7 +235,7 @@ class PembayaranController extends Controller
             'status_memo' => 'menunggu',
         ]);
 
-        $wadir = User::where('role', 'wadir_2')
+        $wadir = User::withRole(User::ROLE_WADIR_2)
             ->orWhereHas('roleEntity.permissions', fn ($q) => $q->where('nama_permission', 'pembayaran.memo_wadir2'))
             ->first();
         $memoLevel2 = MemoBayar::create([
@@ -438,7 +438,6 @@ class PembayaranController extends Controller
             'catatan_reviu_akhir' => ['nullable', 'string'],
             'file_spp' => ['nullable', DokumenUploadRule::pdfOrImage()],
             'file_legalitas_vendor' => ['nullable', DokumenUploadRule::pdfOrImage()],
-            'npwp_vendor' => ['nullable', 'string', 'max:50'],
         ]);
 
         $pembayaran = Pembayaran::where('nomor_pembayaran', $validated['nomor_pembayaran'])->firstOrFail();
@@ -453,13 +452,8 @@ class PembayaranController extends Controller
         }
 
         $vendor = $pembayaran->paket?->vendor ?? $pembayaran->paket?->kontrakSpk?->vendor;
-        if ($vendor) {
-            if ($request->hasFile('file_legalitas_vendor')) {
-                $vendor->file_dokumen_legalitas = $request->file('file_legalitas_vendor')->store('vendor_legalitas', 'public');
-            }
-            if ($request->filled('npwp_vendor')) {
-                $vendor->npwp = $validated['npwp_vendor'];
-            }
+        if ($vendor && $request->hasFile('file_legalitas_vendor')) {
+            $vendor->file_dokumen_legalitas = $request->file('file_legalitas_vendor')->store('vendor_legalitas', 'public');
             $vendor->save();
         }
 

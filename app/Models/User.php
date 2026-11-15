@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -79,7 +80,6 @@ class User extends Authenticatable
         'unit_kerja',
         'password',
         'jabatan',
-        'role',
         'id_role',
         'status_aktif',
         'status_registrasi',
@@ -93,6 +93,7 @@ class User extends Authenticatable
         'google_avatar',
         'google_linked_at',
         'foto_profil',
+        'reminder_email_aktif',
     ];
 
     /**
@@ -115,6 +116,7 @@ class User extends Authenticatable
         return [
             'password' => 'hashed',
             'status_aktif' => 'boolean',
+            'reminder_email_aktif' => 'boolean',
             'tanggal_approval' => 'datetime',
             'google_linked_at' => 'datetime',
         ];
@@ -138,9 +140,9 @@ class User extends Authenticatable
                 $user->nama = $user->name ?? $user->username ?? 'Pengguna Sistem';
             }
 
-            // Role Default
-            if (empty($user->role)) {
-                $user->role = self::ROLE_USER;
+            // Peran default apabila id_role belum ditentukan secara eksplisit
+            if (empty($user->id_role)) {
+                $user->id_role = Role::where('nama_role', self::ROLE_USER)->value('id');
             }
 
             // Default Status Aktif & Registrasi
@@ -150,6 +152,12 @@ class User extends Authenticatable
 
             if (empty($user->status_registrasi)) {
                 $user->status_registrasi = self::STATUS_REGISTRASI_DISETUJUI;
+            }
+        });
+
+        static::saved(function (User $user): void {
+            if ($user->wasChanged('id_role')) {
+                $user->unsetRelation('roleEntity');
             }
         });
     }
@@ -264,23 +272,29 @@ class User extends Authenticatable
         return $this->belongsTo(User::class, 'id_admin_approval', 'id_user');
     }
 
-    public function hasRole(string|array $roles): bool
+    /**
+     * Scope query untuk memfilter pengguna berdasarkan satu atau beberapa slug peran pada tabel roles.
+     *
+     * @param  string|array<int, string>  $roles
+     */
+    public function scopeWithRole(Builder $query, string|array $roles): Builder
     {
         $roleList = is_array($roles) ? $roles : [$roles];
 
-        return in_array($this->role, $roleList, true) ||
-            ($this->roleEntity && in_array($this->roleEntity->nama_role, $roleList, true));
+        return $query->whereHas('roleEntity', fn (Builder $q) => $q->whereIn('nama_role', $roleList));
+    }
+
+    public function hasRole(string|array $roles): bool
+    {
+        $roleList = is_array($roles) ? $roles : [$roles];
+        $roleSlug = $this->roleEntity?->nama_role;
+
+        return $roleSlug !== null && in_array($roleSlug, $roleList, true);
     }
 
     public function hasPermission(string $permissionSlug): bool
     {
-        if ($this->relationLoaded('roleEntity') && $this->roleEntity) {
-            return $this->roleEntity->hasPermission($permissionSlug);
-        }
-
-        $role = $this->roleEntity ?? Role::where('nama_role', $this->role)->with('permissions')->first();
-
-        return $role ? $role->hasPermission($permissionSlug) : false;
+        return $this->roleEntity ? $this->roleEntity->hasPermission($permissionSlug) : false;
     }
 
     public function hasAnyPermission(array $permissions): bool

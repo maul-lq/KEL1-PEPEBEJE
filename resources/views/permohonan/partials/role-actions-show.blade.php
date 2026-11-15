@@ -143,7 +143,7 @@
             <label class="{{ $label }}">Pilih PPK Penanggung Jawab</label>
             <select name="id_user_ppk_awal" class="{{ $field }}">
                 <option value="">-- Pilih Akun PPK --</option>
-                @php $ppkList = \App\Models\User::where('role', 'ppk')->where('status_aktif', true)->get(); @endphp
+                @php $ppkList = \App\Models\User::withRole(\App\Models\User::ROLE_PPK)->where('status_aktif', true)->get(); @endphp
                 @foreach($ppkList as $ppkOpt)
                     <option value="{{ $ppkOpt->id_user }}">{{ $ppkOpt->nama }} ({{ $ppkOpt->jabatan ?? 'PPK' }})</option>
                 @endforeach

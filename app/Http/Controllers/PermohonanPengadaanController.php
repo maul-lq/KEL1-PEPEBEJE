@@ -81,7 +81,7 @@ class PermohonanPengadaanController extends Controller
         $permohonanList = $query->latest('tanggal_pengajuan')->paginate(15);
         $units = Unit::all();
         $makList = AnggaranMAK::orderBy('kode_mak')->get();
-        $ppkUsers = User::where('role', 'ppk')->where('status_aktif', true)->get();
+        $ppkUsers = User::withRole(User::ROLE_PPK)->where('status_aktif', true)->get();
 
         return view('permohonan.index', compact('permohonanList', 'user', 'units', 'makList', 'ppkUsers'));
     }
@@ -107,7 +107,7 @@ class PermohonanPengadaanController extends Controller
             ->firstOrFail();
 
         $makList = AnggaranMAK::orderBy('kode_mak')->get();
-        $ppkUsers = User::where('role', 'ppk')->where('status_aktif', true)->get();
+        $ppkUsers = User::withRole(User::ROLE_PPK)->where('status_aktif', true)->get();
 
         return view('permohonan.show', compact('permohonan', 'makList', 'ppkUsers'));
     }

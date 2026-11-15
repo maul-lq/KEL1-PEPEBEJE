@@ -14,7 +14,9 @@ export function adminUsers() {
         deleteUser: {},
 
         openEdit(user) {
-            this.editUser = Object.assign({}, user);
+            this.editUser = Object.assign({}, user, {
+                id_role: user.id_role != null ? String(user.id_role) : '',
+            });
             this.editUserModal = true;
         },
 

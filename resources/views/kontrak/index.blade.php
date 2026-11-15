@@ -866,8 +866,6 @@
                                             <a href="{{ asset('storage/' . $k->paket->vendor->file_dokumen_legalitas) }}" target="_blank" class="text-[10px] text-[#0969da] hover:underline font-medium block mt-0.5">
                                                 Lihat Dokumen Legalitas &rarr;
                                             </a>
-                                        @elseif($k->paket->npwp_vendor)
-                                            <span class="text-[10px] text-slate-400 font-mono block mt-0.5">NPWP: {{ $k->paket->npwp_vendor }}</span>
                                         @endif
                                     </td>
 

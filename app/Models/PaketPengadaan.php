@@ -193,8 +193,9 @@ class PaketPengadaan extends Model
                 $model->mekanisme_pengadaan = $model->metode_pengadaan ?? 'Tender';
             }
             if (empty($model->id_user_ppbj)) {
-                $ppbjUser = User::where('role', 'ppbj')->first() ?? User::first();
+                $ppbjUser = User::withRole(User::ROLE_PPBJ)->first() ?? User::first();
                 if (! $ppbjUser) {
+                    $ppbjRoleId = Role::where('nama_role', User::ROLE_PPBJ)->value('id');
                     $ppbjUser = User::create([
                         'nip' => '198403122008121099',
                         'username' => 'system_ppbj',
@@ -202,7 +203,7 @@ class PaketPengadaan extends Model
                         'nama' => 'Staff PPBJ Default',
                         'password' => 'secret123',
                         'jabatan' => 'Staff PBJ',
-                        'role' => 'ppbj',
+                        'id_role' => $ppbjRoleId,
                         'no_hp' => '081234567899',
                     ]);
                 }

@@ -72,7 +72,7 @@ class PaketPengadaanController extends Controller
         $this->syncAllPermohonanDisetujuiParalel();
 
         $paketList = $query->latest('tanggal_registrasi_paket')->paginate(15);
-        $ppkUsers = User::where('role', 'ppk')->where('status_aktif', true)->get();
+        $ppkUsers = User::withRole(User::ROLE_PPK)->where('status_aktif', true)->get();
         $riwayatPenugasan = AuditLog::with('user')
             ->where('jenis_aksi', 'REASSIGN_PPK')
             ->latest('waktu_log')
@@ -200,8 +200,8 @@ class PaketPengadaanController extends Controller
             ])
             ->get();
 
-        $ppkUsers = User::where('role', 'ppk')->where('status_aktif', true)->take(4)->get();
-        $ppUsers = User::where('role', 'pp')->where('status_aktif', true)->get();
+        $ppkUsers = User::withRole(User::ROLE_PPK)->where('status_aktif', true)->take(4)->get();
+        $ppUsers = User::withRole(User::ROLE_PP)->where('status_aktif', true)->get();
         $vendors = Vendor::orderBy('nama_vendor')->get();
 
         return view('paket.create', compact('permohonanDisetujui', 'ppkUsers', 'ppUsers', 'vendors'));
@@ -284,10 +284,10 @@ class PaketPengadaanController extends Controller
 
         if ($jalur === PaketPengadaan::ROUTING_LANGSUNG) {
             $metodePengadaan = PaketPengadaan::METODE_BELANJA_LANGSUNG;
-            $idUserPpk = $inheritedPpk ?? User::where('role', 'ppk')->where('status_aktif', true)->first()?->id_user;
+            $idUserPpk = $inheritedPpk ?? User::withRole(User::ROLE_PPK)->where('status_aktif', true)->first()?->id_user;
         } elseif ($jalur === PaketPengadaan::ROUTING_PP) {
-            $idUserPp = $validated['id_user_pp'] ?? User::where('role', 'pp')->where('status_aktif', true)->first()?->id_user;
-            $idUserPpk = $inheritedPpk ?? User::where('role', 'ppk')->where('status_aktif', true)->first()?->id_user;
+            $idUserPp = $validated['id_user_pp'] ?? User::withRole(User::ROLE_PP)->where('status_aktif', true)->first()?->id_user;
+            $idUserPpk = $inheritedPpk ?? User::withRole(User::ROLE_PPK)->where('status_aktif', true)->first()?->id_user;
             $metodePengadaan = $validated['metode_pengadaan'];
         } else {
             $idUserPpk = $inheritedPpk;
@@ -478,7 +478,7 @@ class PaketPengadaanController extends Controller
             ->firstOrFail();
 
         $ppkBaru = User::findOrFail($validated['id_user_ppk_baru']);
-        if ($ppkBaru->role !== 'ppk') {
+        if (! $ppkBaru->hasRole(User::ROLE_PPK)) {
             return back()->withErrors(['id_user_ppk_baru' => 'User tujuan mutasi harus berstatus akun PPK.']);
         }
 
@@ -530,8 +530,8 @@ class PaketPengadaanController extends Controller
             abort(403, 'Akses Ditolak: Anda tidak memiliki hak akses untuk mengubah dokumen pengadaan.');
         }
 
-        $ppkUsers = User::where('role', 'ppk')->where('status_aktif', true)->take(4)->get();
-        $ppUsers = User::where('role', 'pp')->where('status_aktif', true)->get();
+        $ppkUsers = User::withRole(User::ROLE_PPK)->where('status_aktif', true)->take(4)->get();
+        $ppUsers = User::withRole(User::ROLE_PP)->where('status_aktif', true)->get();
         $vendors = Vendor::orderBy('nama_vendor')->get();
 
         return view('paket.edit', compact('paket', 'ppkUsers', 'ppUsers', 'vendors'));
@@ -604,7 +604,7 @@ class PaketPengadaanController extends Controller
 
         $idUserPpk = $validated['id_user_ppk'] ?? $paket->id_user_ppk;
         $idUserPp = ($jalur === PaketPengadaan::ROUTING_PP)
-            ? ($validated['id_user_pp'] ?? $paket->id_user_pp ?? User::where('role', 'pp')->where('status_aktif', true)->first()?->id_user)
+            ? ($validated['id_user_pp'] ?? $paket->id_user_pp ?? User::withRole(User::ROLE_PP)->where('status_aktif', true)->first()?->id_user)
             : null;
 
         $platform = match ($validated['metode_pengadaan']) {
@@ -687,7 +687,7 @@ class PaketPengadaanController extends Controller
             abort(403, 'Akses Ditolak: Paket pengadaan ini ditugaskan kepada PPK lain.');
         }
 
-        $ppkUsers = User::where('role', 'ppk')->where('status_aktif', true)->get();
+        $ppkUsers = User::withRole(User::ROLE_PPK)->where('status_aktif', true)->get();
 
         return view('paket.show', compact('paket', 'ppkUsers'));
     }
@@ -718,7 +718,7 @@ class PaketPengadaanController extends Controller
             $query->forUser($user);
         }
         $paketList = $query->get();
-        $ppkUsers = User::where('role', 'ppk')->where('status_aktif', true)->get();
+        $ppkUsers = User::withRole(User::ROLE_PPK)->where('status_aktif', true)->get();
 
         return view('paket.reassign', compact('paketList', 'ppkUsers'));
     }

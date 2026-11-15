@@ -267,7 +267,7 @@
                         >
                         <datalist id="vendorList">
                             @foreach($vendors as $v)
-                                <option value="{{ $v->nama_vendor }}">{{ $v->npwp ? 'NPWP: ' . $v->npwp : '' }}</option>
+                                <option value="{{ $v->nama_vendor }}"></option>
                             @endforeach
                         </datalist>
                     </div>

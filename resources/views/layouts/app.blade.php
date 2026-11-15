@@ -23,19 +23,13 @@
 
     @auth
     @php
-        $allHeaderNotifs = \App\Models\NotifikasiUser::with(['reminder.paket.permohonan'])
+        $allHeaderNotifs = \App\Models\NotifikasiUser::with(['reminder.paket.permohonan', 'user.roleEntity.permissions'])
             ->where('id_user', Auth::id())
             ->where('is_dismissed', false)
-            ->latest()
+            ->latest('id')
             ->take(8)
             ->get();
-        $unreadHeaderNotifs = \App\Models\NotifikasiUser::with(['reminder.paket.permohonan'])
-            ->where('id_user', Auth::id())
-            ->where('is_dismissed', false)
-            ->where('is_read', false)
-            ->latest()
-            ->take(8)
-            ->get();
+        $headerNotifPayloads = $allHeaderNotifs->map(fn ($n) => $n->toApiPayload())->values();
         $unreadHeaderCount = \App\Models\NotifikasiUser::where('id_user', Auth::id())
             ->where('is_dismissed', false)
             ->where('is_read', false)
@@ -256,7 +250,7 @@
         @endif
 
         <!-- 8. PPBJ: Manajemen Paket Pengadaan -->
-        @if($u->hasAnyPermission(['paket.create', 'paket.view_all', 'paket.reassign_ppk', 'paket.split_jenis']))
+        @if($u->hasAnyPermission(['paket.create', 'paket.view_all', 'paket.reassign_ppk', 'permohonan.split_jenis']))
             @php $aPaket = request()->routeIs('paket.*'); @endphp
             <a href="{{ route('paket.index') }}" 
                title="Paket Pengadaan" 
@@ -475,6 +469,7 @@
                  data-node-id="751:7821"
                  x-data="headerNotificationBar"
                  data-unread-count="{{ $unreadHeaderCount }}"
+                 data-initial-items='@json($headerNotifPayloads)'
                  @notification-updated.window="fetchTerbaru()"
                  @click.outside="closeMenus()"
                  @keydown.escape.window="closeMenus()">
@@ -580,68 +575,48 @@
                         </a>
                     </div>
 
-                    <!-- Daftar Item Notifikasi (Figma 753:7923) -->
-                    @foreach(['semua' => $allHeaderNotifs, 'belum_dibaca' => $unreadHeaderNotifs] as $tabKey => $notifList)
-                        <div x-show="notifTab === '{{ $tabKey }}'"
-                             class="mt-2 max-h-[420px] overflow-y-auto px-[10px] space-y-0.5">
-                            @forelse($notifList as $notif)
-                                @php
-                                    $teksGabung = strtolower($notif->judul . ' ' . $notif->pesan);
-                                    $isRevisiNotif = str_contains($teksGabung, 'revisi') || str_contains($teksGabung, 'kembalikan') || str_contains($teksGabung, 'mengembalikan') || str_contains($teksGabung, 'tolak');
-                                    $isSelesaiNotif = str_contains($teksGabung, 'selesai') || str_contains($teksGabung, 'lunas') || str_contains($teksGabung, 'cair');
-                                @endphp
-                                <a href="{{ $notif->action_url }}"
-                                   class="flex min-h-[82px] items-center gap-[15px] rounded-[6px] bg-white px-[14px] py-[12px] hover:bg-slate-50 transition-colors">
-                                    <!-- Ikon Lingkaran Berwarna Sesuai Status (50x50px Figma) -->
-                                    @if($isRevisiNotif)
-                                        <span class="flex size-[48px] shrink-0 items-center justify-center rounded-full bg-[#F3C635] text-white shadow-2xs">
-                                            <svg class="size-6" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a5 5 0 015 5v2M3 10l4-4m-4 4l4 4" />
-                                            </svg>
-                                        </span>
-                                    @elseif($isSelesaiNotif)
-                                        <span class="flex size-[48px] shrink-0 items-center justify-center rounded-full bg-[#1CD000] text-white shadow-2xs">
-                                            <svg class="size-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                                            </svg>
-                                        </span>
-                                    @else
-                                        <span class="flex size-[48px] shrink-0 items-center justify-center rounded-full bg-[#087AE6] text-white shadow-2xs">
-                                            <svg class="size-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                            </svg>
-                                        </span>
-                                    @endif
+                    <!-- Daftar Item Notifikasi Dinamis (Figma 753:7923) -->
+                    <div class="mt-2 max-h-[420px] overflow-y-auto px-[10px] space-y-0.5">
+                        <template x-for="item in displayedItems" :key="item.id">
+                            <a :href="item.action_url"
+                               class="flex min-h-[82px] items-center gap-[15px] rounded-[6px] bg-white px-[14px] py-[12px] hover:bg-slate-50 transition-colors">
+                                <!-- Ikon Lingkaran Berwarna Sesuai Status -->
+                                <span class="flex size-[48px] shrink-0 items-center justify-center rounded-full text-white shadow-2xs"
+                                      :class="item.is_revisi ? 'bg-[#F3C635]' : (item.is_selesai ? 'bg-[#1CD000]' : 'bg-[#087AE6]')">
+                                    <svg x-show="item.is_revisi" class="size-6" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a5 5 0 015 5v2M3 10l4-4m-4 4l4 4" />
+                                    </svg>
+                                    <svg x-show="item.is_selesai && !item.is_revisi" class="size-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    <svg x-show="!item.is_revisi && !item.is_selesai" class="size-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                </span>
 
-                                    <!-- Teks Judul & Waktu -->
-                                    <div class="min-w-0 flex-1">
-                                        <p class="line-clamp-2 text-[14px] sm:text-[15px] font-medium leading-snug {{ !$notif->is_read ? 'text-black' : 'text-[#6e6e6e]' }}">
-                                            {{ $notif->judul }}
-                                        </p>
-                                        <div class="mt-1 flex items-center gap-2 flex-wrap">
-                                            <span class="text-[11px] font-semibold text-[#aaaaaa]">
-                                                {{ $notif->created_at ? $notif->created_at->translatedFormat('d M Y, H:i') : 'Baru saja' }}
-                                            </span>
-                                            @if($notif->reminder?->interval_bulan)
-                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-[#0969da] border border-blue-200">
-                                                    Berkala {{ $notif->reminder->interval_bulan }} bln
-                                                </span>
-                                            @endif
-                                        </div>
+                                <!-- Teks Judul & Waktu -->
+                                <div class="min-w-0 flex-1">
+                                    <p class="line-clamp-2 text-[14px] sm:text-[15px] font-medium leading-snug"
+                                       :class="!item.is_read ? 'text-black' : 'text-[#6e6e6e]'"
+                                       x-text="item.judul"></p>
+                                    <div class="mt-1 flex items-center gap-2 flex-wrap">
+                                        <span class="text-[11px] font-semibold text-[#aaaaaa]" x-text="item.created_at_formatted || 'Baru saja'"></span>
+                                        <span x-show="item.is_recurring"
+                                              class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-[#0969da] border border-blue-200">
+                                            Berkala
+                                        </span>
                                     </div>
-
-                                    <!-- Titik Biru Belum Dibaca (Figma 753:7912) -->
-                                    @if(!$notif->is_read)
-                                        <span class="size-[10px] shrink-0 rounded-full bg-[#3b82f6]" title="Belum dibaca"></span>
-                                    @endif
-                                </a>
-                            @empty
-                                <div class="py-10 text-center text-xs text-slate-400">
-                                    {{ $tabKey === 'belum_dibaca' ? 'Tidak ada notifikasi yang belum dibaca.' : 'Belum ada notifikasi terbaru.' }}
                                 </div>
-                            @endforelse
+
+                                <!-- Titik Biru Belum Dibaca -->
+                                <span x-show="!item.is_read" class="size-[10px] shrink-0 rounded-full bg-[#3b82f6]" title="Belum dibaca"></span>
+                            </a>
+                        </template>
+
+                        <div x-show="displayedItems.length === 0" class="py-10 text-center text-xs text-slate-400"
+                             x-text="notifTab === 'belum_dibaca' ? 'Tidak ada notifikasi yang belum dibaca.' : 'Belum ada notifikasi terbaru.'">
                         </div>
-                    @endforeach
+                    </div>
                 </div>
 
                 <!-- ================================================================ -->
@@ -668,11 +643,7 @@
                                 {{ Auth::user()->unit->nama_unit ?? Auth::user()->jabatan ?? 'Pegawai' }}
                             </p>
                             <span class="mt-2 inline-flex items-center justify-center rounded-full bg-[#5EB7EE]/50 px-[13px] py-[4px] text-[10px] font-normal text-black">
-                                @if(Auth::user()->roleEntity && !Auth::user()->roleEntity->is_system)
-                                    {{ Auth::user()->roleEntity->label }}
-                                @else
-                                    {{ ucwords(str_replace('_', ' ', Auth::user()->role)) }}
-                                @endif
+                                {{ Auth::user()->roleEntity?->label ?? 'Pengguna' }}
                             </span>
                         </div>
 
@@ -720,53 +691,103 @@
         <!-- KONTEN UTAMA HALAMAN -->
         <main class="min-w-0 flex-1 p-6 md:p-8">
 
-            {{-- Banner Notifikasi OS Desktop --}}
+            {{-- Manajer Notifikasi Real-Time In-App & Browser --}}
             @auth
             <div x-data="desktopNotificationManager"
-                 x-init="init()"
-                 x-show="showBanner"
-                 x-cloak
-                 x-transition
-                 class="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl bg-gradient-to-r from-[#213153] to-[#0969da] p-4 text-white shadow-md">
-                <div class="flex items-center gap-3">
-                    <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-white/15 backdrop-blur-sm">
-                        <svg class="size-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                        </svg>
+                 data-user-id="{{ Auth::id() }}"
+                 @simpbj-request-browser-permission.window="requestPermission()">
+
+                <div x-show="showBanner"
+                     x-cloak
+                     x-transition
+                     class="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl bg-gradient-to-r from-[#213153] to-[#0969da] p-4 text-white shadow-md">
+                    <div class="flex items-center gap-3">
+                        <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-white/15 backdrop-blur-sm">
+                            <svg class="size-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-semibold">Aktifkan Notifikasi Browser</h4>
+                            <p class="text-xs text-blue-100">Terima pengingat jadwal pengiriman dan persetujuan pengadaan secara langsung.</p>
+                        </div>
                     </div>
-                    <div>
-                        <h4 class="text-sm font-semibold">Aktifkan Notifikasi Browser</h4>
-                        <p class="text-xs text-blue-100">Terima pengingat jadwal pengiriman dan persetujuan pengadaan secara langsung.</p>
+                    <div class="flex items-center gap-2">
+                        <button @click="requestPermission()"
+                                type="button"
+                                class="rounded-lg bg-white px-4 py-2 text-xs font-bold text-[#213153] shadow-sm hover:bg-blue-50 transition-colors cursor-pointer">
+                            Aktifkan Notifikasi
+                        </button>
+                        <button @click="dismissBanner()"
+                                type="button"
+                                class="rounded-lg p-2 text-white/80 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+                                title="Tutup banner">
+                            <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
                     </div>
                 </div>
-                <div class="flex items-center gap-2">
-                    <button @click="requestPermission()"
-                            type="button"
-                            class="rounded-lg bg-white px-4 py-2 text-xs font-bold text-[#213153] shadow-sm hover:bg-blue-50 transition-colors cursor-pointer">
-                        Aktifkan Notifikasi
-                    </button>
-                    <button @click="dismissBanner()"
-                            type="button"
-                            class="rounded-lg p-2 text-white/80 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
-                            title="Tutup banner">
-                        <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                    </button>
+
+                {{-- Toast Alert In-App Mengambang untuk Notifikasi Baru --}}
+                <div x-show="inAppToasts.length > 0"
+                     x-cloak
+                     aria-live="polite"
+                     class="fixed bottom-5 right-5 z-50 flex w-[calc(100vw-2rem)] max-w-sm flex-col gap-3 pointer-events-none">
+                    <template x-for="toast in inAppToasts" :key="toast.id">
+                        <div class="pointer-events-auto rounded-xl border border-slate-200 bg-white p-4 shadow-xl ring-1 ring-black/5">
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="min-w-0 flex-1 space-y-1">
+                                    <div class="flex items-center gap-2">
+                                        <span class="inline-flex items-center rounded-md bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-[#0969da]" x-text="toast.badge"></span>
+                                        <span class="text-[11px] text-slate-400">Baru saja</span>
+                                    </div>
+                                    <h4 class="text-sm font-bold text-[#213153] leading-snug" x-text="toast.judul"></h4>
+                                    <p class="text-xs text-slate-600 line-clamp-2 leading-relaxed" x-text="toast.pesan"></p>
+                                    <a :href="toast.action_url"
+                                       class="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-[#0969da] hover:underline">
+                                        <span x-text="toast.action_label"></span>
+                                    </a>
+                                </div>
+                                <button type="button"
+                                        @click="dismissToast(toast.id)"
+                                        class="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 cursor-pointer"
+                                        title="Tutup peringatan">
+                                    <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </template>
                 </div>
             </div>
             @endauth
 
-            <!-- Session Alerts -->
+            <!-- Session Alerts Global -->
             @if(session('success'))
-                <div class="mb-6 flex items-center gap-3 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-medium shadow-sm">
-                    <svg class="size-5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    <span>{{ session('success') }}</span>
+                <div data-flash-alert class="mb-6 flex items-center justify-between gap-3 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-medium shadow-sm">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <svg class="size-5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <span>{{ session('success') }}</span>
+                    </div>
+                    <button type="button" onclick="this.closest('[data-flash-alert]')?.remove()" class="text-emerald-600 hover:text-emerald-900 p-1 rounded cursor-pointer" title="Tutup">✕</button>
                 </div>
             @endif
 
-            @if(session('error'))
-                <div class="mb-6 flex items-center gap-3 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm font-medium shadow-sm">
-                    <svg class="size-5 text-rose-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    <span>{{ session('error') }}</span>
+            @if(session('error') && !session('password_modal_error') && !session('delete_modal_error'))
+                <div data-flash-alert class="mb-6 flex items-center justify-between gap-3 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm font-medium shadow-sm">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <svg class="size-5 text-rose-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <span>{{ session('error') }}</span>
+                    </div>
+                    <button type="button" onclick="this.closest('[data-flash-alert]')?.remove()" class="text-rose-600 hover:text-rose-900 p-1 rounded cursor-pointer" title="Tutup">✕</button>
+                </div>
+            @endif
+
+            @if(session('status') || session('info'))
+                <div data-flash-alert class="mb-6 flex items-center justify-between gap-3 p-4 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-sm font-medium shadow-sm">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <svg class="size-5 text-blue-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <span>{{ session('status') ?? session('info') }}</span>
+                    </div>
+                    <button type="button" onclick="this.closest('[data-flash-alert]')?.remove()" class="text-blue-600 hover:text-blue-900 p-1 rounded cursor-pointer" title="Tutup">✕</button>
                 </div>
             @endif
 

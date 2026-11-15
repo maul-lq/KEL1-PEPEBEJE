@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\PengadaanRoutingService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -113,61 +114,15 @@ class KontrakSPK extends Model
 
     /**
      * Pendaftaran hook event model Eloquent.
-     * Menjalankan efek samping bisnis otomatis saat rekaman Kontrak SPK disimpan.
+     * Menjalankan sinkronisasi jadwal reminder otomatis saat rekaman Kontrak SPK disimpan.
      */
     protected static function booted(): void
     {
-        static::saved(function (KontrakSPK $spk) {
-            // Jika dokumen perikatan terbit/aktif, bangkitkan Reminder jadwal pengiriman & tembusan ke Perlengkapan/Keuangan.
-            // Sesuai Notulensi PPBJ terbaru, penguncian & pembukaan kunci MAK dikendalikan eksklusif oleh Perencanaan.
-            if (in_array($spk->status_spk, ['terbit', 'aktif', 'selesai'])) {
-                $paket = $spk->paket;
-
-                // Buat rekaman pengingat otomatis (Reminder) jadwal pengiriman barang jika belum ada (FR 12.2)
-                Reminder::firstOrCreate(
-                    [
-                        'nomor_paket' => $spk->nomor_paket,
-                        'tipe_reminder' => 'pengiriman',
-                    ],
-                    [
-                        'waktu_trigger' => $spk->jadwal_pengiriman->startOfDay(),
-                        'interval_bulan' => ($spk->sifat_kontrak === 'termin_bulanan') ? 1 : null,
-                        'judul_alert' => 'Jadwal Pengiriman Barang: '.($paket->nama_paket ?? $spk->nomor_spk),
-                        'pesan_alert' => 'Pengingat otomatis jadwal pengiriman barang sesuai kontrak/SPK '.$spk->nomor_spk,
-                    ]
-                );
-
-                // Distribusi tembusan otomatis SPK ke Unit Perlengkapan dan Bagian Keuangan (FR 11.3 & Notulensi ke-2)
-                $reminderTembusan = Reminder::firstOrCreate(
-                    [
-                        'nomor_paket' => $spk->nomor_paket,
-                        'tipe_reminder' => 'tembusan_spk',
-                    ],
-                    [
-                        'waktu_trigger' => now(),
-                        'interval_bulan' => null,
-                        'judul_alert' => 'Tembusan SPK Terbit: '.$spk->nomor_spk,
-                        'pesan_alert' => "Dokumen Kontrak/SPK {$spk->nomor_spk} untuk paket {$spk->nomor_paket} senilai Rp ".number_format((float) $spk->nilai_kontrak, 0, ',', '.').' telah diterbitkan.',
-                    ]
-                );
-
-                $targetRoles = ['perlengkapan', 'keuangan'];
-                $penerimaTembusan = User::whereIn('role', $targetRoles)
-                    ->where('status_aktif', true)
-                    ->get();
-
-                foreach ($penerimaTembusan as $targetUser) {
-                    NotifikasiUser::firstOrCreate(
-                        [
-                            'id_user' => $targetUser->id_user,
-                            'id_reminder' => $reminderTembusan->id_reminder,
-                        ],
-                        [
-                            'is_read' => false,
-                            'is_dismissed' => false,
-                        ]
-                    );
-                }
+        static::saved(function (KontrakSPK $spk): void {
+            if (in_array($spk->status_spk, ['terbit', 'aktif'], true)) {
+                PengadaanRoutingService::syncKontrakSchedules($spk);
+            } elseif (in_array($spk->status_spk, ['selesai', 'batal'], true) && ! empty($spk->nomor_paket)) {
+                PengadaanRoutingService::deactivateForPaket($spk->nomor_paket);
             }
         });
     }

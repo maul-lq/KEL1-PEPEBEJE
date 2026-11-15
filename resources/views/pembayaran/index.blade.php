@@ -23,7 +23,7 @@
 
             <div>
                 <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 text-[#213153] border border-slate-200 text-xs font-bold uppercase">
-                    Peran: {{ Auth::user()->roleEntity ? Auth::user()->roleEntity->label : str_replace('_', ' ', Auth::user()->role) }}
+                    Peran: {{ Auth::user()->roleEntity?->label ?? 'Pengguna' }}
                 </span>
             </div>
         </div>
@@ -588,15 +588,10 @@
                                 </h4>
                             </div>
 
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                <div>
-                                    <label class="block text-[11px] font-bold text-slate-700 mb-1">NPWP Penyedia Rekanan</label>
-                                    <input type="text" name="npwp_vendor" value="{{ old('npwp_vendor', $sVendor->npwp ?? '') }}" placeholder="Contoh: 01.234.567.8-012.000" class="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-mono focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
-                                </div>
-
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 <div>
                                     <label class="block text-[11px] font-bold text-slate-700 mb-1">
-                                        Unggah Dokumen Legalitas Penyedia (NIB / SIUP / NPWP)
+                                        Unggah Berkas Legalitas Penyedia
                                     </label>
                                     <div class="space-y-1">
                                         <input type="file" name="file_legalitas_vendor" accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
@@ -749,7 +744,6 @@
                                     </td>
                                     <td class="px-4 py-3.5 align-top space-y-1">
                                         <div class="font-bold text-slate-800">{{ $scVendor->nama_vendor ?? 'Penyedia Rekanan' }}</div>
-                                        <div class="text-[10px] text-slate-500">NPWP: <span class="font-mono">{{ $scVendor->npwp ?? '-' }}</span></div>
                                         @if(!empty($scVendor?->file_dokumen_legalitas))
                                             <div>
                                                 <a href="{{ asset('storage/' . $scVendor->file_dokumen_legalitas) }}" target="_blank" class="inline-flex items-center gap-1 text-[10px] font-bold text-[#0969da] hover:underline mt-0.5">

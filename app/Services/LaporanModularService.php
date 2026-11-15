@@ -77,7 +77,7 @@ class LaporanModularService
             $active[] = 'anggaran_mak';
         }
 
-        if ($user->hasAnyPermission(['paket.create', 'paket.view_all', 'paket.reassign_ppk', 'spk.create', 'reminder.manage', 'pp.monitoring_aktivitas', 'lihat_pp'])) {
+        if ($user->hasAnyPermission(['paket.create', 'paket.view_all', 'paket.reassign_ppk', 'spk.create', 'pp.monitoring_aktivitas', 'lihat_pp'])) {
             $active[] = 'pengadaan_ppbj';
         }
 
@@ -162,7 +162,7 @@ class LaporanModularService
                         ->orWhere('jenis_aksi', 'like', '%ANGGARAN%');
                 }
 
-                if ($user->hasAnyPermission(['paket.create', 'paket.view_all', 'spk.create', 'reminder.manage', 'pp.monitoring_aktivitas', 'lihat_pp'])) {
+                if ($user->hasAnyPermission(['paket.create', 'paket.view_all', 'spk.create', 'pp.monitoring_aktivitas', 'lihat_pp'])) {
                     $q->orWhereIn('nama_entitas', ['paket_pengadaan', 'vendor', 'kontrak_spk', 'reminder_pengadaan'])
                         ->orWhere('jenis_aksi', 'like', '%PPBJ%')
                         ->orWhere('jenis_aksi', 'like', '%PAKET%')
@@ -336,7 +336,7 @@ class LaporanModularService
 
         return [
             'user' => $user,
-            'role_label' => $user->roleEntity?->label ?? ucwords(str_replace('_', ' ', (string) ($user->role ?? 'Pengguna'))),
+            'role_label' => $user->roleEntity?->label ?? 'Pengguna',
             'active_module_labels' => array_map(fn (array $m): string => $m['tab_label'], $payload['modules']),
             'selected_module' => $selectedModule,
             'sections' => $sections,
@@ -1531,7 +1531,7 @@ class LaporanModularService
         $allUsers = User::with(['unit', 'roleEntity'])
             ->when($kodeUnit !== '', fn (Builder $q) => $q->where('kode_unit', $kodeUnit))
             ->when($roleFilter !== '', function (Builder $q) use ($roleFilter) {
-                $q->where(fn (Builder $sub) => $sub->where('role', $roleFilter)->orWhereHas('roleEntity', fn (Builder $rq) => $rq->where('nama_role', $roleFilter)));
+                $q->whereHas('roleEntity', fn (Builder $rq) => $rq->where('nama_role', $roleFilter));
             })
             ->when($status !== '', function (Builder $q) use ($status) {
                 if ($status === 'aktif') {
@@ -1556,7 +1556,7 @@ class LaporanModularService
         $csvRows = [];
         $no = 1;
         foreach ($allUsers as $u) {
-            $roleLabel = $u->roleEntity?->label ?? strtoupper((string) $u->role);
+            $roleLabel = $u->roleEntity?->label ?? 'Pengguna';
             $statusLabel = $u->status_aktif
                 ? 'Aktif'
                 : ($u->status_registrasi === User::STATUS_REGISTRASI_MENUNGGU ? 'Menunggu Persetujuan' : 'Nonaktif');
@@ -1585,7 +1585,7 @@ class LaporanModularService
                 $u->nip ?? $u->username ?? '-',
                 $u->email,
                 $u->unit?->nama_unit ?? $u->kode_unit ?? 'Pusat',
-                $u->roleEntity?->nama_role ?? $u->role,
+                $u->roleEntity?->nama_role ?? '-',
                 $roleLabel,
                 ucwords(str_replace('_', ' ', (string) $u->status_registrasi)),
                 $u->status_aktif ? 'Aktif' : 'Nonaktif',

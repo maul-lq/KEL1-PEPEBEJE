@@ -110,17 +110,49 @@ return new class extends Migration
 
         if ($driver === 'pgsql') {
             if (Schema::hasColumn('paket_pengadaan', 'id_vendor')) {
+                DB::statement('ALTER TABLE paket_pengadaan DROP CONSTRAINT IF EXISTS paket_pengadaan_id_vendor_foreign');
                 Schema::table('paket_pengadaan', function (Blueprint $table) {
-                    $table->dropForeign(['id_vendor']);
                     $table->dropColumn('id_vendor');
                 });
             }
 
             if (Schema::hasColumn('vendors', 'id')) {
                 DB::statement('ALTER TABLE vendors DROP CONSTRAINT IF EXISTS vendors_pkey CASCADE');
-                Schema::table('vendors', function (Blueprint $table) {
-                    $table->dropColumn(['id', 'nama_vendor', 'file_dokumen_legalitas']);
-                });
+
+                if (! Schema::hasColumn('vendors', 'npwp')) {
+                    Schema::table('vendors', function (Blueprint $table) {
+                        $table->string('npwp', 30)->nullable();
+                    });
+                }
+
+                // Isi atau deduplikasi npwp sementara sebelum kolom id dihapus dan primary key (npwp) dipasang kembali
+                DB::statement("
+                    UPDATE vendors
+                    SET npwp = 'LEGACY-' || id || '-' || SUBSTR(MD5(CAST(id AS TEXT)), 1, 4)
+                    WHERE npwp IS NULL
+                       OR TRIM(npwp) = ''
+                       OR id IN (
+                           SELECT id FROM (
+                               SELECT id, ROW_NUMBER() OVER (PARTITION BY npwp ORDER BY id) AS rn
+                               FROM vendors
+                               WHERE npwp IS NOT NULL AND TRIM(npwp) <> ''
+                           ) dup
+                           WHERE dup.rn > 1
+                       )
+                ");
+                DB::statement('ALTER TABLE vendors ALTER COLUMN npwp SET NOT NULL');
+
+                $columnsToDrop = array_values(array_filter([
+                    Schema::hasColumn('vendors', 'id') ? 'id' : null,
+                    Schema::hasColumn('vendors', 'nama_vendor') ? 'nama_vendor' : null,
+                    Schema::hasColumn('vendors', 'file_dokumen_legalitas') ? 'file_dokumen_legalitas' : null,
+                ]));
+                if ($columnsToDrop !== []) {
+                    Schema::table('vendors', function (Blueprint $table) use ($columnsToDrop) {
+                        $table->dropColumn($columnsToDrop);
+                    });
+                }
+
                 DB::statement('ALTER TABLE vendors ADD CONSTRAINT vendors_pkey PRIMARY KEY (npwp)');
             }
         }

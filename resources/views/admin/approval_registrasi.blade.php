@@ -24,25 +24,6 @@
         </div>
     </div>
 
-    {{-- NOTIFIKASI SUKSES / ERROR FLASH --}}
-    @if(session('success'))
-        <div class="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center justify-between shadow-sm">
-            <div class="flex items-center gap-2">
-                <svg class="size-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                <span>{{ session('success') }}</span>
-            </div>
-        </div>
-    @endif
-
-    @if(session('error'))
-        <div class="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center justify-between shadow-sm">
-            <div class="flex items-center gap-2">
-                <svg class="size-4 text-rose-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                <span>{{ session('error') }}</span>
-            </div>
-        </div>
-    @endif
-
     @if($errors->any())
         <div class="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs space-y-1 shadow-sm">
             <div class="font-bold flex items-center gap-1.5">
@@ -226,7 +207,7 @@
                                     @endif
                                 </td>
                                 <td class="px-5 py-3.5 font-bold uppercase text-[#0969da]">
-                                    {{ $hist->roleEntity ? $hist->roleEntity->label : str_replace('_', ' ', $hist->role) }}
+                                    {{ $hist->roleEntity?->label ?? 'Pengguna' }}
                                 </td>
                                 <td class="px-5 py-3.5 max-w-[200px] truncate text-slate-500 text-[11px]">
                                     {{ $hist->alasan_penolakan ?? '-' }}

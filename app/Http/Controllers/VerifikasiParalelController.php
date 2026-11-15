@@ -479,7 +479,7 @@ class VerifikasiParalelController extends Controller
             ->get();
 
         $makList = AnggaranMAK::orderBy('kode_mak')->get();
-        $ppkUsers = User::where('role', 'ppk')->where('status_aktif', true)->get();
+        $ppkUsers = User::withRole(User::ROLE_PPK)->where('status_aktif', true)->get();
 
         return view('verifikasi.perencanaan', compact('permohonanAntrean', 'permohonanSudahMak', 'makList', 'ppkUsers'));
     }
@@ -619,11 +619,11 @@ class VerifikasiParalelController extends Controller
         // Validasi pemilihan 1 dari 4 akun PPK untuk menerima Memo Ketersediaan MAK
         $idPpkAwal = $validated['id_user_ppk_awal']
             ?? $permohonan->id_user_ppk_awal
-            ?? User::where('role', 'ppk')->where('status_aktif', true)->first()?->id_user;
+            ?? User::withRole(User::ROLE_PPK)->where('status_aktif', true)->first()?->id_user;
 
         if ($idPpkAwal) {
             $ppkTarget = User::find($idPpkAwal);
-            if (! $ppkTarget || $ppkTarget->role !== 'ppk') {
+            if (! $ppkTarget || ! $ppkTarget->hasRole(User::ROLE_PPK)) {
                 return back()->withErrors(['id_user_ppk_awal' => 'Akun PPK awal yang dipilih harus memiliki peran PPK.'])->withInput();
             }
         }

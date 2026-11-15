@@ -59,8 +59,10 @@ class SessionTimeout
                 ]);
             }
 
-            // 3. Perbarui timestamp 'last_activity' dengan waktu server saat ini
-            $request->session()->put('last_activity', time());
+            // 3. Perbarui timestamp 'last_activity' kecuali pada background polling notifikasi otomatis
+            if (! $request->is('api/notifikasi-terbaru')) {
+                $request->session()->put('last_activity', time());
+            }
         }
 
         // 4. Lanjutkan request ke tahapan atau controller berikutnya

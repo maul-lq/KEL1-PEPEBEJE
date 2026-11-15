@@ -28,11 +28,13 @@ return new class extends Migration
             ]);
         });
 
-        Schema::table('reminder', function (Blueprint $table) {
-            $table->dropColumn([
-                'is_recurring',
-            ]);
-        });
+        if (Schema::hasTable('reminder') && Schema::hasColumn('reminder', 'is_recurring')) {
+            Schema::table('reminder', function (Blueprint $table) {
+                $table->dropColumn([
+                    'is_recurring',
+                ]);
+            });
+        }
 
         Schema::table('penerimaan_barang_foto_dokumentasi', function (Blueprint $table) {
             $table->dropColumn([
@@ -65,9 +67,11 @@ return new class extends Migration
             $table->string('file_memo')->nullable();
         });
 
-        Schema::table('reminder', function (Blueprint $table) {
-            $table->boolean('is_recurring')->default(false);
-        });
+        if (Schema::hasTable('reminder') && ! Schema::hasColumn('reminder', 'is_recurring')) {
+            Schema::table('reminder', function (Blueprint $table) {
+                $table->boolean('is_recurring')->default(false);
+            });
+        }
 
         Schema::table('penerimaan_barang_foto_dokumentasi', function (Blueprint $table) {
             $table->dateTime('uploaded_at')->nullable();

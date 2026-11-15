@@ -207,13 +207,12 @@ Route::middleware('auth')->group(function () {
     // Modul 9: Notifikasi & Reminder
     // -------------------------------------------------------------------------
     Route::get('/notifikasi', [NotifikasiUserController::class, 'notifikasiIndex'])->name('notifikasi.index');
-    Route::post('/notifikasi/tes-kirim', [NotifikasiUserController::class, 'kirimNotifikasiUjiCoba'])->name('notifikasi.tes-kirim');
     Route::post('/notifikasi/mark-all-read', [NotifikasiUserController::class, 'markAllReadWeb'])->name('notifikasi.mark-all-read');
     Route::post('/notifikasi/mark-all-read-alias', [NotifikasiUserController::class, 'markAllReadWeb'])->name('notifikasi.markAllRead');
     Route::post('/notifikasi/{id}/read', [NotifikasiUserController::class, 'markAsReadWeb'])->name('notifikasi.read');
     Route::post('/notifikasi/{id}/dismiss', [NotifikasiUserController::class, 'dismissNotificationWeb'])->name('notifikasi.dismiss');
 
-    // Endpoint polling notifikasi terbaru untuk notifikasi desktop / peramban
+    // Endpoint polling notifikasi terbaru untuk alert real-time & notifikasi peramban
     Route::get('/api/notifikasi-terbaru', [NotifikasiUserController::class, 'notifikasiTerbaru'])->name('notifikasi.terbaru');
 
     // -------------------------------------------------------------------------
@@ -250,6 +249,7 @@ Route::middleware('auth')->group(function () {
     // -------------------------------------------------------------------------
     Route::get('/profil', [HomeController::class, 'profileIndex'])->name('profile.index');
     Route::put('/profil', [HomeController::class, 'profileUpdate'])->name('profile.update');
+    Route::post('/profil/reminder-email', [HomeController::class, 'updateReminderEmail'])->name('profile.reminder-email');
     Route::put('/profil/password', [ProfileController::class, 'updatePassword'])->name('profile.password.update');
     Route::delete('/profil/hapus-akun', [ProfileController::class, 'destroyAccount'])->name('profile.destroy');
 

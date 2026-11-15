@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\PengadaanRoutingService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -117,6 +118,10 @@ class Pembayaran extends Model
             if (empty($model->tanggal_pengajuan)) {
                 $model->tanggal_pengajuan = now()->toDateString();
             }
+        });
+
+        static::saved(function (Pembayaran $pembayaran): void {
+            PengadaanRoutingService::syncPembayaranSchedules($pembayaran);
         });
     }
 

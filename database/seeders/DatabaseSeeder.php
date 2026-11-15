@@ -68,6 +68,8 @@ class DatabaseSeeder extends Seeder
         // =========================================================================
         $this->call(RolePermissionSeeder::class);
 
+        $rolesMap = Role::pluck('id', 'nama_role');
+
         // =========================================================================
         // 3. Pembenihan Akun Pengguna Awal (9 Peran BPMN, 4 Akun PPK Terisolasi, 1 Admin)
         // =========================================================================
@@ -80,7 +82,7 @@ class DatabaseSeeder extends Seeder
                 'nama' => 'Administrator Sistem SIM-PBJ',
                 'password' => $defaultPassword,
                 'jabatan' => 'Administrator Sistem Informasi',
-                'role' => 'admin',
+                'id_role' => $rolesMap['admin'] ?? null,
                 'status_aktif' => true,
                 'no_hp' => '081100000001',
                 'kode_unit' => 'PST',
@@ -94,7 +96,7 @@ class DatabaseSeeder extends Seeder
                 'nama' => 'Dr. Ir. Maulana Pengaju, M.T.',
                 'password' => $defaultPassword,
                 'jabatan' => 'Ketua Jurusan TIK',
-                'role' => 'user',
+                'id_role' => $rolesMap['user'] ?? null,
                 'status_aktif' => true,
                 'no_hp' => '081234567890',
                 'kode_unit' => 'TIK',
@@ -108,7 +110,7 @@ class DatabaseSeeder extends Seeder
                 'nama' => 'Ahmad Staff Bidang 2, S.E.',
                 'password' => $defaultPassword,
                 'jabatan' => 'Staff Bidang Umum & Keuangan',
-                'role' => 'staff_bidang_2',
+                'id_role' => $rolesMap['staff_bidang_2'] ?? null,
                 'status_aktif' => true,
                 'no_hp' => '081298765431',
                 'kode_unit' => 'B2',
@@ -122,7 +124,7 @@ class DatabaseSeeder extends Seeder
                 'nama' => 'Prof. Dr. Ir. Wadir Dua, M.Sc.',
                 'password' => $defaultPassword,
                 'jabatan' => 'Wakil Direktur Bidang Umum dan Keuangan',
-                'role' => 'wadir_2',
+                'id_role' => $rolesMap['wadir_2'] ?? null,
                 'status_aktif' => true,
                 'no_hp' => '081298765432',
                 'kode_unit' => 'B2',
@@ -136,7 +138,7 @@ class DatabaseSeeder extends Seeder
                 'nama' => 'Budi Perencanaan, S.Kom.',
                 'password' => $defaultPassword,
                 'jabatan' => 'Koordinator Subbagian Perencanaan & Anggaran',
-                'role' => 'perencanaan',
+                'id_role' => $rolesMap['perencanaan'] ?? null,
                 'status_aktif' => true,
                 'no_hp' => '081377889900',
                 'kode_unit' => 'REN',
@@ -150,7 +152,7 @@ class DatabaseSeeder extends Seeder
                 'nama' => 'Citra Koordinator PPBJ, M.M.',
                 'password' => $defaultPassword,
                 'jabatan' => 'Koordinator Pengadaan Barang dan Jasa',
-                'role' => 'ppbj',
+                'id_role' => $rolesMap['ppbj'] ?? null,
                 'status_aktif' => true,
                 'no_hp' => '081512345678',
                 'kode_unit' => 'PPBJ',
@@ -164,7 +166,7 @@ class DatabaseSeeder extends Seeder
                 'nama' => 'Dedi Pejabat Pengadaan, S.T.',
                 'password' => $defaultPassword,
                 'jabatan' => 'Pejabat Pengadaan (PP)',
-                'role' => 'pp',
+                'id_role' => $rolesMap['pp'] ?? null,
                 'status_aktif' => true,
                 'no_hp' => '081623456789',
                 'kode_unit' => 'PPBJ',
@@ -178,7 +180,7 @@ class DatabaseSeeder extends Seeder
                 'nama' => 'Eko PPK Bidang Sarana, M.T.',
                 'password' => $defaultPassword,
                 'jabatan' => 'Pejabat Pembuat Komitmen I (Sarana)',
-                'role' => 'ppk',
+                'id_role' => $rolesMap['ppk'] ?? null,
                 'status_aktif' => true,
                 'no_hp' => '081734567891',
                 'kode_unit' => 'PPK',
@@ -192,7 +194,7 @@ class DatabaseSeeder extends Seeder
                 'nama' => 'Fajar PPK Bidang Laboratorium, M.Kom.',
                 'password' => $defaultPassword,
                 'jabatan' => 'Pejabat Pembuat Komitmen II (Laboratorium)',
-                'role' => 'ppk',
+                'id_role' => $rolesMap['ppk'] ?? null,
                 'status_aktif' => true,
                 'no_hp' => '081734567892',
                 'kode_unit' => 'PPK',
@@ -206,7 +208,7 @@ class DatabaseSeeder extends Seeder
                 'nama' => 'Gita PPK Bidang Konstruksi, S.T.',
                 'password' => $defaultPassword,
                 'jabatan' => 'Pejabat Pembuat Komitmen III (Konstruksi)',
-                'role' => 'ppk',
+                'id_role' => $rolesMap['ppk'] ?? null,
                 'status_aktif' => true,
                 'no_hp' => '081734567893',
                 'kode_unit' => 'PPK',
@@ -220,7 +222,7 @@ class DatabaseSeeder extends Seeder
                 'nama' => 'Hendra PPK Bidang Jasa Lainnya, S.E.',
                 'password' => $defaultPassword,
                 'jabatan' => 'Pejabat Pembuat Komitmen IV (Jasa)',
-                'role' => 'ppk',
+                'id_role' => $rolesMap['ppk'] ?? null,
                 'status_aktif' => true,
                 'no_hp' => '081734567894',
                 'kode_unit' => 'PPK',
@@ -234,7 +236,7 @@ class DatabaseSeeder extends Seeder
                 'nama' => 'Indra Staff Perlengkapan, A.Md.',
                 'password' => $defaultPassword,
                 'jabatan' => 'Staff Bagian Perlengkapan dan BMN',
-                'role' => 'perlengkapan',
+                'id_role' => $rolesMap['perlengkapan'] ?? null,
                 'status_aktif' => true,
                 'no_hp' => '081845678912',
                 'kode_unit' => 'LKP',
@@ -248,21 +250,16 @@ class DatabaseSeeder extends Seeder
                 'nama' => 'Joko Bendahara Keuangan, S.Ak.',
                 'password' => $defaultPassword,
                 'jabatan' => 'Bendahara Pengeluaran & Pencairan',
-                'role' => 'keuangan',
+                'id_role' => $rolesMap['keuangan'] ?? null,
                 'status_aktif' => true,
                 'no_hp' => '081956789023',
                 'kode_unit' => 'KEU',
             ],
         ];
 
-        $rolesMap = Role::pluck('id', 'nama_role');
-
         foreach ($users as $u) {
             $u['status_registrasi'] = User::STATUS_REGISTRASI_DISETUJUI;
             $u['tanggal_approval'] = now();
-            if (isset($rolesMap[$u['role']])) {
-                $u['id_role'] = $rolesMap[$u['role']];
-            }
             User::updateOrCreate(['username' => $u['username']], $u);
         }
     }

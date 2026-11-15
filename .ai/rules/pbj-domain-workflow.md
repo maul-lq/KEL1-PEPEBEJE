@@ -32,7 +32,8 @@ paths:
 7. **Integritas Sinkronisasi Skema Database**:
    - Setelah setiap penggabungan kode (merge git) atau penambahan migrasi baru, wajib memverifikasi `php artisan migrate:status` dan menjalankan `php artisan migrate --no-interaction` sebelum memulai pengujian alur bisnis.
 8. **Penyederhanaan Entitas Vendor & Input Rekanan Secara Inline**:
-   - **Struktur Minimalis Vendor**: Rekanan vendor hanya memerlukan nama vendor (`nama_vendor`), dokumen legalitas digital (`file_dokumen_legalitas`), dan status keaktifan (`is_active`). Atribut NPWP, NIB, rekening bank, PIC, dsb., tidak lagi wajib disimpan di entitas vendor.
+   - **Struktur Minimalis Vendor**: Rekanan vendor hanya menyimpan nama vendor (`nama_vendor`) dan dokumen legalitas digital (`file_dokumen_legalitas`). Kolom `npwp`, `npwp_vendor`, `is_active`, NIB, rekening bank, PIC, dan `nama_perusahaan` telah dihapus seluruhnya dari database dan UI.
+   - **Sumber Peran Tunggal Pengguna**: Tabel `users` hanya menyimpan `id_role` (FK ke `roles.id`), tanpa kolom teks `users.role`. Gunakan `User::withRole(...)`, `$user->hasRole(...)`, `$user->hasPermission(...)`, dan `$user->roleEntity`.
    - **Peniadaan Modul Master `/vendors`**: Rute, controller, dan antarmuka master CRUD rekanan ditiadakan dari sidebar navigasi dan sistem.
    - **Penetapan Rekanan di Tahap Perikatan/Belanja (Bukan di Registrasi Paket)**: Pada saat pendaftaran awal paket pengadaan oleh PPBJ, vendor belum ditentukan. Rekanan baru diinput dan dokumen legalitasnya diunggah secara *inline* pada tahap penerbitan dokumen perikatan (Kwitansi Belanja Langsung pada `<= 50jt`, SPK/Surat Pesanan pada `50-200jt`, atau Kontrak pada `> 200jt`).
 9. **Auto-Routing HPS, Filter Metode Pengadaan, & Sinkronisasi Saldo MAK**:

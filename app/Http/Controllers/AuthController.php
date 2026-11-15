@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Role;
 use App\Models\Unit;
 use App\Models\User;
+use App\Services\PengadaanNotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
@@ -80,7 +83,7 @@ class AuthController extends Controller
 
         // 3. Status awal pendaftaran: Tidak aktif dan menunggu persetujuan Administrator
         // Role definitif akan dipilihkan dan ditetapkan 100% oleh Admin saat tombol Setujui (ACC) ditekan
-        $validated['role'] = User::ROLE_USER; // Default sementara sebelum dipetakan Admin
+        $validated['id_role'] = Role::where('nama_role', User::ROLE_USER)->value('id');
         $validated['status_aktif'] = false;
         $validated['status_registrasi'] = User::STATUS_REGISTRASI_MENUNGGU;
 
@@ -89,14 +92,14 @@ class AuthController extends Controller
 
         // 5. Berikan notifikasi alarm ke Administrator bahwa ada pendaftar akun baru yang menunggu verifikasi
         try {
-            app(PengadaanNotificationService::class)->kirimKeRole(
+            app(PengadaanNotificationService::class)->kirimKePeran(
                 'admin',
                 "Pendaftar Akun Baru: {$newUser->nama}",
                 "Pengguna baru {$newUser->nama} (NIP: {$newUser->nip}) telah mendaftar dan menunggu verifikasi serta penetapan peran (role) oleh Administrator.",
                 'verifikasi'
             );
         } catch (\Throwable $e) {
-            // Silently continue without failing user registration
+            Log::warning("Gagal mengirim notifikasi pendaftar baru ke admin: {$e->getMessage()}");
         }
 
         // Berikan pesan sukses dan alihkan pengguna ke formulir login
@@ -171,9 +174,12 @@ class AuthController extends Controller
             $request->session()->put('last_activity', time());
 
             // 5. FR 1.3: Mengalihkan pengguna ke dashboard sesuai peran masing-masing
+            $user->loadMissing('roleEntity');
+            $roleLabel = $user->roleEntity?->label ?? 'Pengguna';
+
             return redirect()->intended(route('dashboard'))->with(
                 'success',
-                "Selamat datang kembali, {$user->nama}! Masuk sebagai ".strtoupper(str_replace('_', ' ', $user->role)).'.'
+                "Selamat datang kembali, {$user->nama}! Masuk sebagai {$roleLabel}."
             );
         }
 

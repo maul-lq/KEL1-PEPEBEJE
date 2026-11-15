@@ -36,7 +36,9 @@ class UserController extends Controller
 
         // Filter berdasarkan peran pengguna
         if ($request->filled('role')) {
-            $query->where('role', $request->role);
+            $query->withRole($request->role);
+        } elseif ($request->filled('id_role')) {
+            $query->where('id_role', $request->id_role);
         }
 
         // Filter berdasarkan unit kerja
@@ -116,8 +118,8 @@ class UserController extends Controller
             'nama' => ['required', 'string', 'max:150'],
             'password' => ['required', 'string', 'min:6'],
             'jabatan' => ['required', 'string', 'max:100'],
-            'role' => ['required', 'string'],
-            'id_role' => ['nullable', 'exists:roles,id'],
+            'id_role' => ['required_without:role', 'nullable', 'exists:roles,id'],
+            'role' => ['required_without:id_role', 'nullable', 'string', 'exists:roles,nama_role'],
             'status_aktif' => ['nullable', 'boolean'],
             'status_registrasi' => ['nullable', 'string', 'in:menunggu_persetujuan,disetujui,ditolak'],
             'no_hp' => ['required', 'string', 'max:20'],
@@ -133,20 +135,20 @@ class UserController extends Controller
                 : User::STATUS_REGISTRASI_MENUNGGU;
         }
 
-        // Sinkronisasi id_role jika belum terisi
-        if (empty($validated['id_role'])) {
-            $roleRecord = Role::where('nama_role', $validated['role'])->first();
-            if ($roleRecord) {
-                $validated['id_role'] = $roleRecord->id;
-            }
-        }
+        // Resolusi peran tunggal melalui relasi roles (id_role)
+        $roleRecord = ! empty($validated['id_role'])
+            ? Role::findOrFail($validated['id_role'])
+            : Role::where('nama_role', $validated['role'])->firstOrFail();
+
+        $validated['id_role'] = $roleRecord->id;
+        unset($validated['role']);
 
         // Penegakan Aturan Bisnis FR 2.1: Batasan 1 user = 1 akun Pejabat Pengadaan (PP) aktif
-        if ($validated['role'] === 'pp' && $validated['status_aktif']) {
-            $existingPP = User::where('role', 'pp')->where('status_aktif', true)->exists();
+        if ($roleRecord->nama_role === User::ROLE_PP && $validated['status_aktif']) {
+            $existingPP = User::withRole(User::ROLE_PP)->where('status_aktif', true)->exists();
             if ($existingPP) {
                 throw ValidationException::withMessages([
-                    'role' => 'Batasan sistem: Hanya diizinkan 1 akun Pejabat Pengadaan (PP) aktif di institusi.',
+                    'id_role' => 'Batasan sistem: Hanya diizinkan 1 akun Pejabat Pengadaan (PP) aktif di institusi.',
                 ]);
             }
         }
@@ -164,7 +166,7 @@ class UserController extends Controller
                 'users',
                 (string) $user->id_user,
                 null,
-                json_encode(['nama' => $user->nama, 'username' => $user->username, 'role' => $user->role]),
+                json_encode(['nama' => $user->nama, 'username' => $user->username, 'id_role' => $user->id_role, 'role' => $roleRecord->nama_role]),
                 "Admin membuat akun pengguna baru: {$user->nama} ({$user->username})"
             );
         }
@@ -213,8 +215,8 @@ class UserController extends Controller
             'nama' => ['required', 'string', 'max:150'],
             'password' => ['nullable', 'string', 'min:6'],
             'jabatan' => ['required', 'string', 'max:100'],
-            'role' => ['required', 'string'],
-            'id_role' => ['nullable', 'exists:roles,id'],
+            'id_role' => ['required_without:role', 'nullable', 'exists:roles,id'],
+            'role' => ['required_without:id_role', 'nullable', 'string', 'exists:roles,nama_role'],
             'status_aktif' => ['nullable', 'boolean'],
             'status_registrasi' => ['nullable', 'string', 'in:menunggu_persetujuan,disetujui,ditolak'],
             'no_hp' => ['required', 'string', 'max:20'],
@@ -223,23 +225,23 @@ class UserController extends Controller
 
         $validated['status_aktif'] = $request->has('status_aktif') ? (bool) $request->status_aktif : (bool) $user->status_aktif;
 
-        // Sinkronisasi id_role jika berubah
-        if (empty($validated['id_role'])) {
-            $roleRecord = Role::where('nama_role', $validated['role'])->first();
-            if ($roleRecord) {
-                $validated['id_role'] = $roleRecord->id;
-            }
-        }
+        // Resolusi peran tunggal melalui relasi roles (id_role)
+        $roleRecord = ! empty($validated['id_role'])
+            ? Role::findOrFail($validated['id_role'])
+            : Role::where('nama_role', $validated['role'])->firstOrFail();
+
+        $validated['id_role'] = $roleRecord->id;
+        unset($validated['role']);
 
         // Penegakan Aturan Bisnis FR 2.1: Batasan 1 user = 1 akun PP aktif
-        if ($validated['role'] === 'pp' && $validated['status_aktif']) {
-            $existingPP = User::where('role', 'pp')
+        if ($roleRecord->nama_role === User::ROLE_PP && $validated['status_aktif']) {
+            $existingPP = User::withRole(User::ROLE_PP)
                 ->where('status_aktif', true)
                 ->where('id_user', '!=', $user->id_user)
                 ->exists();
             if ($existingPP) {
                 throw ValidationException::withMessages([
-                    'role' => 'Batasan sistem: Hanya diizinkan 1 akun Pejabat Pengadaan (PP) aktif di institusi.',
+                    'id_role' => 'Batasan sistem: Hanya diizinkan 1 akun Pejabat Pengadaan (PP) aktif di institusi.',
                 ]);
             }
         }
@@ -260,7 +262,7 @@ class UserController extends Controller
                 'users',
                 (string) $user->id_user,
                 null,
-                json_encode(['nama' => $user->nama, 'role' => $user->role, 'status_aktif' => $user->status_aktif]),
+                json_encode(['nama' => $user->nama, 'id_role' => $user->id_role, 'role' => $roleRecord->nama_role, 'status_aktif' => $user->status_aktif]),
                 "Admin memperbarui data pengguna: {$user->nama} ({$user->username})"
             );
         }

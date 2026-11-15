@@ -240,11 +240,8 @@
 
                                 {{-- Kolom 3: Vendor --}}
                                 <td class="py-3 px-4">
-                                    @if($paket->vendor || !empty($paket->npwp_vendor))
+                                    @if($paket->vendor)
                                         <div class="font-bold text-slate-800">{{ $paket->vendor?->nama_vendor ?? '-' }}</div>
-                                        <div class="text-[11px] font-mono text-slate-500 mt-0.5">
-                                            NPWP: {{ $paket->npwp_vendor ?? ($paket->vendor?->npwp ?? '-') }}
-                                        </div>
                                         @if($paket->vendor?->file_dokumen_legalitas)
                                             <a
                                                 href="{{ asset('storage/' . $paket->vendor->file_dokumen_legalitas) }}"

@@ -129,7 +129,6 @@ class RolePermissionSeeder extends Seeder
             ['nama_permission' => 'lihat_pp', 'label' => 'Melihat & Memonitor Seluruh Berkas / Aktivitas PP (Lihat PP)', 'kategori_modul' => 'Pengadaan'],
             ['nama_permission' => 'reviu.ppk', 'label' => 'Tinjauan Dokumen, Kunci MAK & Beli/Sewa (PPK)', 'kategori_modul' => 'Pengadaan'],
             ['nama_permission' => 'spk.create', 'label' => 'Menerbitkan Surat Kontrak/SPK & Tembusan Otomatis', 'kategori_modul' => 'Pengadaan'],
-            ['nama_permission' => 'reminder.manage', 'label' => 'Mengonfigurasi Jadwal Alarm Pengingat Pengiriman', 'kategori_modul' => 'Pengadaan'],
 
             // Modul Penerimaan (BMN)
             ['nama_permission' => 'penerimaan.view', 'label' => 'Melihat Daftar Penerimaan Fisik Barang', 'kategori_modul' => 'Penerimaan'],
@@ -221,7 +220,6 @@ class RolePermissionSeeder extends Seeder
                 'pp.monitoring_aktivitas',
                 'lihat_pp',
                 'spk.create',
-                'reminder.manage',
                 'pembayaran.pengajuan',
                 'pembayaran.spp_terbitkan',
                 'monitoring.view',
@@ -268,13 +266,15 @@ class RolePermissionSeeder extends Seeder
             }
         }
 
+        // Hapus permission usang yang sudah tidak digunakan lagi
+        Permission::where('nama_permission', 'reminder.manage')->delete();
+
         // =========================================================================
-        // 4. Sinkronisasi id_role pada Pengguna Eksisting
+        // 4. Penetapan Peran Default bagi Pengguna yang Belum Memiliki id_role
         // =========================================================================
-        foreach ($roleModels as $slug => $role) {
-            User::where('role', $slug)->whereNull('id_role')->update([
-                'id_role' => $role->id,
-                'status_registrasi' => User::STATUS_REGISTRASI_DISETUJUI,
+        if (isset($roleModels[User::ROLE_USER])) {
+            User::whereNull('id_role')->update([
+                'id_role' => $roleModels[User::ROLE_USER]->id,
             ]);
         }
     }

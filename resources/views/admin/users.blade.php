@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Manajemen Pengguna (User Management) - SIM-PBJ PNJ')
+@section('title', 'Manajemen Pengguna - SIM-PBJ PNJ')
 
 @section('content')
 <div class="space-y-6" x-data="adminUsers">
@@ -33,25 +33,6 @@
             </div>
         </div>
     </div>
-
-    {{-- NOTIFIKASI SUKSES / ERROR FLASH --}}
-    @if(session('success'))
-        <div class="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center justify-between shadow-sm">
-            <div class="flex items-center gap-2">
-                <svg class="size-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                <span>{{ session('success') }}</span>
-            </div>
-        </div>
-    @endif
-
-    @if(session('error'))
-        <div class="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center justify-between shadow-sm">
-            <div class="flex items-center gap-2">
-                <svg class="size-4 text-rose-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                <span>{{ session('error') }}</span>
-            </div>
-        </div>
-    @endif
 
     @if($errors->any())
         <div class="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs space-y-1 shadow-sm">
@@ -127,9 +108,9 @@
 
             {{-- Role Filter --}}
             <div>
-                <label class="block text-[11px] font-bold text-slate-600 mb-1">Peran / Role</label>
+                <label class="block text-[11px] font-bold text-slate-600 mb-1">Peran Pengguna</label>
                 <select name="role" class="w-full h-9.5 rounded-xl border border-slate-200 bg-slate-50/50 px-2.5 text-xs text-slate-800 focus:bg-white focus:border-[#0969da] focus:ring-1 focus:ring-[#0969da] transition">
-                    <option value="">Semua Role</option>
+                    <option value="">Semua Peran</option>
                     @foreach($availableRoles as $r)
                         <option value="{{ $r->nama_role }}" {{ request('role') == $r->nama_role ? 'selected' : '' }}>
                             {{ $r->label ?? ucfirst(str_replace('_', ' ', $r->nama_role)) }}
@@ -212,15 +193,16 @@
 
                             {{-- Peran / Role --}}
                             <td class="px-4 py-3.5">
+                                @php $roleSlug = $user->roleEntity?->nama_role ?? ''; @endphp
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold 
-                                    @if($user->role === 'admin') bg-rose-50 text-rose-700 border border-rose-200
-                                    @elseif($user->role === 'ppk') bg-indigo-50 text-indigo-700 border border-indigo-200
-                                    @elseif($user->role === 'pp') bg-purple-50 text-purple-700 border border-purple-200
-                                    @elseif($user->role === 'ppbj') bg-blue-50 text-[#0969da] border border-blue-200
-                                    @elseif(str_contains($user->role, 'wadir')) bg-teal-50 text-teal-700 border border-teal-200
+                                    @if($roleSlug === 'admin') bg-rose-50 text-rose-700 border border-rose-200
+                                    @elseif($roleSlug === 'ppk') bg-indigo-50 text-indigo-700 border border-indigo-200
+                                    @elseif($roleSlug === 'pp') bg-purple-50 text-purple-700 border border-purple-200
+                                    @elseif($roleSlug === 'ppbj') bg-blue-50 text-[#0969da] border border-blue-200
+                                    @elseif(str_contains($roleSlug, 'wadir')) bg-teal-50 text-teal-700 border border-teal-200
                                     @else bg-slate-100 text-slate-700 border border-slate-200
                                     @endif">
-                                    {{ $user->roleEntity->label ?? ucfirst(str_replace('_', ' ', $user->role)) }}
+                                    {{ $user->roleEntity?->label ?? 'Pengguna' }}
                                 </span>
                             </td>
 
@@ -367,11 +349,11 @@
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">Peran (Role) Sistem <span class="text-rose-500">*</span></label>
-                        <select name="role" required class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-1 focus:ring-[#0969da]">
-                            <option value="">-- Pilih Role Pengguna --</option>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Peran Pengguna <span class="text-rose-500">*</span></label>
+                        <select name="id_role" required class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-1 focus:ring-[#0969da]">
+                            <option value="">-- Pilih Peran Pengguna --</option>
                             @foreach($availableRoles as $r)
-                                <option value="{{ $r->nama_role }}" {{ old('role') == $r->nama_role ? 'selected' : '' }}>
+                                <option value="{{ $r->id }}" {{ old('id_role') == $r->id ? 'selected' : '' }}>
                                     {{ $r->label ?? ucfirst(str_replace('_', ' ', $r->nama_role)) }}
                                     @if($r->nama_role === 'pp') (Maksimal 1 akun aktif) @endif
                                 </option>
@@ -481,10 +463,10 @@
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">Peran (Role) Sistem <span class="text-rose-500">*</span></label>
-                        <select name="role" x-model="editUser.role" required class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-1 focus:ring-[#0969da]">
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Peran Pengguna <span class="text-rose-500">*</span></label>
+                        <select name="id_role" x-model="editUser.id_role" required class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-1 focus:ring-[#0969da]">
                             @foreach($availableRoles as $r)
-                                <option value="{{ $r->nama_role }}">
+                                <option value="{{ $r->id }}">
                                     {{ $r->label ?? ucfirst(str_replace('_', ' ', $r->nama_role)) }}
                                     @if($r->nama_role === 'pp') (Maksimal 1 akun aktif) @endif
                                 </option>

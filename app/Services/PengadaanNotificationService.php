@@ -11,6 +11,7 @@ use App\Models\Pembayaran;
 use App\Models\PenerimaanBarang;
 use App\Models\PermohonanPengadaan;
 use App\Models\Reminder;
+use App\Models\Role;
 use App\Models\TransaksiPencairan;
 use App\Models\User;
 use App\Models\VerifikasiParalel;
@@ -26,6 +27,60 @@ use Illuminate\Support\Collection;
  */
 class PengadaanNotificationService
 {
+    /**
+     * Pemetaan peran logis ke daftar permission RBAC untuk menentukan penerima notifikasi secara dinamis.
+     *
+     * @var array<string, array<int, string>>
+     */
+    public const ROLE_PERMISSION_MAP = [
+        'admin' => ['admin.approval_registrasi'],
+        'user' => ['permohonan.create'],
+        'staff_bidang_2' => ['verifikasi.bidang_2_view'],
+        'wadir_2' => ['verifikasi.wadir_2_decide', 'pembayaran.memo_wadir2'],
+        'perencanaan' => ['anggaran.mak_alokasi', 'anggaran.mak_lock', 'anggaran.mak_manage'],
+        'ppbj' => ['paket.create', 'spk.create', 'pembayaran.pengajuan', 'pembayaran.spp_terbitkan'],
+        'pp' => ['reviu.pp'],
+        'ppk' => ['reviu.ppk', 'pembayaran.memo_ppk'],
+        'perlengkapan' => ['penerimaan.bast_create', 'penerimaan.bast_sign'],
+        'keuangan' => ['pembayaran.pencairan_sp2d'],
+    ];
+
+    /**
+     * Mengambil pengguna aktif berdasarkan hak akses (RBAC permission) dari satu atau beberapa peran logis,
+     * atau relasi nama peran di tabel `roles` apabila izin spesifik belum dipetakan.
+     *
+     * @param  string|array<int, string>  $roles
+     * @return Collection<int, User>
+     */
+    public static function resolveActiveUsersByLogicalRoles(string|array $roles): Collection
+    {
+        $rolesList = array_values(array_unique((array) $roles));
+        if ($rolesList === []) {
+            return collect();
+        }
+
+        $permissions = [];
+        foreach ($rolesList as $roleKey) {
+            foreach (self::ROLE_PERMISSION_MAP[$roleKey] ?? [] as $perm) {
+                $permissions[] = $perm;
+            }
+        }
+        $permissions = array_values(array_unique($permissions));
+
+        return User::query()
+            ->where('status_aktif', true)
+            ->whereHas('roleEntity', function ($roleQuery) use ($permissions, $rolesList): void {
+                $roleQuery->whereIn('nama_role', $rolesList);
+
+                if ($permissions !== []) {
+                    $roleQuery->orWhereHas('permissions', function ($pq) use ($permissions): void {
+                        $pq->whereIn('nama_permission', $permissions);
+                    });
+                }
+            })
+            ->get();
+    }
+
     /**
      * Mengirimkan notifikasi kepada satu pengguna tertentu.
      *
@@ -46,11 +101,14 @@ class PengadaanNotificationService
             $validNomorPaket = $nomorPaket;
         }
 
-        // 1. Buat master reminder sebagai rujukan alarm
+        // 1. Buat master reminder instan (sudah terpicu, bukan jadwal pending)
         $reminder = Reminder::create([
             'nomor_paket' => $validNomorPaket,
             'tipe_reminder' => $tipe,
             'waktu_trigger' => now(),
+            'is_recurring' => false,
+            'is_active' => false,
+            'last_triggered_at' => now(),
             'judul_alert' => $judul,
             'pesan_alert' => $pesan,
         ]);
@@ -65,7 +123,7 @@ class PengadaanNotificationService
     }
 
     /**
-     * Mengirimkan notifikasi ke seluruh pengguna aktif yang memiliki peran (role) tertentu.
+     * Mengirimkan notifikasi ke seluruh pengguna aktif yang memiliki izin sesuai sasaran.
      *
      * @param  string|array<string>  $roles  Satu atau beberapa nama role sasaran
      * @param  string  $judul  Judul notifikasi
@@ -77,10 +135,7 @@ class PengadaanNotificationService
     public function kirimKePeran(string|array $roles, string $judul, string $pesan, string $tipe = 'pengingat', ?string $nomorPaket = null): Collection
     {
         $rolesList = is_array($roles) ? $roles : [$roles];
-
-        $targetUsers = User::whereIn('role', $rolesList)
-            ->where('status_aktif', true)
-            ->get();
+        $targetUsers = self::resolveActiveUsersByLogicalRoles($rolesList);
 
         if ($targetUsers->isEmpty()) {
             return collect();
@@ -92,11 +147,22 @@ class PengadaanNotificationService
             $validNomorPaket = $nomorPaket;
         }
 
-        // Buat 1 master reminder
+        $targetPermissions = [];
+        foreach ($rolesList as $r) {
+            foreach (self::ROLE_PERMISSION_MAP[$r] ?? [] as $perm) {
+                $targetPermissions[] = $perm;
+            }
+        }
+
+        // Buat 1 master reminder instan (sudah terpicu)
         $reminder = Reminder::create([
             'nomor_paket' => $validNomorPaket,
             'tipe_reminder' => $tipe,
             'waktu_trigger' => now(),
+            'is_recurring' => false,
+            'is_active' => false,
+            'last_triggered_at' => now(),
+            'target_permissions' => array_values(array_unique($targetPermissions)),
             'judul_alert' => $judul,
             'pesan_alert' => $pesan,
         ]);
@@ -422,19 +488,19 @@ class PengadaanNotificationService
         // 1. Tembusan ke Unit Perlengkapan (Persiapan pemeriksaan barang)
         $judulPerlengkapan = "Tembusan Dokumen Kontrak Terbit: {$kontrak->nomor_spk}";
         $pesanPerlengkapan = "Dokumen Kontrak nomor {$kontrak->nomor_spk} untuk paket '{$namaPaket}' telah terbit. Harap pantau jadwal pengiriman penyedia dan persiapkan pemeriksaan barang.";
-        $this->kirimKePeran('perlengkapan', $judulPerlengkapan, $pesanPerlengkapan, 'spk', $kontrak->nomor_spk);
+        $this->kirimKePeran('perlengkapan', $judulPerlengkapan, $pesanPerlengkapan, 'spk', $kontrak->nomor_paket);
 
         // 2. Tembusan ke Bagian Keuangan (Persiapan anggaran dan pembayaran)
         $judulKeuangan = "Tembusan Dokumen Kontrak Baru: {$kontrak->nomor_spk}";
         $pesanKeuangan = "Dokumen Kontrak nomor {$kontrak->nomor_spk} untuk paket '{$namaPaket}' senilai Rp {$nilai} telah terbit. Harap catat anggaran pada pos anggaran terkait.";
-        $this->kirimKePeran('keuangan', $judulKeuangan, $pesanKeuangan, 'spk', $kontrak->nomor_spk);
+        $this->kirimKePeran('keuangan', $judulKeuangan, $pesanKeuangan, 'spk', $kontrak->nomor_paket);
 
         // 3. Notifikasi ke Pengusul (User)
         $idUserPengaju = $kontrak->paket?->permohonan?->id_user;
         if ($idUserPengaju) {
             $judulPengaju = "Dokumen Kontrak Diterbitkan: {$kontrak->nomor_spk}";
             $pesanPengaju = "Kontrak pengadaan '{$namaPaket}' telah diterbitkan ke pihak penyedia ({$kontrak->nomor_spk}). Penyedia akan segera melakukan pengiriman/pengerjaan.";
-            $this->kirimKeUser($idUserPengaju, $judulPengaju, $pesanPengaju, 'spk', $kontrak->nomor_spk);
+            $this->kirimKeUser($idUserPengaju, $judulPengaju, $pesanPengaju, 'spk', $kontrak->nomor_paket);
         }
     }
 
@@ -475,8 +541,12 @@ class PengadaanNotificationService
         $judul = "Pengajuan Dokumen Pembayaran: {$pembayaran->nomor_pembayaran}";
         $pesan = "Unit Pengadaan mengajukan pembayaran termin ke-{$pembayaran->tahap_termin} untuk paket '{$namaPaket}' sebesar Rp {$nominal}. Menunggu persetujuan memo.";
 
+        $memos = collect([$memoLevel1, $memoLevel2])->filter();
+        $memoWadir = $memos->firstWhere('role_approver', 'wadir_2');
+        $memoPpk = $memos->firstWhere('role_approver', 'ppk');
+
         // 1. Notifikasi ke Wadir II
-        $wadirUserId = $memoLevel1?->id_user ?? User::where('role', 'wadir_2')->where('status_aktif', true)->first()?->id_user;
+        $wadirUserId = $memoWadir?->id_user;
         if ($wadirUserId) {
             $this->kirimKeUser($wadirUserId, $judul, $pesan, 'pembayaran', $pembayaran->nomor_paket);
         } else {
@@ -484,7 +554,7 @@ class PengadaanNotificationService
         }
 
         // 2. Notifikasi ke PPK (Paralel)
-        $ppkUserId = $memoLevel2?->id_user ?? $pembayaran->paket?->id_user_ppk ?? $pembayaran->paket?->permohonan?->id_user_ppk_awal;
+        $ppkUserId = $memoPpk?->id_user ?? $pembayaran->paket?->id_user_ppk ?? $pembayaran->paket?->permohonan?->id_user_ppk_awal;
         if ($ppkUserId) {
             $this->kirimKeUser($ppkUserId, $judul, $pesan, 'pembayaran', $pembayaran->nomor_paket);
         } else {
@@ -577,7 +647,7 @@ class PengadaanNotificationService
         if ($paket?->id_user_ppbj) {
             $targetUserIds->push($paket->id_user_ppbj);
         } else {
-            $targetUserIds = $targetUserIds->merge(User::where('role', 'ppbj')->where('status_aktif', true)->pluck('id_user'));
+            $targetUserIds = $targetUserIds->merge(self::resolveActiveUsersByLogicalRoles('ppbj')->pluck('id_user'));
         }
 
         // 3. PPK yang bertanggung jawab atas paket
@@ -597,15 +667,13 @@ class PengadaanNotificationService
         if ($bastUser) {
             $targetUserIds->push($bastUser);
         } else {
-            $targetUserIds = $targetUserIds->merge(User::where('role', 'perlengkapan')->where('status_aktif', true)->pluck('id_user'));
+            $targetUserIds = $targetUserIds->merge(self::resolveActiveUsersByLogicalRoles('perlengkapan')->pluck('id_user'));
         }
 
         // 6. Wadir 2 & Perencanaan & Keuangan pelaksana
-        $wadir = User::where('role', 'wadir_2')->where('status_aktif', true)->pluck('id_user');
-        $perencanaan = User::where('role', 'perencanaan')->where('status_aktif', true)->pluck('id_user');
-        $keuangan = User::where('role', 'keuangan')->where('status_aktif', true)->pluck('id_user');
+        $otherRolesUsers = self::resolveActiveUsersByLogicalRoles(['wadir_2', 'perencanaan', 'keuangan'])->pluck('id_user');
 
-        $targetUserIds = $targetUserIds->merge($wadir)->merge($perencanaan)->merge($keuangan)->unique()->filter();
+        $targetUserIds = $targetUserIds->merge($otherRolesUsers)->unique()->filter();
 
         $judul = "Pencairan Dana Selesai: {$nomorTransaksi}";
         $pesan = "Pembayaran untuk paket '{$namaPaket}' telah dicairkan oleh Bagian Keuangan sebesar Rp {$nominal} (Nomor Transaksi: {$nomorTransaksi}). Seluruh proses pengadaan selesai.";
@@ -613,64 +681,5 @@ class PengadaanNotificationService
         foreach ($targetUserIds as $uId) {
             $this->kirimKeUser($uId, $judul, $pesan, 'pembayaran', $paket?->nomor_paket);
         }
-    }
-
-    /**
-     * Fitur Uji Coba Simulasi: Mengirimkan Notifikasi & Email Contoh ke Akun Pengguna Aktif.
-     *
-     * @param  User  $user  Pengguna yang meminta simulasi uji coba
-     * @param  string  $jenis  Kategori skenario simulasi
-     * @return NotifikasiUser Rekaman notifikasi yang berhasil dibangkitkan
-     */
-    public function kirimUjiCoba(User $user, string $jenis = 'pengajuan_baru'): NotifikasiUser
-    {
-        $dataUji = match ($jenis) {
-            'persetujuan_wadir' => [
-                'judul' => 'Uji Coba: Permohonan Pengadaan Disetujui Penuh',
-                'pesan' => 'Simulasi notifikasi: Usulan pengadaan laboratorium komputer telah disetujui penuh oleh Wadir 2 dan Perencanaan.',
-                'tipe' => 'verifikasi',
-            ],
-            'penolakan_wadir' => [
-                'judul' => 'Uji Coba: Catatan Perbaikan Usulan Pengadaan',
-                'pesan' => 'Simulasi notifikasi: Kerangka Acuan memerlukan pembaruan rincian spesifikasi teknis.',
-                'tipe' => 'verifikasi',
-            ],
-            'tembusan_spk' => [
-                'judul' => 'Uji Coba: Tembusan Dokumen Kontrak Baru',
-                'pesan' => 'Simulasi notifikasi: Dokumen Kontrak nomor 045/PL3/SPK/2026 telah terbit. Penyedia akan segera melakukan pengiriman barang.',
-                'tipe' => 'spk',
-            ],
-            'barang_sampai' => [
-                'judul' => 'Uji Coba: Barang/Jasa Diterima & Serah Terima Terbit',
-                'pesan' => 'Simulasi notifikasi: Perlengkapan telah menyelesaikan pemeriksaan fisik dan menerbitkan bukti serah terima bertanda tangan digital.',
-                'tipe' => 'pengiriman',
-            ],
-            'memo_bayar' => [
-                'judul' => 'Uji Coba: Pengajuan Memo Pembayaran',
-                'pesan' => 'Simulasi notifikasi: Berkas tagihan penyedia telah diverifikasi dan siap disetujui oleh Wadir 2 dan PPK.',
-                'tipe' => 'pembayaran',
-            ],
-            'spp_terbit' => [
-                'judul' => 'Uji Coba: Perintah Bayar Terbit',
-                'pesan' => 'Simulasi notifikasi: Perintah Bayar telah diterbitkan ke Bagian Keuangan untuk pencairan dana.',
-                'tipe' => 'pembayaran',
-            ],
-            'sp2d_cair' => [
-                'judul' => 'Uji Coba: Pencairan Dana Selesai',
-                'pesan' => 'Simulasi notifikasi: Dana pengadaan sebesar Rp 45.000.000 telah ditransfer ke rekening penyedia.',
-                'tipe' => 'pembayaran',
-            ],
-            default => [
-                'judul' => 'Uji Coba: Pengajuan Usulan Pengadaan Baru',
-                'pesan' => 'Simulasi notifikasi: Unit Anda mengajukan permohonan baru untuk pengadaan perangkat praktikum jaringan komputer.',
-                'tipe' => 'verifikasi',
-            ],
-        };
-
-        // Prioritaskan menghubungkan ke paket riil yang ada di database jika tersedia, atau gunakan null
-        $existingPaket = PaketPengadaan::first();
-        $nomorPaketUji = $existingPaket ? $existingPaket->nomor_paket : null;
-
-        return $this->kirimKeUser($user, $dataUji['judul'], $dataUji['pesan'], $dataUji['tipe'], $nomorPaketUji);
     }
 }

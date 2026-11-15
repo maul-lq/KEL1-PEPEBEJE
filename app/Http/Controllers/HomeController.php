@@ -390,7 +390,7 @@ class HomeController extends Controller
         }
 
         // 7. Modul Koordinator PPBJ (Paket, Pemecahan, SPK, Pengajuan Pembayaran)
-        if ($user->hasAnyPermission(['paket.create', 'paket.view_all', 'permohonan.split_jenis', 'spk.create', 'reminder.manage', 'pembayaran.pengajuan', 'pembayaran.spp_terbitkan'])) {
+        if ($user->hasAnyPermission(['paket.create', 'paket.view_all', 'permohonan.split_jenis', 'spk.create', 'pembayaran.pengajuan', 'pembayaran.spp_terbitkan'])) {
             $data['active_modules'][] = 'ppbj';
             $data['stats'] = array_merge($data['stats'], [
                 'total_paket' => PaketPengadaan::count(),
@@ -463,8 +463,8 @@ class HomeController extends Controller
             $data['pp_audit_logs'] = AuditLog::with('user')
                 ->where(function ($q) {
                     $q->whereHas('user', function ($uq) {
-                        $uq->where('role', 'pp')
-                            ->orWhereHas('roleEntity.permissions', fn ($pq) => $pq->where('nama_permission', 'reviu.pp'));
+                        $uq->whereHas('roleEntity', fn ($rq) => $rq->where('nama_role', 'pp')
+                            ->orWhereHas('permissions', fn ($pq) => $pq->where('nama_permission', 'reviu.pp')));
                     })->orWhere('jenis_aksi', 'like', '%_PP%');
                 })
                 ->latest('waktu_log')
@@ -821,6 +821,35 @@ class HomeController extends Controller
         $user->save();
 
         return back()->with('success', 'Data profil Anda berhasil diperbarui.');
+    }
+
+    /**
+     * Memperbarui preferensi pengiriman pengingat & notifikasi ke email pengguna.
+     */
+    public function updateReminderEmail(Request $request): JsonResponse|RedirectResponse
+    {
+        $user = Auth::user();
+        $validated = $request->validate([
+            'enabled' => ['required', 'boolean'],
+        ]);
+
+        $enabled = (bool) $validated['enabled'];
+        $user->reminder_email_aktif = $enabled;
+        $user->save();
+
+        $message = $enabled
+            ? 'Pengingat email ke '.$user->email.' telah diaktifkan.'
+            : 'Pengingat email ke '.$user->email.' telah dijeda. Notifikasi di dalam aplikasi tetap aktif.';
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'enabled' => $enabled,
+                'message' => $message,
+            ]);
+        }
+
+        return back()->with('success', $message);
     }
 
     /**

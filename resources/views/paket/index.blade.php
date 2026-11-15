@@ -12,9 +12,9 @@
                 <h1 class="text-2xl font-bold text-[#213153] mt-1">Manajemen Paket Pengadaan &amp; Penugasan PPK</h1>
             </div>
 
-            @if(Auth::user() && (Auth::user()->hasRole('admin') || Auth::user()->hasAnyPermission(['paket.create', 'paket.view_all', 'paket.reassign_ppk', 'paket.split_jenis'])))
+            @if(Auth::user() && (Auth::user()->hasRole('admin') || Auth::user()->hasAnyPermission(['paket.create', 'paket.view_all', 'paket.reassign_ppk', 'permohonan.split_jenis'])))
                 <div class="flex flex-wrap items-center gap-2 shrink-0">
-                    @if(Auth::user()->hasRole('admin') || Auth::user()->hasPermission('permohonan.split_jenis') || Auth::user()->hasPermission('paket.split_jenis'))
+                    @if(Auth::user()->hasRole('admin') || Auth::user()->hasPermission('permohonan.split_jenis'))
                         <button
                             type="button"
                             @click="$dispatch('open-modal', 'modal-split-jenis')"

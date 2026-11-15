@@ -15,7 +15,7 @@
         <h1 class="text-[40px] font-semibold leading-tight text-black">Profil Saya</h1>
     </div>
 
-    @if(strtolower($user->role ?? '') === 'admin' && Route::has('admin.roles.index'))
+    @if($user->hasRole(\App\Models\User::ROLE_ADMIN) && Route::has('admin.roles.index'))
         <a href="{{ route('admin.roles.index') }}"
            class="inline-flex h-11 items-center gap-2 rounded-lg bg-[#0969da] px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700">
             <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
@@ -23,26 +23,6 @@
         </a>
     @endif
 </div>
-
-    {{-- NOTIFIKASI FLASH ALERT --}}
-    @if(session('success'))
-        <div class="mt-6 flex items-center gap-3 rounded-[10px] border border-emerald-300 bg-emerald-50 px-5 py-3 text-emerald-800">
-            <svg class="size-5 shrink-0 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-            <span class="text-sm font-medium">{{ session('success') }}</span>
-        </div>
-    @endif
-    @if(session('error'))
-        <div class="mt-6 flex items-center gap-3 rounded-[10px] border border-red-300 bg-red-50 px-5 py-3 text-red-800">
-            <svg class="size-5 shrink-0 text-red-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            <span class="text-sm font-medium">{{ session('error') }}</span>
-        </div>
-    @endif
-    @if(session('status'))
-        <div class="mt-6 flex items-center gap-3 rounded-[10px] border border-blue-300 bg-blue-50 px-5 py-3 text-blue-800">
-            <svg class="size-5 shrink-0 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            <span class="text-sm font-medium">{{ session('status') }}</span>
-        </div>
-    @endif
 
     {{-- GRID KONTEN UTAMA --}}
     <div class="mt-10 grid items-start gap-[42px] xl:grid-cols-[1082fr_631fr]">
@@ -65,7 +45,7 @@
                     <h2 class="text-[32px] sm:text-[40px] font-semibold leading-tight text-black">{{ $user->nama }}</h2>
                     <p class="mt-1 text-lg font-medium text-black">{{ $user->username ?? strtolower(str_replace(' ', '', $user->nama)) }}</p>
                     <span class="mt-1 inline-block rounded-[10px] bg-[#B0CBE6] px-[13px] py-[3px] text-[15px] font-medium text-[#0969DA] uppercase">
-                        {{ str_replace('_', ' ', $user->role) }}
+                        {{ $user->roleEntity?->label ?? 'Pengguna' }}
                     </span>
                 </div>
             </div>
@@ -174,41 +154,50 @@
         {{-- KARTU KANAN: REMINDER GMAIL, UBAH PASSWORD & HAPUS AKUN --}}
         <div class="flex flex-col gap-[39px]">
 
-            {{-- REMINDER GMAIL --}}
-            <div class="rounded-[20px] border border-[rgba(120,120,120,0.5)] bg-white px-[34px] pb-[26px] pt-[28px] shadow-sm">
+            {{-- REMINDER EMAIL --}}
+            <div x-data="profileReminderToggle"
+                 data-enabled="{{ ($user->reminder_email_aktif ?? true) ? '1' : '0' }}"
+                 data-url="{{ route('profile.reminder-email') }}"
+                 class="rounded-[20px] border border-[rgba(120,120,120,0.5)] bg-white px-[34px] pb-[26px] pt-[28px] shadow-sm">
                 <div class="flex items-center justify-between gap-4">
                     <div class="flex items-center gap-4">
                         <svg class="size-9 shrink-0 text-black" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-                        <h3 class="text-2xl font-semibold text-black">Reminder Gmail</h3>
+                        <h3 class="text-2xl font-semibold text-black">Reminder Email</h3>
                     </div>
-                    
+
                     {{-- TOGGLE REMINDER --}}
-                    <div x-data="profileReminderToggle">
-                        <button
-                            type="button"
-                            role="switch"
-                            :aria-checked="enabled.toString()"
-                            @click="enabled = !enabled"
-                            :class="enabled ? 'bg-[#0088E8]' : 'bg-gray-300'"
-                            class="relative inline-block h-6 w-12 shrink-0 cursor-pointer overflow-hidden rounded-full transition-colors duration-200 ease-in-out focus:outline-none"
-                        >
-                            <span
-                                class="absolute top-0.5 left-0.5 block h-5 w-5 rounded-full bg-white shadow-md transition-transform duration-200 ease-in-out"
-                                :class="enabled ? 'translate-x-6' : 'translate-x-0'"
-                            ></span>
-                        </button>
-                    </div>
+                    <button
+                        type="button"
+                        role="switch"
+                        :aria-checked="enabled.toString()"
+                        :disabled="saving"
+                        @click="toggle()"
+                        :class="[enabled ? 'bg-[#0088E8]' : 'bg-gray-300', saving ? 'opacity-60 cursor-wait' : 'cursor-pointer']"
+                        class="relative inline-block h-6 w-12 shrink-0 overflow-hidden rounded-full transition-colors duration-200 ease-in-out focus:outline-none"
+                    >
+                        <span
+                            class="absolute top-0.5 left-0.5 block h-5 w-5 rounded-full bg-white shadow-md transition-transform duration-200 ease-in-out"
+                            :class="enabled ? 'translate-x-6' : 'translate-x-0'"
+                        ></span>
+                    </button>
                 </div>
-                <p class="mt-6 text-[17px] text-[#4A4A4A]">Aktifkan pengingat ke email Google Anda.</p>
+                <p class="mt-6 text-[17px] text-[#4A4A4A]">Aktifkan pengingat dan pemberitahuan pengadaan ke email Anda.</p>
                 <div class="mt-5 flex items-center gap-4 rounded-[10px] border border-[#B0CBE6] bg-[#E8F5FD] px-[26px] py-[18px]">
                     <svg class="size-8 shrink-0 text-black" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                     <div class="min-w-0">
                         <a href="mailto:{{ $user->email }}" class="block truncate text-base text-black font-medium">{{ $user->email }}</a>
-                        <div class="flex items-center gap-2 text-sm text-[#087F79] font-bold">
-                            <span class="size-2 rounded-full bg-[#087F79]"></span> Terhubung
+                        <div class="flex items-center gap-2 text-sm font-bold"
+                             :class="enabled ? 'text-[#087F79]' : 'text-amber-700'">
+                            <span class="size-2 rounded-full" :class="enabled ? 'bg-[#087F79]' : 'bg-amber-500'"></span>
+                            <span x-text="enabled ? 'Aktif mengirim pengingat ke email' : 'Pengingat email dijeda'"></span>
                         </div>
                     </div>
                 </div>
+                <p x-show="feedback"
+                   x-cloak
+                   x-text="feedback"
+                   class="mt-3 text-xs font-medium"
+                   :class="feedbackError ? 'text-rose-600' : 'text-emerald-700'"></p>
             </div>
 
             {{-- KONEKSI AKUN GOOGLE (GOOGLE OAUTH) --}}
