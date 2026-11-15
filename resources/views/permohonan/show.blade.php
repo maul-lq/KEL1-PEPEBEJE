@@ -269,12 +269,29 @@
                                           class="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-medium focus:border-[#0969da] focus:outline-none focus:ring-2 focus:ring-[#0969da]/20"></textarea>
                             </div>
 
-                            <div class="space-y-1 md:col-span-2">
-                                <label class="text-xs font-bold text-slate-700">Unggah Kerangka Acuan Baru (PDF, Maks. 10 MB)</label>
-                                <input type="file" 
-                                       name="file_kak" 
-                                       accept=".pdf"
+                            <div class="space-y-1.5 md:col-span-2" x-data="{ revisiFiles: [] }">
+                                <label class="text-xs font-bold text-slate-700">
+                                    Unggah Dokumen Lampiran Revisi (Maks. 5 Berkas, 15 MB/berkas)
+                                </label>
+                                <input type="file"
+                                       name="dokumen_lampiran[]"
+                                       multiple
+                                       accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+                                       @change="revisiFiles = Array.from($event.target.files || []).map(f => ({ name: f.name, size: (f.size / 1024).toFixed(0) + ' KB' }))"
                                        class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-600 focus:outline-none">
+                                <p class="text-[11px] text-slate-500">
+                                    Format: PDF, DOC/DOCX, XLS/XLSX, atau PNG/JPG. Jika Anda mengunggah berkas baru, seluruh lampiran sebelum revisi akan digantikan oleh berkas baru ini. Kosongkan jika tidak ingin mengganti lampiran.
+                                </p>
+                                <template x-if="revisiFiles.length > 0">
+                                    <ul class="mt-2 space-y-1 rounded-lg border border-amber-200 bg-white p-2.5 text-[11px] text-slate-700">
+                                        <template x-for="(rf, idx) in revisiFiles" :key="idx">
+                                            <li class="flex items-center justify-between gap-2">
+                                                <span class="truncate font-medium" x-text="(idx + 1) + '. ' + rf.name"></span>
+                                                <span class="shrink-0 font-mono text-[10px] text-slate-500" x-text="rf.size"></span>
+                                            </li>
+                                        </template>
+                                    </ul>
+                                </template>
                             </div>
                         </div>
 

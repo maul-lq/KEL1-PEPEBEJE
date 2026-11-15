@@ -507,7 +507,7 @@ class PermohonanPengadaan extends Model
                 return 6;
             }
 
-            // Tahap 5: Dokumen perikatan terbit (Kontrak / SPK / Surat Pesanan) atau Kwitansi Belanja Langsung (<= 50jt)
+            // Tahap 5: Dokumen perikatan terbit / siap eksekusi belanja PP / siap upload dokumen PPBJ
             $spk = $paket->relationLoaded('kontrakSpk')
                 ? $paket->kontrakSpk
                 : $paket->kontrakSpk()->first();
@@ -515,7 +515,16 @@ class PermohonanPengadaan extends Model
             $isBelanjaLangsungSelesai = ($paket->jalur_routing === PaketPengadaan::ROUTING_LANGSUNG || (float) ($paket->nilai_hps ?? 0) <= 50000000)
                 && ! empty($paket->nomor_kwitansi_belanja);
 
-            if ($spk || $isBelanjaLangsungSelesai || in_array(strtolower((string) $paket->status_paket), ['spk_terbit', 'belanja_langsung_selesai', 'kontrak', 'surat_pesanan_terbit', 'surat_kontrak_terbit'], true)) {
+            if ($spk || $isBelanjaLangsungSelesai || in_array(strtolower((string) $paket->status_paket), [
+                'disetujui_ppk_siap_belanja_pp',
+                'siap_upload_dokumen_ppbj',
+                'spk_terbit',
+                'belanja_langsung',
+                'belanja_langsung_selesai',
+                'kontrak',
+                'surat_pesanan_terbit',
+                'surat_kontrak_terbit',
+            ], true)) {
                 return 5;
             }
 
@@ -524,7 +533,14 @@ class PermohonanPengadaan extends Model
                 ? $paket->reviuDokumen->first()
                 : $paket->reviuDokumen()->first();
 
-            if ($reviu || in_array(strtolower((string) $paket->status_paket), ['menunggu_approval_ppk', 'disetujui_ppk_siap_belanja_pp', 'siap_upload_dokumen_ppbj', 'reviu_dokumen', 'menunggu_reviu_pp', 'menunggu_reviu_ppk'], true)) {
+            if ($reviu || in_array(strtolower((string) $paket->status_paket), [
+                'menunggu_approval_ppk',
+                'reviu_dokumen',
+                'reviu_dokumen_disetujui',
+                'menunggu_reviu_pp',
+                'menunggu_reviu_ppk',
+                'perlu_perbaikan',
+            ], true)) {
                 return 4;
             }
 
@@ -533,23 +549,9 @@ class PermohonanPengadaan extends Model
         }
 
         // Jika belum terbentuk paket pengadaan:
-        // Cek Tahap 3: Permohonan sudah disetujui / MAK dialokasikan / siap diproses PPBJ
-        $hasAlokasi = $this->relationLoaded('alokasiMak')
-            ? $this->alokasiMak->isNotEmpty()
-            : $this->alokasiMak()->exists();
-
-        if (in_array($statusPermohonan, ['disetujui', 'diproses_ppbj', 'paket_terdaftar', 'disetujui_wadir2_dan_ppk'], true)
-            || ! empty($this->kode_mak)
-            || $hasAlokasi) {
-            return 3;
-        }
-
-        // Cek Tahap 2: Sedang dalam telaah / verifikasi berantai / penelaahan MAK / minta revisi / ditolak
-        $hasVerifikasi = $this->relationLoaded('verifikasiParalel')
-            ? $this->verifikasiParalel->isNotEmpty()
-            : $this->verifikasiParalel()->exists();
-
-        if (in_array($statusPermohonan, [
+        // Status yang masih berada pada fase verifikasi awal (Tahap 2) tidak boleh meloncat ke Tahap 3
+        // meskipun Perencanaan sudah mengisi kode_mak atau membuat alokasi MAK.
+        $tahap2Statuses = [
             'reviu_paralel',
             'menunggu_bidang_2',
             'cek_mak_perencanaan',
@@ -559,7 +561,23 @@ class PermohonanPengadaan extends Model
             'perlu_revisi',
             'revisi',
             'ditolak',
-        ], true) || $hasVerifikasi) {
+        ];
+
+        if (in_array($statusPermohonan, $tahap2Statuses, true)) {
+            return 2;
+        }
+
+        // Cek Tahap 3: Permohonan sudah disetujui oleh Wadir II & PPK dan siap diproses PPBJ
+        if (in_array($statusPermohonan, ['disetujui', 'diproses_ppbj', 'paket_terdaftar', 'disetujui_wadir2_dan_ppk'], true)) {
+            return 3;
+        }
+
+        // Fallback Tahap 2 bila sudah ada catatan verifikasi paralel pada status non-final
+        $hasVerifikasi = $this->relationLoaded('verifikasiParalel')
+            ? $this->verifikasiParalel->isNotEmpty()
+            : $this->verifikasiParalel()->exists();
+
+        if ($hasVerifikasi) {
             return 2;
         }
 

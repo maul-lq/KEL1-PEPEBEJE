@@ -1,10 +1,10 @@
 {{-- resources/views/dashboard/roles/perencanaan.blade.php --}}
 {{-- Modul RBAC: Subbagian Perencanaan & Anggaran MAK (perencanaan) --}}
 @php
-    $canViewMak = $user->hasAnyPermission(['anggaran.mak_view', 'anggaran.mak_manage', 'anggaran.mak_alokasi']);
-    $canAlokasiMak = $user->hasPermission('anggaran.mak_alokasi');
+    $canViewMak = $user->hasAnyPermission(['anggaran.mak_view', 'anggaran.mak_manage', 'anggaran.mak_alokasi', 'permohonan.split_mak']);
+    $canAlokasiMak = $user->hasAnyPermission(['anggaran.mak_alokasi', 'permohonan.split_mak']);
     $perencanaanHref = $canViewMak ? route('verifikasi.perencanaan') : null;
-    $alokasiHref = $canAlokasiMak ? route('verifikasi.perencanaan') : $perencanaanHref;
+    $alokasiHref = $canAlokasiMak ? route('verifikasi.perencanaan') : null;
 
     $totalPaguFull = 'Rp ' . number_format((float) ($stats['total_pagu_dipa'] ?? 0), 0, ',', '.');
     $sisaPaguFull = 'Rp ' . number_format((float) ($stats['sisa_pagu_dipa'] ?? 0), 0, ',', '.');

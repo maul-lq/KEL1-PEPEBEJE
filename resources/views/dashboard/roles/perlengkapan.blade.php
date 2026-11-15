@@ -1,10 +1,11 @@
 {{-- resources/views/dashboard/roles/perlengkapan.blade.php --}}
 {{-- Modul RBAC: Bagian Perlengkapan & Pengelola BMN (perlengkapan) --}}
 @php
-    $canViewPenerimaan = $user->hasPermission('penerimaan.view');
-    $canCreateBast = $user->hasPermission('penerimaan.bast_create');
+    $canViewPenerimaan = $user->hasAnyPermission(['penerimaan.view', 'penerimaan.bast_create', 'penerimaan.bast_sign']);
+    $canActBast = $user->hasAnyPermission(['penerimaan.bast_create', 'penerimaan.bast_sign']);
     $penerimaanHref = $canViewPenerimaan ? route('penerimaan.index') : null;
-    $bastHref = $canCreateBast ? route('penerimaan.index') : $penerimaanHref;
+    $bastHref = $canActBast ? route('penerimaan.index') : null;
+    $jadwalPengirimanList = $canActBast ? ($roleData['jadwal_pengiriman'] ?? collect()) : collect();
 @endphp
 
 <div class="space-y-6">
@@ -51,7 +52,7 @@
         :rightHref="$penerimaanHref"
     >
         <x-slot:left>
-            @forelse($roleData['jadwal_pengiriman'] ?? [] as $itemKirim)
+            @forelse($jadwalPengirimanList as $itemKirim)
                 @php
                     $isLangsung = !empty($itemKirim['is_langsung']);
                     $batasKirimRaw = $itemKirim['batas_kirim'] ?? null;
