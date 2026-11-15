@@ -9,6 +9,11 @@ paths:
 ## Hak Akses Murni Berbasis RBAC Permissions
 Semua otorisasi akses menu, tombol, aksi, dan controller WAJIB menggunakan RBAC permissions ($user->hasPermission(...) atau $user->hasAnyPermission(...)). Dilarang keras menggunakan pengecekan string role hardcoded seperti $user->role === '...' atau Auth::user()->role === '...'. Menu dan fitur tampil dinamis berdasarkan wewenang permission yang dicentang pada role di modul RBAC.
 
+### Komposisi Multi-Modul Dinamis untuk Role Gabungan
+Untuk halaman agregasi, pelaporan, maupun rekapitulasi yang menyentuh lebih dari satu kelompok fitur (misal Role A mengaktifkan fitur Modul X dan Modul Y sekaligus):
+- Dilarang memakai pola pencabangan tunggal eksklusif (`switch ($role)` atau `if/elseif` fallback satu profil) yang membuang modul lainnya.
+- Bangun daftar modul aktif secara kumulatif berbasis `hasAnyPermission(...)` (array/union query scope) sehingga seluruh seksi yang diizinkan tetap tampil (sebagai tab modul independen atau gabungan berurutan), lengkap dengan filter adaptif dan ekspor dokumen yang mengikuti cakupan modul aktif tersebut.
+
 ## Alur BPMN Inkremental Per Role & Pembersihan Dead Code
 Alur proses bisnis PBJ dibangun secara bertahap per role sesuai panduan BPMN pengguna (backend & frontend berfungsi penuh). Agen WAJIB bertanya (dilarang berasumsi) jika ada instruksi, istilah, atau alur yang kurang jelas. Setelah implementasi fungsi tiap role selesai, hapus class, method, atau rute yang sudah tidak relevan (dead code cleanup).
 

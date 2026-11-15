@@ -183,12 +183,24 @@ Route::middleware('auth')->group(function () {
     // Modul 8: Riwayat & Laporan Terpadu
     // -------------------------------------------------------------------------
     Route::get('/laporan', [LaporanController::class, 'laporanIndex'])->name('laporan.index');
-    Route::get('/laporan/unduh-laporan-pdf', [LaporanController::class, 'unduhLaporanRingkasanPdf'])->name('laporan.unduh.ringkasan');
-    Route::get('/laporan/unduh-detail-pdf', [LaporanController::class, 'unduhLaporanDetailPdf'])->name('laporan.unduh.detail');
+    Route::get('/laporan/unduh-pdf', [LaporanController::class, 'unduhLaporanPdf'])
+        ->name('laporan.unduh.pdf')
+        ->middleware('role:dokumen.unduh_pdf');
+    Route::get('/laporan/unduh-csv', [LaporanController::class, 'unduhLaporanCsv'])
+        ->name('laporan.unduh.csv')
+        ->middleware('role:dokumen.unduh_pdf');
+    Route::get('/laporan/unduh-laporan-pdf', [LaporanController::class, 'unduhLaporanRingkasanPdf'])
+        ->name('laporan.unduh.ringkasan')
+        ->middleware('role:dokumen.unduh_pdf');
+    Route::get('/laporan/unduh-detail-pdf', [LaporanController::class, 'unduhLaporanDetailPdf'])
+        ->name('laporan.unduh.detail')
+        ->middleware('role:dokumen.unduh_pdf');
 
     // Rute kompatibilitas legacy untuk pengalihan navigasi dan pengujian terdahulu
     Route::get('/laporan/rekapitulasi-anggaran', [LaporanController::class, 'laporanIndex'])->name('laporan.rekapitulasi');
-    Route::get('/laporan/rekapitulasi-anggaran/pdf', [LaporanController::class, 'unduhLaporanRingkasanPdf'])->name('laporan.rekapitulasi.pdf');
+    Route::get('/laporan/rekapitulasi-anggaran/pdf', [LaporanController::class, 'unduhLaporanRingkasanPdf'])
+        ->name('laporan.rekapitulasi.pdf')
+        ->middleware('role:dokumen.unduh_pdf');
     Route::get('/monitoring', fn () => redirect()->route('laporan.index'))->name('monitoring.index');
 
     // -------------------------------------------------------------------------

@@ -7,15 +7,20 @@
     window.__laporanConfig = {
         initialTab: {!! json_encode($activeTab) !!},
         riwayatData: {!! json_encode($riwayatList, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!},
-        laporanCards: {!! json_encode($laporanCards, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!},
-        laporanRows: {!! json_encode($laporanTable, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!},
-        ringkasanTitle: {!! json_encode($ringkasanTitle ?? 'Ringkasan Realisasi & Pengadaan') !!},
-        tableTitle: {!! json_encode($tableTitle) !!},
-        tableColumns: {!! json_encode($tableColumns, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!},
-        userRole: {!! json_encode($userRole) !!},
-        currentYear: {!! json_encode((string) $tahun) !!},
+        modularPayload: {!! json_encode($modularPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!},
+        canDownload: {!! json_encode((bool) $canDownload) !!},
+        userUnitCode: {!! json_encode((string) ($userUnitCode ?? '')) !!},
+        userUnitName: {!! json_encode((string) ($userUnitName ?? '')) !!},
+        endpointUrl: {!! json_encode(route('laporan.index')) !!},
+        pdfUrl: {!! json_encode(route('laporan.unduh.pdf')) !!},
+        csvUrl: {!! json_encode(route('laporan.unduh.csv')) !!},
+        defaultYear: {!! json_encode((string) date('Y')) !!},
+        currentYear: {!! json_encode($tahun !== '' ? (string) $tahun : 'all') !!},
         currentMonth: {!! json_encode((string) ($bulan ?? '')) !!},
-        currentUnit: {!! json_encode((string) ($kodeUnit ?? '')) !!}
+        currentUnit: {!! json_encode((string) ($kodeUnit ?? '')) !!},
+        currentStatus: {!! json_encode((string) ($modularPayload['filters_applied']['status'] ?? '')) !!},
+        currentRoleFilter: {!! json_encode((string) ($modularPayload['filters_applied']['role_filter'] ?? '')) !!},
+        currentSearch: {!! json_encode((string) ($modularPayload['filters_applied']['q'] ?? '')) !!}
     };
 </script>
 
@@ -369,34 +374,35 @@
     {{-- ===================================================================== --}}
     <div x-show="activeTab === 'laporan'" x-cloak class="space-y-6">
 
-        {{-- FILTER BAR LAPORAN (FIGMA 538:3298 / FRAME 261) --}}
+        {{-- FILTER BAR LAPORAN ADAPTIF RBAC --}}
         <div class="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
             <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5 flex-1 max-w-4xl">
-                    
-                    {{-- Filter Tahun Anggaran (Figma Frame 258) --}}
-                    <div class="space-y-1.5">
+                <div class="flex flex-wrap items-end gap-3.5 flex-1">
+
+                    {{-- Filter Tahun Anggaran --}}
+                    <div x-show="currentFiltersConfig.tahun" class="space-y-1.5 min-w-[160px] flex-1 sm:flex-none sm:w-44">
                         <label class="block text-xs font-bold text-slate-700">Tahun Anggaran</label>
                         <select
                             x-model="laporanFilterTahun"
-                            @change="laporanPage = 1; syncUrl()"
+                            @change="onQueryFilterChange()"
                             class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20 transition"
                         >
+                            <option value="all">Semua Tahun</option>
                             @php $curYear = (int) date('Y'); @endphp
                             @for($y = $curYear + 1; $y >= $curYear - 3; $y--)
-                                <option value="{{ $y }}" {{ (int) $tahun === $y ? 'selected' : '' }}>
+                                <option value="{{ $y }}">
                                     Tahun {{ $y }}
                                 </option>
                             @endfor
                         </select>
                     </div>
 
-                    {{-- Filter Bulan Pengadaan (Figma Frame 259) --}}
-                    <div class="space-y-1.5">
+                    {{-- Filter Bulan Pengadaan --}}
+                    <div x-show="currentFiltersConfig.bulan" class="space-y-1.5 min-w-[180px] flex-1 sm:flex-none sm:w-52">
                         <label class="block text-xs font-bold text-slate-700">Bulan Pengadaan</label>
                         <select
                             x-model="laporanFilterBulan"
-                            @change="laporanPage = 1; syncUrl()"
+                            @change="onQueryFilterChange()"
                             class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20 transition"
                         >
                             <option value="">Semua Bulan (Januari - Desember)</option>
@@ -408,38 +414,86 @@
                                 ];
                             @endphp
                             @foreach($daftarBulan as $num => $namaB)
-                                <option value="{{ $num }}" {{ (int) $bulan === $num ? 'selected' : '' }}>
+                                <option value="{{ $num }}">
                                     {{ $namaB }}
                                 </option>
                             @endforeach
                         </select>
                     </div>
 
-                    {{-- Filter Jurusan / Unit Kerja (Figma Frame 260) --}}
-                    <div class="space-y-1.5">
+                    {{-- Filter Jurusan / Unit Kerja (Bebas Lintas Unit) --}}
+                    <div x-show="currentFiltersConfig.unit === 'all'" class="space-y-1.5 min-w-[210px] flex-1 sm:max-w-xs">
                         <label class="block text-xs font-bold text-slate-700">Jurusan / Unit Kerja</label>
                         <select
                             x-model="laporanFilterUnit"
-                            @change="laporanPage = 1; syncUrl()"
-                            {{ $userRole === 'user' ? 'disabled' : '' }}
-                            class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20 transition disabled:bg-slate-100 disabled:text-slate-500"
+                            @change="onQueryFilterChange()"
+                            class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20 transition"
                         >
                             <option value="">Semua Jurusan & Unit Kerja</option>
                             @foreach($units as $u)
-                                <option value="{{ $u->kode_unit }}" {{ $kodeUnit === $u->kode_unit ? 'selected' : '' }}>
+                                <option value="{{ $u->kode_unit }}">
                                     {{ $u->kode_unit }} - {{ $u->nama_unit }}
                                 </option>
                             @endforeach
                         </select>
                     </div>
+
+                    {{-- Filter Jurusan / Unit Kerja (Terkunci ke Unit Sendiri) --}}
+                    <div x-show="currentFiltersConfig.unit === 'locked_own'" class="space-y-1.5 min-w-[210px] flex-1 sm:max-w-xs">
+                        <label class="block text-xs font-bold text-slate-700">Jurusan / Unit Kerja</label>
+                        <select
+                            disabled
+                            class="w-full h-10 rounded-xl border border-slate-200 bg-slate-100 px-3 text-xs text-slate-500 transition cursor-not-allowed"
+                        >
+                            <option selected>{{ $userUnitCode !== '' ? $userUnitCode . ' - ' . $userUnitName : 'Unit Kerja Pengguna' }}</option>
+                        </select>
+                    </div>
+
+                    {{-- Filter Status Dinamis per Modul --}}
+                    <div x-show="(currentFiltersConfig.status_options || []).length > 0" class="space-y-1.5 min-w-[180px] flex-1 sm:flex-none sm:w-52">
+                        <label class="block text-xs font-bold text-slate-700" x-text="currentFiltersConfig.status_label || 'Status'"></label>
+                        <select
+                            x-model="laporanFilterStatus"
+                            @change="onQueryFilterChange()"
+                            class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20 transition"
+                        >
+                            <option value="">Semua Status</option>
+                            <template x-for="opt in (currentFiltersConfig.status_options || [])" :key="opt.value">
+                                <option :value="opt.value" x-text="opt.label"></option>
+                            </template>
+                        </select>
+                    </div>
+
+                    {{-- Filter Peran / Role RBAC (Khusus Modul Administrasi & RBAC) --}}
+                    <div x-show="currentFiltersConfig.has_role_filter && rolesList.length > 0" class="space-y-1.5 min-w-[180px] flex-1 sm:flex-none sm:w-52">
+                        <label class="block text-xs font-bold text-slate-700">Peran / Role RBAC</label>
+                        <select
+                            x-model="laporanFilterRole"
+                            @change="onQueryFilterChange()"
+                            class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20 transition"
+                        >
+                            <option value="">Semua Peran / Role</option>
+                            <template x-for="r in rolesList" :key="r.value">
+                                <option :value="r.value" x-text="r.label"></option>
+                            </template>
+                        </select>
+                    </div>
                 </div>
 
-                {{-- Aksi Filter & Tombol Unduh Laporan PDF --}}
-                <div class="flex items-center gap-2 self-start lg:self-end">
+                {{-- Aksi Filter & Tombol Unduh Laporan Tunggal (PDF + CSV Simultan) --}}
+                <div class="flex items-center gap-2 self-start lg:self-end shrink-0">
+                    <span
+                        x-show="isLoadingLaporan"
+                        x-cloak
+                        class="text-xs font-semibold text-slate-500 px-2"
+                    >
+                        Memuat...
+                    </span>
+
                     <button
                         type="button"
                         @click="resetLaporanFilter()"
-                        class="h-10 px-4 flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-bold text-slate-700 hover:border-slate-300 transition"
+                        class="h-10 px-4 flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-bold text-slate-700 hover:border-slate-300 transition cursor-pointer"
                         title="Reset filter laporan"
                     >
                         <svg class="size-4 text-slate-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -448,36 +502,64 @@
                         <span>Reset</span>
                     </button>
 
-                    {{-- Tombol Unduh Laporan PDF (Figma Frame 280 / Rectangle 125) --}}
-                    <a
-                        :href="'{{ route('laporan.unduh.ringkasan') }}?tahun=' + laporanFilterTahun + '&bulan=' + laporanFilterBulan + '&unit=' + laporanFilterUnit"
-                        target="_blank"
-                        class="h-10 px-5 flex items-center gap-2 rounded-xl bg-[#0969da] hover:bg-blue-700 text-xs font-bold text-white shadow-sm transition"
-                    >
-                        <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                        </svg>
-                        <span>Unduh Laporan (PDF)</span>
-                    </a>
+                    @if($canDownload)
+                        <button
+                            type="button"
+                            @click="downloadLaporan()"
+                            :disabled="isDownloading || activeModuleKeys.length === 0"
+                            class="h-10 px-5 flex items-center gap-2 rounded-xl bg-[#0969da] hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-bold text-white shadow-sm transition cursor-pointer"
+                            title="Unduh Laporan terformat (PDF) dan data mentah (CSV) sesuai modul aktif"
+                        >
+                            <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                            </svg>
+                            <span x-text="isDownloading ? downloadFeedback : 'Unduh Laporan'">Unduh Laporan</span>
+                        </button>
+                    @endif
                 </div>
             </div>
         </div>
 
-        {{-- 6 KARTU RINGKASAN KEUANGAN / SISTEM (FIGMA 538:3562 & FRAME 262-267) --}}
+        {{-- 6 KARTU RINGKASAN KEUANGAN / SISTEM + TAB MODUL RBAC --}}
         <div class="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm space-y-4">
-            <div class="flex items-center gap-2">
-                <div class="size-7 rounded-lg bg-blue-50 text-[#0969da] flex items-center justify-center">
-                    <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
+            <div class="flex flex-col gap-3">
+                <div class="flex items-center gap-2">
+                    <div class="size-7 rounded-lg bg-blue-50 text-[#0969da] flex items-center justify-center shrink-0">
+                        <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                    <h2 class="text-base font-extrabold text-[#213153]" x-text="ringkasanTitle">
+                        {{ $modularPayload['current_view']['ringkasan_title'] ?? 'Ringkasan Realisasi & Pengadaan' }}
+                    </h2>
                 </div>
-                <h2 class="text-base font-extrabold text-[#213153]" x-text="ringkasanTitle">
-                    {{ $ringkasanTitle ?? 'Ringkasan Realisasi & Pengadaan' }}
-                </h2>
+
+                <template x-if="moduleTabs.length > 1">
+                    <div class="flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-3">
+                        <template x-for="tab in moduleTabs" :key="'ringkasan-' + tab.key">
+                            <button
+                                type="button"
+                                @click="switchModule(tab.key)"
+                                :class="selectedModule === tab.key
+                                    ? 'bg-[#0969da] text-white border-[#0969da] shadow-xs'
+                                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-800'"
+                                class="px-3 py-1.5 rounded-lg border text-xs font-bold transition cursor-pointer"
+                                x-text="tab.label"
+                            ></button>
+                        </template>
+                    </div>
+                </template>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <template x-for="(card, cIdx) in laporanCards" :key="cIdx">
+            <template x-if="activeModuleKeys.length === 0">
+                <div class="rounded-xl border border-slate-200 bg-slate-50/70 p-6 text-center">
+                    <p class="text-sm font-bold text-slate-700">Belum ada modul laporan yang aktif pada izin RBAC akun Anda</p>
+                    <p class="text-xs text-slate-500 mt-1">Hubungi Administrator sistem apabila peran Anda memerlukan akses modul pelaporan atau fitur pengadaan tertentu.</p>
+                </div>
+            </template>
+
+            <div x-show="laporanCards.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <template x-for="(card, cIdx) in laporanCards" :key="selectedModule + '-card-' + cIdx">
                     <div class="relative overflow-hidden rounded-xl border border-slate-200/80 bg-slate-50/50 p-4 hover:border-[#0969da]/40 hover:bg-white transition-all shadow-xs group">
                         <div class="flex items-center gap-3.5">
                             <div class="size-11 rounded-xl bg-white border border-slate-200/80 flex items-center justify-center text-[#0969da] shadow-xs group-hover:scale-105 transition-transform">
@@ -496,27 +578,29 @@
             </div>
         </div>
 
-        {{-- TABEL LAPORAN RINCIAN (FIGMA 538:3625 & FRAME 276) --}}
+        {{-- TABEL LAPORAN RINCIAN + TAB MODUL RBAC --}}
         <div class="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm space-y-4">
-            
-            {{-- Header Tabel & Tombol Unduh Detail PDF --}}
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div class="flex items-center gap-2">
-                    <div class="size-7 rounded-lg bg-blue-50 text-[#0969da] flex items-center justify-center">
-                        <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/>
-                        </svg>
-                    </div>
-                    <h3 class="text-base font-extrabold text-[#213153]" x-text="tableTitle">{{ $tableTitle }}</h3>
-                </div>
 
-                <div class="flex items-center gap-2.5">
+            {{-- Header Tabel & Input Search --}}
+            <div class="flex flex-col gap-3">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div class="flex items-center gap-2">
+                        <div class="size-7 rounded-lg bg-blue-50 text-[#0969da] flex items-center justify-center shrink-0">
+                            <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/>
+                            </svg>
+                        </div>
+                        <h3 class="text-base font-extrabold text-[#213153]" x-text="tableTitle">
+                            {{ $modularPayload['current_view']['table_title'] ?? 'Rincian Data Laporan' }}
+                        </h3>
+                    </div>
+
                     {{-- Input Search Tabel Laporan --}}
-                    <div class="relative w-64">
+                    <div class="relative w-full sm:w-64">
                         <input
                             type="text"
                             x-model="laporanSearch"
-                            @input.debounce.300ms="laporanPage = 1; syncUrl()"
+                            @input.debounce.300ms="onSearchInput()"
                             placeholder="Cari dalam tabel laporan..."
                             class="w-full h-9 pl-8 pr-3 rounded-lg border border-slate-200 bg-white text-xs text-slate-800 placeholder:text-slate-400 focus:border-[#0969da] focus:ring-1 focus:ring-[#0969da]/20 transition"
                         />
@@ -526,19 +610,23 @@
                             </svg>
                         </div>
                     </div>
-
-                    {{-- Tombol Unduh Detail PDF (Figma Frame 281 / Rectangle 125) --}}
-                    <a
-                        :href="'{{ route('laporan.unduh.detail') }}?tahun=' + laporanFilterTahun + '&bulan=' + laporanFilterBulan + '&unit=' + laporanFilterUnit"
-                        target="_blank"
-                        class="h-9 px-4 flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 hover:border-slate-300 shadow-xs transition"
-                    >
-                        <svg class="size-3.5 text-[#0969da]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                        </svg>
-                        <span>Unduh Detail (PDF)</span>
-                    </a>
                 </div>
+
+                <template x-if="moduleTabs.length > 1">
+                    <div class="flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-3">
+                        <template x-for="tab in moduleTabs" :key="'table-' + tab.key">
+                            <button
+                                type="button"
+                                @click="switchModule(tab.key)"
+                                :class="selectedModule === tab.key
+                                    ? 'bg-[#0969da] text-white border-[#0969da] shadow-xs'
+                                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-800'"
+                                class="px-3 py-1.5 rounded-lg border text-xs font-bold transition cursor-pointer"
+                                x-text="tab.label"
+                            ></button>
+                        </template>
+                    </div>
+                </template>
             </div>
 
             {{-- Table Grid --}}
@@ -547,22 +635,22 @@
                     <table class="w-full text-left border-collapse">
                         <thead>
                             <tr class="bg-slate-50/90 border-b border-slate-200 text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
-                                <template x-for="(col, cIdx) in tableColumns" :key="cIdx">
-                                    <th 
+                                <template x-for="(col, cIdx) in tableColumns" :key="selectedModule + '-col-' + cIdx">
+                                    <th
                                         :class="{
                                             'w-16 text-center': cIdx === 0,
-                                            'w-32': cIdx === 1,
+                                            'w-36': cIdx === 1,
                                             'text-right': (col || '').includes('Pagu') || (col || '').includes('Nilai') || (col || '').includes('HPS') || (col || '').includes('Saldo') || (col || '').includes('Nominal') || (col || '').includes('%'),
-                                            'text-center': (col || '').includes('Status') || (col || '').includes('Tahun') || cIdx === 0
+                                            'text-center': (col || '').includes('Status') || (col || '').includes('Tahun') || (col || '').includes('Jumlah') || cIdx === 0
                                         }"
-                                        class="py-3 px-4" 
+                                        class="py-3 px-4"
                                         x-text="col"
                                     ></th>
                                 </template>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 text-xs text-slate-700">
-                            <template x-for="(row, rIdx) in paginatedLaporan" :key="rIdx">
+                            <template x-for="(row, rIdx) in paginatedLaporan" :key="selectedModule + '-row-' + rIdx">
                                 <tr
                                     @click="if (row.link) window.location.href = row.link"
                                     :class="row.link ? 'hover:bg-blue-50/50 cursor-pointer' : 'hover:bg-slate-50/60'"
@@ -570,36 +658,36 @@
                                 >
                                     {{-- No --}}
                                     <td class="py-3 px-4 text-center font-bold text-slate-400 group-hover:text-[#0969da]" x-text="row.no"></td>
-                                    
+
                                     {{-- Col 1 --}}
                                     <td class="py-3 px-4 font-mono font-bold text-slate-800" x-text="row.col1"></td>
-                                    
+
                                     {{-- Col 2 --}}
                                     <td class="py-3 px-4 font-semibold text-[#213153] group-hover:text-[#0969da]" x-text="row.col2"></td>
-                                    
+
                                     {{-- Col 3 --}}
-                                    <td 
+                                    <td
                                         :class="{
-                                            'text-center': (tableColumns[3] || '').includes('Tahun') || (tableColumns[3] || '').includes('Status'),
+                                            'text-center': (tableColumns[3] || '').includes('Tahun') || (tableColumns[3] || '').includes('Status') || (tableColumns[3] || '').includes('Jumlah'),
                                             'text-right': (row.col3 || '').startsWith('Rp ') || (row.col3 || '').endsWith('%'),
                                             'font-medium text-slate-600': true
                                         }"
-                                        class="py-3 px-4" 
+                                        class="py-3 px-4"
                                         x-text="row.col3"
                                     ></td>
-                                    
+
                                     {{-- Col 4 --}}
-                                    <td 
+                                    <td
                                         :class="{
                                             'text-right font-mono font-bold text-slate-800': (row.col4 || '').startsWith('Rp ') || (row.col4 || '').endsWith('%'),
                                             'font-medium text-slate-700': !(row.col4 || '').startsWith('Rp ') && !(row.col4 || '').endsWith('%')
                                         }"
-                                        class="py-3 px-4" 
+                                        class="py-3 px-4"
                                         x-text="row.col4"
                                     ></td>
-                                    
+
                                     {{-- Col 5 --}}
-                                    <td 
+                                    <td
                                         :class="{
                                             'text-right font-mono font-bold text-[#0969da]': (row.col5 || '').startsWith('Rp ') || (row.col5 || '').endsWith('%'),
                                             'text-center': !(row.col5 || '').startsWith('Rp ') && !(row.col5 || '').endsWith('%')
@@ -610,14 +698,9 @@
                                             <span class="font-bold text-[#0969da]" x-text="row.col5"></span>
                                         </template>
                                         <template x-if="!(row.col5 || '').endsWith('%') && !(row.col5 || '').startsWith('Rp ')">
-                                            <span 
+                                            <span
                                                 class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold"
-                                                :class="{
-                                                    'bg-emerald-50 text-emerald-700 border border-emerald-200': ['aktif', 'disetujui', 'selesai', 'lunas', 'diterima', 'terima', 'lengkap', 'spk_terbit'].some(s => (row.col5 || '').toLowerCase().includes(s)),
-                                                    'bg-rose-50 text-rose-700 border border-rose-200': ['ditolak', 'batal', 'nonaktif', 'tidak sesuai'].some(s => (row.col5 || '').toLowerCase().includes(s)),
-                                                    'bg-amber-50 text-amber-700 border border-amber-200': ['revisi', 'perlu perbaikan', 'menunggu acc', 'menunggu'].some(s => (row.col5 || '').toLowerCase().includes(s)),
-                                                    'bg-blue-50 text-[#0969da] border border-blue-200': !['aktif', 'disetujui', 'selesai', 'lunas', 'diterima', 'terima', 'lengkap', 'spk_terbit', 'ditolak', 'batal', 'nonaktif', 'revisi', 'perlu perbaikan', 'menunggu acc', 'menunggu'].some(s => (row.col5 || '').toLowerCase().includes(s))
-                                                }"
+                                                :class="statusBadgeClass(row.col5)"
                                                 x-text="row.col5"
                                             ></span>
                                         </template>
@@ -628,7 +711,7 @@
                             {{-- Empty State Laporan --}}
                             <template x-if="filteredLaporan.length === 0">
                                 <tr>
-                                    <td :colspan="tableColumns.length" class="py-10 px-6 text-center text-slate-500">
+                                    <td :colspan="Math.max(1, tableColumns.length)" class="py-10 px-6 text-center text-slate-500">
                                         <p class="text-sm font-bold text-slate-700">Tidak ada data laporan yang cocok</p>
                                         <p class="text-xs text-slate-400 mt-1">Gunakan kata kunci lain atau pilih periode filter yang sesuai.</p>
                                     </td>

@@ -1,26 +1,38 @@
 /**
- * Modul Frontend Riwayat dan Laporan SIM-PBJ Politeknik Negeri Jakarta (laporan.js)
+ * Modul Frontend Riwayat dan Laporan Terpadu SIM-PBJ Politeknik Negeri Jakarta (laporan.js)
  *
  * Mengelola interaktivitas reaktif Alpine.js pada halaman /laporan:
  * - Tab switcher (Riwayat Aktivitas & Laporan)
- * - Pencarian dan filter instan tanpa reload halaman
- * - Pagination interaktif client-side
- * - Sinkronisasi URL query string (deep linking & bookmarking)
+ * - Switcher sub-modul laporan berbasis izin RBAC aktif (termasuk gabungan Multi-Modul / Semua Modul)
+ * - Pembaruan data KPI dan tabel dari server secara reaktif saat filter berubah (tahun, bulan, unit, status, role)
+ * - Pencarian instan & pagination client-side
+ * - Sinkronisasi URL query string (deep linking)
+ * - Unduh Laporan simultan (PDF terformat + RAW CSV) sesuai modul & filter aktif
  */
 
 export function laporanApp(config = {}) {
+    const modular = config.modularPayload && typeof config.modularPayload === 'object'
+        ? config.modularPayload
+        : {};
+
     return {
-        // State Tab Aktif
+        // State Tab Utama
         activeTab: config.initialTab || 'riwayat',
 
-        // Data Master dari Server
+        // Data Tab Riwayat
         rawRiwayat: Array.isArray(config.riwayatData) ? config.riwayatData : [],
-        laporanCards: Array.isArray(config.laporanCards) ? config.laporanCards : [],
-        rawLaporanRows: Array.isArray(config.laporanRows) ? config.laporanRows : [],
-        ringkasanTitle: config.ringkasanTitle || 'Ringkasan Realisasi & Pengadaan',
-        tableTitle: config.tableTitle || 'Distribusi Anggaran per Jurusan dan Unit Kerja',
-        tableColumns: Array.isArray(config.tableColumns) ? config.tableColumns : [],
-        userRole: config.userRole || 'user',
+
+        // Data & Konfigurasi Tab Laporan Modular RBAC
+        modularPayload: modular,
+        selectedModule: modular.selected_module || 'semua',
+        rolesList: Array.isArray(modular.roles_list) ? modular.roles_list : [],
+        canDownload: Boolean(config.canDownload),
+        userUnitCode: config.userUnitCode || '',
+        userUnitName: config.userUnitName || '',
+        endpointUrl: config.endpointUrl || '/laporan',
+        pdfUrl: config.pdfUrl || '/laporan/unduh-pdf',
+        csvUrl: config.csvUrl || '/laporan/unduh-csv',
+        defaultYear: config.defaultYear || new Date().getFullYear().toString(),
 
         // State Filter Tab Riwayat
         riwayatSearch: '',
@@ -31,15 +43,22 @@ export function laporanApp(config = {}) {
         riwayatPerPage: 10,
 
         // State Filter Tab Laporan
-        laporanSearch: '',
+        laporanSearch: config.currentSearch || '',
+        serverFilteredQ: config.currentSearch || '',
         laporanFilterTahun: config.currentYear || new Date().getFullYear().toString(),
         laporanFilterBulan: config.currentMonth || '',
         laporanFilterUnit: config.currentUnit || '',
+        laporanFilterStatus: config.currentStatus || '',
+        laporanFilterRole: config.currentRoleFilter || '',
         laporanPage: 1,
         laporanPerPage: 10,
+        isLoadingLaporan: false,
+        isDownloading: false,
+        downloadFeedback: '',
+        fetchController: null,
 
         /**
-         * Inisialisasi komponen: baca parameter dari URL query string
+         * Inisialisasi komponen: sinkronkan parameter dari URL query string
          */
         init() {
             const params = new URLSearchParams(window.location.search);
@@ -50,42 +69,284 @@ export function laporanApp(config = {}) {
                 }
             }
 
+            if (params.has('module')) {
+                const modParam = params.get('module');
+                if (this.moduleTabs.some(t => t.key === modParam)) {
+                    this.selectedModule = modParam;
+                }
+            }
+
             if (params.has('q')) {
-                this.riwayatSearch = params.get('q');
-                this.laporanSearch = params.get('q');
+                const qVal = params.get('q') || '';
+                if (this.activeTab === 'riwayat') {
+                    this.riwayatSearch = qVal;
+                } else {
+                    this.laporanSearch = qVal;
+                }
             }
 
             if (params.has('aktivitas')) {
-                this.riwayatFilterAktivitas = params.get('aktivitas');
+                this.riwayatFilterAktivitas = params.get('aktivitas') || '';
             }
-
             if (params.has('waktu')) {
-                this.riwayatFilterWaktu = params.get('waktu');
+                this.riwayatFilterWaktu = params.get('waktu') || '';
             }
-
             if (params.has('status')) {
-                this.riwayatFilterStatus = params.get('status');
+                const st = params.get('status') || '';
+                if (this.activeTab === 'riwayat') {
+                    this.riwayatFilterStatus = st;
+                } else {
+                    this.laporanFilterStatus = st;
+                }
             }
-
             if (params.has('tahun')) {
-                this.laporanFilterTahun = params.get('tahun');
+                const thn = params.get('tahun') || '';
+                this.laporanFilterTahun = thn === '' ? 'all' : thn;
             }
-
             if (params.has('bulan')) {
-                this.laporanFilterBulan = params.get('bulan');
+                this.laporanFilterBulan = params.get('bulan') || '';
+            }
+            if (params.has('unit')) {
+                this.laporanFilterUnit = params.get('unit') || '';
+            }
+            if (params.has('role_filter')) {
+                this.laporanFilterRole = params.get('role_filter') || '';
+            }
+        },
+
+        // =====================================================================
+        // GETTER MODULAR RBAC (TAB LAPORAN)
+        // =====================================================================
+        get activeModuleKeys() {
+            return Array.isArray(this.modularPayload.active_module_keys)
+                ? this.modularPayload.active_module_keys
+                : [];
+        },
+
+        get moduleTabs() {
+            return Array.isArray(this.modularPayload.tabs)
+                ? this.modularPayload.tabs
+                : [];
+        },
+
+        get currentView() {
+            if (this.selectedModule === 'semua' && this.modularPayload.semua_view) {
+                return this.modularPayload.semua_view;
+            }
+            if (this.modularPayload.modules && this.modularPayload.modules[this.selectedModule]) {
+                return this.modularPayload.modules[this.selectedModule];
+            }
+            return this.modularPayload.current_view || {
+                key: 'kosong',
+                tab_label: 'Belum Ada Modul Laporan',
+                description: 'Peran akun Anda belum memiliki izin modul laporan aktif.',
+                ringkasan_title: 'Ringkasan Realisasi & Pengadaan',
+                table_title: 'Rincian Data Laporan',
+                filters: {
+                    tahun: false,
+                    bulan: false,
+                    unit: 'none',
+                    status_label: null,
+                    status_options: [],
+                    has_role_filter: false,
+                },
+                cards: [],
+                columns: ['No.', 'Referensi', 'Uraian', 'Tanggal', 'Nilai', 'Status'],
+                rows: [],
+            };
+        },
+
+        get currentFiltersConfig() {
+            return this.currentView.filters || {
+                tahun: false,
+                bulan: false,
+                unit: 'none',
+                status_label: null,
+                status_options: [],
+                has_role_filter: false,
+            };
+        },
+
+        get laporanCards() {
+            return Array.isArray(this.currentView.cards) ? this.currentView.cards : [];
+        },
+
+        get ringkasanTitle() {
+            return this.currentView.ringkasan_title || 'Ringkasan Realisasi & Pengadaan';
+        },
+
+        get tableTitle() {
+            return this.currentView.table_title || 'Rincian Data Laporan';
+        },
+
+        get tableColumns() {
+            return Array.isArray(this.currentView.columns) ? this.currentView.columns : [];
+        },
+
+        get rawLaporanRows() {
+            return Array.isArray(this.currentView.rows) ? this.currentView.rows : [];
+        },
+
+        // =====================================================================
+        // NAVIGASI TAB & SUB-MODUL RBAC
+        // =====================================================================
+        switchTab(tab) {
+            this.activeTab = tab;
+            this.syncUrl();
+        },
+
+        switchModule(moduleKey) {
+            const exists = this.moduleTabs.some(t => t.key === moduleKey);
+            if (!exists || this.selectedModule === moduleKey) {
+                return;
             }
 
-            if (params.has('unit')) {
-                this.laporanFilterUnit = params.get('unit');
+            this.selectedModule = moduleKey;
+            this.laporanPage = 1;
+
+            const opts = this.currentFiltersConfig.status_options || [];
+            const validStatus = this.laporanFilterStatus !== ''
+                && opts.some(o => String(o.value) === String(this.laporanFilterStatus));
+
+            let shouldRefetch = false;
+            if (this.laporanFilterStatus !== '' && !validStatus) {
+                this.laporanFilterStatus = '';
+                shouldRefetch = true;
+            }
+
+            this.syncUrl();
+            if (shouldRefetch) {
+                this.refreshLaporanFromServer();
+            }
+        },
+
+        onQueryFilterChange() {
+            this.laporanPage = 1;
+            this.syncUrl();
+            this.refreshLaporanFromServer();
+        },
+
+        onSearchInput() {
+            this.laporanPage = 1;
+            this.syncUrl();
+            if (this.serverFilteredQ && !this.laporanSearch.toLowerCase().includes(this.serverFilteredQ.toLowerCase())) {
+                this.refreshLaporanFromServer();
             }
         },
 
         /**
-         * Ganti Tab aktif dan sinkronkan URL
+         * Menyusun query parameters laporan untuk AJAX JSON maupun ekspor PDF/CSV.
          */
-        switchTab(tab) {
-            this.activeTab = tab;
-            this.syncUrl();
+        buildLaporanQueryParams(includeSearch = true, includeLaporanOnly = false) {
+            const params = new URLSearchParams();
+
+            if (includeLaporanOnly) {
+                params.set('laporan_only', '1');
+            }
+            if (this.selectedModule) {
+                params.set('module', this.selectedModule);
+            }
+            params.set('tahun', this.laporanFilterTahun || 'all');
+
+            if (this.laporanFilterBulan) {
+                params.set('bulan', this.laporanFilterBulan);
+            }
+            if (this.laporanFilterUnit && this.currentFiltersConfig.unit !== 'locked_own') {
+                params.set('unit', this.laporanFilterUnit);
+            }
+            if (this.laporanFilterStatus) {
+                params.set('status', this.laporanFilterStatus);
+            }
+            if (this.laporanFilterRole) {
+                params.set('role_filter', this.laporanFilterRole);
+            }
+            if (includeSearch && this.laporanSearch) {
+                params.set('q', this.laporanSearch);
+            }
+
+            return params;
+        },
+
+        /**
+         * Memuat ulang kartu KPI dan baris rincian modul laporan dari server sesuai filter aktif.
+         */
+        async refreshLaporanFromServer() {
+            if (this.fetchController) {
+                this.fetchController.abort();
+            }
+            this.fetchController = new AbortController();
+            this.isLoadingLaporan = true;
+
+            try {
+                const qs = this.buildLaporanQueryParams(false, true).toString();
+                const res = await fetch(`${this.endpointUrl}?${qs}`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    signal: this.fetchController.signal,
+                });
+
+                if (!res.ok) {
+                    return;
+                }
+
+                const data = await res.json();
+                if (data && data.modular) {
+                    this.modularPayload = data.modular;
+                    this.serverFilteredQ = '';
+                    if (Array.isArray(data.modular.roles_list)) {
+                        this.rolesList = data.modular.roles_list;
+                    }
+                    if (data.modular.selected_module && !this.moduleTabs.some(t => t.key === this.selectedModule)) {
+                        this.selectedModule = data.modular.selected_module;
+                    }
+                    this.laporanPage = 1;
+                }
+            } catch (err) {
+                if (err?.name !== 'AbortError') {
+                    console.error('Gagal memperbarui data laporan:', err);
+                }
+            } finally {
+                this.isLoadingLaporan = false;
+            }
+        },
+
+        /**
+         * Mengunduh laporan PDF terformat dan CSV (RAW) secara simultan sesuai modul & filter aktif.
+         */
+        downloadLaporan() {
+            if (!this.canDownload || this.isDownloading || this.activeModuleKeys.length === 0) {
+                return;
+            }
+
+            const qs = this.buildLaporanQueryParams(true, false).toString();
+            const pdfHref = `${this.pdfUrl}?${qs}`;
+            const csvHref = `${this.csvUrl}?${qs}`;
+
+            this.isDownloading = true;
+            this.downloadFeedback = 'Mengunduh PDF & CSV...';
+
+            const triggerFile = (href) => {
+                const link = document.createElement('a');
+                link.href = href;
+                link.setAttribute('download', '');
+                link.style.display = 'none';
+                document.body.appendChild(link);
+                link.click();
+                setTimeout(() => link.remove(), 1000);
+            };
+
+            triggerFile(pdfHref);
+            setTimeout(() => {
+                triggerFile(csvHref);
+            }, 450);
+
+            setTimeout(() => {
+                this.isDownloading = false;
+                this.downloadFeedback = '';
+            }, 1600);
         },
 
         /**
@@ -96,6 +357,9 @@ export function laporanApp(config = {}) {
             url.searchParams.set('tab', this.activeTab);
 
             if (this.activeTab === 'riwayat') {
+                url.searchParams.delete('module');
+                url.searchParams.delete('role_filter');
+
                 if (this.riwayatSearch) url.searchParams.set('q', this.riwayatSearch);
                 else url.searchParams.delete('q');
 
@@ -108,15 +372,44 @@ export function laporanApp(config = {}) {
                 if (this.riwayatFilterStatus) url.searchParams.set('status', this.riwayatFilterStatus);
                 else url.searchParams.delete('status');
             } else {
+                url.searchParams.delete('aktivitas');
+                url.searchParams.delete('waktu');
+
+                if (this.selectedModule) url.searchParams.set('module', this.selectedModule);
+                else url.searchParams.delete('module');
+
                 if (this.laporanSearch) url.searchParams.set('q', this.laporanSearch);
                 else url.searchParams.delete('q');
 
-                if (this.laporanFilterTahun) url.searchParams.set('tahun', this.laporanFilterTahun);
-                if (this.laporanFilterBulan) url.searchParams.set('bulan', this.laporanFilterBulan);
-                else url.searchParams.delete('bulan');
+                if (this.currentFiltersConfig.tahun && this.laporanFilterTahun) {
+                    url.searchParams.set('tahun', this.laporanFilterTahun);
+                } else {
+                    url.searchParams.delete('tahun');
+                }
 
-                if (this.laporanFilterUnit) url.searchParams.set('unit', this.laporanFilterUnit);
-                else url.searchParams.delete('unit');
+                if (this.currentFiltersConfig.bulan && this.laporanFilterBulan) {
+                    url.searchParams.set('bulan', this.laporanFilterBulan);
+                } else {
+                    url.searchParams.delete('bulan');
+                }
+
+                if (this.currentFiltersConfig.unit === 'all' && this.laporanFilterUnit) {
+                    url.searchParams.set('unit', this.laporanFilterUnit);
+                } else {
+                    url.searchParams.delete('unit');
+                }
+
+                if ((this.currentFiltersConfig.status_options || []).length > 0 && this.laporanFilterStatus) {
+                    url.searchParams.set('status', this.laporanFilterStatus);
+                } else {
+                    url.searchParams.delete('status');
+                }
+
+                if (this.currentFiltersConfig.has_role_filter && this.laporanFilterRole) {
+                    url.searchParams.set('role_filter', this.laporanFilterRole);
+                } else {
+                    url.searchParams.delete('role_filter');
+                }
             }
 
             window.history.replaceState({}, '', url);
@@ -135,16 +428,20 @@ export function laporanApp(config = {}) {
         },
 
         /**
-         * Reset seluruh filter pada Tab Laporan
+         * Reset seluruh filter pada Tab Laporan dan muat ulang data server
          */
         resetLaporanFilter() {
             this.laporanSearch = '';
+            this.laporanFilterTahun = this.defaultYear;
             this.laporanFilterBulan = '';
-            if (this.userRole !== 'user') {
+            if (this.currentFiltersConfig.unit !== 'locked_own') {
                 this.laporanFilterUnit = '';
             }
+            this.laporanFilterStatus = '';
+            this.laporanFilterRole = '';
             this.laporanPage = 1;
             this.syncUrl();
+            this.refreshLaporanFromServer();
         },
 
         /**
@@ -155,12 +452,28 @@ export function laporanApp(config = {}) {
             this.resetLaporanFilter();
         },
 
+        /**
+         * Menentukan kelas badge status pada kolom terakhir tabel laporan.
+         */
+        statusBadgeClass(val) {
+            const lower = (val || '').toLowerCase();
+            if (['ditolak', 'batal', 'nonaktif', 'tidak sesuai', 'terkunci', 'gagal'].some(s => lower.includes(s))) {
+                return 'bg-rose-50 text-rose-700 border border-rose-200';
+            }
+            if (['revisi', 'perlu perbaikan', 'kurang lengkap', 'menunggu'].some(s => lower.includes(s))) {
+                return 'bg-amber-50 text-amber-700 border border-amber-200';
+            }
+            if (['aktif', 'disetujui', 'selesai', 'lunas', 'diterima', 'terima', 'lengkap', 'sesuai', 'spk terbit', 'spk_terbit', 'cair'].some(s => lower.includes(s))) {
+                return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+            }
+            return 'bg-blue-50 text-[#0969da] border border-blue-200';
+        },
+
         // =====================================================================
         // GETTER & FILTER REAKTIF: TAB RIWAYAT
         // =====================================================================
         get filteredRiwayat() {
             return this.rawRiwayat.filter(item => {
-                // Filter Pencarian Teks
                 if (this.riwayatSearch) {
                     const q = this.riwayatSearch.toLowerCase();
                     const matchNomor = (item.nomor_surat || '').toLowerCase().includes(q);
@@ -172,21 +485,18 @@ export function laporanApp(config = {}) {
                     }
                 }
 
-                // Filter Jenis Aktivitas
                 if (this.riwayatFilterAktivitas) {
                     if ((item.jenis_aktivitas || '').toLowerCase() !== this.riwayatFilterAktivitas.toLowerCase()) {
                         return false;
                     }
                 }
 
-                // Filter Status
                 if (this.riwayatFilterStatus) {
                     if ((item.status || '').toLowerCase() !== this.riwayatFilterStatus.toLowerCase()) {
                         return false;
                     }
                 }
 
-                // Filter Waktu
                 if (this.riwayatFilterWaktu && item.waktu_raw) {
                     const itemDate = new Date(item.waktu_raw);
                     const now = new Date();
@@ -200,7 +510,10 @@ export function laporanApp(config = {}) {
                     } else if (this.riwayatFilterWaktu === 'bulan_ini') {
                         if (itemDate.getMonth() !== now.getMonth() || itemDate.getFullYear() !== now.getFullYear()) return false;
                     } else if (this.riwayatFilterWaktu === 'tahun_ini') {
-                        if (itemDate.getFullYear().toString() !== this.laporanFilterTahun.toString()) return false;
+                        const targetYear = this.laporanFilterTahun && this.laporanFilterTahun !== 'all'
+                            ? this.laporanFilterTahun.toString()
+                            : now.getFullYear().toString();
+                        if (itemDate.getFullYear().toString() !== targetYear) return false;
                     }
                 }
 
@@ -230,30 +543,23 @@ export function laporanApp(config = {}) {
         // GETTER & FILTER REAKTIF: TAB LAPORAN
         // =====================================================================
         get filteredLaporan() {
+            if (!this.laporanSearch) {
+                return this.rawLaporanRows;
+            }
+            const q = this.laporanSearch.toLowerCase();
             return this.rawLaporanRows.filter(row => {
-                // Filter Pencarian Teks
-                if (this.laporanSearch) {
-                    const q = this.laporanSearch.toLowerCase();
-                    const c1 = (row.col1 || '').toLowerCase().includes(q);
-                    const c2 = (row.col2 || '').toLowerCase().includes(q);
-                    const c3 = (row.col3 || '').toLowerCase().includes(q);
-                    const c4 = (row.col4 || '').toLowerCase().includes(q);
-                    const c5 = (row.col5 || '').toLowerCase().includes(q);
-                    if (!c1 && !c2 && !c3 && !c4 && !c5) {
-                        return false;
-                    }
-                }
-
-                // Filter Unit Kerja (Jika role bukan user)
-                if (this.laporanFilterUnit && this.userRole !== 'user') {
-                    const matchUnit = (row.col1 || '').toLowerCase() === this.laporanFilterUnit.toLowerCase() ||
-                                      (row.nomor_surat || '').toLowerCase().includes(this.laporanFilterUnit.toLowerCase());
-                    if (!matchUnit) {
-                        return false;
-                    }
-                }
-
-                return true;
+                const fields = [
+                    row.col1,
+                    row.col2,
+                    row.col3,
+                    row.col4,
+                    row.col5,
+                    row.nomor_surat,
+                    row.judul,
+                    row.kode_unit,
+                    row.modul,
+                ];
+                return fields.some(val => String(val || '').toLowerCase().includes(q));
             });
         },
 
@@ -273,6 +579,6 @@ export function laporanApp(config = {}) {
 
         get laporanEndIndex() {
             return Math.min(this.laporanPage * this.laporanPerPage, this.filteredLaporan.length);
-        }
+        },
     };
 }
