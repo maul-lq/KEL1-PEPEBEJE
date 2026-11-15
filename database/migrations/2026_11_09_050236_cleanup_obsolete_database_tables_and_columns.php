@@ -16,6 +16,12 @@ return new class extends Migration
 
         // 2. Hapus kolom usang npwp_vendor pada tabel paket_pengadaan (sudah digantikan oleh id_vendor dengan relasi resmi)
         if (Schema::hasColumn('paket_pengadaan', 'npwp_vendor')) {
+            if (Schema::getConnection()->getDriverName() === 'sqlite') {
+                Schema::table('paket_pengadaan', function (Blueprint $table) {
+                    $table->dropForeign(['npwp_vendor']);
+                });
+            }
+
             Schema::table('paket_pengadaan', function (Blueprint $table) {
                 $table->dropColumn('npwp_vendor');
             });

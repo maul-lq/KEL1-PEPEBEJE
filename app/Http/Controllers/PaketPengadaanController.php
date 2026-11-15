@@ -418,7 +418,7 @@ class PaketPengadaanController extends Controller
                     'file_dokumen_legalitas' => $legalitasPath,
                 ]
             );
-            if ($legalitasPath && empty($vendor->file_dokumen_legalitas)) {
+            if ($legalitasPath && $vendor->file_dokumen_legalitas !== $legalitasPath) {
                 $vendor->file_dokumen_legalitas = $legalitasPath;
                 $vendor->save();
             }

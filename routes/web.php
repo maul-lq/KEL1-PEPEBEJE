@@ -61,14 +61,21 @@ Route::middleware('auth')->group(function () {
     // Modul 1: Permohonan Pengadaan
     // -------------------------------------------------------------------------
     Route::get('/permohonan', [PermohonanPengadaanController::class, 'permohonanIndex'])->name('permohonan.index');
-    Route::get('/permohonan/create', [PermohonanPengadaanController::class, 'permohonanCreate'])->name('permohonan.create');
-    Route::post('/permohonan', [PermohonanPengadaanController::class, 'storePermohonan'])->name('permohonan.store');
-    Route::post('/permohonan/revisi', [PermohonanPengadaanController::class, 'revisiPermohonan'])->name('permohonan.revisi');
+    Route::get('/permohonan/create', [PermohonanPengadaanController::class, 'permohonanCreate'])
+        ->name('permohonan.create')
+        ->middleware('role:permohonan.create');
+    Route::post('/permohonan', [PermohonanPengadaanController::class, 'storePermohonan'])
+        ->name('permohonan.store')
+        ->middleware('role:permohonan.create');
+    Route::post('/permohonan/revisi', [PermohonanPengadaanController::class, 'revisiPermohonan'])
+        ->name('permohonan.revisi')
+        ->middleware('role:permohonan.revisi');
     Route::get('/permohonan/{id}', [PermohonanPengadaanController::class, 'permohonanShow'])
         ->name('permohonan.show')
         ->where(['id' => '.*']);
     Route::delete('/permohonan/{id}', [PermohonanPengadaanController::class, 'destroyPermohonan'])
         ->name('permohonan.destroy')
+        ->middleware('role:permohonan.delete,permohonan.create')
         ->where(['id' => '.*']);
 
     // -------------------------------------------------------------------------
@@ -123,11 +130,11 @@ Route::middleware('auth')->group(function () {
     // Titik Kembali BPMN N18: Perbaikan / Penyusunan Ulang Dokumen Pengadaan yang Ditolak PP (N27) atau PPK (N35)
     Route::get('/paket-pengadaan/{id}/edit', [PaketPengadaanController::class, 'paketEdit'])
         ->name('paket.edit')
-        ->middleware('role:ppbj,admin')
+        ->middleware('role:ppbj')
         ->where(['id' => '.*']);
     Route::put('/paket-pengadaan/{id}', [PaketPengadaanController::class, 'paketUpdate'])
         ->name('paket.update')
-        ->middleware('role:ppbj,admin')
+        ->middleware('role:ppbj')
         ->where(['id' => '.*']);
     Route::get('/paket-pengadaan/{id}', [PaketPengadaanController::class, 'paketShow'])
         ->name('paket.show')
@@ -138,11 +145,17 @@ Route::middleware('auth')->group(function () {
     // -------------------------------------------------------------------------
     Route::get('/monitor-pp', [KontrakSPKController::class, 'monitorPpIndex'])
         ->name('monitor-pp.index')
-        ->middleware('role:ppbj,admin,pp,ppk,lihat_pp,pp.monitoring_aktivitas');
+        ->middleware('role:pp.monitoring_aktivitas,lihat_pp');
 
-    Route::get('/kontrak-spk', [KontrakSPKController::class, 'kontrakIndex'])->name('kontrak.index')->middleware('role:pp,ppk,ppbj,admin');
-    Route::post('/kontrak-spk', [KontrakSPKController::class, 'storeKontrak'])->name('kontrak.store')->middleware('role:pp,ppbj,admin');
-    Route::post('/kontrak-spk/reviu', [KontrakSPKController::class, 'storeReviuWeb'])->name('kontrak.reviu')->middleware('role:pp,ppk');
+    Route::get('/kontrak-spk', [KontrakSPKController::class, 'kontrakIndex'])
+        ->name('kontrak.index')
+        ->middleware('role:spk.create,reviu.pp,reviu.ppk,pp.monitoring_aktivitas,lihat_pp');
+    Route::post('/kontrak-spk', [KontrakSPKController::class, 'storeKontrak'])
+        ->name('kontrak.store')
+        ->middleware('role:spk.create');
+    Route::post('/kontrak-spk/reviu', [KontrakSPKController::class, 'storeReviuWeb'])
+        ->name('kontrak.reviu')
+        ->middleware('role:reviu.pp,reviu.ppk');
 
     // -------------------------------------------------------------------------
     // Modul 6: Penerimaan Barang & BAST
@@ -160,7 +173,7 @@ Route::middleware('auth')->group(function () {
     // Titik Kembali BPMN N52: Perbaikan Berkas Dokumen Pembayaran yang Ditolak Wadir II (N60) atau PPK (N61)
     Route::put('/pembayaran/{nomor_pembayaran}', [PembayaranController::class, 'pembayaranUpdate'])
         ->name('pembayaran.update')
-        ->middleware('role:ppbj,admin')
+        ->middleware('role:ppbj')
         ->where(['nomor_pembayaran' => '.*']);
     Route::post('/pembayaran/memo/approve', [PembayaranController::class, 'approveMemoBayarWeb'])->name('pembayaran.memo.approve')->middleware('role:ppk,wadir_2');
     Route::post('/pembayaran/terbitkan-spp', [PembayaranController::class, 'terbitkanSppWeb'])->name('pembayaran.terbitkan-spp')->middleware('role:ppbj');
@@ -192,21 +205,25 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/notifikasi-terbaru', [NotifikasiUserController::class, 'notifikasiTerbaru'])->name('notifikasi.terbaru');
 
     // -------------------------------------------------------------------------
-    // Modul Admin
+    // Modul Admin (Berbasis Permission RBAC)
     // -------------------------------------------------------------------------
-    Route::middleware('role:admin')->prefix('admin')->name('admin.')->group(function () {
-        Route::get('/persetujuan-registrasi', [ApprovalRegistrasiController::class, 'index'])->name('persetujuan-registrasi.index');
-        Route::post('/persetujuan-registrasi/{user}/acc', [ApprovalRegistrasiController::class, 'acc'])->name('persetujuan-registrasi.acc');
-        Route::post('/persetujuan-registrasi/{user}/tolak', [ApprovalRegistrasiController::class, 'tolak'])->name('persetujuan-registrasi.tolak');
+    Route::prefix('admin')->name('admin.')->group(function () {
+        Route::middleware('role:admin.approval_registrasi')->group(function () {
+            Route::get('/persetujuan-registrasi', [ApprovalRegistrasiController::class, 'index'])->name('persetujuan-registrasi.index');
+            Route::post('/persetujuan-registrasi/{user}/acc', [ApprovalRegistrasiController::class, 'acc'])->name('persetujuan-registrasi.acc');
+            Route::post('/persetujuan-registrasi/{user}/tolak', [ApprovalRegistrasiController::class, 'tolak'])->name('persetujuan-registrasi.tolak');
+        });
 
         // Manajemen Data Pengguna (CRUD User Admin)
-        Route::resource('users', AdminUserController::class);
+        Route::resource('users', AdminUserController::class)->middleware('role:admin.user_manage');
 
         // Manajemen Master Role & Matriks Hak Akses (Permissions)
-        Route::get('/roles', [RoleController::class, 'index'])->name('roles.index');
-        Route::post('/roles', [RoleController::class, 'store'])->name('roles.store');
-        Route::put('/roles/{role}', [RoleController::class, 'update'])->name('roles.update');
-        Route::delete('/roles/{role}', [RoleController::class, 'destroy'])->name('roles.destroy');
+        Route::middleware('role:admin.role_manage')->group(function () {
+            Route::get('/roles', [RoleController::class, 'index'])->name('roles.index');
+            Route::post('/roles', [RoleController::class, 'store'])->name('roles.store');
+            Route::put('/roles/{role}', [RoleController::class, 'update'])->name('roles.update');
+            Route::delete('/roles/{role}', [RoleController::class, 'destroy'])->name('roles.destroy');
+        });
     });
 
     // -------------------------------------------------------------------------

@@ -71,6 +71,17 @@
         />
     </div>
 
+    @if($errors->any())
+        <div class="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-xs text-rose-800 space-y-1">
+            <p class="font-bold">Terdapat kesalahan pada pengisian formulir pembayaran:</p>
+            <ul class="list-disc list-inside space-y-0.5">
+                @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
     {{-- 4. PANEL PENGAJUAN BERKAS PEMBAYARAN OLEH PPBJ --}}
     @if(Auth::user()->hasRole('admin') || Auth::user()->hasPermission('pembayaran.pengajuan'))
     <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80">
@@ -98,7 +109,7 @@
                         'tanggal_penerimaan' => $b->tanggal_penerimaan ? \Carbon\Carbon::parse($b->tanggal_penerimaan)->format('d/m/Y') : '-',
                         'file_bast_signed' => $b->file_bast_signed ? asset('storage/' . $b->file_bast_signed) : null,
                         'foto_dokumentasi' => $b->fotoDokumentasi->map(fn($f) => asset('storage/' . ($f->foto_dokumentasi ?? $f->file_foto)))->all(),
-                        'nominal' => (float)($pkt?->nominal_harga_akhir ?: ($pkt?->nilai_hps ?: 0)),
+                        'nominal' => (float)($pkt?->kontrakSpk?->nilai_kontrak ?: ($pkt?->nominal_harga_akhir ?: ($pkt?->nilai_hps ?: 0))),
                         'nomor_kwitansi' => $pkt?->nomor_kwitansi_belanja ?: '',
                         'file_kwitansi' => $pkt?->file_kwitansi_belanja ? asset('storage/' . $pkt->file_kwitansi_belanja) : null,
                         'vendor_nama' => $vendorName,
@@ -107,10 +118,10 @@
             @endphp
 
             <div x-data="{
-                selectedPaket: '{{ request('nomor_paket', '') }}',
+                selectedPaket: '{{ old('nomor_paket', request('nomor_paket', '')) }}',
                 bastMap: {{ Js::from($bastJsonData) }},
-                nominal: '',
-                nomorKwitansi: '',
+                nominal: '{{ old('nominal_pengajuan', '') }}',
+                nomorKwitansi: '{{ old('nomor_kwitansi', '') }}',
                 hasExistingKwitansi: false,
                 existingKwitansiUrl: '',
                 hasExistingBast: false,
@@ -120,7 +131,7 @@
                     const data = this.bastMap[this.selectedPaket];
                     if (data) {
                         this.nominal = data.nominal || '';
-                        this.nomorKwitansi = data.nomor_kwitansi || '{{ 'KWT/PNJ/' . date('Y') . '/' . rand(100, 999) }}';
+                        this.nomorKwitansi = data.nomor_kwitansi || '';
                         this.hasExistingKwitansi = !!data.file_kwitansi;
                         this.existingKwitansiUrl = data.file_kwitansi || '';
                         this.hasExistingBast = !!data.file_bast_signed;
@@ -138,7 +149,11 @@
                 },
                 init() {
                     if (this.selectedPaket && this.bastMap[this.selectedPaket]) {
+                        const prevNominal = this.nominal;
+                        const prevKwitansi = this.nomorKwitansi;
                         this.onPaketChange();
+                        if (prevNominal) this.nominal = prevNominal;
+                        if (prevKwitansi) this.nomorKwitansi = prevKwitansi;
                     }
                 }
             }">
@@ -151,7 +166,7 @@
                                 <option value="">-- Pilih Paket Hasil Penerimaan Barang --</option>
                                 @foreach($bastSiapBayar as $b)
                                     <option value="{{ $b->nomor_paket }}">
-                                        [{{ $b->nomor_bast }}] {{ $b->paket?->nama_paket ?? $b->nomor_paket }} &bull; Rp {{ number_format((float)($b->paket?->nominal_harga_akhir ?: ($b->paket?->nilai_hps ?: 0)), 0, ',', '.') }}
+                                        [{{ $b->nomor_bast }}] {{ $b->paket?->nama_paket ?? $b->nomor_paket }} &bull; Rp {{ number_format((float)($b->paket?->kontrakSpk?->nilai_kontrak ?: ($b->paket?->nominal_harga_akhir ?: ($b->paket?->nilai_hps ?: 0))), 0, ',', '.') }}
                                     </option>
                                 @endforeach
                             </select>
@@ -159,7 +174,7 @@
 
                         <div>
                             <label for="nomor_pembayaran_fe" class="block text-xs font-bold text-slate-700 mb-1">Nomor Pengajuan SPP <span class="text-rose-500">*</span></label>
-                            <input type="text" id="nomor_pembayaran_fe" name="nomor_pembayaran" value="SPP/PNJ/{{ date('Y') }}/{{ rand(100, 999) }}" required class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 font-mono focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
+                            <input type="text" id="nomor_pembayaran_fe" name="nomor_pembayaran" value="{{ old('nomor_pembayaran', 'SPP/PNJ/' . date('Y') . '/' . rand(100, 999)) }}" required class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 font-mono focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
                         </div>
                     </div>
 
@@ -227,36 +242,43 @@
 
                     {{-- Kelengkapan Berkas Tagihan Resmi (Kwitansi & Invoice) --}}
                     <div class="rounded-xl border border-blue-100 bg-blue-50/40 p-4 space-y-4">
-                        <h4 class="text-xs font-bold text-[#213153] uppercase tracking-wider flex items-center gap-1.5">
-                            <svg class="size-4 text-[#0969da]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                            Informasi Dokumen Pembayaran (Kwitansi &amp; Invoice Tagihan Rekanan)
-                        </h4>
+                        <div>
+                            <h4 class="text-xs font-bold text-[#213153] uppercase tracking-wider flex items-center gap-1.5">
+                                <svg class="size-4 text-[#0969da]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                Informasi Dokumen Pembayaran (Kwitansi &amp; Invoice Tagihan Rekanan)
+                            </h4>
+                            <p class="text-[11px] text-slate-600 mt-1">Lampirkan kwitansi tanda terima pembayaran dan invoice tagihan rekanan sebagai syarat verifikasi memo bayar Wadir II dan PPK.</p>
+                        </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label for="nomor_kwitansi" class="block text-xs font-bold text-slate-700 mb-1">Nomor Kwitansi Pembayaran</label>
-                                <input type="text" id="nomor_kwitansi" name="nomor_kwitansi" x-model="nomorKwitansi" class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-mono text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20" />
+                                <label for="nomor_kwitansi" class="block text-xs font-bold text-slate-700 mb-1">Nomor Kwitansi Pembayaran <span class="text-rose-500">*</span></label>
+                                <input type="text" id="nomor_kwitansi" name="nomor_kwitansi" x-model="nomorKwitansi" required placeholder="Contoh: KWT/2026/001" class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-mono text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20" />
                             </div>
                             <div>
                                 <label for="file_kwitansi" class="block text-xs font-bold text-slate-700 mb-1">
-                                    Berkas Kwitansi (PDF/Gambar)
-                                    <span x-show="hasExistingKwitansi" class="text-emerald-600 font-normal text-[11px] ml-1">(Telah tersimpan dari belanja langsung)</span>
+                                    Berkas Kwitansi (PDF/Gambar) <span x-show="!hasExistingKwitansi" class="text-rose-500">*</span>
+                                    <span x-show="hasExistingKwitansi" class="text-emerald-600 font-normal text-[11px] ml-1">
+                                        (Tersimpan dari belanja langsung)
+                                        <a x-show="existingKwitansiUrl" :href="existingKwitansiUrl" target="_blank" class="text-[#0969da] hover:underline ml-0.5">Lihat</a>
+                                    </span>
                                 </label>
-                                <input type="file" id="file_kwitansi" name="file_kwitansi" accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da]" />
+                                <input type="file" id="file_kwitansi" name="file_kwitansi" accept=".pdf,image/*" :required="!hasExistingKwitansi" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da]" />
                             </div>
                             <div>
-                                <label for="nomor_invoice" class="block text-xs font-bold text-slate-700 mb-1">Nomor Invoice Tagihan Rekanan</label>
-                                <input type="text" id="nomor_invoice" name="nomor_invoice" value="INV/PNJ/{{ date('Y') }}/{{ rand(100, 999) }}" class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-mono text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20" />
+                                <label for="nomor_invoice" class="block text-xs font-bold text-slate-700 mb-1">Nomor Invoice Tagihan Rekanan <span class="text-rose-500">*</span></label>
+                                <input type="text" id="nomor_invoice" name="nomor_invoice" value="{{ old('nomor_invoice') }}" required placeholder="Contoh: INV/REKANAN/2026/001" class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-mono text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20" />
                             </div>
                             <div>
-                                <label for="file_invoice" class="block text-xs font-bold text-slate-700 mb-1">Unggah Berkas Invoice Tagihan (PDF/Gambar)</label>
-                                <input type="file" id="file_invoice" name="file_invoice" accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da]" />
+                                <label for="file_invoice" class="block text-xs font-bold text-slate-700 mb-1">Unggah Berkas Invoice Tagihan (PDF/Gambar) <span class="text-rose-500">*</span></label>
+                                <input type="file" id="file_invoice" name="file_invoice" accept=".pdf,image/*" required class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da]" />
                             </div>
                         </div>
                     </div>
 
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">Dokumen Penunjang Pembayaran (PDF/Gambar)</label>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Dokumen Penunjang Pembayaran (Opsional — PDF/Gambar)</label>
                         <input type="file" name="file_dokumen_penunjang" accept=".pdf,image/*" class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da]">
+                        <p class="text-[11px] text-slate-500 mt-1">Opsional. Misalnya faktur pajak, resume transaksi, atau lampiran pendukung lainnya (terpisah dari berkas SPP yang diunggah Keuangan).</p>
                     </div>
 
                     <div class="flex items-center justify-end pt-3 border-t border-slate-100">
@@ -266,10 +288,6 @@
                     </div>
                 </form>
             </div>
-                        Kirim Berkas Pengajuan ke PPK &amp; Wadir II &rarr;
-                    </button>
-                </div>
-            </form>
         @endif
     </div>
     @endif
@@ -409,6 +427,12 @@
             <div class="space-y-4">
                 @foreach($memoMenungguReview as $memo)
                     <div class="p-4 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        @php
+                            $memoPay = $memo->pembayaran;
+                            $memoPkt = $memoPay?->paket;
+                            $perikatanFile = $memoPkt?->kontrakSpk?->file_spk ?: $memoPay?->file_dokumen_perikatan;
+                            $bastFile = $memoPkt?->penerimaanBarang?->sortByDesc('id_penerimaan')?->first()?->file_bast_signed;
+                        @endphp
                         <div class="space-y-1">
                             <div class="flex items-center gap-2">
                                 <span class="font-mono font-bold text-xs text-[#0969da]">{{ $memo->nomor_memo ?: 'Belum Ada No. Memo' }}</span>
@@ -416,16 +440,36 @@
                                     {{ $memo->role_approver === 'wadir_2' ? 'WADIR II' : 'PPK' }}
                                 </span>
                             </div>
-                            <h4 class="text-xs font-bold text-slate-800">Paket: {{ $memo->pembayaran->nomor_paket ?? '-' }}</h4>
+                            <h4 class="text-xs font-bold text-slate-800">Paket: {{ $memoPay?->nomor_paket ?? '-' }}</h4>
                             <p class="text-[11px] text-slate-500">
-                                Nominal: <strong>Rp {{ number_format($memo->pembayaran->nominal_pengajuan ?? 0, 0, ',', '.') }}</strong> &bull; SPP: <span class="font-mono">{{ $memo->nomor_pembayaran }}</span>
+                                Nominal: <strong>Rp {{ number_format($memoPay?->nominal_pengajuan ?? 0, 0, ',', '.') }}</strong> &bull; SPP: <span class="font-mono">{{ $memo->nomor_pembayaran }}</span>
+                                @if(!empty($memoPkt?->vendor?->nama_vendor))
+                                    &bull; Rekanan: <span class="font-medium text-slate-700">{{ $memoPkt->vendor->nama_vendor }}</span>
+                                @endif
                             </p>
-                            @if(!empty($memo->file_memo))
-                                <div class="pt-1">
-                                    <a href="{{ asset('storage/' . $memo->file_memo) }}" target="_blank" class="inline-flex items-center gap-1 text-[11px] font-bold text-[#0969da] hover:underline">
-                                        <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                                        <span>Lihat Dokumen Fisik Memo Resmi</span>
-                                    </a>
+                            @if(!empty($memo->file_memo) || !empty($perikatanFile) || !empty($bastFile) || !empty($memoPay?->file_kwitansi) || !empty($memoPay?->file_invoice) || !empty($memoPay?->file_dokumen_penunjang))
+                                <div class="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-[11px]">
+                                    @if(!empty($memo->file_memo))
+                                        <a href="{{ asset('storage/' . $memo->file_memo) }}" target="_blank" class="inline-flex items-center gap-1 font-bold text-[#0969da] hover:underline">
+                                            <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                            <span>Memo Resmi</span>
+                                        </a>
+                                    @endif
+                                    @if(!empty($perikatanFile))
+                                        <a href="{{ asset('storage/' . $perikatanFile) }}" target="_blank" class="font-semibold text-[#0969da] hover:underline">Perikatan/SPK</a>
+                                    @endif
+                                    @if(!empty($bastFile))
+                                        <a href="{{ asset('storage/' . $bastFile) }}" target="_blank" class="font-semibold text-[#0969da] hover:underline">BAST</a>
+                                    @endif
+                                    @if(!empty($memoPay?->file_kwitansi))
+                                        <a href="{{ asset('storage/' . $memoPay->file_kwitansi) }}" target="_blank" class="font-semibold text-[#0969da] hover:underline">Kwitansi{{ $memoPay->nomor_kwitansi ? ' (' . $memoPay->nomor_kwitansi . ')' : '' }}</a>
+                                    @endif
+                                    @if(!empty($memoPay?->file_invoice))
+                                        <a href="{{ asset('storage/' . $memoPay->file_invoice) }}" target="_blank" class="font-semibold text-[#0969da] hover:underline">Invoice{{ $memoPay->nomor_invoice ? ' (' . $memoPay->nomor_invoice . ')' : '' }}</a>
+                                    @endif
+                                    @if(!empty($memoPay?->file_dokumen_penunjang))
+                                        <a href="{{ asset('storage/' . $memoPay->file_dokumen_penunjang) }}" target="_blank" class="font-semibold text-[#0969da] hover:underline">Penunjang</a>
+                                    @endif
                                 </div>
                             @endif
                         </div>
@@ -701,9 +745,9 @@
                                     </td>
                                     <td class="px-4 py-3.5 align-top space-y-1">
                                         {{-- Berkas SPP --}}
-                                        @if(!empty($sc->file_dokumen_penunjang))
+                                        @if(!empty($sc->file_spp))
                                             <div>
-                                                <a href="{{ asset('storage/' . $sc->file_dokumen_penunjang) }}" target="_blank" class="inline-flex items-center gap-1 text-[11px] font-bold text-[#0969da] hover:underline">
+                                                <a href="{{ asset('storage/' . $sc->file_spp) }}" target="_blank" class="inline-flex items-center gap-1 text-[11px] font-bold text-[#0969da] hover:underline">
                                                     <svg class="size-3 text-rose-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/></svg>
                                                     <span>Surat Perintah Bayar (SPP)</span>
                                                 </a>
@@ -712,7 +756,7 @@
                                             <div class="text-[11px] text-slate-600 font-medium">SPP Sistem: {{ $sc->nomor_pembayaran }}</div>
                                         @endif
 
-                                        {{-- Kwitansi & Invoice --}}
+                                        {{-- Kwitansi, Invoice, Perikatan & Penunjang --}}
                                         <div class="text-[10px] text-slate-600 space-y-0.5">
                                             <div>Kwitansi: <span class="font-mono font-semibold">{{ $sc->nomor_kwitansi ?: '-' }}</span>
                                                 @if(!empty($sc->file_kwitansi))
@@ -724,6 +768,15 @@
                                                     <a href="{{ asset('storage/' . $sc->file_invoice) }}" target="_blank" class="text-[#0969da] hover:underline font-bold ml-1">(File)</a>
                                                 @endif
                                             </div>
+                                            @php
+                                                $scPerikatanFile = $sc->paket?->kontrakSpk?->file_spk ?: $sc->file_dokumen_perikatan;
+                                            @endphp
+                                            @if(!empty($scPerikatanFile))
+                                                <div>Perikatan: <a href="{{ asset('storage/' . $scPerikatanFile) }}" target="_blank" class="text-[#0969da] hover:underline font-bold">(File)</a></div>
+                                            @endif
+                                            @if(!empty($sc->file_dokumen_penunjang))
+                                                <div>Penunjang: <a href="{{ asset('storage/' . $sc->file_dokumen_penunjang) }}" target="_blank" class="text-[#0969da] hover:underline font-bold">(File)</a></div>
+                                            @endif
                                         </div>
 
                                         {{-- Dokumen BAST --}}

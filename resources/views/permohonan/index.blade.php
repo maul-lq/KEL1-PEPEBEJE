@@ -33,8 +33,8 @@
 
         <!-- AREA TOMBOL KANAN ATAS (Figma 498:4945 / 498:5127) -->
         <div class="flex items-center gap-3">
-            {{-- Tombol Permohonan Baru (Hanya untuk non-admin) --}}
-            @if(! Auth::user()->hasRole('admin') && (Auth::user()->hasRole('user') || Auth::user()->hasAnyPermission(['permohonan.create'])))
+            {{-- Tombol Permohonan Baru (Berbasis Permission RBAC) --}}
+            @if(Auth::user()->hasPermission('permohonan.create'))
                 <button x-show="viewMode !== 'fullscreen'" 
                         @click="openCreateModal()" 
                         data-action="openCreateModal()" 
@@ -48,7 +48,7 @@
             @endif
 
             {{-- Tombol Hapus / Batalkan saat mode Fullscreen --}}
-            @if(Auth::user()->hasRole('admin'))
+            @if(Auth::user()->hasPermission('permohonan.delete'))
                 <button x-show="viewMode === 'fullscreen' && selectedItem" 
                         @click="openHapusModal(selectedItem)" 
                         type="button" 
@@ -56,9 +56,9 @@
                     <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                     </svg>
-                    <span>Hapus Pengajuan (Admin)</span>
+                    <span>Hapus Pengajuan</span>
                 </button>
-            @else
+            @elseif(Auth::user()->hasPermission('permohonan.create'))
                 <template x-if="viewMode === 'fullscreen' && selectedItem && ['draft', 'diajukan', 'ditolak', 'perlu_revisi'].includes(String(selectedItem.statusRaw || '').toLowerCase())">
                     <button @click="openHapusModal(selectedItem)" 
                             type="button" 
@@ -507,7 +507,7 @@
                                 <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                             </a>
 
-                            @if(!Auth::user()->hasRole('admin'))
+                            @if(Auth::user()->hasPermission('permohonan.revisi'))
                                 <template x-if="['ditolak', 'revisi', 'perlu_revisi'].includes(String(selectedItem.statusRaw || selectedItem.status_permohonan || selectedItem.status || '').toLowerCase())">
                                     <button type="button" 
                                             @click="openRevisiModal(selectedItem)"
@@ -810,7 +810,7 @@
                                class="h-9 px-3.5 inline-flex items-center rounded-lg border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50 transition-colors">
                                 Unduh PDF
                             </a> --}}
-                            @if(!Auth::user()->hasRole('admin'))
+                            @if(Auth::user()->hasPermission('permohonan.revisi'))
                                 <template x-if="['ditolak', 'revisi', 'perlu_revisi'].includes(String(selectedItem.statusRaw || selectedItem.status_permohonan || selectedItem.status || '').toLowerCase())">
                                     <button type="button" 
                                             @click="openRevisiModal(selectedItem)"
@@ -821,14 +821,16 @@
                             @endif
                         </div>
 
+                        @if(Auth::user()->hasAnyPermission(['permohonan.delete', 'permohonan.create']))
                         <div class="flex items-center gap-2">
 
                             <button type="button" 
                                     @click="openHapusModal(selectedItem)"
                                     class="h-9 px-3.5 inline-flex items-center rounded-lg text-rose-600 hover:bg-rose-50 text-xs font-semibold transition-colors cursor-pointer">
-                                {{ Auth::user()->hasRole('admin') ? 'Hapus' : 'Batalkan' }}
+                                {{ Auth::user()->hasPermission('permohonan.delete') ? 'Hapus' : 'Batalkan' }}
                             </button>
                         </div>
+                        @endif
                     </div>
                 </template>
 
@@ -875,7 +877,7 @@
     <!-- ========================================================================= -->
     <!-- 5. MODAL 2: BUAT PERMOHONAN BARU MULTI-DOKUMEN (737:7343 & 737:7339)      -->
     <!-- ========================================================================= -->
-    @if(! Auth::user()->hasRole('admin'))
+    @if(Auth::user()->hasPermission('permohonan.create'))
     <x-modal id="modal-create-permohonan" title="Buat Permohonan Baru" subtitle="Masukkan nomor surat Srikandi, judul, tujuan, serta dokumen resmi" maxWidth="596" borderTop="border-t-[5px] border-[#3b82f6]">
         <form action="{{ route('permohonan.store') }}" 
               method="POST" 

@@ -100,9 +100,13 @@
             <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Dashboard</span>
         </a>
 
-        <!-- 2. ADMIN ONLY: RBAC, User CRUD & Master Management -->
-        @if(Auth::user()->hasRole('admin') || Auth::user()->hasAnyPermission(['admin.approval_registrasi', 'admin.user_manage', 'admin.role_manage']))
-            @if(Auth::user()->hasRole('admin') || Auth::user()->hasPermission('admin.approval_registrasi'))
+        @php
+            $u = Auth::user();
+        @endphp
+
+        <!-- 2. ADMIN MODULES: RBAC & User Management (Berbasis Permission RBAC) -->
+        @if($u->hasAnyPermission(['admin.approval_registrasi', 'admin.user_manage', 'admin.role_manage']))
+            @if($u->hasPermission('admin.approval_registrasi'))
                 @php
                     $pendingRegistrasiCount = \App\Models\User::where('status_registrasi', \App\Models\User::STATUS_REGISTRASI_MENUNGGU)->count();
                     $aReg = request()->routeIs('admin.persetujuan-registrasi.*');
@@ -128,7 +132,7 @@
                 </a>
             @endif
 
-            @if(Auth::user()->hasRole('admin') || Auth::user()->hasPermission('admin.user_manage'))
+            @if($u->hasPermission('admin.user_manage'))
                 @php $aUsr = request()->routeIs('admin.users.*'); @endphp
                 <a href="{{ route('admin.users.index') }}" 
                    title="Manajemen Pengguna" 
@@ -140,7 +144,7 @@
                 </a>
             @endif
 
-            @if(Auth::user()->hasRole('admin') || Auth::user()->hasPermission('admin.role_manage'))
+            @if($u->hasPermission('admin.role_manage'))
                 @php $aRole = request()->routeIs('admin.roles.*'); @endphp
                 <a href="{{ route('admin.roles.index') }}" 
                    title="Master Role & Hak Akses" 
@@ -151,40 +155,32 @@
                     <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Master Role &amp; Hak Akses</span>
                 </a>
             @endif
-
-            @if(Auth::user()->hasRole('admin'))
-                @php $aAdminPerm = request()->routeIs('permohonan.*'); @endphp
-                <a href="{{ route('permohonan.index') }}" 
-                   title="Kelola / Hapus Pengajuan" 
-                   class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aAdminPerm ? $menuOn : $menuOff }}">
-                    <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                    <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Kelola / Hapus Pengajuan</span>
-                </a>
-            @endif
         @endif
 
-        @php
-            $u = Auth::user();
-            $isAdmin = $u->hasRole('admin');
-        @endphp
-
-        <!-- 3. PERMOHONAN PENGAJUAN (Pengusul / Jurusan / Unit / Admin) -->
-        @if($isAdmin || $u->hasRole(['user', 'pengaju']) || $u->hasAnyPermission(['permohonan.create', 'permohonan.view_own', 'permohonan.view_all']))
-            @php $aUserPerm = request()->routeIs('permohonan.*'); @endphp
+        <!-- 3. PERMOHONAN PENGAJUAN (Berbasis Permission RBAC) -->
+        @if($u->hasAnyPermission(['permohonan.create', 'permohonan.view_own', 'permohonan.view_all', 'permohonan.delete']))
+            @php
+                $aUserPerm = request()->routeIs('permohonan.*');
+                $permMenuLabel = ($u->hasPermission('permohonan.delete') && ! $u->hasPermission('permohonan.create'))
+                    ? 'Kelola / Hapus Pengajuan'
+                    : 'Permohonan Pengadaan';
+            @endphp
             <a href="{{ route('permohonan.index') }}" 
-               title="Permohonan Pengadaan" 
+               title="{{ $permMenuLabel }}" 
                class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aUserPerm ? $menuOn : $menuOff }}">
                 <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    @if($u->hasPermission('permohonan.delete') && ! $u->hasPermission('permohonan.create'))
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    @else
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    @endif
                 </svg>
-                <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Permohonan Pengadaan</span>
+                <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">{{ $permMenuLabel }}</span>
             </a>
         @endif
 
         <!-- 4. STAFF BIDANG 2: Telaah Berkas Masuk -->
-        @if($isAdmin || $u->hasRole('staff_bidang_2') || $u->hasPermission('verifikasi.bidang_2_view'))
+        @if($u->hasPermission('verifikasi.bidang_2_view'))
             @php $aBidang2 = request()->routeIs('verifikasi.bidang-2*'); @endphp
             <a href="{{ route('verifikasi.bidang-2') }}" 
                title="Telaah Berkas Bidang II" 
@@ -198,7 +194,7 @@
         @endif
 
         <!-- 5. WADIR 2: Persetujuan Eksekutif & Disposisi -->
-        @if($isAdmin || $u->hasRole('wadir_2') || $u->hasAnyPermission(['verifikasi.wadir_2_view', 'verifikasi.wadir_2_decide']))
+        @if($u->hasAnyPermission(['verifikasi.wadir_2_view', 'verifikasi.wadir_2_decide']))
             @php $aWadir2 = request()->routeIs('verifikasi.wadir-2*'); @endphp
             <a href="{{ route('verifikasi.wadir-2') }}" 
                title="Persetujuan Eksekutif Wadir II" 
@@ -211,7 +207,7 @@
         @endif
 
         <!-- 6. PERENCANAAN: Alokasi & Penguncian MAK -->
-        @if($isAdmin || $u->hasRole('perencanaan') || $u->hasAnyPermission(['anggaran.mak_view', 'anggaran.mak_manage', 'anggaran.mak_alokasi', 'anggaran.mak_lock', 'permohonan.split_mak']))
+        @if($u->hasAnyPermission(['anggaran.mak_view', 'anggaran.mak_manage', 'anggaran.mak_alokasi', 'anggaran.mak_lock', 'permohonan.split_mak']))
             @php $aPerencanaan = request()->routeIs('verifikasi.perencanaan*'); @endphp
             <a href="{{ route('verifikasi.perencanaan') }}" 
                title="Verifikasi MAK & Pagu" 
@@ -224,7 +220,7 @@
         @endif
 
         <!-- 7. PPK: Persetujuan Awal Usulan PPK (Isolasi 4 Akun) -->
-        @if($isAdmin || $u->hasRole('ppk') || $u->hasPermission('reviu.ppk'))
+        @if($u->hasPermission('reviu.ppk'))
             @php
                 $ppkAntreanCount = isset($stats['antrean_persetujuan_awal']) 
                     ? $stats['antrean_persetujuan_awal'] 
@@ -233,6 +229,10 @@
                             \App\Models\PermohonanPengadaan::STATUS_MENUNGGU_ACC_WADIR_PPK,
                             \App\Models\PermohonanPengadaan::STATUS_REVIU_PARALEL,
                         ])
+                        ->whereDoesntHave('verifikasiParalel', function ($q) {
+                            $q->where('role_verifikator', \App\Models\VerifikasiParalel::ROLE_PPK)
+                                ->where('status_keputusan', 'disetujui');
+                        })
                         ->count();
                 $aPPKVerif = request()->routeIs('verifikasi.ppk*');
             @endphp
@@ -256,7 +256,7 @@
         @endif
 
         <!-- 8. PPBJ: Manajemen Paket Pengadaan -->
-        @if($isAdmin || $u->hasRole('ppbj') || $u->hasAnyPermission(['paket.create', 'paket.view_all', 'paket.reassign_ppk', 'paket.split_jenis']))
+        @if($u->hasAnyPermission(['paket.create', 'paket.view_all', 'paket.reassign_ppk', 'paket.split_jenis']))
             @php $aPaket = request()->routeIs('paket.*'); @endphp
             <a href="{{ route('paket.index') }}" 
                title="Paket Pengadaan" 
@@ -268,8 +268,8 @@
             </a>
         @endif
 
-        <!-- 9. MONITOR AKTIVITAS PP (FR RBAC lihat_pp / pp.monitoring_aktivitas - PPBJ, Pengawas & Admin) -->
-        @if($isAdmin || $u->canMonitorPp() || $u->hasAnyPermission(['lihat_pp', 'pp.monitoring_aktivitas']))
+        <!-- 9. MONITOR AKTIVITAS PP (FR RBAC lihat_pp / pp.monitoring_aktivitas) -->
+        @if($u->canMonitorPp())
             @php $aMonitorPP = request()->routeIs('monitor-pp.*'); @endphp
             <a href="{{ route('monitor-pp.index') }}" 
                title="Monitor Aktivitas PP" 
@@ -283,8 +283,8 @@
         @endif
 
         <!-- 10. PP: Reviu & Negosiasi Harga -->
-        @if($isAdmin || $u->hasRole('pp') || $u->hasPermission('reviu.pp'))
-            @php $aPPKontrak = request()->routeIs('kontrak.*') && request('tab') === 'reviu'; @endphp
+        @if($u->hasPermission('reviu.pp'))
+            @php $aPPKontrak = request()->routeIs('kontrak.*') && (! $u->hasAnyPermission(['spk.create', 'reviu.ppk']) || request('tab') === 'reviu'); @endphp
             <a href="{{ route('kontrak.index', ['tab' => 'reviu']) }}" 
                title="Reviu & Negosiasi Harga (PP)" 
                class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aPPKontrak ? $menuOn : $menuOff }}">
@@ -296,9 +296,10 @@
         @endif
 
         <!-- 10.B. PPK: Persetujuan Dokumen Pengadaan -->
-        @if($isAdmin || $u->hasPermission('reviu.ppk'))
+        @if($u->hasPermission('reviu.ppk'))
             @php
                 $ppkPaketCount = \App\Models\PaketPengadaan::where('id_user_ppk', $u->id_user)
+                    ->where('jalur_routing', '!=', \App\Models\PaketPengadaan::ROUTING_LANGSUNG)
                     ->where('status_paket', \App\Models\PaketPengadaan::STATUS_MENUNGGU_APPROVAL_PPK)
                     ->count();
                 $aPPKDokumen = request()->routeIs('ppk.persetujuan-dokumen*');
@@ -322,9 +323,9 @@
             </a>
         @endif
 
-        <!-- 11. KONTRAK SPK / DOKUMEN PERIKATAN (PPBJ / PPK / PP / Admin) -->
-        @if($isAdmin || $u->hasRole(['ppbj', 'ppk', 'pp']) || $u->hasAnyPermission(['spk.create', 'reviu.ppk', 'reviu.pp']))
-            @php $aKontrakSPK = request()->routeIs('kontrak.*') && request('tab') !== 'reviu'; @endphp
+        <!-- 11. KONTRAK SPK / DOKUMEN PERIKATAN (Berbasis Permission RBAC) -->
+        @if($u->hasAnyPermission(['spk.create', 'reviu.ppk']))
+            @php $aKontrakSPK = request()->routeIs('kontrak.*') && (! $u->hasPermission('reviu.pp') || request('tab') !== 'reviu'); @endphp
             <a href="{{ route('kontrak.index') }}" 
                title="Kontrak SPK & Dokumen Perikatan" 
                class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aKontrakSPK ? $menuOn : $menuOff }}">
@@ -336,7 +337,7 @@
         @endif
 
         <!-- 12. PERLENGKAPAN: Penerimaan Barang & BAST -->
-        @if($isAdmin || $u->hasRole('perlengkapan') || $u->hasAnyPermission(['penerimaan.view', 'penerimaan.bast_create', 'penerimaan.bast_sign']))
+        @if($u->hasAnyPermission(['penerimaan.view', 'penerimaan.bast_create', 'penerimaan.bast_sign']))
             @php $aPerlengkapan = request()->routeIs('penerimaan.*'); @endphp
             <a href="{{ route('penerimaan.index') }}" 
                title="Penerimaan Barang & BAST" 
@@ -348,8 +349,8 @@
             </a>
         @endif
 
-        <!-- 13. KEUANGAN / WADIR 2 / PPK / PPBJ / Admin: Tagihan & Pembayaran SP2D -->
-        @if($isAdmin || $u->hasRole(['keuangan', 'wadir_2', 'ppk', 'ppbj']) || $u->hasAnyPermission(['pembayaran.pencairan_sp2d', 'pembayaran.memo_wadir2', 'pembayaran.memo_ppk', 'pembayaran.spp_terbitkan', 'pembayaran.pengajuan']))
+        <!-- 13. TAGIHAN & PEMBAYARAN SP2D (Berbasis Permission RBAC) -->
+        @if($u->hasAnyPermission(['pembayaran.pencairan_sp2d', 'pembayaran.memo_wadir2', 'pembayaran.memo_ppk', 'pembayaran.spp_terbitkan', 'pembayaran.pengajuan']))
             @php $aKeuangan = request()->routeIs('pembayaran.*'); @endphp
             <a href="{{ route('pembayaran.index') }}" 
                title="Tagihan & Pembayaran SP2D" 

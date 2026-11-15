@@ -425,16 +425,17 @@ class PaketPengadaan extends Model
      */
     public function scopeForUser($query, User $user)
     {
-        if ($user->hasRole('admin')) {
+        if ($user->hasPermission('paket.view_all')) {
             return $query;
         }
 
-        if ($user->hasRole('ppk') || ($user->hasPermission('reviu.ppk') && ! $user->hasRole('ppbj'))) {
-            // Isolasi berkas 4 akun PPK: Hanya melihat paket yang ditugaskan ke ID akun PPK bersangkutan
-            return $query->where('id_user_ppk', $user->id_user);
+        if ($user->hasPermission('reviu.ppk')) {
+            // Isolasi berkas 4 akun PPK: Hanya melihat paket yang ditugaskan ke ID akun PPK bersangkutan (>200jt / non-langsung)
+            return $query->where('id_user_ppk', $user->id_user)
+                ->where('jalur_routing', '!=', self::ROUTING_LANGSUNG);
         }
 
-        if ($user->hasRole('pp') || ($user->hasPermission('reviu.pp') && ! $user->hasRole('ppbj'))) {
+        if ($user->hasPermission('reviu.pp')) {
             // PP hanya melihat paket yang dialokasikan ke jalur PP (50jt - 200jt) atau ditugaskan kepadanya
             return $query->where(function ($q) use ($user) {
                 $q->where('jalur_routing', self::ROUTING_PP)
@@ -442,7 +443,7 @@ class PaketPengadaan extends Model
             });
         }
 
-        if ($user->hasRole(['user', 'pengaju']) || $user->hasPermission('permohonan.view_own')) {
+        if ($user->hasPermission('permohonan.view_own') && ! $user->hasPermission('permohonan.view_all')) {
             // Pemohon hanya melihat paket dari permohonan yang diajukannya
             return $query->whereHas('permohonan', function ($q) use ($user) {
                 $q->where('id_user', $user->id_user);

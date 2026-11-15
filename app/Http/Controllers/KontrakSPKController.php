@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AlokasiMAK;
+use App\Models\AnggaranMAK;
 use App\Models\AuditLog;
 use App\Models\KontrakSPK;
 use App\Models\PaketPengadaan;
@@ -11,9 +13,11 @@ use App\Models\Vendor;
 use App\Rules\DokumenUploadRule;
 use App\Services\PengadaanNotificationService;
 use App\Services\PengadaanRoutingService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -33,25 +37,53 @@ class KontrakSPKController extends Controller
     ) {}
 
     /**
-     * Menampilkan daftar paket penugasan (> 50 Juta), panel Review PP, Approval PPK,
-     * dan unggah dokumen perikatan terpilih oleh PPBJ.
+     * Menampilkan daftar paket siap SPK (> 50 Juta), antrean review PP/approval PPK,
+     * dan direktori dokumen perikatan berbasis permission RBAC.
      */
     public function kontrakIndex(Request $request): View
     {
         $user = Auth::user();
-        $paketQuery = PaketPengadaan::with(['permohonan', 'ppkUser', 'ppUser', 'vendor', 'kontrakSpk', 'pelaksanaBelanja'])
-            ->where('jalur_routing', '!=', PaketPengadaan::ROUTING_LANGSUNG);
-
-        if ($user) {
-            $paketQuery->forUser($user);
+        if (! $user || ! $user->hasAnyPermission(['spk.create', 'reviu.pp', 'reviu.ppk', 'pp.monitoring_aktivitas', 'lihat_pp'])) {
+            abort(403, 'Akses Ditolak: Anda tidak memiliki hak akses untuk membuka modul Kontrak SPK & Review Dokumen.');
         }
 
-        $paketList = $paketQuery->get();
+        $canReviuPp = $user->hasPermission('reviu.pp');
+        $canReviuPpk = $user->hasPermission('reviu.ppk');
+        $canMonitorPp = $user->canMonitorPp();
+        $canCreateSpk = $user->hasPermission('spk.create');
+        $canTabReviu = $canReviuPp || $canReviuPpk || $canMonitorPp;
+        $hasViewAllPaket = $user->hasPermission('paket.view_all');
 
-        $kontrakQuery = KontrakSPK::with(['paket.vendor', 'paket.ppkUser']);
-        if ($user) {
-            $kontrakQuery->forUser($user);
-        }
+        $siapSpkStatuses = [
+            PaketPengadaan::STATUS_SIAP_UPLOAD_DOKUMEN_PPBJ,
+            PaketPengadaan::STATUS_DISETUJUI_PPK_SIAP_BELANJA_PP,
+            'reviu_dokumen_disetujui',
+            'disetujui',
+        ];
+
+        $paketSiapSpkQuery = PaketPengadaan::with(['permohonan', 'ppkUser', 'ppUser', 'vendor', 'kontrakSpk', 'pelaksanaBelanja'])
+            ->where('jalur_routing', '!=', PaketPengadaan::ROUTING_LANGSUNG)
+            ->whereIn('status_paket', $siapSpkStatuses)
+            ->doesntHave('kontrakSpk');
+        $this->applyKontrakScope($paketSiapSpkQuery, $user);
+
+        $paketSiapSpk = $paketSiapSpkQuery->get()
+            ->filter(fn (PaketPengadaan $pkt) => (float) ($pkt->nilai_hps ?: $pkt->alokasi_pagu_paket) > 50000000)
+            ->values();
+
+        $paketList = $canCreateSpk ? $paketSiapSpk : collect();
+        $vendors = $canCreateSpk ? Vendor::orderBy('nama_vendor')->get() : collect();
+
+        $kontrakBaseQuery = KontrakSPK::with(['paket.vendor', 'paket.ppkUser'])
+            ->whereHas('paket', function (Builder $q) use ($user): void {
+                $q->where('jalur_routing', '!=', PaketPengadaan::ROUTING_LANGSUNG);
+                $this->applyKontrakScope($q, $user);
+            });
+
+        $totalSpkStats = (clone $kontrakBaseQuery)->count();
+        $totalNilaiStats = (float) (clone $kontrakBaseQuery)->sum('nilai_kontrak');
+
+        $kontrakQuery = clone $kontrakBaseQuery;
 
         if ($request->filled('q') || $request->filled('search')) {
             $kw = $request->input('q', $request->input('search'));
@@ -69,24 +101,100 @@ class KontrakSPKController extends Controller
         }
 
         $kontrakList = $kontrakQuery->latest()->paginate(15);
-        $vendors = Vendor::all();
 
-        $reviuQuery = PaketPengadaan::with(['permohonan', 'ppkUser', 'ppUser', 'vendor', 'reviuDokumen', 'kontrakSpk'])
-            ->where('jalur_routing', '!=', PaketPengadaan::ROUTING_LANGSUNG);
-        if ($user) {
-            $reviuQuery->forUser($user);
+        $paketReviu = collect();
+        $paketReviuAksi = collect();
+
+        if ($canTabReviu) {
+            $reviuQuery = PaketPengadaan::with(['permohonan.unit', 'ppkUser', 'ppUser', 'vendor', 'reviuDokumen', 'kontrakSpk'])
+                ->where('jalur_routing', '!=', PaketPengadaan::ROUTING_LANGSUNG);
+            $this->applyKontrakScope($reviuQuery, $user);
+
+            // Jika pengguna hanya memiliki izin monitoring PP tanpa reviu/paket.view_all, tampilkan jalur PP saja
+            if ($canMonitorPp && ! $canReviuPp && ! $canReviuPpk && ! $hasViewAllPaket) {
+                $reviuQuery->where('jalur_routing', PaketPengadaan::ROUTING_PP);
+            }
+
+            $paketReviu = $reviuQuery->whereIn('status_paket', [
+                'terdaftar',
+                'reviu_dokumen',
+                'perlu_perbaikan',
+                PaketPengadaan::STATUS_MENUNGGU_APPROVAL_PPK,
+                PaketPengadaan::STATUS_DISETUJUI_PPK_SIAP_BELANJA_PP,
+                'reviu_dokumen_disetujui',
+                PaketPengadaan::STATUS_SIAP_UPLOAD_DOKUMEN_PPBJ,
+            ])->get();
+
+            if ($canReviuPp || $canReviuPpk) {
+                $paketReviuAksi = $paketReviu->filter(function (PaketPengadaan $pkt) use ($user, $canReviuPp, $canReviuPpk, $hasViewAllPaket): bool {
+                    $eligiblePp = $canReviuPp
+                        && in_array($pkt->status_paket, ['terdaftar', 'reviu_dokumen'], true)
+                        && ($pkt->jalur_routing === PaketPengadaan::ROUTING_PP || (int) $pkt->id_user_pp === (int) $user->id_user);
+
+                    $eligiblePpk = $canReviuPpk
+                        && $pkt->status_paket === PaketPengadaan::STATUS_MENUNGGU_APPROVAL_PPK
+                        && ($hasViewAllPaket || (int) $pkt->id_user_ppk === (int) $user->id_user);
+
+                    return $eligiblePp || $eligiblePpk;
+                })->values();
+            }
         }
-        $paketReviu = $reviuQuery->whereIn('status_paket', [
-            'terdaftar',
-            'reviu_dokumen',
-            'perlu_perbaikan',
-            PaketPengadaan::STATUS_MENUNGGU_APPROVAL_PPK,
-            PaketPengadaan::STATUS_DISETUJUI_PPK_SIAP_BELANJA_PP,
-            'reviu_dokumen_disetujui',
-            PaketPengadaan::STATUS_SIAP_UPLOAD_DOKUMEN_PPBJ,
-        ])->get();
 
-        return view('kontrak.index', compact('paketList', 'kontrakList', 'vendors', 'paketReviu'));
+        $stats = [
+            'total_spk' => $totalSpkStats,
+            'antrean_reviu' => ($canReviuPp || $canReviuPpk) ? $paketReviuAksi->count() : $paketReviu->count(),
+            'siap_spk' => $paketSiapSpk->count(),
+            'total_nilai' => $totalNilaiStats,
+        ];
+
+        return view('kontrak.index', compact(
+            'paketList',
+            'paketSiapSpk',
+            'kontrakList',
+            'vendors',
+            'paketReviu',
+            'paketReviuAksi',
+            'stats'
+        ));
+    }
+
+    /**
+     * Membatasi query PaketPengadaan pada modul kontrak murni berbasis permission RBAC pengguna.
+     */
+    protected function applyKontrakScope(Builder $query, User $user): void
+    {
+        if ($user->hasPermission('paket.view_all')) {
+            return;
+        }
+
+        $canReviuPpk = $user->hasPermission('reviu.ppk');
+        $canReviuPp = $user->hasPermission('reviu.pp');
+        $canMonitorPp = $user->canMonitorPp();
+        $canCreateSpk = $user->hasPermission('spk.create');
+
+        $query->where(function (Builder $q) use ($user, $canReviuPpk, $canReviuPp, $canMonitorPp, $canCreateSpk): void {
+            if ($canReviuPpk) {
+                $q->orWhere(function (Builder $sub) use ($user): void {
+                    $sub->where('id_user_ppk', $user->id_user)
+                        ->where('jalur_routing', '!=', PaketPengadaan::ROUTING_LANGSUNG);
+                });
+            }
+
+            if ($canReviuPp || $canMonitorPp) {
+                $q->orWhere('jalur_routing', PaketPengadaan::ROUTING_PP);
+                if ($canReviuPp) {
+                    $q->orWhere('id_user_pp', $user->id_user);
+                }
+            }
+
+            if ($canCreateSpk) {
+                $q->orWhere('id_user_ppbj', $user->id_user);
+            }
+
+            if (! $canReviuPpk && ! $canReviuPp && ! $canMonitorPp && ! $canCreateSpk) {
+                $q->whereRaw('1 = 0');
+            }
+        });
     }
 
     public function index(Request $request): View
@@ -138,8 +246,7 @@ class KontrakSPKController extends Controller
             ])->count();
         $totalPaguPp = (float) PaketPengadaan::where('jalur_routing', PaketPengadaan::ROUTING_PP)->sum('nilai_hps');
         $totalNegosiasiPp = (float) PaketPengadaan::where('jalur_routing', PaketPengadaan::ROUTING_PP)->whereNotNull('nilai_hasil_negosiasi')->sum('nilai_hasil_negosiasi');
-        $pejabatPpList = User::where('role', 'pp')
-            ->orWhereHas('roleEntity.permissions', fn ($q) => $q->where('nama_permission', 'reviu.pp'))
+        $pejabatPpList = User::whereHas('roleEntity.permissions', fn ($q) => $q->where('nama_permission', 'reviu.pp'))
             ->get();
 
         return view('pp.monitoring', compact(
@@ -160,12 +267,14 @@ class KontrakSPKController extends Controller
     public function storeKontrak(Request $request): RedirectResponse
     {
         $user = Auth::user();
+        if (! $user || ! $user->hasPermission('spk.create')) {
+            abort(403, 'Akses Ditolak: Anda tidak memiliki izin menerbitkan dokumen kontrak/SPK.');
+        }
 
         $validated = $request->validate([
             'kode_paket' => ['required'],
-            'nama_vendor' => ['nullable', 'string', 'max:255'],
+            'nama_vendor' => ['required', 'string', 'max:255'],
             'file_dokumen_legalitas' => ['nullable', DokumenUploadRule::pdfOrImage()],
-            'id_vendor' => ['nullable'],
             'tipe_dokumen' => ['nullable', 'string', 'in:spk,surat_pesanan,surat_kontrak,SPK,Kontrak,Surat Pesanan,Surat Kontrak'],
             'nomor_kontrak_spk' => ['required', 'string', 'max:100', 'unique:kontrak_spk,nomor_spk'],
             'nilai_kontrak' => ['required', 'numeric', 'min:1'],
@@ -175,13 +284,15 @@ class KontrakSPKController extends Controller
             'file_spk' => ['nullable', DokumenUploadRule::pdfOnly()],
             'sifat_kontrak' => ['nullable', 'string'],
             'jadwal_pengiriman' => ['nullable', 'date'],
+        ], [
+            'nama_vendor.required' => 'Nama Rekanan / Vendor pemenang wajib diisi sebelum mengunggah dokumen perikatan.',
         ]);
 
-        $paket = PaketPengadaan::where('nomor_paket', $validated['kode_paket'])->firstOrFail();
+        $paket = PaketPengadaan::with('permohonan')->where('nomor_paket', $validated['kode_paket'])->firstOrFail();
 
         // Larang Kontrak/SPK/Surat Pesanan untuk paket <= Rp 50 Juta (Belanja Langsung)
-        $nominalPaket = (float) ($paket->nilai_hps ?: $paket->alokasi_pagu_paket);
-        if ($paket->jalur_routing === PaketPengadaan::ROUTING_LANGSUNG || $nominalPaket <= 50000000) {
+        $hpsLama = (float) ($paket->nilai_hps ?: $paket->alokasi_pagu_paket);
+        if ($paket->jalur_routing === PaketPengadaan::ROUTING_LANGSUNG || $hpsLama <= 50000000) {
             return back()->withErrors([
                 'kode_paket' => 'Paket di bawah atau sama dengan Rp 50.000.000 adalah Belanja Langsung (output Kwitansi, tidak ada Kontrak/SPK/Surat Pesanan).',
             ])->withInput();
@@ -206,29 +317,16 @@ class KontrakSPKController extends Controller
             ])->withInput();
         }
 
-        if (! empty($validated['nama_vendor'])) {
-            $legalitasPath = $request->hasFile('file_dokumen_legalitas')
-                ? $request->file('file_dokumen_legalitas')->store('vendor_legalitas', 'public')
-                : null;
-
-            $vendor = Vendor::firstOrCreate(
-                ['nama_vendor' => trim($validated['nama_vendor'])],
-                [
-                    'file_dokumen_legalitas' => $legalitasPath,
-                ]
-            );
-            if ($legalitasPath && empty($vendor->file_dokumen_legalitas)) {
-                $vendor->file_dokumen_legalitas = $legalitasPath;
-                $vendor->save();
-            }
-            $paket->id_vendor = $vendor->id;
-        } elseif (! empty($validated['id_vendor'])) {
-            $paket->id_vendor = $validated['id_vendor'];
+        $nilaiKontrak = (float) $validated['nilai_kontrak'];
+        if ($nilaiKontrak > $hpsLama) {
+            return back()->withErrors([
+                'nilai_kontrak' => 'Nilai Kontrak Definitif (Rp '.number_format($nilaiKontrak, 0, ',', '.').') tidak boleh melebihi batas atas HPS paket (Rp '.number_format($hpsLama, 0, ',', '.').').',
+            ])->withInput();
         }
 
-        if (empty($paket->id_vendor)) {
-            return back()->withErrors(['nama_vendor' => 'Penyedia/Vendor pemenang wajib diisi atau dipilih sebelum mengunggah dokumen perikatan.'])->withInput();
-        }
+        $legalitasPath = $request->hasFile('file_dokumen_legalitas')
+            ? $request->file('file_dokumen_legalitas')->store('vendor_legalitas', 'public')
+            : null;
 
         $tipeInput = Str::lower(str_replace(' ', '_', $validated['tipe_dokumen'] ?? 'spk'));
         $tipeDokumen = match ($tipeInput) {
@@ -237,31 +335,105 @@ class KontrakSPKController extends Controller
             default => KontrakSPK::DOKUMEN_SPK,
         };
 
+        $sifatInput = Str::lower(str_replace(' ', '_', $validated['sifat_kontrak'] ?? 'lump_sum'));
+        $sifatKontrak = match ($sifatInput) {
+            'harga_satuan' => KontrakSPK::TIPE_HARGA_SATUAN,
+            'sekali_selesai' => KontrakSPK::TIPE_SEKALI_SELESAI,
+            'termin_bulanan' => KontrakSPK::TIPE_TERMIN_BULANAN,
+            'kontrak_tahunan' => KontrakSPK::TIPE_KONTRAK_TAHUNAN,
+            default => KontrakSPK::TIPE_LUMPSUM,
+        };
+
         $fileSpkPath = 'spk/'.str_replace(['/', '\\'], '_', $validated['nomor_kontrak_spk']).'.pdf';
         if ($request->hasFile('file_spk')) {
             $fileSpkPath = $request->file('file_spk')->store('spk', 'public');
         }
 
-        $kontrak = KontrakSPK::create([
-            'nomor_spk' => $validated['nomor_kontrak_spk'],
-            'nomor_paket' => $paket->nomor_paket,
-            'id_user' => $user->id_user,
-            'tipe_dokumen' => $tipeDokumen,
-            'sifat_kontrak' => KontrakSPK::TIPE_LUMPSUM,
-            'status_spk' => 'aktif',
-            'tanggal_spk' => now(),
-            'tanggal_mulai' => $validated['tanggal_mulai'],
-            'tanggal_selesai' => $validated['tanggal_selesai'],
-            'jadwal_pengiriman' => $validated['jadwal_pengiriman'] ?? $validated['tanggal_selesai'],
-            'nilai_kontrak' => $validated['nilai_kontrak'],
-            'file_spk' => $fileSpkPath,
-        ]);
+        $selisihEfisiensi = max(0, $hpsLama - $nilaiKontrak);
+        $namaVendor = trim($validated['nama_vendor']);
 
-        $paket->status_paket = 'spk_terbit';
-        $paket->save();
+        /** @var KontrakSPK $kontrak */
+        $kontrak = DB::transaction(function () use (
+            $validated,
+            $paket,
+            $user,
+            $namaVendor,
+            $legalitasPath,
+            $tipeDokumen,
+            $sifatKontrak,
+            $nilaiKontrak,
+            $selisihEfisiensi,
+            $fileSpkPath
+        ): KontrakSPK {
+            $vendor = Vendor::firstOrCreate(
+                ['nama_vendor' => $namaVendor],
+                ['file_dokumen_legalitas' => $legalitasPath]
+            );
+            if ($legalitasPath && $vendor->file_dokumen_legalitas !== $legalitasPath) {
+                $vendor->file_dokumen_legalitas = $legalitasPath;
+                $vendor->save();
+            }
+
+            $createdKontrak = KontrakSPK::create([
+                'nomor_spk' => $validated['nomor_kontrak_spk'],
+                'nomor_paket' => $paket->nomor_paket,
+                'id_user' => $user->id_user,
+                'tipe_dokumen' => $tipeDokumen,
+                'sifat_kontrak' => $sifatKontrak,
+                'status_spk' => 'aktif',
+                'tanggal_spk' => now(),
+                'tanggal_mulai' => $validated['tanggal_mulai'],
+                'tanggal_selesai' => $validated['tanggal_selesai'],
+                'jadwal_pengiriman' => $validated['jadwal_pengiriman'] ?? $validated['tanggal_selesai'],
+                'nilai_kontrak' => $nilaiKontrak,
+                'file_spk' => $fileSpkPath,
+            ]);
+
+            $paket->id_vendor = $vendor->id;
+            $paket->nominal_harga_akhir = $nilaiKontrak;
+            $paket->nilai_hasil_negosiasi = $nilaiKontrak;
+            $paket->status_paket = 'spk_terbit';
+
+            if ($selisihEfisiensi > 0) {
+                $paket->nilai_hps = $nilaiKontrak;
+                $paket->alokasi_pagu_paket = $nilaiKontrak;
+
+                if ($paket->permohonan) {
+                    $permohonan = $paket->permohonan;
+                    $permohonan->estimasi_total_pagu = max(0, (float) $permohonan->estimasi_total_pagu - $selisihEfisiensi);
+                    $permohonan->save();
+
+                    if (! empty($permohonan->kode_mak)) {
+                        $mak = AnggaranMAK::lockForUpdate()->find($permohonan->kode_mak);
+                        if ($mak) {
+                            $mak->sisa_pagu_mak = (float) $mak->sisa_pagu_mak + $selisihEfisiensi;
+                            $mak->save();
+                        }
+
+                        $alokasi = AlokasiMAK::where('nomor_surat', $permohonan->nomor_surat)
+                            ->where('kode_mak', $permohonan->kode_mak)
+                            ->first();
+                        if ($alokasi) {
+                            $alokasi->nominal_alokasi = max(0, (float) $alokasi->nominal_alokasi - $selisihEfisiensi);
+                            $alokasi->save();
+                        }
+                    }
+                }
+            }
+
+            $paket->save();
+
+            return $createdKontrak;
+        });
+
+        $paket->refresh();
 
         // Bangkitkan tembusan dan reminder pengiriman barang ke Perlengkapan & Keuangan
         PengadaanRoutingService::generateReminders($paket, $kontrak);
+
+        $infoEfisiensi = $selisihEfisiensi > 0
+            ? ' (HPS disesuaikan dari Rp '.number_format($hpsLama, 0, ',', '.').' menjadi Rp '.number_format($nilaiKontrak, 0, ',', '.').'; efisiensi Rp '.number_format($selisihEfisiensi, 0, ',', '.').' dikembalikan ke MAK)'
+            : '';
 
         AuditLog::catat(
             $user->id_user,
@@ -270,14 +442,14 @@ class KontrakSPKController extends Controller
             $kontrak->nomor_spk,
             null,
             'aktif',
-            "Unggah dokumen perikatan terpilih ({$tipeDokumen}) nomor {$kontrak->nomor_spk} nilai Rp ".number_format($kontrak->nilai_kontrak)
+            "Unggah dokumen perikatan terpilih ({$tipeDokumen}) nomor {$kontrak->nomor_spk} nilai Rp ".number_format($kontrak->nilai_kontrak, 0, ',', '.').$infoEfisiensi
         );
 
         $this->notificationService->notifyPenerbitanKontrak($kontrak);
 
         return redirect()->route('kontrak.index')->with(
             'success',
-            'Dokumen perikatan ('.strtoupper(str_replace('_', ' ', $tipeDokumen)).") nomor {$kontrak->nomor_spk} berhasil diunggah beserta jadwal Reminder dan tembusan ke Perlengkapan & Keuangan."
+            'Dokumen perikatan ('.strtoupper(str_replace('_', ' ', $tipeDokumen)).") nomor {$kontrak->nomor_spk} berhasil diunggah beserta jadwal Reminder dan tembusan ke Perlengkapan & Keuangan.".$infoEfisiensi
         );
     }
 
@@ -292,6 +464,9 @@ class KontrakSPKController extends Controller
     public function storeReviuWeb(Request $request): RedirectResponse
     {
         $user = Auth::user();
+        if (! $user || ! $user->hasAnyPermission(['reviu.pp', 'reviu.ppk'])) {
+            abort(403, 'Akses Ditolak: Anda tidak memiliki hak akses untuk menelaah atau menyetujui dokumen pengadaan.');
+        }
 
         $validated = $request->validate([
             'nomor_paket' => ['required', 'exists:paket_pengadaan,nomor_paket'],
@@ -303,20 +478,40 @@ class KontrakSPKController extends Controller
 
         $paket = PaketPengadaan::where('nomor_paket', $validated['nomor_paket'])->firstOrFail();
 
-        // Penegakan wewenang: PP tidak bisa klik Approval final
-        if (($user->hasRole('pp') || $user->hasPermission('reviu.pp')) && ! $user->hasRole('admin') && ! $user->hasPermission('reviu.ppk') && $validated['status_reviu'] === 'disetujui') {
+        $hasReviuPp = $user->hasPermission('reviu.pp');
+        $hasReviuPpk = $user->hasPermission('reviu.ppk');
+        $hasViewAllPaket = $user->hasPermission('paket.view_all');
+
+        // Penegakan wewenang murni berbasis permission
+        if ($validated['status_reviu'] === 'terverifikasi_pp' && ! $hasReviuPp) {
+            return back()->withErrors([
+                'status_reviu' => 'Anda tidak memiliki hak akses verifikasi teknis PP (reviu.pp).',
+            ])->withInput();
+        }
+
+        if ($validated['status_reviu'] === 'disetujui' && ! $hasReviuPpk) {
             return back()->withErrors([
                 'status_reviu' => 'Pejabat Pengadaan (PP) tidak memiliki wewenang persetujuan final (Approval). Persetujuan dokumen dilakukan oleh PPK (BPMN N35).',
             ])->withInput();
         }
 
-        // Penegakan isolasi berkas 4 akun PPK
-        if ($user->hasPermission('reviu.ppk') && ! $user->hasRole('admin') && $paket->id_user_ppk && (int) $paket->id_user_ppk !== (int) $user->id_user) {
+        $isPp = match ($validated['status_reviu']) {
+            'terverifikasi_pp' => true,
+            'disetujui' => false,
+            default => ! $hasReviuPpk
+                || ($hasReviuPp && in_array($paket->status_paket, ['terdaftar', 'reviu_dokumen'], true)),
+        };
+
+        // Penegakan isolasi berkas PPK & ruang lingkup PP murni berbasis permission
+        if (! $isPp && ! $hasViewAllPaket && $paket->id_user_ppk && (int) $paket->id_user_ppk !== (int) $user->id_user) {
             abort(403, 'Akses Ditolak: Anda tidak berhak mereviu atau meng-approve paket yang ditugaskan kepada PPK lain (Isolasi Berkas PPK).');
         }
 
+        if ($isPp && ! $hasViewAllPaket && $paket->jalur_routing !== PaketPengadaan::ROUTING_PP && (int) $paket->id_user_pp !== (int) $user->id_user) {
+            abort(403, 'Akses Ditolak: Anda tidak berhak mereviu paket di luar jalur Pejabat Pengadaan.');
+        }
+
         $nextRound = (ReviuDokumen::where('nomor_paket', $paket->nomor_paket)->max('putaran_ke') ?? 0) + 1;
-        $isPp = ($user->hasRole('pp') || $user->hasPermission('reviu.pp')) && ! ($user->hasPermission('reviu.ppk') && $validated['status_reviu'] === 'disetujui');
 
         ReviuDokumen::create([
             'nomor_paket' => $paket->nomor_paket,
@@ -406,7 +601,7 @@ class KontrakSPKController extends Controller
     public function persetujuanDokumenPpkIndex(Request $request): View
     {
         $user = Auth::user();
-        if (! $user->hasPermission('reviu.ppk') && ! $user->hasRole('admin')) {
+        if (! $user || ! $user->hasPermission('reviu.ppk')) {
             abort(403, 'Akses Ditolak: Anda tidak memiliki hak akses persetujuan dokumen pengadaan.');
         }
 
@@ -419,7 +614,7 @@ class KontrakSPKController extends Controller
             'reviuDokumen.user',
         ]);
 
-        if (! $user->hasRole('admin')) {
+        if (! $user->hasPermission('paket.view_all')) {
             $query->where('id_user_ppk', $user->id_user);
         }
 
@@ -455,7 +650,7 @@ class KontrakSPKController extends Controller
     public function keputusanDokumenPpk(Request $request): RedirectResponse
     {
         $user = Auth::user();
-        if (! $user->hasPermission('reviu.ppk') && ! $user->hasRole('admin')) {
+        if (! $user || ! $user->hasPermission('reviu.ppk')) {
             abort(403, 'Akses Ditolak: Anda tidak memiliki hak akses persetujuan dokumen pengadaan.');
         }
 
@@ -469,7 +664,7 @@ class KontrakSPKController extends Controller
 
         $paket = PaketPengadaan::with(['permohonan', 'reviuDokumen'])->where('nomor_paket', $validated['nomor_paket'])->firstOrFail();
 
-        if (! $user->hasRole('admin') && (int) $paket->id_user_ppk !== (int) $user->id_user) {
+        if (! $user->hasPermission('paket.view_all') && (int) $paket->id_user_ppk !== (int) $user->id_user) {
             abort(403, 'Akses Ditolak: Anda tidak berhak memproses paket yang ditugaskan ke akun PPK lain.');
         }
 

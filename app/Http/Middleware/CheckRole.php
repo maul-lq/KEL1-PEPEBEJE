@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Role;
 use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
@@ -118,36 +119,27 @@ class CheckRole
 
         // 3. Periksa otorisasi peran atau hak akses fitur (permissions)
         if (! empty($roles)) {
-            $isAdmin = $user->role === User::ROLE_ADMIN || ($user->roleEntity && $user->roleEntity->nama_role === User::ROLE_ADMIN);
-
-            // Administrator memiliki wewenang superuser untuk mengelola dan memonitor seluruh modul
-            if ($isAdmin) {
-                return $next($request);
-            }
-
             $isAuthorized = false;
+            $roleEntity = $user->roleEntity ?? Role::where('nama_role', $user->role)->with('permissions')->first();
 
-            // B. Periksa apakah nama peran pengguna cocok langsung dengan salah satu peran yang diizinkan
-            if ($user->hasRole($roles)) {
-                $isAuthorized = true;
-            }
+            foreach ($roles as $requiredRole) {
+                // 1. Jika argumen rute langsung berupa nama permission yang dimiliki pengguna
+                if ($user->hasPermission($requiredRole)) {
+                    $isAuthorized = true;
+                    break;
+                }
 
-            // C. Jika pengguna mengemban peran kustom (atau peran lain), periksa apakah pengguna
-            // memiliki hak akses (permission) yang setara dengan peran/modul yang dibutuhkan rute ini
-            if (! $isAuthorized) {
-                foreach ($roles as $requiredRole) {
-                    // 1. Jika argumen rute langsung berupa nama permission yang dimiliki pengguna
-                    if ($user->hasPermission($requiredRole)) {
-                        $isAuthorized = true;
-                        break;
-                    }
+                // 2. Jika argumen rute berupa nama peran standar, periksa apakah pengguna
+                // memiliki salah satu hak akses fitur yang terkait dengan peran tersebut
+                if (isset(self::ROLE_PERMISSIONS[$requiredRole]) && $user->hasAnyPermission(self::ROLE_PERMISSIONS[$requiredRole])) {
+                    $isAuthorized = true;
+                    break;
+                }
 
-                    // 2. Jika argumen rute berupa nama peran standar, periksa apakah pengguna
-                    // memiliki salah satu hak akses fitur yang terkait dengan peran tersebut
-                    if (isset(self::ROLE_PERMISSIONS[$requiredRole]) && $user->hasAnyPermission(self::ROLE_PERMISSIONS[$requiredRole])) {
-                        $isAuthorized = true;
-                        break;
-                    }
+                // 3. Fallback khusus bila entitas Role belum tersedia di database
+                if (! $roleEntity && $user->hasRole($requiredRole)) {
+                    $isAuthorized = true;
+                    break;
                 }
             }
 

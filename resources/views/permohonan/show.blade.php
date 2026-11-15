@@ -68,7 +68,7 @@
                 Unduh PDF Resmi
             </a>
 
-            @if(Auth::user()->hasRole('admin') || (in_array($st, ['draft', 'diajukan', 'ditolak']) && Auth::user()->id_user === $permohonan->id_user))
+            @if(Auth::user()->hasPermission('permohonan.delete') || (Auth::user()->hasPermission('permohonan.create') && in_array($st, ['draft', 'diajukan', 'ditolak']) && Auth::user()->id_user === $permohonan->id_user))
                 <form action="{{ route('permohonan.destroy', $permohonan->nomor_surat) }}" 
                       method="POST" 
                       onsubmit="return confirm('Apakah Anda yakin ingin membatalkan dan menghapus usulan pengadaan ini? Tindakan ini tidak dapat dibatalkan.');"
@@ -78,7 +78,7 @@
                     <button type="submit" 
                             class="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition-colors cursor-pointer">
                         <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                        {{ Auth::user()->hasRole('admin') ? 'Hapus Pengajuan' : 'Batalkan Usulan' }}
+                        {{ Auth::user()->hasPermission('permohonan.delete') ? 'Hapus Pengajuan' : 'Batalkan Usulan' }}
                     </button>
                 </form>
             @endif
@@ -171,7 +171,7 @@
             </div>
 
             <!-- Formulir Revisi (Tampil jika Ditolak / Perlu Revisi) -->
-            @if(in_array($st, ['ditolak', 'revisi', 'perlu_revisi']) && (Auth::user()->hasRole('user') || Auth::user()->hasRole('admin') || Auth::user()->id_user === $permohonan->id_user))
+            @if(in_array($st, ['ditolak', 'revisi', 'perlu_revisi']) && Auth::user()->hasPermission('permohonan.revisi') && (Auth::user()->id_user === $permohonan->id_user || Auth::user()->hasPermission('permohonan.view_all')))
                 <div class="rounded-2xl bg-amber-50/80 border border-amber-200 p-6 shadow-xs space-y-4">
                     <div class="flex items-start gap-3">
                         <div class="size-8 rounded-xl bg-amber-600 text-white flex items-center justify-center shrink-0">

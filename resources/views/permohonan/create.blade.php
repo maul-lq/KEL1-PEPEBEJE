@@ -338,30 +338,3 @@
 </div>
 
 @endsection
-
-                <!-- ACTION BUTTONS -->
-                <div class="flex flex-col-reverse sm:flex-row items-center justify-end gap-3 pt-6 border-t border-slate-100">
-                    <a href="{{ route('permohonan.index') }}" 
-                       class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 h-11 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl border border-slate-300 transition-all duration-200">
-                        <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
-                        </svg>
-                        <span>Batal dan Kembali</span>
-                    </a>
-                    <button type="submit" 
-                            class="w-full sm:w-auto h-11 px-8 rounded-xl bg-[#0969da] hover:bg-blue-700 text-white font-bold text-sm transition-colors shadow-sm shadow-[#0969da]/30 flex items-center justify-center gap-2">
-                        <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-                        </svg>
-                        <span>Kirimkan Usulan Permohonan Pengadaan</span>
-                    </button>
-                </div>
-
-            </form>
-
-        </div>
-
-    </div>
-</div>
-
-@endsection

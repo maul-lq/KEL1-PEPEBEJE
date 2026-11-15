@@ -15,6 +15,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 /**
@@ -55,7 +56,12 @@ class PembayaranController extends Controller
         $memoMenungguReview = collect();
         if ($user) {
             if ($user->hasRole('admin')) {
-                $memoMenungguReview = MemoBayar::with(['pembayaran.paket.kontrakSpk', 'pembayaran.memoBayar'])
+                $memoMenungguReview = MemoBayar::with([
+                    'pembayaran.paket.kontrakSpk',
+                    'pembayaran.paket.penerimaanBarang',
+                    'pembayaran.paket.vendor',
+                    'pembayaran.memoBayar',
+                ])
                     ->where('status_memo', 'menunggu')
                     ->get();
             } else {
@@ -63,7 +69,12 @@ class PembayaranController extends Controller
                 $canPpk = $user->hasPermission('pembayaran.memo_ppk');
 
                 if ($canWadir || $canPpk) {
-                    $memoMenungguReview = MemoBayar::with(['pembayaran.paket.kontrakSpk', 'pembayaran.memoBayar'])
+                    $memoMenungguReview = MemoBayar::with([
+                        'pembayaran.paket.kontrakSpk',
+                        'pembayaran.paket.penerimaanBarang',
+                        'pembayaran.paket.vendor',
+                        'pembayaran.memoBayar',
+                    ])
                         ->where('status_memo', 'menunggu')
                         ->where(function ($query) use ($canWadir, $canPpk, $user) {
                             if ($canWadir) {
@@ -152,33 +163,45 @@ class PembayaranController extends Controller
             'nominal_pengajuan' => ['required', 'numeric', 'min:1'],
             'tanggal_pengajuan' => ['required', 'date'],
             'jatuh_tempo' => ['nullable', 'date'],
-            'nomor_kwitansi' => ['nullable', 'string', 'max:100'],
-            'file_kwitansi' => ['nullable', DokumenUploadRule::pdfOrImage()],
-            'nomor_invoice' => ['nullable', 'string', 'max:100'],
-            'file_invoice' => ['nullable', DokumenUploadRule::pdfOrImage()],
+            'nomor_kwitansi' => ['required', 'string', 'max:100'],
+            'file_kwitansi' => [
+                Rule::requiredIf(function () use ($request): bool {
+                    $nomorPaket = $request->input('nomor_paket');
+                    if (! $nomorPaket) {
+                        return true;
+                    }
+
+                    $paket = PaketPengadaan::find($nomorPaket);
+
+                    return $paket !== null && empty($paket->file_kwitansi_belanja);
+                }),
+                'nullable',
+                DokumenUploadRule::pdfOrImage(),
+            ],
+            'nomor_invoice' => ['required', 'string', 'max:100'],
+            'file_invoice' => ['required', DokumenUploadRule::pdfOrImage()],
             'file_dokumen_penunjang' => ['nullable', DokumenUploadRule::pdfOrImage()],
+        ], [
+            'nomor_kwitansi.required' => 'Nomor kwitansi pembayaran wajib diisi.',
+            'file_kwitansi.required' => 'Berkas kwitansi pembayaran wajib diunggah karena paket ini belum memiliki arsip kwitansi belanja langsung.',
+            'nomor_invoice.required' => 'Nomor invoice tagihan rekanan wajib diisi.',
+            'file_invoice.required' => 'Berkas invoice tagihan rekanan wajib diunggah.',
         ]);
 
         $paket = PaketPengadaan::findOrFail($validated['nomor_paket']);
 
         $penunjangPath = $request->hasFile('file_dokumen_penunjang')
             ? $request->file('file_dokumen_penunjang')->store('penunjang', 'public')
-            : 'penunjang/resume_kontrak.pdf';
+            : null;
 
         $kwitansiPath = $request->hasFile('file_kwitansi')
             ? $request->file('file_kwitansi')->store('kwitansi', 'public')
-            : ($paket->file_kwitansi_belanja ?? 'kwitansi/kwitansi_pembayaran.pdf');
+            : $paket->file_kwitansi_belanja;
 
-        $invoicePath = $request->hasFile('file_invoice')
-            ? $request->file('file_invoice')->store('invoice', 'public')
-            : 'tagihan/invoice_dummy.pdf';
+        $invoicePath = $request->file('file_invoice')->store('invoice', 'public');
 
-        $nomorKwitansi = $validated['nomor_kwitansi']
-            ?? $paket->nomor_kwitansi_belanja
-            ?? ('KWT/'.date('Ymd').'/'.rand(100, 999));
-
-        $nomorInvoice = $validated['nomor_invoice']
-            ?? ('INV/'.date('Ymd').'/'.rand(100, 999));
+        $nomorKwitansi = $validated['nomor_kwitansi'];
+        $nomorInvoice = $validated['nomor_invoice'];
 
         $pembayaran = Pembayaran::create([
             'nomor_pembayaran' => $validated['nomor_pembayaran'],
@@ -194,6 +217,7 @@ class PembayaranController extends Controller
             'nomor_invoice' => $nomorInvoice,
             'file_invoice' => $invoicePath,
             'file_dokumen_penunjang' => $penunjangPath,
+            'file_spp' => null,
         ]);
 
         $paket->status_paket = 'pengajuan_pembayaran';
@@ -254,6 +278,7 @@ class PembayaranController extends Controller
             'file_dokumen_perikatan' => ['nullable', DokumenUploadRule::pdfOrImage()],
             'file_kwitansi' => ['nullable', DokumenUploadRule::pdfOrImage()],
             'file_invoice' => ['nullable', DokumenUploadRule::pdfOrImage()],
+            'file_dokumen_penunjang' => ['nullable', DokumenUploadRule::pdfOrImage()],
             'catatan_perbaikan_ppbj' => ['nullable', 'string'],
         ]);
 
@@ -265,6 +290,9 @@ class PembayaranController extends Controller
         }
         if ($request->hasFile('file_invoice')) {
             $pembayaran->file_invoice = $request->file('file_invoice')->store('invoice_pembayaran', 'public');
+        }
+        if ($request->hasFile('file_dokumen_penunjang')) {
+            $pembayaran->file_dokumen_penunjang = $request->file('file_dokumen_penunjang')->store('penunjang', 'public');
         }
 
         if ($request->filled('nomor_surat_pesanan')) {
@@ -421,7 +449,7 @@ class PembayaranController extends Controller
         }
 
         if ($request->hasFile('file_spp')) {
-            $pembayaran->file_dokumen_penunjang = $request->file('file_spp')->store('spp', 'public');
+            $pembayaran->file_spp = $request->file('file_spp')->store('spp', 'public');
         }
 
         $vendor = $pembayaran->paket?->vendor ?? $pembayaran->paket?->kontrakSpk?->vendor;

@@ -55,7 +55,9 @@ class PermohonanPengadaanController extends Controller
             ->where('status_permohonan', '!=', 'digantikan_oleh_revisi');
 
         // Jika user yang login hanya memiliki izin melihat usulan sendiri (tanpa view_all), filter berdasarkan ID user
-        if ($user && ($user->hasRole(['user', 'pengaju']) || ($user->hasPermission('permohonan.view_own') && ! $user->hasPermission('permohonan.view_all')))) {
+        if ($user && ! $user->hasPermission('permohonan.view_all') && $user->hasPermission('permohonan.view_own')) {
+            $query->where('id_user', $user->id_user);
+        } elseif ($user && ! $user->hasPermission('permohonan.view_all') && ! $user->hasPermission('permohonan.delete')) {
             $query->where('id_user', $user->id_user);
         }
 
@@ -120,6 +122,10 @@ class PermohonanPengadaanController extends Controller
 
     public function permohonanCreate(): View
     {
+        if (! Auth::user()?->hasPermission('permohonan.create')) {
+            abort(403, 'Akses Ditolak: Peran Anda tidak memiliki izin untuk membuat usulan permohonan.');
+        }
+
         $units = Unit::all();
 
         return view('permohonan.create', compact('units'));
@@ -136,6 +142,9 @@ class PermohonanPengadaanController extends Controller
     public function storePermohonan(Request $request): RedirectResponse
     {
         $user = Auth::user();
+        if (! $user || ! $user->hasPermission('permohonan.create')) {
+            abort(403, 'Akses Ditolak: Peran Anda tidak memiliki izin untuk mengajukan permohonan.');
+        }
 
         $validated = $request->validate([
             'nomor_surat' => ['required', 'string', 'max:100', 'unique:permohonan_pengadaan,nomor_surat'],
@@ -309,6 +318,9 @@ class PermohonanPengadaanController extends Controller
     public function revisiPermohonan(Request $request): RedirectResponse
     {
         $user = Auth::user();
+        if (! $user || ! $user->hasPermission('permohonan.revisi')) {
+            abort(403, 'Akses Ditolak: Peran Anda tidak memiliki izin untuk mengajukan revisi permohonan.');
+        }
 
         $validated = $request->validate([
             'nomor_surat_lama' => ['required', 'exists:permohonan_pengadaan,nomor_surat'],
@@ -598,10 +610,10 @@ class PermohonanPengadaanController extends Controller
             ->orWhere('nomor_surat', rawurldecode($id))
             ->firstOrFail();
 
-        $isAdmin = $user->hasRole('admin') || $user->role === User::ROLE_ADMIN || ($user->roleEntity && $user->roleEntity->nama_role === User::ROLE_ADMIN);
+        $canDeleteAny = $user && $user->hasPermission('permohonan.delete');
 
-        if (! $isAdmin) {
-            if ((int) $permohonan->id_user !== (int) $user->id_user) {
+        if (! $canDeleteAny) {
+            if (! $user || ! $user->hasPermission('permohonan.create') || (int) $permohonan->id_user !== (int) $user->id_user) {
                 abort(403, 'Akses Ditolak: Anda hanya dapat membatalkan permohonan milik sendiri.');
             }
 

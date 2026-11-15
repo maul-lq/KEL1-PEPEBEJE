@@ -1,112 +1,115 @@
 {{-- resources/views/dashboard/roles/staff_bidang_2.blade.php --}}
-{{-- Role: Staf Bidang II - Pemantau Administrasi (staff_bidang_2 - Read Only) --}}
+{{-- Modul RBAC: Staf Bidang II - Pemantau Administrasi Read-Only (verifikasi_bidang2) --}}
+@php
+    $verifikasiB2Route = $user->hasAnyPermission(['verifikasi.bidang_2_view', 'permohonan.view_all'])
+        ? route('verifikasi.bidang-2')
+        : null;
+@endphp
 
-<div class="space-y-8">
-
-    {{-- 1. 4-COLUMN KPI STAT CARDS --}}
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <x-stat-card
-            title="Menunggu Telaah Berkas"
+<div class="space-y-6">
+    {{-- 1. 4-COLUMN FIGMA KPI STAT CARDS --}}
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+        <x-figma-stat-card
+            title="Menunggu Telaah"
             :value="$stats['menunggu_telaah'] ?? 0"
-            color="amber"
-            icon="document"
-            badge="Read-Only"
-            subtitle="Berkas dinas masuk di sistem"
-            :href="route('verifikasi.bidang-2')"
+            subtitle="Berkas Srikandi masuk"
+            variant="action"
+            :href="$verifikasiB2Route"
         />
 
-        <x-stat-card
+        <x-figma-stat-card
             title="Dalam Reviu Paralel"
             :value="$stats['reviu_paralel'] ?? 0"
-            color="blue"
-            icon="bell"
             subtitle="Telaah Perencanaan & Wadir II"
+            variant="bell"
+            :href="$verifikasiB2Route"
         />
 
-        <x-stat-card
+        <x-figma-stat-card
             title="Selesai Diteruskan"
-            :value="\App\Models\PermohonanPengadaan::where('status_permohonan', 'disetujui')->count()"
-            color="emerald"
-            icon="check"
-            subtitle="Usulan telah di-ACC Wadir II"
+            :value="$stats['bidang2_disetujui'] ?? 0"
+            subtitle="Telah diputuskan Wadir II"
+            variant="done"
+            :href="$verifikasiB2Route"
         />
 
-        <x-stat-card
-            title="Total Usulan Masuk"
+        <x-figma-stat-card
+            title="Total Berkas Masuk"
             :value="$stats['total_berkas'] ?? 0"
-            color="navy"
-            icon="package"
-            subtitle="Akumulasi usulan pengadaan"
+            subtitle="Akumulasi berkas pengadaan"
+            variant="active"
+            :href="$verifikasiB2Route"
         />
     </div>
 
-    {{-- 2. MAIN OPERATION: ANTREAN TELAAH KELENGKAPAN ADMINISTRASI --}}
-    <div class="space-y-4">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div class="flex items-center gap-2">
-                <span class="size-2 rounded-full bg-blue-500 animate-pulse"></span>
-                <h2 class="text-lg font-bold text-[#213153]">Antrean Telaah Kelengkapan Berkas Srikandi</h2>
-            </div>
-            <a href="{{ route('verifikasi.bidang-2') }}" class="text-xs font-bold text-[#0969da] hover:underline flex items-center gap-1">
-                Buka Halaman Pemantauan Lengkap
-                <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-            </a>
-        </div>
+    {{-- 2. 2-COLUMN FIGMA OPERATION GRID --}}
+    <x-figma-workspace
+        leftTitle="Perlu Tindakan Anda"
+        :leftHref="$verifikasiB2Route"
+        rightTitle="Berkas Permohonan Terkini"
+        :rightHref="$verifikasiB2Route"
+    >
+        <x-slot:left>
+            @forelse($roleData['antrean_telaah'] ?? [] as $usulan)
+                @php
+                    $unitNama = $usulan->unit->nama_unit ?? $usulan->kode_unit ?? 'Unit Kerja';
+                    $tglSurat = $usulan->tanggal_pengajuan ? date('d M Y', strtotime($usulan->tanggal_pengajuan)) : '-';
+                    $estimasiPagu = number_format((float) ($usulan->estimasi_total_pagu ?? $usulan->anggaran_diajukan ?? 0), 0, ',', '.');
+                @endphp
+                <x-figma-action-card
+                    :index="$loop->index"
+                    variant="action"
+                    :title="$usulan->judul_pengadaan"
+                    :meta="$usulan->nomor_surat . ' • ' . $unitNama . ' • ' . $tglSurat"
+                    :submeta="'Estimasi Pagu: Rp ' . $estimasiPagu . ' • Pemeriksaan Read-Only'"
+                    badge="Read-Only"
+                    badgeClass="bg-blue-50 text-[#0969da]"
+                    :href="$verifikasiB2Route"
+                    buttonLabel="Buka"
+                />
+            @empty
+                <x-figma-empty
+                    title="Tidak ada berkas baru yang menunggu telaah"
+                    subtitle="Seluruh berkas Srikandi yang masuk saat ini telah diteruskan sesuai alur."
+                />
+            @endforelse
+        </x-slot:left>
 
-        <div class="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
-            <div class="overflow-x-auto">
-                <table class="w-full text-left text-xs">
-                    <thead>
-                        <tr class="bg-[#ddeeff] text-[#213153] font-bold">
-                            <th class="px-4 py-3">Tanggal Surat</th>
-                            <th class="px-4 py-3">No. Surat Srikandi</th>
-                            <th class="px-4 py-3">Unit / Jurusan Pengusul</th>
-                            <th class="px-4 py-3">Perihal Pengadaan</th>
-                            <th class="px-4 py-3">Estimasi Anggaran</th>
-                            <th class="px-4 py-3 text-center">Status</th>
-                            <th class="px-4 py-3 text-right">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100 font-medium text-slate-600">
-                        @forelse($roleData['antrean_telaah'] ?? [] as $usulan)
-                            <tr class="hover:bg-slate-50 transition-colors">
-                                <td class="px-4 py-3 whitespace-nowrap text-slate-400">
-                                    {{ $usulan->tanggal_pengajuan ? date('d M Y', strtotime($usulan->tanggal_pengajuan)) : '-' }}
-                                </td>
-                                <td class="px-4 py-3 whitespace-nowrap font-bold text-[#213153]">
-                                    {{ $usulan->nomor_surat }}
-                                </td>
-                                <td class="px-4 py-3 whitespace-nowrap">
-                                    {{ $usulan->unit->nama_unit ?? $usulan->kode_unit ?? 'Unit Kerja' }}
-                                </td>
-                                <td class="px-4 py-3 max-w-xs truncate" title="{{ $usulan->judul_pengadaan }}">
-                                    {{ $usulan->judul_pengadaan }}
-                                </td>
-                                <td class="px-4 py-3 whitespace-nowrap font-semibold text-[#213153]">
-                                    Rp {{ number_format((float) ($usulan->estimasi_total_pagu ?? $usulan->anggaran_diajukan ?? 0), 0, ',', '.') }}
-                                </td>
-                                <td class="px-4 py-3 text-center whitespace-nowrap">
-                                    <x-status-badge :status="$usulan->status_permohonan ?? $usulan->status" size="sm" />
-                                </td>
-                                <td class="px-4 py-3 text-right whitespace-nowrap">
-                                    <a href="{{ route('verifikasi.bidang-2') }}" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors">
-                                        Periksa Berkas (Read-Only)
-                                        <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                                    </a>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="7" class="px-4 py-8 text-center text-slate-400">
-                                    <svg class="size-8 text-slate-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                    Tidak ada berkas usulan permohonan baru yang menunggu telaah saat ini.
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
+        <x-slot:right>
+            <div class="bg-[#deeeff] rounded-[5px] h-[35px] px-3 flex items-center text-[#4a4a4a] text-[13px] md:text-[14px] font-semibold">
+                <div class="w-[20%] shrink-0">Waktu</div>
+                <div class="w-[24%] shrink-0">No. Surat</div>
+                <div class="flex-1 px-2">Nama Pengadaan</div>
+                <div class="w-[20%] shrink-0 text-right">Status</div>
             </div>
-        </div>
-    </div>
 
+            <div class="divide-y divide-[#d2d2d2]">
+                @forelse($roleData['bidang2_recent'] ?? [] as $berkas)
+                    @php
+                        $waktu = $berkas->updated_at?->format('d M Y, H:i')
+                            ?? ($berkas->tanggal_pengajuan ? date('d M Y', strtotime($berkas->tanggal_pengajuan)) : '-');
+                        $statusLabel = ucwords(str_replace('_', ' ', $berkas->status_permohonan ?? 'diajukan'));
+                    @endphp
+                    <div class="py-2.5 px-3 flex items-center text-[#4a4a4a] text-[12px] hover:bg-slate-50/80 transition-colors">
+                        <div class="w-[20%] shrink-0 font-semibold truncate" title="{{ $waktu }}">
+                            {{ $waktu }}
+                        </div>
+                        <div class="w-[24%] shrink-0 font-mono font-semibold truncate" title="{{ $berkas->nomor_surat }}">
+                            {{ $berkas->nomor_surat }}
+                        </div>
+                        <div class="flex-1 px-2 font-medium truncate" title="{{ $berkas->judul_pengadaan }}">
+                            {{ $berkas->judul_pengadaan }}
+                        </div>
+                        <div class="w-[20%] shrink-0 font-semibold text-right truncate" title="{{ $statusLabel }}">
+                            {{ $statusLabel }}
+                        </div>
+                    </div>
+                @empty
+                    <div class="py-10 text-center text-xs text-slate-400">
+                        Belum ada berkas permohonan masuk yang tercatat.
+                    </div>
+                @endforelse
+            </div>
+        </x-slot:right>
+    </x-figma-workspace>
 </div>

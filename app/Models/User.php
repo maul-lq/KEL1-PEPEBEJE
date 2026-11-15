@@ -274,10 +274,6 @@ class User extends Authenticatable
 
     public function hasPermission(string $permissionSlug): bool
     {
-        if ($this->role === self::ROLE_ADMIN || ($this->roleEntity && $this->roleEntity->nama_role === self::ROLE_ADMIN)) {
-            return true;
-        }
-
         if ($this->relationLoaded('roleEntity') && $this->roleEntity) {
             return $this->roleEntity->hasPermission($permissionSlug);
         }
@@ -289,10 +285,6 @@ class User extends Authenticatable
 
     public function hasAnyPermission(array $permissions): bool
     {
-        if ($this->role === self::ROLE_ADMIN || ($this->roleEntity && $this->roleEntity->nama_role === self::ROLE_ADMIN)) {
-            return true;
-        }
-
         foreach ($permissions as $perm) {
             if ($this->hasPermission($perm)) {
                 return true;
@@ -308,11 +300,7 @@ class User extends Authenticatable
      */
     public function canMonitorPp(): bool
     {
-        if ($this->hasRole([self::ROLE_ADMIN, self::ROLE_PPBJ])) {
-            return true;
-        }
-
-        return $this->hasPermission('pp.monitoring_aktivitas') || $this->hasPermission('lihat_pp');
+        return $this->hasAnyPermission(['pp.monitoring_aktivitas', 'lihat_pp']);
     }
 
     public function isGoogleLinked(): bool

@@ -106,6 +106,7 @@ class RolePermissionSeeder extends Seeder
             ['nama_permission' => 'permohonan.view_own', 'label' => 'Melihat Usulan Milik Sendiri & Catatan Penolakan', 'kategori_modul' => 'Permohonan'],
             ['nama_permission' => 'permohonan.view_all', 'label' => 'Melihat Seluruh Usulan Permohonan Unit', 'kategori_modul' => 'Permohonan'],
             ['nama_permission' => 'permohonan.revisi', 'label' => 'Mengajukan Revisi Usulan yang Ditolak', 'kategori_modul' => 'Permohonan'],
+            ['nama_permission' => 'permohonan.delete', 'label' => 'Menghapus Usulan Permohonan Pengadaan', 'kategori_modul' => 'Permohonan'],
             ['nama_permission' => 'permohonan.split_mak', 'label' => 'Memecah Usulan Berdasarkan Kode MAK', 'kategori_modul' => 'Permohonan'],
             ['nama_permission' => 'permohonan.split_jenis', 'label' => 'Memecah Berkas Berdasarkan Jenis Pengadaan', 'kategori_modul' => 'Permohonan'],
 
@@ -166,7 +167,16 @@ class RolePermissionSeeder extends Seeder
         // 3. Pemetaan Default Permissions ke 9 Role Sistem
         // =========================================================================
         $rolePermissionMap = [
-            'admin' => array_keys($permissionModels), // Admin memiliki seluruh permissions
+            'admin' => [
+                'admin.approval_registrasi',
+                'admin.user_manage',
+                'admin.role_manage',
+                'permohonan.view_all',
+                'permohonan.delete',
+                'monitoring.view',
+                'audit_log.view',
+                'dokumen.unduh_pdf',
+            ],
             'user' => [
                 'permohonan.create',
                 'permohonan.view_own',

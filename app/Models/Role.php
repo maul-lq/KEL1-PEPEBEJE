@@ -59,11 +59,6 @@ class Role extends Model
      */
     public function hasPermission(string $permissionSlug): bool
     {
-        // Role 'admin' memiliki hak akses tak terbatas ke seluruh fitur
-        if ($this->nama_role === 'admin') {
-            return true;
-        }
-
         return $this->permissions->contains('nama_permission', $permissionSlug)
             || $this->permissions->contains('slug', $permissionSlug);
     }

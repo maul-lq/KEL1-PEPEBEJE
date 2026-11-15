@@ -71,6 +71,7 @@ class Pembayaran extends Model
         'jatuh_tempo',
         'status_pembayaran',
         'file_dokumen_penunjang',
+        'file_spp',
         'nomor_kwitansi',
         'file_kwitansi',
         'nomor_invoice',
@@ -164,7 +165,7 @@ class Pembayaran extends Model
      * Menampilkan dokumen perikatan tunggal (SPK / Surat Pesanan / Surat Kontrak untuk > 50jt,
      * atau keterangan tanpa kontrak untuk <= 50jt Belanja Langsung) ditambah Kwitansi dan Invoice.
      *
-     * @return array{dokumen_perikatan: array<string, mixed>, kwitansi: array<string, mixed>, invoice: array<string, mixed>}
+     * @return array{dokumen_perikatan: array<string, mixed>, kwitansi: array<string, mixed>, invoice: array<string, mixed>, file_dokumen_penunjang: ?string, file_spp: ?string}
      */
     public function getInformasiDokumenPembayaranAttribute(): array
     {
@@ -200,6 +201,8 @@ class Pembayaran extends Model
                 'nomor_invoice' => $this->nomor_invoice,
                 'file_invoice' => $this->file_invoice,
             ],
+            'file_dokumen_penunjang' => $this->file_dokumen_penunjang,
+            'file_spp' => $this->file_spp,
         ];
     }
 }
