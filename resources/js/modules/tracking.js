@@ -170,13 +170,13 @@ export function trackingManager(initialItems = null) {
         getStepNumber(statusRaw) {
             const s = String(statusRaw || '').toLowerCase().trim();
             if (['diajukan', 'draft', 'pending'].includes(s)) return 1;
-            if (['reviu_paralel', 'verifikasi', 'telaah', 'pending_anggaran', 'hold', 'perlu_revisi', 'ditolak', 'menunggu_bidang_2', 'cek_mak_perencanaan', 'menunggu_acc_wadir_ppk'].includes(s)) return 2;
-            if (['penyusunan_dokumen', 'anggaran', 'disetujui', 'diproses_ppbj', 'paket_terdaftar', 'disetujui_wadir2_dan_ppk'].includes(s)) return 3;
-            if (['persetujuan_2', 'review_direktur', 'reviu_dokumen', 'menunggu_approval_ppk', 'disetujui_ppk_siap_belanja_pp', 'siap_upload_dokumen_ppbj', 'menunggu_reviu_pp', 'menunggu_reviu_ppk'].includes(s)) return 4;
-            if (['pembelian', 'surat_pesanan', 'kontrak', 'spk_terbit', 'belanja_langsung', 'belanja_langsung_selesai', 'surat_pesanan_terbit', 'surat_kontrak_terbit'].includes(s)) return 5;
-            if (['penerimaan', 'bapp', 'bast', 'pengingat_h2', 'pengiriman', 'pemeriksaan_fisik', 'proses_penerimaan'].includes(s)) return 6;
-            if (['pembayaran', 'spm', 'sp2d', 'bast_terbit', 'menunggu_pembayaran'].includes(s)) return 7;
-            if (['selesai', 'sp2d_lunas', 'cair'].includes(s)) return 8;
+            if (['reviu_paralel', 'verifikasi', 'telaah', 'pending_anggaran', 'hold', 'perlu_revisi', 'revisi', 'ditolak', 'menunggu_bidang_2', 'cek_mak_perencanaan', 'menunggu_acc_wadir_ppk'].includes(s)) return 2;
+            if (['penyusunan_dokumen', 'anggaran', 'disetujui', 'diproses_ppbj', 'paket_terdaftar', 'disetujui_wadir2_dan_ppk', 'terdaftar'].includes(s)) return 3;
+            if (['persetujuan_2', 'review_direktur', 'reviu_dokumen', 'reviu_dokumen_disetujui', 'menunggu_approval_ppk', 'menunggu_reviu_pp', 'menunggu_reviu_ppk', 'perlu_perbaikan'].includes(s)) return 4;
+            if (['pembelian', 'surat_pesanan', 'kontrak', 'spk_terbit', 'belanja_langsung', 'belanja_langsung_selesai', 'surat_pesanan_terbit', 'surat_kontrak_terbit', 'disetujui_ppk_siap_belanja_pp', 'siap_upload_dokumen_ppbj'].includes(s)) return 5;
+            if (['penerimaan', 'penerimaan_pending', 'bapp', 'bast', 'pengingat_h2', 'pengiriman', 'pemeriksaan_fisik', 'proses_penerimaan'].includes(s)) return 6;
+            if (['pembayaran', 'spm', 'sp2d', 'bast_terbit', 'penerimaan_selesai', 'pengajuan_pembayaran', 'reviu_memo', 'perintah_bayar', 'spp_terbit', 'menunggu_pembayaran', 'menunggu_memo'].includes(s)) return 7;
+            if (['selesai', 'sp2d_lunas', 'lunas', 'cair', 'pencairan'].includes(s)) return 8;
             return 1;
         },
 

@@ -3,7 +3,11 @@
 @php
     $canManagePaket = $user->hasAnyPermission(['paket.view_all', 'paket.create', 'paket.reassign_ppk', 'permohonan.split_jenis']);
     $canCreatePaket = $user->hasPermission('paket.create');
-    $canBayar = $user->hasAnyPermission(['pembayaran.pengajuan', 'pembayaran.spp_terbitkan']);
+    $canEditPaket = $user->hasAnyPermission(['paket.create', 'paket.view_all']);
+    $canSpkCreate = $user->hasPermission('spk.create');
+    $canPengajuanBayar = $user->hasPermission('pembayaran.pengajuan');
+    $canSppTerbit = $user->hasPermission('pembayaran.spp_terbitkan');
+    $canBayar = $canPengajuanBayar || $canSppTerbit;
     $canMonitorPp = $user->canMonitorPp();
 
     $paketHref = $canManagePaket ? route('paket.index') : null;
@@ -11,8 +15,21 @@
     $bayarHref = $canBayar ? route('pembayaran.index') : null;
     $leftHref = $createPaketHref ?? $bayarHref ?? $paketHref;
 
-    $bastSiapList = $roleData['bast_siap_bayar'] ?? collect();
-    $siapPaketList = $roleData['siap_paket'] ?? collect();
+    $bastSiapList = $canPengajuanBayar ? ($roleData['bast_siap_bayar'] ?? collect()) : collect();
+    $siapSppList = $canSppTerbit ? ($roleData['ppbj_siap_spp'] ?? collect()) : collect();
+    $bayarRevisiList = $canPengajuanBayar ? ($roleData['ppbj_bayar_revisi'] ?? collect()) : collect();
+    $uploadKontrakList = $canSpkCreate ? ($roleData['ppbj_upload_kontrak'] ?? collect()) : collect();
+    $paketRevisiList = $canEditPaket ? ($roleData['ppbj_paket_revisi'] ?? collect()) : collect();
+    $belanjaLangsungList = $canEditPaket ? ($roleData['ppbj_belanja_langsung'] ?? collect()) : collect();
+    $siapPaketList = $canCreatePaket ? ($roleData['siap_paket'] ?? collect()) : collect();
+    $hasLeftActions = $bastSiapList->isNotEmpty()
+        || $siapSppList->isNotEmpty()
+        || $bayarRevisiList->isNotEmpty()
+        || $uploadKontrakList->isNotEmpty()
+        || $paketRevisiList->isNotEmpty()
+        || $belanjaLangsungList->isNotEmpty()
+        || $siapPaketList->isNotEmpty();
+
     $recentPaketList = $roleData['ppbj_recent_paket'] ?? ($recentPaket ?? collect());
     $ppMonitoringList = $roleData['pp_monitoring_list'] ?? collect();
     $cardIdx = 0;
@@ -87,12 +104,48 @@
         @endif
 
         <x-slot:left>
-            @if($bastSiapList->isEmpty() && $siapPaketList->isEmpty())
+            @if(! $hasLeftActions)
                 <x-figma-empty
                     title="Tidak ada paket atau serah terima siap proses"
                     subtitle=""
                 />
             @else
+                @foreach($siapSppList as $bayarSpp)
+                    @php
+                        $nilaiSpp = number_format((float) ($bayarSpp->nominal_pengajuan ?? 0), 0, ',', '.');
+                        $namaPaketSpp = $bayarSpp->paket?->nama_paket ?? ('Pembayaran ' . $bayarSpp->nomor_pembayaran);
+                    @endphp
+                    <x-figma-action-card
+                        :index="$cardIdx++"
+                        variant="done"
+                        :title="$namaPaketSpp"
+                        :meta="$bayarSpp->nomor_pembayaran . ' • Paket: ' . $bayarSpp->nomor_paket"
+                        :submeta="'Nilai: Rp ' . $nilaiSpp . ' • Memo Bayar Disetujui, Siap Terbitkan SPP/SPM'"
+                        badge="Siap Terbit SPP"
+                        badgeClass="bg-emerald-100 text-emerald-800"
+                        :href="route('pembayaran.index', ['nomor_paket' => $bayarSpp->nomor_paket])"
+                        buttonLabel="Terbitkan SPP"
+                    />
+                @endforeach
+
+                @foreach($bayarRevisiList as $bayarRev)
+                    @php
+                        $nilaiRev = number_format((float) ($bayarRev->nominal_pengajuan ?? 0), 0, ',', '.');
+                        $namaPaketRev = $bayarRev->paket?->nama_paket ?? ('Pembayaran ' . $bayarRev->nomor_pembayaran);
+                    @endphp
+                    <x-figma-action-card
+                        :index="$cardIdx++"
+                        variant="action"
+                        :title="$namaPaketRev"
+                        :meta="$bayarRev->nomor_pembayaran . ' • Paket: ' . $bayarRev->nomor_paket"
+                        :submeta="'Nilai: Rp ' . $nilaiRev . ' • Memo Bayar perlu perbaikan'"
+                        badge="Revisi Bayar"
+                        badgeClass="bg-rose-100 text-rose-800"
+                        :href="route('pembayaran.index', ['nomor_paket' => $bayarRev->nomor_paket])"
+                        buttonLabel="Perbaiki Bayar"
+                    />
+                @endforeach
+
                 @foreach($bastSiapList as $bast)
                     @php
                         $nilaiBast = number_format((float) ($bast->paket?->nominal_harga_akhir ?: ($bast->paket?->nilai_hps ?: 0)), 0, ',', '.');
@@ -105,8 +158,59 @@
                         :submeta="'Nilai Realisasi: Rp ' . $nilaiBast . ' • Barang Diterima, Siap Diajukan Bayar'"
                         badge="Barang Diterima"
                         badgeClass="bg-emerald-100 text-emerald-800"
-                        :href="$canBayar ? route('pembayaran.index', ['nomor_paket' => $bast->nomor_paket]) : null"
+                        :href="$canPengajuanBayar ? route('pembayaran.index', ['nomor_paket' => $bast->nomor_paket]) : null"
                         buttonLabel="Dokumen Bayar"
+                    />
+                @endforeach
+
+                @foreach($uploadKontrakList as $pktKontrak)
+                    @php
+                        $hpsKontrak = number_format((float) ($pktKontrak->nilai_hps ?? 0), 0, ',', '.');
+                    @endphp
+                    <x-figma-action-card
+                        :index="$cardIdx++"
+                        variant="action"
+                        :title="$pktKontrak->nama_paket"
+                        :meta="$pktKontrak->nomor_paket . ' • Nilai HPS: Rp ' . $hpsKontrak"
+                        submeta="Siap upload dokumen kontrak/SPK PPBJ"
+                        badge="Upload Kontrak"
+                        badgeClass="bg-[#eef4ff] text-[#1751b3]"
+                        :href="route('kontrak.index')"
+                        buttonLabel="Upload Kontrak"
+                    />
+                @endforeach
+
+                @foreach($paketRevisiList as $pktRev)
+                    @php
+                        $hpsRev = number_format((float) ($pktRev->nilai_hps ?? 0), 0, ',', '.');
+                    @endphp
+                    <x-figma-action-card
+                        :index="$cardIdx++"
+                        variant="action"
+                        :title="$pktRev->nama_paket"
+                        :meta="$pktRev->nomor_paket . ' • Nilai HPS: Rp ' . $hpsRev"
+                        submeta="Dokumen paket perlu perbaikan"
+                        badge="Perlu Perbaikan"
+                        badgeClass="bg-rose-100 text-rose-800"
+                        :href="route('paket.show', $pktRev->nomor_paket)"
+                        buttonLabel="Perbaiki Paket"
+                    />
+                @endforeach
+
+                @foreach($belanjaLangsungList as $pktBl)
+                    @php
+                        $hpsBl = number_format((float) ($pktBl->nilai_hps ?? 0), 0, ',', '.');
+                    @endphp
+                    <x-figma-action-card
+                        :index="$cardIdx++"
+                        variant="action"
+                        :title="$pktBl->nama_paket"
+                        :meta="$pktBl->nomor_paket . ' • Nilai HPS: Rp ' . $hpsBl"
+                        submeta="Jalur belanja langsung • Catat rincian & lanjutkan proses"
+                        badge="Belanja Langsung"
+                        badgeClass="bg-[#fff5df] text-[#99660d]"
+                        :href="route('paket.show', $pktBl->nomor_paket)"
+                        buttonLabel="Proses Belanja"
                     />
                 @endforeach
 
