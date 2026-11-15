@@ -7,7 +7,6 @@
      x-transition:leave-start="opacity-100"
      x-transition:leave-end="opacity-0"
      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs overflow-y-auto"
-     style="display: none;"
      x-cloak>
 
     <!-- MODAL CARD CONTAINER -->
@@ -19,74 +18,7 @@
          x-transition:leave-start="opacity-100 scale-100 translate-y-0"
          x-transition:leave-end="opacity-0 scale-95 translate-y-4"
          class="relative w-full max-w-[596px] bg-white rounded-2xl border-t-[5px] border-[#0969da] shadow-2xl overflow-hidden my-8"
-         x-data="{
-            files: [],
-            maxFiles: 5,
-            maxTotalSizeMB: 15,
-            isDragging: false,
-            errorMessage: '',
-
-            handleFiles(selectedFiles) {
-                this.errorMessage = '';
-                const incomingFiles = Array.from(selectedFiles);
-
-                // Validasi Jumlah File (Maksimal 5 Berkas)
-                if (this.files.length + incomingFiles.length > this.maxFiles) {
-                    this.errorMessage = `Maksimal hanya dapat mengunggah ${this.maxFiles} berkas.`;
-                    return;
-                }
-
-                // Validasi Ukuran Total File (Maksimal 15 MB)
-                let currentTotalBytes = this.files.reduce((acc, f) => acc + f.size, 0);
-                let incomingTotalBytes = incomingFiles.reduce((acc, f) => acc + f.size, 0);
-                let totalMB = (currentTotalBytes + incomingTotalBytes) / (1024 * 1024);
-
-                if (totalMB > this.maxTotalSizeMB) {
-                    this.errorMessage = `Total ukuran seluruh berkas melebihi batas ${this.maxTotalSizeMB} MB.`;
-                    return;
-                }
-
-                // Pemrosesan File & Penentuan Warna Badge Format
-                incomingFiles.forEach(file => {
-                    let ext = file.name.split('.').pop().toUpperCase();
-                    
-                    let badgeColor = 'bg-[#0969da]'; // Default Biru untuk DOC/DOCX
-                    if (ext === 'PDF') {
-                        badgeColor = 'bg-rose-600'; // Merah khas PDF
-                    } else if (['XLS', 'XLSX', 'CSV'].includes(ext)) {
-                        badgeColor = 'bg-emerald-600'; // Hijau khas Excel
-                    } else if (['PNG', 'JPG', 'JPEG', 'WEBP'].includes(ext)) {
-                        badgeColor = 'bg-sky-500'; // Sky Blue khas Gambar
-                    }
-
-                    this.files.push({
-                        raw: file,
-                        name: file.name,
-                        size: (file.size / 1024).toFixed(0) + ' KB',
-                        type: ext,
-                        colorClass: badgeColor,
-                        url: URL.createObjectURL(file)
-                    });
-                });
-
-                this.updateFileInput();
-            },
-
-            removeFile(index) {
-                this.files.splice(index, 1);
-                this.errorMessage = '';
-                this.updateFileInput();
-            },
-
-            updateFileInput() {
-                // Sinkronisasi data file ke input element HTML agar dapat diproses oleh controller Laravel
-                const dt = new DataTransfer();
-                this.files.forEach(f => dt.items.add(f.raw));
-                if (this.$refs.fileInput) {
-                    this.$refs.fileInput.files = dt.files;
-                }
-            }
-         }">
+         x-data="permohonanCreateModalUpload">
 
         <!-- HEADER MODAL -->
         <div class="px-8 pt-8 pb-4 flex items-start justify-between">
@@ -94,9 +26,6 @@
                 <h2 id="new-request-title" class="text-2xl font-bold text-[#213153] tracking-tight">
                     Buat Permohonan Baru
                 </h2>
-                <p class="text-sm text-slate-500 max-w-[430px] leading-snug">
-                    Masukkan nomor surat, judul, tujuan, serta dokumen resmi
-                </p>
             </div>
             <!-- Tombol Close (X) -->
             <button @click="showCreateModal = false" type="button" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer">
@@ -141,23 +70,7 @@
                 </div>
 
                 <!-- 4. Nominal Anggaran (Live Format Rupiah + Tanpa Panah Incrementer) -->
-                <div class="space-y-1.5" x-data="{ 
-                    rawAnggaran: '',
-                    formatRupiah(val) {
-                        if (!val) return '';
-                        let numberString = val.toString().replace(/[^,\d]/g, '');
-                        let split = numberString.split(',');
-                        let sisa = split[0].length % 3;
-                        let rupiah = split[0].substr(0, sisa);
-                        let ribuan = split[0].substr(sisa).match(/\d{3}/gi);
-                        if (ribuan) {
-                            let separator = sisa ? '.' : '';
-                            rupiah += separator + ribuan.join('.');
-                        }
-                        rupiah = split[1] !== undefined ? rupiah + ',' + split[1] : rupiah;
-                        return rupiah ? 'Rp ' + rupiah : '';
-                    }
-                }">
+                <div class="space-y-1.5" x-data="rupiahField">
                     <div class="flex items-center justify-between">
                         <label for="anggaran_diajukan" class="block text-sm font-semibold text-[#213153]">
                             Nominal <span class="text-rose-500">*</span>

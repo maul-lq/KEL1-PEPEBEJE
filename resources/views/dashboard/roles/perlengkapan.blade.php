@@ -11,7 +11,7 @@
     {{-- 1. 4-COLUMN FIGMA KPI STAT CARDS --}}
     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
         <x-figma-stat-card
-            title="Menunggu BAST"
+            title="Menunggu Diterima"
             :value="$stats['belum_diperiksa'] ?? 0"
             subtitle="Barang tiba perlu pemeriksaan"
             variant="action"
@@ -19,25 +19,25 @@
         />
 
         <x-figma-stat-card
-            title="SPK & Kwitansi Masuk"
+            title="Kontrak & Kwitansi"
             :value="$stats['spk_masuk'] ?? 0"
-            subtitle="Tembusan pengiriman dari PPBJ"
+            subtitle="Siap pemeriksaan barang"
             variant="active"
             :href="$penerimaanHref"
         />
 
         <x-figma-stat-card
-            title="BAST Terbit"
+            title="Serah Terima Terbit"
             :value="$stats['total_bast'] ?? 0"
-            subtitle="Naskah BAST sah diteruskan"
+            subtitle="Bukti terima selesai"
             variant="done"
             :href="$penerimaanHref"
         />
 
         <x-figma-stat-card
-            title="Barang / Modal BMN"
+            title="Jenis Aset"
             :value="($stats['belanja_barang'] ?? 0) . ' / ' . ($stats['belanja_modal'] ?? 0)"
-            subtitle="Persediaan vs aset tetap BMN"
+            subtitle="Persediaan vs aset tetap"
             variant="bell"
             :href="$penerimaanHref"
         />
@@ -47,7 +47,7 @@
     <x-figma-workspace
         leftTitle="Perlu Tindakan Anda"
         :leftHref="$bastHref"
-        rightTitle="Riwayat BAST Terbit"
+        rightTitle="Riwayat Serah Terima"
         :rightHref="$penerimaanHref"
     >
         <x-slot:left>
@@ -58,7 +58,7 @@
                     $batasKirimLabel = (!empty($batasKirimRaw) && strtotime((string) $batasKirimRaw))
                         ? date('d M Y', strtotime((string) $batasKirimRaw))
                         : ($batasKirimRaw ?: '-');
-                    $refPrefix = $isLangsung ? 'Belanja Langsung <=50Jt' : 'No. SPK';
+                    $refPrefix = $isLangsung ? 'Belanja Langsung <= 50 Juta' : 'No. Kontrak';
                 @endphp
                 <x-figma-action-card
                     :index="$loop->index"
@@ -66,22 +66,22 @@
                     :title="$itemKirim['judul_paket'] ?? 'Paket Pengadaan'"
                     :meta="$refPrefix . ': ' . ($itemKirim['nomor_referensi'] ?? '-') . ' • Batas: ' . $batasKirimLabel"
                     :submeta="'Rekanan: ' . ($itemKirim['vendor_nama'] ?? 'Penyedia Resmi')"
-                    badge="Siap BAST"
+                    badge="Siap Periksa"
                     badgeClass="bg-[#fff5df] text-[#99660d]"
                     :href="$bastHref"
                     buttonLabel="Buka"
                 />
             @empty
                 <x-figma-empty
-                    title="Tidak ada pengiriman menunggu penerbitan BAST"
-                    subtitle="Seluruh barang yang diterima telah selesai diperiksa dan diterbitkan BAST."
+                    title="Belum ada barang menunggu pemeriksaan"
+                    subtitle=""
                 />
             @endforelse
         </x-slot:left>
 
         <x-slot:right>
             <div class="bg-[#deeeff] rounded-[5px] h-[35px] px-3 flex items-center text-[#4a4a4a] text-[13px] md:text-[14px] font-semibold">
-                <div class="w-[22%] shrink-0">No. BAST</div>
+                <div class="w-[22%] shrink-0">No. Bukti Terima</div>
                 <div class="w-[24%] shrink-0">Penyedia</div>
                 <div class="flex-1 px-2">Nama Paket</div>
                 <div class="w-[18%] shrink-0 text-right">Klasifikasi</div>
@@ -93,7 +93,7 @@
                         $noBast = $bast->nomor_bast ?? ('BAST-' . $bast->id_penerimaan);
                         $penyedia = $bast->paket->vendor->nama_vendor ?? 'Penyedia';
                         $paketNama = $bast->paket->nama_paket ?? 'Paket Pengadaan';
-                        $klasifikasi = $bast->kategori_belanja === 'belanja_modal' ? 'Aset BMN' : 'Persediaan';
+                        $klasifikasi = $bast->kategori_belanja === 'belanja_modal' ? 'Aset Tetap' : 'Persediaan';
                     @endphp
                     <div class="py-2.5 px-3 flex items-center text-[#4a4a4a] text-[12px] hover:bg-slate-50/80 transition-colors">
                         <div class="w-[22%] shrink-0 font-mono font-semibold truncate" title="{{ $noBast }}">
@@ -111,7 +111,7 @@
                     </div>
                 @empty
                     <div class="py-10 text-center text-xs text-slate-400">
-                        Belum ada naskah BAST yang diterbitkan.
+                        Belum ada bukti serah terima barang.
                     </div>
                 @endforelse
             </div>

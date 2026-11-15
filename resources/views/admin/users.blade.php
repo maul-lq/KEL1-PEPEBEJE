@@ -3,40 +3,23 @@
 @section('title', 'Manajemen Pengguna (User Management) - SIM-PBJ PNJ')
 
 @section('content')
-<div class="space-y-6" x-data="{
-    addUserModal: false,
-    editUserModal: false,
-    deleteUserModal: false,
-    editUser: {},
-    deleteUser: {},
-    openEdit(user) {
-        this.editUser = Object.assign({}, user);
-        this.editUserModal = true;
-    },
-    openDelete(user) {
-        this.deleteUser = Object.assign({}, user);
-        this.deleteUserModal = true;
-    }
-}">
+<div class="space-y-6" x-data="adminUsers">
 
     {{-- 1. HEADER --}}
     <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
                 <div class="flex items-center gap-2">
-                    <span class="text-xs text-slate-400 font-mono">CRUD Pengguna Sivitas SIM-PBJ</span>
+                    <span class="text-xs text-slate-400 font-mono">Kelola Pengguna SIM-PBJ</span>
                 </div>
                 <h1 class="text-2xl font-bold text-[#213153] mt-1">Manajemen Pengguna</h1>
-                <p class="text-xs text-slate-500 mt-0.5">
-                    Kelola seluruh akun sivitas Politeknik Negeri Jakarta, atur peran dan unit kerja, serta perbarui status aktif pengguna.
-                </p>
             </div>
 
             <div class="flex items-center gap-2.5 shrink-0">
                 <a href="{{ route('admin.persetujuan-registrasi.index') }}" 
                    class="px-3.5 py-2 rounded-xl border border-amber-300 bg-amber-50 text-xs font-bold text-amber-800 hover:bg-amber-100 transition inline-flex items-center gap-1.5 shadow-sm">
                     <svg class="size-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
-                    <span>Antrean Approval ({{ $stats['pending_approval'] }})</span>
+                    <span>Antrean Persetujuan ({{ $stats['pending_approval'] }})</span>
                 </a>
 
                 <button
@@ -109,7 +92,7 @@
             :value="$stats['pending_approval']"
             icon="bell"
             color="amber"
-            badge="Perlu ACC"
+            badge="Menunggu Persetujuan"
             badgeColor="bg-amber-50 text-amber-700 border-amber-200"
             subtitle="Pendaftaran akun baru"
             :href="route('admin.persetujuan-registrasi.index')"
@@ -262,7 +245,7 @@
 
                                     @if($user->status_registrasi === 'menunggu_persetujuan')
                                         <span class="text-[9px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
-                                            Menunggu ACC
+                                            Menunggu Persetujuan
                                         </span>
                                     @elseif($user->status_registrasi === 'ditolak')
                                         <span class="text-[9px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200">
@@ -326,12 +309,11 @@
     {{-- ========================================================================= --}}
     {{-- MODAL TAMBAH PENGGUNA --}}
     {{-- ========================================================================= --}}
-    <div x-show="addUserModal" x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" style="display: none;">
+    <div x-show="addUserModal" x-cloak x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
         <div @click.away="addUserModal = false" class="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div>
                     <h3 class="text-base font-bold text-[#213153]">Tambah Pengguna Baru</h3>
-                    <p class="text-xs text-slate-500">Daftarkan akun sivitas dan tetapkan peran serta unit kerjanya secara definitif.</p>
                 </div>
                 <button type="button" @click="addUserModal = false" class="text-slate-400 hover:text-slate-600">
                     <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -438,12 +420,11 @@
     {{-- ========================================================================= --}}
     {{-- MODAL EDIT PENGGUNA --}}
     {{-- ========================================================================= --}}
-    <div x-show="editUserModal" x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" style="display: none;">
+    <div x-show="editUserModal" x-cloak x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
         <div @click.away="editUserModal = false" class="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div>
                     <h3 class="text-base font-bold text-[#213153]">Edit Data Pengguna</h3>
-                    <p class="text-xs text-slate-500">Perbarui profil, unit kerja, peran sistem, atau ubah kata sandi.</p>
                 </div>
                 <button type="button" @click="editUserModal = false" class="text-slate-400 hover:text-slate-600">
                     <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -552,7 +533,7 @@
     {{-- ========================================================================= --}}
     {{-- MODAL KONFIRMASI HAPUS PENGGUNA --}}
     {{-- ========================================================================= --}}
-    <div x-show="deleteUserModal" x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" style="display: none;">
+    <div x-show="deleteUserModal" x-cloak x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
         <div @click.away="deleteUserModal = false" class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
             <div class="flex items-center gap-3 text-rose-600 mb-3">
                 <div class="size-10 rounded-full bg-rose-50 flex items-center justify-center shrink-0">

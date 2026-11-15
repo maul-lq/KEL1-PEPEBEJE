@@ -13,9 +13,6 @@
                     Persetujuan Awal Usulan Pengadaan (PPK)
                 </h1>
             </div>
-            <p class="text-xs md:text-sm text-slate-500 mt-1">
-                Pejabat Pembuat Komitmen (PPK) terpilih meninjau ketersediaan MAK DIPA kampus dan memberikan persetujuan awal (ACC) bersama Wakil Direktur II sebelum berkas usulan masuk ke tahap pengadaan di PPBJ.
-            </p>
         </div>
 
         <div class="flex items-center gap-2">
@@ -100,17 +97,17 @@
                     <!-- Box Status Ketersediaan MAK & Status Disposisi Wadir 2 -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                         
-                        <!-- Box Ketersediaan MAK Perencanaan -->
+                        <!-- Box Ketersediaan Anggaran Perencanaan -->
                         <div class="rounded-xl bg-teal-50/70 p-3.5 border border-teal-200/70 space-y-1.5">
                             <div class="font-bold text-[#087F79] flex items-center justify-between">
                                 <span class="flex items-center gap-1.5">
                                     <svg class="size-4 text-[#087F79]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-                                    Memo Ketersediaan MAK (Perencanaan):
+                                    Memo Ketersediaan Anggaran:
                                 </span>
                                 <span class="font-mono text-[11px] font-bold text-teal-800">{{ $p->nomor_memo_ketersediaan_mak ?? '-' }}</span>
                             </div>
                             <div class="text-slate-700 leading-relaxed space-y-0.5">
-                                <div>Pos Rekening MAK: <strong class="font-mono text-[#0969da]">{{ $p->kode_mak ?? '-' }}</strong> ({{ $p->anggaranMak->uraian_mak ?? 'DIPA PNJ' }})</div>
+                                <div>Pos Anggaran: <strong class="font-mono text-[#0969da]">{{ $p->kode_mak ?? '-' }}</strong> ({{ $p->anggaranMak->uraian_mak ?? 'Anggaran PNJ' }})</div>
                                 @if($p->catatan_memo_ketersediaan_mak)
                                     <div class="text-slate-600 italic">&ldquo;{{ $p->catatan_memo_ketersediaan_mak }}&rdquo;</div>
                                 @endif
@@ -125,15 +122,15 @@
                                     Status Otoritas Wadir II:
                                 </span>
                                 @if($vpWadir && $vpWadir->status_keputusan === 'disetujui')
-                                    <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">Telah Disetujui (ACC)</span>
+                                    <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">Telah Disetujui</span>
                                 @elseif($vpWadir && $vpWadir->status_keputusan === 'ditolak')
                                     <span class="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-800">Ditolak Wadir II</span>
                                 @else
-                                    <span class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">Menunggu ACC Wadir II</span>
+                                    <span class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">Menunggu Wadir II</span>
                                 @endif
                             </div>
                             <p class="text-slate-600 leading-relaxed text-[11px]">
-                                Berkas otomatis dilanjutkan ke PPBJ setelah Wakil Direktur II dan PPK terpilih sama-sama memberikan persetujuan penuh.
+                                Berkas lanjut ke Unit Pengadaan setelah disetujui Wadir II dan PPK.
                             </p>
                         </div>
                     </div>
@@ -188,8 +185,7 @@
                                         <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
                                     </span>
                                     <div>
-                                        <h3 class="text-sm font-bold text-teal-950">Telah Disetujui oleh Pejabat Pembuat Komitmen (ACC PPK)</h3>
-                                        <p class="text-xs text-teal-800">Persetujuan awal Anda telah dicatat secara permanen dan tetap berlaku.</p>
+                                        <h3 class="text-sm font-bold text-teal-950">Telah Disetujui oleh Pejabat Pembuat Komitmen</h3>
                                     </div>
                                 </div>
                                 <span class="rounded-full bg-teal-200/90 text-teal-900 px-3 py-1 text-xs font-bold font-mono">
@@ -218,7 +214,7 @@
                             <div class="rounded-xl bg-white/80 p-3.5 border border-teal-200 text-xs text-slate-700 flex items-start gap-2.5">
                                 <svg class="size-4 text-[#087F79] shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                                 <div>
-                                    <strong class="text-teal-950 font-bold">Status Persetujuan Lanjutan:</strong> Usulan ini sedang menunggu persetujuan kegiatan (ACC) oleh Wakil Direktur II. Segera setelah Wadir II menyetujui, berkas otomatis diteruskan ke antrean PPBJ untuk diproses lebih lanjut.
+                                    Menunggu persetujuan Wakil Direktur II.
                                 </div>
                             </div>
                         </div>
@@ -247,10 +243,7 @@
                         <form action="{{ route('verifikasi.ppk.keputusan') }}" 
                               method="POST" 
                               enctype="multipart/form-data"
-                              x-data="{ 
-                                  keputusan: 'disetujui', 
-                                  get isMandatory() { return this.keputusan === 'ditolak'; } 
-                              }"
+                              x-data="verifikasiKeputusanPpk"
                               class="rounded-xl bg-slate-50/70 p-5 md:p-6 border border-slate-200/80 space-y-4">
                             @csrf
                             <input type="hidden" name="nomor_surat" value="{{ $p->nomor_surat }}">
@@ -275,10 +268,10 @@
                                                value="disetujui" 
                                                x-model="keputusan"
                                                class="size-4 text-[#087F79] focus:ring-[#087F79]">
-                                        <span class="text-xs font-extrabold text-[#087F79]">SETUJUI USULAN (ACC PPK)</span>
+                                        <span class="text-xs font-extrabold text-[#087F79]">SETUJUI USULAN</span>
                                     </div>
                                     <p class="text-[11px] text-slate-500 mt-2 leading-relaxed">
-                                        Setujui usulan pengadaan atas alokasi MAK Perencanaan untuk dilanjutkan ke PPBJ bersama persetujuan Wadir II.
+                                        Setujui usulan dan pos anggaran untuk dilanjutkan ke Unit Pengadaan.
                                     </p>
                                 </label>
 
@@ -307,7 +300,7 @@
                                     <h4 class="text-xs font-bold text-teal-950">Memo Persetujuan Usulan Awal PPK</h4>
                                 </div>
                                 <p class="text-[11px] text-slate-600">
-                                    Bersama Wadir II, persetujuan awal PPK wajib menyertakan nomor memo dan file fisik dokumen memo resmi.
+                                    Wajib isi nomor memo dan unggah berkas fisik memo.
                                 </p>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
                                     <div>

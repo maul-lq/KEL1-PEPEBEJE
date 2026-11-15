@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Verifikasi Anggaran MAK - Subbagian Perencanaan PNJ')
+@section('title', 'Verifikasi Anggaran - Subbagian Perencanaan PNJ')
 
 @section('content')
 <div class="mx-auto max-w-[1650px] space-y-8">
@@ -10,12 +10,9 @@
         <div>
             <div class="flex items-center gap-2.5">
                 <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight text-[#213153]">
-                    Verifikasi Anggaran MAK &amp; Penetapan Pagu DIPA
+                    Verifikasi Anggaran &amp; Pagu
                 </h1>
             </div>
-            <p class="text-xs md:text-sm text-slate-500 mt-1">
-                Subbagian Perencanaan bertugas memeriksa ketersediaan pagu dana DIPA, mengalokasikan Mata Anggaran Kegiatan (MAK), mengunci anggaran MAK, dan memecah usulan (Split MAK).
-            </p>
         </div>
 
         <div class="flex items-center gap-2">
@@ -31,9 +28,9 @@
 
     <!-- 3. KPI STAT CARDS -->
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <x-stat-card title="Total Pagu DIPA Aktif" 
+        <x-stat-card title="Total Pagu Anggaran" 
                      :value="'Rp ' . number_format($makList->sum('pagu_anggaran'), 0, ',', '.')" 
-                     subtitle="Pagu resmi DIPA tahun ini" 
+                     subtitle="Pagu anggaran tahun ini" 
                      color="blue" />
 
         <x-stat-card title="Sisa Pagu Bebas" 
@@ -41,23 +38,22 @@
                      subtitle="Siap dialokasikan" 
                      color="teal" />
 
-        <x-stat-card title="Antrean Usulan Pending" 
+        <x-stat-card title="Antrean Usulan Menunggu" 
                      :value="$permohonanAntrean->count()" 
-                     subtitle="Menunggu verifikasi MAK" 
+                     subtitle="Menunggu cek anggaran" 
                      color="amber" />
 
-        <x-stat-card title="Pagu Ditahan (Hold)" 
+        <x-stat-card title="Anggaran Ditahan" 
                      :value="\App\Models\PermohonanPengadaan::where('status_anggaran', 'hold')->count()" 
                      subtitle="Pagu belum mencukupi" 
                      color="rose" />
     </div>
 
-    <!-- 4. SECTION 1: ANTREAN USULAN PERMOHONAN MENUNGGU ALOKASI MAK -->
+    <!-- 4. SECTION 1: ANTREAN USULAN PERMOHONAN MENUNGGU ALOKASI ANGGARAN -->
     <div class="rounded-2xl border border-slate-200/80 bg-white p-6 md:p-7 shadow-xs space-y-6">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-slate-100">
             <div>
-                <h2 class="text-lg font-bold text-[#213153]">Antrean Alokasi MAK Usulan Pengadaan</h2>
-                <p class="text-xs text-slate-500">Tetapkan rekening MAK DIPA atau tahan (hold) usulan jika pagu belum tersedia.</p>
+                <h2 class="text-lg font-bold text-[#213153]">Antrean Pemilihan Pos Anggaran</h2>
             </div>
             <span class="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-[#0969da] self-start sm:self-auto">
                 {{ $permohonanAntrean->count() }} antrean
@@ -67,7 +63,7 @@
         @if($permohonanAntrean->isEmpty())
             <div class="p-8 text-center text-slate-400">
                 <svg class="size-12 mx-auto text-slate-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                <p class="text-xs font-medium">Tidak ada usulan permohonan yang menunggu alokasi MAK saat ini.</p>
+                <p class="text-xs font-medium">Tidak ada usulan yang menunggu pos anggaran.</p>
             </div>
         @else
             <div class="space-y-6">
@@ -148,7 +144,7 @@
                                         <div class="font-bold flex items-center justify-between mb-1">
                                             <span>Wakil Direktur II:</span>
                                             @if($vpWadir && $vpWadir->status_keputusan === 'disetujui')
-                                                <span class="rounded bg-emerald-200/80 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800">Telah Disetujui (ACC)</span>
+                                                <span class="rounded bg-emerald-200/80 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800">Telah Disetujui</span>
                                             @elseif($vpWadir && in_array($vpWadir->status_keputusan, ['ditolak', 'revisi']))
                                                 <span class="rounded bg-rose-200 px-1.5 py-0.5 text-[10px] font-bold text-rose-800">Meminta Revisi/Tolak</span>
                                             @else
@@ -167,7 +163,7 @@
                                         <div class="font-bold flex items-center justify-between mb-1">
                                             <span>PPK ({{ $p->ppkAwal->nama ?? 'PPK Terpilih' }}):</span>
                                             @if($vpPpk && $vpPpk->status_keputusan === 'disetujui')
-                                                <span class="rounded bg-teal-200/80 px-1.5 py-0.5 text-[10px] font-bold text-teal-800">Telah Disetujui (ACC)</span>
+                                                <span class="rounded bg-teal-200/80 px-1.5 py-0.5 text-[10px] font-bold text-teal-800">Telah Disetujui</span>
                                             @elseif($vpPpk && $vpPpk->status_keputusan === 'ditolak')
                                                 <span class="rounded bg-rose-200 px-1.5 py-0.5 text-[10px] font-bold text-rose-800">Meminta Revisi/Tolak</span>
                                             @else
@@ -200,16 +196,10 @@
                         <!-- Form Alokasi MAK (POST /verifikasi/perencanaan/mak) with Live Pagu Calculation -->
                         <form action="{{ route('verifikasi.perencanaan.mak') }}" 
                               method="POST" 
-                              x-data="{
-                                  selectedMak: '{{ $p->kode_mak ?? '' }}',
-                                  paguSisa: 0,
-                                  nominal: {{ (float) ($p->anggaran_diajukan ?? $p->estimasi_total_pagu ?? 0) }},
-                                  keputusan: 'setuju',
-                                  updateMakInfo(event) {
-                                      const opt = event.target.selectedOptions[0];
-                                      this.paguSisa = opt ? parseFloat(opt.dataset.sisa || 0) : 0;
-                                  }
-                              }"
+                              x-data="verifikasiMakForm"
+                              data-selected-mak="{{ $p->kode_mak ?? '' }}"
+                              data-nominal="{{ (float) ($p->anggaran_diajukan ?? $p->estimasi_total_pagu ?? 0) }}"
+                              data-keputusan="setuju"
                               class="rounded-xl bg-white p-4 md:p-5 border border-slate-200/80 space-y-4">
                             @csrf
                             <input type="hidden" name="nomor_surat" value="{{ $p->nomor_surat }}">
@@ -219,7 +209,7 @@
                                 <!-- Pilih MAK -->
                                 <div class="space-y-1 md:col-span-2">
                                     <label for="kode_mak_{{ $p->nomor_surat }}" class="block text-xs font-bold text-slate-700">
-                                        Pilih Mata Anggaran Kegiatan (MAK) DIPA <span class="text-rose-500">*</span>
+                                        Pilih Pos Anggaran <span class="text-rose-500">*</span>
                                     </label>
                                     <select id="kode_mak_{{ $p->nomor_surat }}" 
                                             name="kode_mak" 
@@ -227,7 +217,7 @@
                                             x-model="selectedMak"
                                             @change="updateMakInfo($event)"
                                             class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-xs font-mono font-medium text-slate-800 focus:border-[#0969da] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0969da]/20">
-                                        <option value="">-- Pilih Rekening MAK DIPA yang Tersedia --</option>
+                                        <option value="">-- Pilih Pos Anggaran yang Tersedia --</option>
                                         @foreach($makList as $mak)
                                             <option value="{{ $mak->kode_mak }}" 
                                                     data-sisa="{{ (float) $mak->sisa_pagu_mak }}"
@@ -245,7 +235,7 @@
                                         <svg class="size-4 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
                                         <div>
                                             <strong class="font-bold">Peringatan Ketercukupan Pagu:</strong>
-                                            Nominal usulan (Rp <span x-text="Number(nominal).toLocaleString('id-ID')"></span>) melebihi sisa pagu rekening aktif (Rp <span x-text="Number(paguSisa).toLocaleString('id-ID')"></span>). Disarankan memilih opsi <strong>Tahan Anggaran (Hold)</strong> atau gunakan fitur <strong>Split MAK</strong> di bawah.
+                                            Nominal usulan (Rp <span x-text="Number(nominal).toLocaleString('id-ID')"></span>) melebihi sisa pagu rekening aktif (Rp <span x-text="Number(paguSisa).toLocaleString('id-ID')"></span>). Disarankan memilih opsi <strong>Tahan Anggaran</strong> atau gunakan fitur <strong>Pecah Anggaran</strong> di bawah.
                                         </div>
                                     </div>
                                 </template>
@@ -275,20 +265,20 @@
                                         <label class="flex items-center gap-2 p-2 rounded-xl border cursor-pointer text-xs font-bold transition-all"
                                                :class="keputusan === 'setuju' ? 'border-emerald-500 bg-emerald-50 text-emerald-800' : 'border-slate-200 bg-white text-slate-600'">
                                             <input type="radio" name="keputusan_anggaran" value="setuju" x-model="keputusan" class="text-emerald-600 focus:ring-emerald-500">
-                                            <span>Setujui Alokasi MAK</span>
+                                            <span>Setujui Pos Anggaran</span>
                                         </label>
                                         <label class="flex items-center gap-2 p-2 rounded-xl border cursor-pointer text-xs font-bold transition-all"
                                                :class="keputusan === 'tahan' ? 'border-rose-500 bg-rose-50 text-rose-800' : 'border-slate-200 bg-white text-slate-600'">
                                             <input type="radio" name="keputusan_anggaran" value="tahan" x-model="keputusan" class="text-rose-600 focus:ring-rose-500">
-                                            <span>Tahan Anggaran (Hold)</span>
+                                            <span>Tahan Anggaran</span>
                                         </label>
                                     </div>
                                 </div>
 
-                                <!-- Pilih 1 dari 4 Akun PPK Penerima Memo MAK -->
+                                <!-- Pilih PPK Penerima Memo Anggaran -->
                                 <div class="space-y-1">
                                     <label for="id_user_ppk_awal_{{ $p->nomor_surat }}" class="block text-xs font-bold text-slate-700">
-                                        Pilih 1 dari 4 Akun PPK Penerima Memo MAK<span class="text-rose-500">*</span>
+                                        Pilih PPK Penerima <span class="text-rose-500">*</span>
                                     </label>
                                     <select required id="id_user_ppk_awal_{{ $p->nomor_surat }}" 
                                             name="id_user_ppk_awal" 
@@ -302,10 +292,10 @@
                                     </select>
                                 </div>
 
-                                <!-- Nomor Memo Ketersediaan MAK -->
+                                <!-- Nomor Memo Ketersediaan Anggaran -->
                                 <div class="space-y-1">
                                     <label for="nomor_memo_ketersediaan_mak_{{ $p->nomor_surat }}" class="block text-xs font-bold text-slate-700">
-                                        Nomor Memo Ketersediaan MAK (Perencanaan ke Wadir 2 &amp; PPK)
+                                        Nomor Memo Ketersediaan Anggaran
                                     </label>
                                     <input type="text" 
                                            id="nomor_memo_ketersediaan_mak_{{ $p->nomor_surat }}" 
@@ -318,12 +308,12 @@
                                 <!-- Catatan Perencanaan -->
                                 <div class="space-y-1 md:col-span-2">
                                     <label for="catatan_anggaran_{{ $p->nomor_surat }}" class="block text-xs font-bold text-slate-700">
-                                        Catatan Alokasi Anggaran Perencanaan (Opsional)
+                                        Catatan Anggaran (Opsional)
                                     </label>
                                     <textarea id="catatan_anggaran_{{ $p->nomor_surat }}" 
                                               name="catatan_anggaran" 
                                               rows="2" 
-                                              placeholder="Contoh: Menggunakan pagu BOPTN 2026, MAK telah dialokasikan penuh dan siap diteruskan ke Wadir 2 & PPK."
+                                              placeholder="Contoh: Menggunakan dana BOPTN 2026, pos anggaran siap diteruskan ke Wadir II & PPK."
                                               class="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-800 placeholder-slate-400 focus:border-[#0969da] focus:outline-none focus:ring-2 focus:ring-[#0969da]/20"></textarea>
                                 </div>
                             </div>
@@ -333,24 +323,24 @@
                                     @if($vpWadir && $vpWadir->status_keputusan === 'disetujui' && $vpPpk && $vpPpk->status_keputusan === 'disetujui')
                                         <span class="text-emerald-700 font-semibold flex items-center gap-1">
                                             <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                                            Wadir II dan PPK keduanya telah menyetujui. Berkas akan langsung dilanjutkan ke PPBJ.
+                                            Wadir II dan PPK sudah menyetujui. Berkas langsung dilanjutkan ke Unit Pengadaan.
                                         </span>
                                     @elseif($vpWadir && $vpWadir->status_keputusan === 'disetujui')
                                         <span class="text-indigo-700 font-medium flex items-center gap-1">
                                             <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                            Wadir II telah ACC sebelumnya (memo dipertahankan). Memo hanya diteruskan ke PPK.
+                                            Wadir II sudah menyetujui sebelumnya. Memo diteruskan ke PPK.
                                         </span>
                                     @elseif($vpPpk && $vpPpk->status_keputusan === 'disetujui')
                                         <span class="text-teal-700 font-medium flex items-center gap-1">
                                             <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                            PPK telah ACC sebelumnya (memo dipertahankan). Memo hanya diteruskan ke Wadir II.
+                                            PPK sudah menyetujui sebelumnya. Memo diteruskan ke Wadir II.
                                         </span>
                                     @endif
                                 </div>
                                 <button type="submit" 
                                         class="inline-flex items-center gap-2 rounded-xl bg-[#0969da] px-6 py-2.5 text-xs font-bold text-white shadow-md shadow-[#0969da]/20 hover:bg-blue-700 transition-all cursor-pointer">
                                     <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                                    <span>Teruskan Memo Ketersediaan MAK ke Verifikator Terkait</span>
+                                    <span>Simpan &amp; Teruskan Memo Anggaran</span>
                                 </button>
                             </div>
                         </form>
@@ -362,11 +352,10 @@
     </div>
 
     <!-- 4b. SECTION 1B: DAFTAR USULAN YANG TELAH MEMILIKI MAK -->
-    <div class="rounded-2xl border border-slate-200/80 bg-white p-6 md:p-7 shadow-xs space-y-6" x-data="{ expandedSurat: null }">
+    <div class="rounded-2xl border border-slate-200/80 bg-white p-6 md:p-7 shadow-xs space-y-6" x-data="verifikasiMakList">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-slate-100">
             <div>
-                <h2 class="text-lg font-bold text-[#213153]">Daftar Usulan yang Telah Memiliki MAK DIPA</h2>
-                <p class="text-xs text-slate-500">Daftar usulan yang telah dialokasikan MAK DIPA. Bagian Perencanaan dapat menyesuaikan kembali pos MAK jika diperlukan.</p>
+                <h2 class="text-lg font-bold text-[#213153]">Usulan Sudah Memilih Pos Anggaran</h2>
             </div>
             <span class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800 self-start sm:self-auto">
                 {{ $permohonanSudahMak->count() }} usulan
@@ -375,7 +364,7 @@
 
         @if($permohonanSudahMak->isEmpty())
             <div class="p-8 text-center text-slate-400">
-                <p class="text-xs font-medium">Belum ada usulan yang telah ditetapkan pos MAK-nya.</p>
+                <p class="text-xs font-medium">Belum ada usulan yang memiliki pos anggaran.</p>
             </div>
         @else
             <div class="overflow-x-auto rounded-xl border border-slate-100">
@@ -385,7 +374,7 @@
                             <th class="px-4 py-3">No. Surat</th>
                             <th class="px-4 py-3">Unit Pengusul</th>
                             <th class="px-4 py-3">Perihal Pengadaan</th>
-                            <th class="px-4 py-3">Mata Anggaran (MAK)</th>
+                            <th class="px-4 py-3">Pos Anggaran</th>
                             <th class="px-4 py-3 text-right">Nilai Alokasi</th>
                             <th class="px-4 py-3 text-center">Status</th>
                             <th class="px-4 py-3 text-center">Aksi</th>
@@ -418,22 +407,22 @@
                                             @click="expandedSurat = (expandedSurat === '{{ $sm->nomor_surat }}' ? null : '{{ $sm->nomor_surat }}')"
                                             class="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-bold text-indigo-700 hover:bg-indigo-100 transition-colors cursor-pointer">
                                         <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                                        <span x-text="expandedSurat === '{{ $sm->nomor_surat }}' ? 'Tutup' : 'Ubah MAK'"></span>
+                                        <span x-text="expandedSurat === '{{ $sm->nomor_surat }}' ? 'Tutup' : 'Ubah Pos'"></span>
                                     </button>
                                 </td>
                             </tr>
-                            <tr x-show="expandedSurat === '{{ $sm->nomor_surat }}'" style="display: none;" class="bg-indigo-50/40">
+                            <tr x-show="expandedSurat === '{{ $sm->nomor_surat }}'" x-cloak class="bg-indigo-50/40">
                                 <td colspan="7" class="p-4 border-b border-indigo-100">
                                     <form action="{{ route('verifikasi.perencanaan.mak') }}" method="POST" class="bg-white p-4 rounded-xl border border-indigo-200 space-y-4">
                                         @csrf
                                         <input type="hidden" name="nomor_surat" value="{{ $sm->nomor_surat }}">
                                         <div class="flex items-center justify-between pb-2 border-b border-slate-100">
-                                            <h4 class="font-bold text-xs text-[#213153]">Penyesuaian / Perbaikan Jenis MAK (Nomor Surat: {{ $sm->nomor_surat }})</h4>
+                                            <h4 class="font-bold text-xs text-[#213153]">Penyesuaian Pos Anggaran (Nomor Surat: {{ $sm->nomor_surat }})</h4>
                                             <span class="text-[11px] text-slate-500">Pagu saat ini: Rp {{ number_format($sm->anggaran_diajukan ?? $sm->estimasi_total_pagu ?? 0, 0, ',', '.') }}</span>
                                         </div>
                                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div>
-                                                <label class="block text-xs font-bold text-slate-700 mb-1">Ganti ke Pos MAK Baru <span class="text-rose-500">*</span></label>
+                                                <label class="block text-xs font-bold text-slate-700 mb-1">Ganti Pos Anggaran <span class="text-rose-500">*</span></label>
                                                 <select name="kode_mak" required class="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-mono font-medium focus:border-[#0969da] focus:outline-none">
                                                     @foreach($makList as $mak)
                                                         <option value="{{ $mak->kode_mak }}" {{ $sm->kode_mak === $mak->kode_mak ? 'selected' : '' }} {{ $mak->is_locked ? 'disabled' : '' }}>
@@ -459,18 +448,18 @@
                                             <div>
                                                 <label class="block text-xs font-bold text-slate-700 mb-1">Keputusan</label>
                                                 <select name="keputusan_anggaran" required class="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-emerald-700 focus:border-[#0969da] focus:outline-none">
-                                                    <option value="setuju">Setujui &amp; Simpan Perubahan MAK</option>
-                                                    <option value="tahan">Tahan Anggaran (Hold)</option>
+                                                    <option value="setuju">Setujui &amp; Simpan Pos Anggaran</option>
+                                                    <option value="tahan">Tahan Anggaran</option>
                                                 </select>
                                             </div>
                                             <div class="md:col-span-2">
-                                                <label class="block text-xs font-bold text-slate-700 mb-1">Catatan Penyesuaian MAK</label>
-                                                <input type="text" name="catatan_anggaran" placeholder="Alasan penyesuaian jenis MAK..." class="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs focus:border-[#0969da] focus:outline-none">
+                                                <label class="block text-xs font-bold text-slate-700 mb-1">Catatan Penyesuaian Anggaran</label>
+                                                <input type="text" name="catatan_anggaran" placeholder="Alasan penyesuaian pos anggaran..." class="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs focus:border-[#0969da] focus:outline-none">
                                             </div>
                                         </div>
                                         <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
                                             <button type="button" @click="expandedSurat = null" class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50">Batal</button>
-                                            <button type="submit" class="px-5 py-2 rounded-xl bg-indigo-600 text-xs font-bold text-white hover:bg-indigo-700 shadow-sm">Simpan Perubahan MAK</button>
+                                            <button type="submit" class="px-5 py-2 rounded-xl bg-indigo-600 text-xs font-bold text-white hover:bg-indigo-700 shadow-sm">Simpan Perubahan Anggaran</button>
                                         </div>
                                     </form>
                                 </td>
@@ -484,16 +473,14 @@
 
     <!-- 5. SECTION 2: FORM PEMOTONGAN / PEMECAHAN (SPLIT MAK) BERDASARKAN POS REKENING -->
     <div class="rounded-2xl border border-slate-200/80 bg-white p-6 md:p-7 shadow-xs space-y-6"
-         x-data="splitMakManager({ 
-             permohonanList: {{ json_encode($permohonanAntrean) }}, 
-             makList: {{ json_encode($makList) }} 
-         })">
+         x-data="splitMakManager"
+         data-config="{{ json_encode(['permohonanList' => $permohonanAntrean, 'makList' => $makList], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) }}">
         
         <div class="pb-4 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-2">
             <div>
-                <h2 class="text-lg font-bold text-[#213153]">Pemecahan (Split) Usulan Permohonan Berdasarkan Pos MAK</h2>
+                <h2 class="text-lg font-bold text-[#213153]">Pecah Pos Anggaran</h2>
                 <p class="text-xs text-slate-500 mt-0.5">
-                    Pisahkan pembebanan anggaran usulan tunggal ke beberapa pos rekening MAK DIPA yang berbeda dengan nomor pecahan baru.
+                    Bagi satu usulan ke beberapa pos anggaran berbeda.
                 </p>
             </div>
             
@@ -527,7 +514,7 @@
                 </div>
 
                 <div class="space-y-1">
-                    <label class="block text-xs font-bold text-slate-700">Alasan Pemecahan Pos MAK <span class="text-rose-500">*</span></label>
+                    <label class="block text-xs font-bold text-slate-700">Alasan Pemecahan Anggaran <span class="text-rose-500">*</span></label>
                     <input type="text" 
                            name="alasan_pemecahan" 
                            required 
@@ -593,12 +580,12 @@
                             </div>
 
                             <div class="md:col-span-3 space-y-1">
-                                <label class="text-[11px] font-bold text-slate-600">Alokasikan ke Kode MAK</label>
+                                <label class="text-[11px] font-bold text-slate-600">Alokasikan ke Pos Anggaran</label>
                                 <select :name="'items[' + idx + '][kode_mak]'" 
                                         x-model="row.kode_mak" 
                                         required 
                                         class="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs font-mono font-medium focus:border-[#0969da] focus:bg-white focus:outline-none">
-                                    <option value="">-- Pilih MAK --</option>
+                                    <option value="">-- Pilih Pos Anggaran --</option>
                                     <template x-for="mak in makList" :key="mak.kode_mak">
                                         <option :value="mak.kode_mak" 
                                                 :disabled="mak.is_locked"
@@ -650,31 +637,30 @@
     <div class="rounded-2xl border border-slate-200/80 bg-white p-6 md:p-7 shadow-xs space-y-6">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
             <div>
-                <h2 class="text-lg font-bold text-[#213153]">Katalog Master Mata Anggaran Kegiatan (MAK) DIPA PNJ &amp; Kontrol Kunci / Buka Kunci MAK (Eksklusif Perencanaan)</h2>
-                <p class="text-xs text-slate-500">Daftar rekening pagu anggaran institusi beserta status keterkuncian akun.</p>
+                <h2 class="text-lg font-bold text-[#213153]">Daftar Pos Anggaran</h2>
             </div>
 
             <button type="button" 
                     @click="$dispatch('open-modal', 'modal-tambah-mak')"
                     class="inline-flex items-center gap-2 rounded-xl bg-[#0969da] px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-blue-700 transition-all cursor-pointer self-start sm:self-auto">
                 <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                <span>+ Tambah Rekening MAK DIPA</span>
+                <span>+ Tambah Pos Anggaran</span>
             </button>
         </div>
 
-        <!-- Tabel Modern MAK DIPA -->
+        <!-- Tabel Pos Anggaran -->
         <div class="overflow-x-auto rounded-xl border border-slate-100">
             <table class="w-full text-left text-xs">
                 <thead class="bg-slate-50/80 text-slate-500 font-bold uppercase tracking-wider border-b border-slate-100">
                     <tr>
-                        <th class="px-4 py-3">Kode MAK</th>
-                        <th class="px-4 py-3">Uraian Rekening Kegiatan</th>
+                        <th class="px-4 py-3">Kode Pos</th>
+                        <th class="px-4 py-3">Uraian Kegiatan</th>
                         <th class="px-4 py-3">Sumber Dana</th>
                         <th class="px-4 py-3 text-center">Tahun</th>
                         <th class="px-4 py-3 text-right">Pagu Awal</th>
                         <th class="px-4 py-3 text-right">Sisa Pagu Bebas</th>
                         <th class="px-4 py-3 text-center">Status Akun</th>
-                        <th class="px-4 py-3 text-center">Aksi (Lock/Unlock)</th>
+                        <th class="px-4 py-3 text-center">Aksi</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100">
@@ -706,20 +692,20 @@
                                     <form action="{{ route('verifikasi.perencanaan.mak.unlock', $mak->kode_mak) }}" method="POST" class="inline">
                                         @csrf
                                         <button type="submit" 
-                                                title="Buka Kunci Rekening MAK"
+                                                title="Buka Kunci Pos Anggaran"
                                                 class="inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 hover:bg-emerald-100 hover:border-emerald-400 transition-colors cursor-pointer">
                                             <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>
-                                            <span>Buka Kunci (Unlock)</span>
+                                            <span>Buka Kunci</span>
                                         </button>
                                     </form>
                                 @else
                                     <form action="{{ route('verifikasi.perencanaan.mak.lock', $mak->kode_mak) }}" method="POST" class="inline">
                                         @csrf
                                         <button type="submit" 
-                                                title="Kunci Rekening MAK"
+                                                title="Kunci Pos Anggaran"
                                                 class="inline-flex items-center gap-1 rounded-lg border border-rose-300 bg-rose-50 px-2.5 py-1 text-[11px] font-bold text-rose-700 hover:bg-rose-100 hover:border-rose-400 transition-colors cursor-pointer">
                                             <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-                                            <span>Kunci MAK (Lock)</span>
+                                            <span>Kunci</span>
                                         </button>
                                     </form>
                                 @endif
@@ -732,13 +718,13 @@
     </div>
 
     <!-- 7. MODAL TAMBAH REKENING MAK DIPA BARU -->
-    <x-modal id="modal-tambah-mak" title="Tambah Master Rekening MAK DIPA" subtitle="Pendaftaran pos akun anggaran DIPA baru Kampus PNJ" maxWidth="2xl">
+    <x-modal id="modal-tambah-mak" title="Tambah Pos Anggaran" subtitle="Pendaftaran pos anggaran baru Kampus PNJ" maxWidth="2xl">
         <form action="{{ route('verifikasi.perencanaan.mak.store') }}" method="POST" class="space-y-4">
             @csrf
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="space-y-1">
-                    <label class="text-xs font-bold text-slate-700">Kode Rekening MAK <span class="text-rose-500">*</span></label>
+                    <label class="text-xs font-bold text-slate-700">Kode Pos Anggaran <span class="text-rose-500">*</span></label>
                     <input type="text" 
                            name="kode_mak" 
                            required 
@@ -747,19 +733,19 @@
                 </div>
 
                 <div class="space-y-1">
-                    <label class="text-xs font-bold text-slate-700">Sumber Pendanaan DIPA <span class="text-rose-500">*</span></label>
+                    <label class="text-xs font-bold text-slate-700">Sumber Dana <span class="text-rose-500">*</span></label>
                     <select name="sumber_dana" 
                             required 
                             class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2 text-xs font-medium focus:border-[#0969da] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0969da]/20">
-                        <option value="BOPTN">BOPTN (Bantuan Operasional PTN)</option>
-                        <option value="PNBP">PNBP (Pendapatan Negara Bukan Pajak)</option>
-                        <option value="Rupiah Murni">Rupiah Murni (APBN RM)</option>
+                        <option value="BOPTN">Dana BOPTN</option>
+                        <option value="PNBP">Dana Mandiri Kampus (PNBP)</option>
+                        <option value="Rupiah Murni">Rupiah Murni (APBN)</option>
                         <option value="Hibah / Kerjasama">Hibah / Kerjasama</option>
                     </select>
                 </div>
 
                 <div class="space-y-1 md:col-span-2">
-                    <label class="text-xs font-bold text-slate-700">Uraian / Nama Kegiatan MAK <span class="text-rose-500">*</span></label>
+                    <label class="text-xs font-bold text-slate-700">Uraian Kegiatan <span class="text-rose-500">*</span></label>
                     <input type="text" 
                            name="uraian_mak" 
                            required 
@@ -793,7 +779,7 @@
                     <label class="text-xs font-bold text-slate-700">Catatan Rekening (Opsional)</label>
                     <textarea name="catatan_mak" 
                               rows="2" 
-                              placeholder="Keterangan alokasi DIPA atau pos penunjang..."
+                              placeholder="Keterangan alokasi anggaran atau pos penunjang..."
                               class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2 text-xs font-medium focus:border-[#0969da] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0969da]/20"></textarea>
                 </div>
             </div>
@@ -806,7 +792,7 @@
                 </button>
                 <button type="submit" 
                         class="rounded-xl bg-[#0969da] px-5 py-2 text-xs font-bold text-white hover:bg-blue-700 shadow-md shadow-[#0969da]/20 transition-all cursor-pointer">
-                    Simpan &amp; Terbitkan Rekening MAK
+                    Simpan Pos Anggaran
                 </button>
             </div>
         </form>

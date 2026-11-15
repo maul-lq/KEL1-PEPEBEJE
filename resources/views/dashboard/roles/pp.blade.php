@@ -10,9 +10,9 @@
     {{-- 1. 4-COLUMN FIGMA KPI STAT CARDS --}}
     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
         <x-figma-stat-card
-            title="Total Paket PP"
+            title="Total Pejabat Pengadaan"
             :value="$stats['total_paket_pp'] ?? 0"
-            subtitle="Jalur nilai Rp 50jt - 200jt"
+            subtitle="Jalur nilai Rp 50–200 Juta"
             variant="active"
             :href="$ppRoute"
         />
@@ -20,7 +20,7 @@
         <x-figma-stat-card
             title="Reviu & Negosiasi"
             :value="$stats['paket_negosiasi'] ?? 0"
-            subtitle="Telaah dokumen & harga PP"
+            subtitle="Telaah dokumen & harga"
             variant="action"
             :href="$ppRoute"
         />
@@ -28,7 +28,7 @@
         <x-figma-stat-card
             title="Verifikasi Selesai"
             :value="$stats['paket_spk'] ?? 0"
-            subtitle="ACC PPK atau proses SPK"
+            subtitle="Disetujui PPK atau kontrak"
             variant="bell"
             :href="$ppRoute"
         />
@@ -36,7 +36,7 @@
         <x-figma-stat-card
             title="Paket Selesai"
             :value="$stats['paket_selesai'] ?? 0"
-            subtitle="Tuntas BAST & pencairan dana"
+            subtitle="Serah terima & dana cair"
             variant="done"
             :href="$ppRoute"
         />
@@ -46,7 +46,7 @@
     <x-figma-workspace
         leftTitle="Perlu Tindakan Anda"
         :leftHref="$ppRoute"
-        rightTitle="Riwayat Paket PP"
+        rightTitle="Riwayat Pejabat Pengadaan"
         :rightHref="$ppRoute"
     >
         <x-slot:left>
@@ -58,13 +58,13 @@
                     $hps = number_format((float) ($pktPp->nilai_hps ?? 0), 0, ',', '.');
                     $catatan = $pktPp->catatan_verifikasi_pp
                         ? 'Catatan: ' . \Illuminate\Support\Str::limit($pktPp->catatan_verifikasi_pp, 50)
-                        : ($isSiapBelanja ? 'Disetujui PPK • Siap eksekusi belanja' : 'Menunggu review dokumen PP');
+                        : ($isSiapBelanja ? 'Disetujui PPK • Siap eksekusi belanja' : 'Menunggu reviu dokumen');
                 @endphp
                 <x-figma-action-card
                     :index="$loop->index"
                     :variant="$isSiapBelanja ? 'done' : 'action'"
                     :title="$pktPp->nama_paket"
-                    :meta="$kode . ' • ' . $unitNama . ' • HPS: Rp ' . $hps"
+                    :meta="$kode . ' • ' . $unitNama . ' • Perkiraan Harga: Rp ' . $hps"
                     :submeta="$catatan"
                     :badge="$isSiapBelanja ? 'Siap Belanja' : 'Perlu Reviu'"
                     :badgeClass="$isSiapBelanja ? 'bg-emerald-100 text-emerald-800' : 'bg-[#fff5df] text-[#99660d]'"
@@ -73,8 +73,8 @@
                 />
             @empty
                 <x-figma-empty
-                    title="Tidak ada paket menunggu review atau belanja"
-                    subtitle="Seluruh paket pengadaan jalur PP saat ini telah ditindaklanjuti."
+                    title="Tidak ada paket menunggu reviu atau belanja"
+                    subtitle=""
                 />
             @endforelse
         </x-slot:left>
@@ -82,7 +82,7 @@
         <x-slot:right>
             <div class="bg-[#deeeff] rounded-[5px] h-[35px] px-3 flex items-center text-[#4a4a4a] text-[13px] md:text-[14px] font-semibold">
                 <div class="w-[22%] shrink-0">Kode Paket</div>
-                <div class="w-[22%] shrink-0">Nilai HPS</div>
+                <div class="w-[22%] shrink-0">Perkiraan Harga</div>
                 <div class="flex-1 px-2">Nama Paket &amp; Vendor</div>
                 <div class="w-[20%] shrink-0 text-right">Status</div>
             </div>
@@ -111,7 +111,7 @@
                     </div>
                 @empty
                     <div class="py-10 text-center text-xs text-slate-400">
-                        Belum ada riwayat paket pengadaan jalur PP.
+                        Belum ada riwayat paket Pejabat Pengadaan.
                     </div>
                 @endforelse
             </div>

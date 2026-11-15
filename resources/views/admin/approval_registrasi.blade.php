@@ -13,9 +13,6 @@
                     <span class="text-xs text-slate-400 font-mono">Modul Administrator</span>
                 </div>
                 <h1 class="text-2xl font-bold text-primary mt-1">Persetujuan Registrasi Pengguna Baru</h1>
-                <p class="text-xs text-slate-500 mt-0.5">
-                    Verifikasi identitas sivitas kampus PNJ, tetapkan hak peran sistem, atau tolak pendaftaran yang tidak memenuhi syarat tata kelola.
-                </p>
             </div>
 
             <div class="shrink-0">
@@ -81,7 +78,7 @@
         />
 
         <x-stat-card
-            title="Akun Disetujui (ACC)"
+            title="Akun Disetujui"
             :value="$historyUsers->where('status_aktif', true)->count()"
             icon="check"
             color="emerald"
@@ -106,7 +103,6 @@
         <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
             <div>
                 <h3 class="text-sm font-bold text-primary">Antrean Pendaftar Menunggu Verifikasi Admin</h3>
-                <p class="text-xs text-slate-400 mt-0.5">Penetapan peran definitif sistem PBJ PNJ</p>
             </div>
             <span class="text-xs font-bold text-slate-400 font-mono">{{ $pendingUsers->total() }} Antrean</span>
         </div>
@@ -125,7 +121,7 @@
                             <th class="px-5 py-3">Kontak &amp; Akun</th>
                             <th class="px-5 py-3">Unit / Jabatan</th>
                             <th class="px-5 py-3">Waktu Daftar</th>
-                            <th class="px-5 py-3 text-center">Persetujuan &amp; Tetapkan Role</th>
+                            <th class="px-5 py-3 text-center">Persetujuan &amp; Peran</th>
                             <th class="px-5 py-3 text-center">Penolakan</th>
                         </tr>
                     </thead>
@@ -152,7 +148,7 @@
                                     <form action="{{ route('admin.persetujuan-registrasi.acc', $user->id_user) }}" method="POST" class="space-y-2">
                                         @csrf
                                         <select name="id_role" required class="w-full h-9 rounded-lg border border-slate-200 px-2.5 text-xs bg-white text-slate-800 focus:border-[#0969da] focus:ring-1 focus:ring-[#0969da]">
-                                            <option value="">-- Tetapkan Role --</option>
+                                            <option value="">-- Pilih Peran --</option>
                                             @foreach($availableRoles as $role)
                                                 <option value="{{ $role->id }}">
                                                     {{ $role->label }} ({{ $role->nama_role }})
@@ -160,7 +156,7 @@
                                             @endforeach
                                         </select>
                                         <button type="submit" class="w-full h-8 rounded-lg bg-emerald-600 px-3 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition">
-                                            ACC &amp; Aktifkan Akun
+                                            Setujui &amp; Aktifkan
                                         </button>
                                     </form>
                                 </td>
@@ -190,7 +186,6 @@
         <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
             <div>
                 <h3 class="text-sm font-bold text-[#213153]">Riwayat Keputusan Registrasi Terakhir</h3>
-                <p class="text-xs text-slate-400 mt-0.5">Catatan audit riwayat persetujuan dan penolakan akun pegawai</p>
             </div>
             <span class="text-xs font-bold text-slate-400 font-mono">{{ $historyUsers->count() }} Riwayat</span>
         </div>

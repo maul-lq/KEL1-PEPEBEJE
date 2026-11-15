@@ -11,8 +11,7 @@
 ])
 
 @php
-    $accentColors = ['#ffd900', '#5d60ff', '#fc3dff'];
-    $borderColor = $accentColors[$index % count($accentColors)];
+    $accentIndex = $index % 3;
 
     $iconMap = [
         'active' => 'icon-card-active.svg',
@@ -23,8 +22,7 @@
     $iconFile = $iconMap[$variant] ?? 'icon-card-active.svg';
 @endphp
 
-<div class="bg-white rounded-[5px] shadow-[0px_0px_5px_0px_rgba(0,0,0,0.20)] p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 border-l-4 transition-all hover:shadow-md"
-     style="border-left-color: {{ $borderColor }};">
+<div class="action-card-accent-{{ $accentIndex }} bg-white rounded-[5px] shadow-[0px_0px_5px_0px_rgba(0,0,0,0.20)] p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 border-l-4 transition-all hover:shadow-md">
     <div class="flex items-start gap-3.5 min-w-0 flex-1">
         <div class="shrink-0 size-[50px] md:size-[55px]">
             <img src="{{ asset('images/dashboard/' . $iconFile) }}" alt="" class="size-full">

@@ -44,7 +44,7 @@ class KontrakSPKController extends Controller
     {
         $user = Auth::user();
         if (! $user || ! $user->hasAnyPermission(['spk.create', 'reviu.pp', 'reviu.ppk', 'pp.monitoring_aktivitas', 'lihat_pp'])) {
-            abort(403, 'Akses Ditolak: Anda tidak memiliki hak akses untuk membuka modul Kontrak SPK & Review Dokumen.');
+            abort(403, 'Akses Ditolak: Anda tidak memiliki hak akses untuk membuka halaman Kontrak Kerja & Tinjauan Dokumen.');
         }
 
         $canReviuPp = $user->hasPermission('reviu.pp');
@@ -268,7 +268,7 @@ class KontrakSPKController extends Controller
     {
         $user = Auth::user();
         if (! $user || ! $user->hasPermission('spk.create')) {
-            abort(403, 'Akses Ditolak: Anda tidak memiliki izin menerbitkan dokumen kontrak/SPK.');
+            abort(403, 'Akses Ditolak: Anda tidak memiliki izin menerbitkan dokumen kontrak.');
         }
 
         $validated = $request->validate([
@@ -285,7 +285,7 @@ class KontrakSPKController extends Controller
             'sifat_kontrak' => ['nullable', 'string'],
             'jadwal_pengiriman' => ['nullable', 'date'],
         ], [
-            'nama_vendor.required' => 'Nama Rekanan / Vendor pemenang wajib diisi sebelum mengunggah dokumen perikatan.',
+            'nama_vendor.required' => 'Nama Vendor pemenang wajib diisi sebelum mengunggah dokumen kontrak.',
         ]);
 
         $paket = PaketPengadaan::with('permohonan')->where('nomor_paket', $validated['kode_paket'])->firstOrFail();
@@ -294,7 +294,7 @@ class KontrakSPKController extends Controller
         $hpsLama = (float) ($paket->nilai_hps ?: $paket->alokasi_pagu_paket);
         if ($paket->jalur_routing === PaketPengadaan::ROUTING_LANGSUNG || $hpsLama <= 50000000) {
             return back()->withErrors([
-                'kode_paket' => 'Paket di bawah atau sama dengan Rp 50.000.000 adalah Belanja Langsung (output Kwitansi, tidak ada Kontrak/SPK/Surat Pesanan).',
+                'kode_paket' => 'Paket hingga Rp 50.000.000 termasuk Belanja Langsung (cukup menggunakan Kwitansi tanpa kontrak).',
             ])->withInput();
         }
 
@@ -306,21 +306,21 @@ class KontrakSPKController extends Controller
             'spk_terbit',
         ], true)) {
             return back()->withErrors([
-                'kode_paket' => 'Dokumen pengadaan paket ini belum disetujui oleh PPK (BPMN N30-N35). PPBJ baru dapat menerbitkan dokumen perikatan setelah persetujuan PPK.',
+                'kode_paket' => 'Dokumen paket ini belum disetujui PPK. Unit Pengadaan baru dapat menerbitkan dokumen kontrak setelah disetujui PPK.',
             ])->withInput();
         }
 
         // Larang upload lebih dari 1 dokumen perikatan per paket
         if (KontrakSPK::where('nomor_paket', $paket->nomor_paket)->exists()) {
             return back()->withErrors([
-                'kode_paket' => 'Paket ini sudah memiliki 1 dokumen perikatan. Pilih salah satu antara Surat Pesanan, SPK, atau Surat Kontrak (bukan diunggah keduanya).',
+                'kode_paket' => 'Paket ini sudah memiliki dokumen kontrak. Setiap paket hanya menggunakan satu jenis dokumen kontrak.',
             ])->withInput();
         }
 
         $nilaiKontrak = (float) $validated['nilai_kontrak'];
         if ($nilaiKontrak > $hpsLama) {
             return back()->withErrors([
-                'nilai_kontrak' => 'Nilai Kontrak Definitif (Rp '.number_format($nilaiKontrak, 0, ',', '.').') tidak boleh melebihi batas atas HPS paket (Rp '.number_format($hpsLama, 0, ',', '.').').',
+                'nilai_kontrak' => 'Nilai Kontrak Akhir (Rp '.number_format($nilaiKontrak, 0, ',', '.').') tidak boleh melebihi Perkiraan Harga paket (Rp '.number_format($hpsLama, 0, ',', '.').').',
             ])->withInput();
         }
 
@@ -447,9 +447,16 @@ class KontrakSPKController extends Controller
 
         $this->notificationService->notifyPenerbitanKontrak($kontrak);
 
+        $labelJenisKontrak = match ($tipeDokumen) {
+            'surat_pesanan' => 'Surat Pesanan',
+            'spk' => 'Kontrak Kerja',
+            'kontrak' => 'Surat Kontrak',
+            default => strtoupper(str_replace('_', ' ', $tipeDokumen)),
+        };
+
         return redirect()->route('kontrak.index')->with(
             'success',
-            'Dokumen perikatan ('.strtoupper(str_replace('_', ' ', $tipeDokumen)).") nomor {$kontrak->nomor_spk} berhasil diunggah beserta jadwal Reminder dan tembusan ke Perlengkapan & Keuangan.".$infoEfisiensi
+            "Dokumen kontrak ({$labelJenisKontrak}) nomor {$kontrak->nomor_spk} berhasil diunggah beserta Pengingat Jatuh Tempo dan tembusan ke Perlengkapan & Keuangan.".$infoEfisiensi
         );
     }
 
@@ -473,7 +480,7 @@ class KontrakSPKController extends Controller
             'status_reviu' => ['required', 'in:terverifikasi_pp,disetujui,perlu_perbaikan'],
             'catatan_perbaikan' => ['required_if:status_reviu,perlu_perbaikan', 'nullable', 'string'],
         ], [
-            'catatan_perbaikan.required_if' => 'Catatan perbaikan / alasan penolakan wajib diisi saat meminta perbaikan dokumen pengadaan (BPMN N18).',
+            'catatan_perbaikan.required_if' => 'Catatan perbaikan atau alasan penolakan wajib diisi saat meminta revisi dokumen pengadaan.',
         ]);
 
         $paket = PaketPengadaan::where('nomor_paket', $validated['nomor_paket'])->firstOrFail();
@@ -485,13 +492,13 @@ class KontrakSPKController extends Controller
         // Penegakan wewenang murni berbasis permission
         if ($validated['status_reviu'] === 'terverifikasi_pp' && ! $hasReviuPp) {
             return back()->withErrors([
-                'status_reviu' => 'Anda tidak memiliki hak akses verifikasi teknis PP (reviu.pp).',
+                'status_reviu' => 'Anda tidak memiliki hak akses verifikasi Pejabat Pengadaan.',
             ])->withInput();
         }
 
         if ($validated['status_reviu'] === 'disetujui' && ! $hasReviuPpk) {
             return back()->withErrors([
-                'status_reviu' => 'Pejabat Pengadaan (PP) tidak memiliki wewenang persetujuan final (Approval). Persetujuan dokumen dilakukan oleh PPK (BPMN N35).',
+                'status_reviu' => 'Pejabat Pengadaan tidak memiliki wewenang persetujuan akhir. Persetujuan dokumen dilakukan oleh PPK.',
             ])->withInput();
         }
 
@@ -502,9 +509,9 @@ class KontrakSPKController extends Controller
                 || ($hasReviuPp && in_array($paket->status_paket, ['terdaftar', 'reviu_dokumen'], true)),
         };
 
-        // Penegakan isolasi berkas PPK & ruang lingkup PP murni berbasis permission
+        // Penegakan ruang lingkup berkas PPK & PP berbasis permission
         if (! $isPp && ! $hasViewAllPaket && $paket->id_user_ppk && (int) $paket->id_user_ppk !== (int) $user->id_user) {
-            abort(403, 'Akses Ditolak: Anda tidak berhak mereviu atau meng-approve paket yang ditugaskan kepada PPK lain (Isolasi Berkas PPK).');
+            abort(403, 'Akses Ditolak: Anda tidak berhak mereviu atau menyetujui paket yang ditugaskan kepada PPK lain.');
         }
 
         if ($isPp && ! $hasViewAllPaket && $paket->jalur_routing !== PaketPengadaan::ROUTING_PP && (int) $paket->id_user_pp !== (int) $user->id_user) {
@@ -525,10 +532,10 @@ class KontrakSPKController extends Controller
 
         $statusLama = $paket->status_paket;
 
-        // KASUS 1: PP Verifikasi Berhasil (BPMN N27: Iya -> N31: Kirim ke PPK N30)
+        // KASUS 1: Pejabat Pengadaan Verifikasi Berhasil -> Kirim ke PPK
         if ($validated['status_reviu'] === 'terverifikasi_pp') {
             $paket->status_paket = PaketPengadaan::STATUS_MENUNGGU_APPROVAL_PPK;
-            $paket->catatan_verifikasi_pp = $validated['catatan_perbaikan'] ?? 'Dokumen pengadaan lolos verifikasi teknis & HPS oleh PP (BPMN N27: Iya); berkas diteruskan ke PPK (N31 -> N30).';
+            $paket->catatan_verifikasi_pp = $validated['catatan_perbaikan'] ?? 'Dokumen pengadaan lolos verifikasi Pejabat Pengadaan; berkas diteruskan ke PPK.';
             $paket->save();
 
             AuditLog::catat(
@@ -538,18 +545,18 @@ class KontrakSPKController extends Controller
                 $paket->nomor_paket,
                 $statusLama,
                 $paket->status_paket,
-                "PP menyatakan verifikasi dokumen pengadaan paket {$paket->nomor_paket} berhasil (BPMN N27: Iya); dokumen diteruskan ke PPK (N31 -> N30)."
+                "Pejabat Pengadaan menyatakan verifikasi dokumen pengadaan paket {$paket->nomor_paket} berhasil; dokumen diteruskan ke PPK."
             );
 
             $this->notificationService->notifyReviewPpKePpk($paket, $validated['catatan_perbaikan'] ?? null);
 
             return redirect()->route('kontrak.index')->with(
                 'success',
-                "Verifikasi dokumen pengadaan paket {$paket->nomor_paket} berhasil (BPMN N27 & N31). Berkas diteruskan ke PPK untuk persetujuan (N30)."
+                "Verifikasi dokumen pengadaan paket {$paket->nomor_paket} berhasil. Berkas diteruskan ke PPK untuk persetujuan."
             );
         }
 
-        // KASUS 2: PPK Menyetujui Dokumen Pengadaan (BPMN N35: Iya -> N36)
+        // KASUS 2: PPK Menyetujui Dokumen Pengadaan
         if ($validated['status_reviu'] === 'disetujui') {
             $paket->status_paket = PaketPengadaan::STATUS_SIAP_UPLOAD_DOKUMEN_PPBJ;
             $paket->save();
@@ -561,20 +568,20 @@ class KontrakSPKController extends Controller
                 $paket->nomor_paket,
                 $statusLama,
                 $paket->status_paket,
-                "PPK menyetujui dokumen pengadaan paket {$paket->nomor_paket} (BPMN N35: Iya); berkas diteruskan ke PPBJ untuk melakukan pengadaan & membuat SPK/Kontrak (N32/N34/N37)."
+                "PPK menyetujui dokumen pengadaan paket {$paket->nomor_paket}; berkas diteruskan ke Unit Pengadaan untuk membuat dokumen kontrak."
             );
 
             $this->notificationService->notifySiapUploadDokumenPpbj($paket, 'ppk');
 
             return redirect()->route('kontrak.index')->with(
                 'success',
-                "Dokumen pengadaan paket {$paket->nomor_paket} berhasil disetujui oleh PPK (BPMN N35). Berkas diteruskan ke PPBJ untuk pelaksanaan pengadaan & penerbitan SPK/Kontrak (N32 & N37)."
+                "Dokumen pengadaan paket {$paket->nomor_paket} berhasil disetujui oleh PPK. Berkas diteruskan ke Unit Pengadaan untuk penerbitan kontrak."
             );
         }
 
-        // KASUS 3: Penolakan / Perlu Perbaikan (PP N27: Tidak ATAU PPK N35: Tidak -> N18)
+        // KASUS 3: Penolakan / Perlu Perbaikan
         $paket->status_paket = 'perlu_perbaikan';
-        $paket->catatan_verifikasi_pp = ($isPp ? 'Catatan PP: ' : 'Catatan PPK: ').$validated['catatan_perbaikan'];
+        $paket->catatan_verifikasi_pp = ($isPp ? 'Catatan Pejabat Pengadaan: ' : 'Catatan PPK: ').$validated['catatan_perbaikan'];
         $paket->save();
 
         AuditLog::catat(
@@ -584,14 +591,14 @@ class KontrakSPKController extends Controller
             $paket->nomor_paket,
             $statusLama,
             $paket->status_paket,
-            'Penelaah ('.($isPp ? 'PP' : 'PPK').") mengembalikan dokumen paket {$paket->nomor_paket} ke PPBJ untuk disusun ulang (BPMN N18): ".$validated['catatan_perbaikan']
+            'Penelaah ('.($isPp ? 'Pejabat Pengadaan' : 'PPK').") mengembalikan dokumen paket {$paket->nomor_paket} ke Unit Pengadaan untuk perbaikan: ".$validated['catatan_perbaikan']
         );
 
         $this->notificationService->notifyReviuDokumen($paket, 'perlu_perbaikan', $validated['catatan_perbaikan'] ?? null);
 
         return redirect()->route('kontrak.index')->with(
             'success',
-            "Dokumen pengadaan paket {$paket->nomor_paket} dikembalikan ke PPBJ untuk perbaikan (BPMN N18)."
+            "Dokumen pengadaan paket {$paket->nomor_paket} dikembalikan ke Unit Pengadaan untuk perbaikan."
         );
     }
 
@@ -659,7 +666,7 @@ class KontrakSPKController extends Controller
             'keputusan' => ['required', 'in:disetujui,ditolak'],
             'catatan_alasan' => ['required_if:keputusan,ditolak', 'nullable', 'string'],
         ], [
-            'catatan_alasan.required_if' => 'Catatan alasan penolakan wajib diisi saat PPK menolak / mengembalikan dokumen pengadaan ke PPBJ.',
+            'catatan_alasan.required_if' => 'Catatan alasan penolakan wajib diisi saat mengembalikan dokumen pengadaan ke Unit Pengadaan.',
         ]);
 
         $paket = PaketPengadaan::with(['permohonan', 'reviuDokumen'])->where('nomor_paket', $validated['nomor_paket'])->firstOrFail();
@@ -671,7 +678,7 @@ class KontrakSPKController extends Controller
         $statusLama = $paket->status_paket;
         $nextRound = (ReviuDokumen::where('nomor_paket', $paket->nomor_paket)->max('putaran_ke') ?? 0) + 1;
         $isDisetujui = ($validated['keputusan'] === 'disetujui');
-        $catatan = $validated['catatan_alasan'] ?: 'Dokumen pengadaan disetujui oleh PPK (BPMN N36); berkas diteruskan ke PPBJ.';
+        $catatan = $validated['catatan_alasan'] ?: 'Dokumen pengadaan disetujui oleh PPK; berkas diteruskan ke Unit Pengadaan.';
 
         ReviuDokumen::create([
             'nomor_paket' => $paket->nomor_paket,
@@ -694,14 +701,14 @@ class KontrakSPKController extends Controller
                 $paket->nomor_paket,
                 $statusLama,
                 $paket->status_paket,
-                "PPK ({$user->nama}) menyetujui dokumen pengadaan paket {$paket->nomor_paket} (BPMN N35: Iya -> N36); diteruskan ke PPBJ untuk belanja/perikatan."
+                "PPK ({$user->nama}) menyetujui dokumen paket {$paket->nomor_paket}; diteruskan ke Unit Pengadaan."
             );
 
             $this->notificationService->notifySiapUploadDokumenPpbj($paket, 'ppk');
 
             return redirect()->route('ppk.persetujuan-dokumen.index')->with(
                 'success',
-                "Dokumen pengadaan paket {$paket->nomor_paket} BERHASIL DISETUJUI oleh PPK (BPMN N36). PPBJ dapat melanjutkan pelaksanaan pengadaan."
+                "Dokumen pengadaan paket {$paket->nomor_paket} berhasil disetujui oleh PPK. Unit Pengadaan dapat melanjutkan pelaksanaan pengadaan."
             );
         }
 
@@ -716,14 +723,14 @@ class KontrakSPKController extends Controller
             $paket->nomor_paket,
             $statusLama,
             $paket->status_paket,
-            "PPK ({$user->nama}) mengembalikan dokumen pengadaan paket {$paket->nomor_paket} ke PPBJ untuk disusun ulang (BPMN N35: Tidak -> N18): ".$catatan
+            "PPK ({$user->nama}) mengembalikan dokumen pengadaan paket {$paket->nomor_paket} ke Unit Pengadaan untuk perbaikan: ".$catatan
         );
 
         $this->notificationService->notifyReviuDokumen($paket, 'perlu_perbaikan', $catatan);
 
         return redirect()->route('ppk.persetujuan-dokumen.index')->with(
             'success',
-            "Dokumen pengadaan paket {$paket->nomor_paket} dikembalikan ke PPBJ untuk penyusunan ulang (BPMN N18)."
+            "Dokumen pengadaan paket {$paket->nomor_paket} dikembalikan ke Unit Pengadaan untuk penyusunan ulang."
         );
     }
 }

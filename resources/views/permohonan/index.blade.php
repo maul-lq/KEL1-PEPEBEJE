@@ -3,7 +3,7 @@
 @section('title', 'Tracking Pengajuan - SIM-PBJ')
 
 @section('content')
-<div x-data="trackingManager({{ isset($permohonanList) ? json_encode($permohonanList->items() ?? $permohonanList) : '[]' }})" class="space-y-6 mx-1 px-4 sm:px-6 lg:px-8 py-6">
+<div x-data="trackingManager" data-items="{{ isset($permohonanList) ? json_encode($permohonanList->items() ?? $permohonanList) : '[]' }}" data-default-status="Semua" class="space-y-6 mx-1 px-4 sm:px-6 lg:px-8 py-6">
 
     <!-- 1. HEADER SECTION (Figma 455:6666, 465:8991, 506:1335) -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -26,8 +26,8 @@
             <p class="mt-1 text-sm text-slate-500"
                x-text="viewMode === 'fullscreen' 
                     ? 'Pantau status, dokumen, dan riwayat proses pengajuan ini.' 
-                    : 'Pantau status pengajuan pengadaan Anda secara real-time. Pilih salah satu pengajuan untuk melihat detailnya.'">
-                Pantau status pengajuan pengadaan Anda secara real-time. Pilih salah satu pengajuan untuk melihat detailnya.
+                    : 'Pilih pengajuan di daftar untuk melihat detail.'">
+                Pilih pengajuan di daftar untuk melihat detail.
             </p>
         </div>
 
@@ -145,7 +145,7 @@
                 <label class="block text-xs font-medium text-slate-500">Status</label>
                 <select id="status-filter" 
                         name="status" 
-                        onchange="this.form.submit()" 
+                        data-auto-submit
                         class="w-full h-10 px-3 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-[#0969da]/20 focus:border-[#0969da] outline-none">
                     <option value="">Status Tracking</option>
                     <option value="diajukan" {{ request('status') == 'diajukan' ? 'selected' : '' }}>Diajukan</option>
@@ -162,7 +162,7 @@
                 <label class="block text-xs font-medium text-slate-500">Jenis Pengadaan</label>
                 <select id="jenis-filter" 
                         name="jenis" 
-                        onchange="this.form.submit()" 
+                        data-auto-submit
                         class="w-full h-10 px-3 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-[#0969da]/20 focus:border-[#0969da] outline-none">
                     <option value="">Jenis Pengadaan</option>
                     <option value="barang" {{ request('jenis') == 'barang' ? 'selected' : '' }}>Barang</option>
@@ -179,7 +179,7 @@
                            name="tanggal"
                            value="{{ request('tanggal') }}"
                            x-model="filterTanggal"
-                           onchange="this.form.submit()"
+                           data-auto-submit
                            class="w-full h-10 px-2.5 rounded-lg border border-slate-300 text-xs text-slate-600 focus:ring-2 focus:ring-[#0969da]/20 focus:border-[#0969da] outline-none">
 
                     <a href="{{ route('permohonan.index') }}" 
@@ -283,7 +283,7 @@
                         <span class="flex size-7 items-center justify-center rounded-full bg-[#0969da] text-white text-xs font-bold" x-text="selectedItem.currentTahap || 1"></span>
                         <div>
                             <h3 class="font-extrabold text-base sm:text-lg text-[#213153]" x-text="'Tahap ' + (selectedItem.currentTahap || 1) + ' dari 8'"></h3>
-                            <p class="text-xs text-slate-500">Alur Pelacakan Eksekusi Pengadaan 8 Tahap SIM-PBJ</p>
+                            <p class="text-xs text-slate-500">Riwayat Tahapan Pengadaan</p>
                         </div>
                     </div>
                     <span class="px-3.5 py-1.5 rounded-full text-xs font-bold bg-blue-50 text-[#0969da] border border-blue-200" x-text="tahapanList[(selectedItem.currentTahap || 1) - 1]"></span>
@@ -438,7 +438,7 @@
                                 <div class="flex items-center justify-between">
                                     <div class="flex items-center gap-1.5 text-xs font-bold text-emerald-950">
                                         <svg class="size-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                                        <span>Foto Dokumentasi Fisik Barang (Unit Perlengkapan)</span>
+                                        <span>Foto Barang Diterima</span>
                                     </div>
                                     <span class="rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] px-2 py-0.5" x-text="selectedItem.fotoDokumentasiBarang.length + ' Foto'"></span>
                                 </div>
@@ -462,7 +462,7 @@
                                 <div class="flex items-center justify-between">
                                     <div class="flex items-center gap-1.5 text-xs font-bold text-teal-950">
                                         <svg class="size-4 text-teal-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-                                        <span>Bukti Bayar & Realisasi Kas (SP2D / Kwitansi)</span>
+                                        <span>Bukti Bayar &amp; Pencairan</span>
                                     </div>
                                     <span class="rounded-full bg-teal-100 text-teal-800 font-bold text-[10px] px-2 py-0.5" x-text="selectedItem.buktiPembayaran.length + ' Berkas'"></span>
                                 </div>
@@ -706,7 +706,7 @@
                         </div>
                         <h3 class="font-extrabold text-2xl text-[#213153] tracking-tight">Pilih Pengajuan untuk Melihat Detail</h3>
                         <p class="text-sm text-slate-500 max-w-md mt-2 leading-relaxed">
-                            Silahkan pilih salah satu pengajuan dari daftar sebelah kiri untuk melihat informasi lengkap, dokumen, dan riwayat prosesnya.
+                            Pilih salah satu pengajuan di sebelah kiri.
                         </p>
                     </div>
                 </template>
@@ -743,7 +743,7 @@
                                 <div class="absolute top-1/2 left-5 right-5 h-1 bg-slate-200 -translate-y-1/2 z-0 rounded-full"></div>
                                 <!-- Track Penghubung Aktif -->
                                 <div class="absolute top-1/2 left-5 h-1 bg-[#0969da] -translate-y-1/2 z-0 transition-all duration-300 rounded-full"
-                                     :style="'width: ' + ((selectedItem.currentTahap > 1 ? (selectedItem.currentTahap - 1) / 7 : 0) * 100) + '%'"></div>
+                                     :style="'width: ' + detailStepPercent() + '%'"></div>
 
                                 <template x-for="n in 8" :key="n">
                                     <div class="relative z-10 size-8 sm:size-9 rounded-full flex items-center justify-center font-bold text-xs transition-all"

@@ -16,7 +16,7 @@
 </head>
 <body class="bg-white">
 
-    <div class="relative flex min-h-screen items-center justify-center overflow-hidden bg-white p-4 font-sans sm:p-8" x-data="{ showPassword: false, showPasswordConfirm: false }">
+    <div class="relative flex min-h-screen items-center justify-center overflow-hidden bg-white p-4 font-sans sm:p-8" x-data="registerForm">
         <!-- Background Image -->
         <img
             src="https://api.builder.io/api/v1/image/assets/TEMP/a6a346ae9082d34ec87b3f43d83776d06c5ee139?width=3840"
@@ -45,25 +45,22 @@
                         Aplikasi administratif Politeknik Negeri Jakarta
                     </h2>
                     <p class="mt-6 max-w-[382px] text-lg font-medium leading-[30px]">
-                        Pemantauan proses peminjaman barang yang berlangsung di sistem PNJ
+                        Sistem pengadaan barang dan jasa Politeknik Negeri Jakarta
                     </p>
                 </div>
                 <p class="w-full text-center text-xs font-medium leading-[30px] text-white/50 lg:mt-[200px]">
-                    &copy; {{ date('Y') }} SIM-PBJ. All rights reserved.
+                    &copy; {{ date('Y') }} SIM-PBJ Politeknik Negeri Jakarta
                 </p>
             </aside>
 
             <!-- Main Form Content -->
             <main class="flex-1 bg-white/[0.92] p-6 sm:p-10 lg:px-[67px] lg:py-[42px]">
-                <div class="flex flex-col justify-between gap-2 sm:flex-row sm:items-start">
-                    <h1 class="text-3xl lg:text-4xl font-semibold text-black">Pendaftaran Akun Pegawai / Pengusul Baru</h1>
+                <div class="mb-2 flex flex-col justify-between gap-2 sm:flex-row sm:items-start">
+                    <h1 class="text-3xl lg:text-4xl font-semibold text-black">Pendaftaran Akun Baru</h1>
                     <p class="text-lg font-medium text-[#AAA] sm:pt-1 sm:text-right">
                         Sudah punya akun? <a href="{{ route('login') }}" class="text-[#3B82F6] hover:underline">Masuk</a>
                     </p>
                 </div>
-                <p class="mt-2 text-lg font-medium text-[#AAA]">
-                    Lengkapi data diri dan informasi kedinasan Anda
-                </p>
 
                 <!-- Menampilkan Pesan Error Umum/Flash Status -->
                 @if ($errors->any())
@@ -224,7 +221,7 @@
 
         <option value="LKP"
             {{ old('kode_unit', old('unit_kerja')) == 'LKP' ? 'selected' : '' }}>
-            [LKP] Unit Perlengkapan & BMN
+            [LKP] Unit Perlengkapan
         </option>
 
         <option value="KEU"
@@ -239,7 +236,7 @@
 
         <option value="PPBJ"
             {{ old('kode_unit', old('unit_kerja')) == 'PPBJ' ? 'selected' : '' }}>
-            [PPBJ] Unit Pengadaan Barang dan Jasa
+            Unit Pengadaan Barang dan Jasa
         </option>
 
         <option value="PPK"

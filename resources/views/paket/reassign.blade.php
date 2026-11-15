@@ -13,7 +13,6 @@
                     </span>
                 </div>
                 <h1 class="text-xl font-bold text-[#213153] mt-1">Alih Tugas Penugasan PPK</h1>
-                <p class="text-xs text-slate-500 mt-0.5">Pengalihan tanggung jawab berkas paket pengadaan ke akun PPK baru</p>
             </div>
             <a href="{{ route('paket.index') }}" class="px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition">
                 &larr; Kembali
@@ -49,17 +48,16 @@
 
             <div>
                 <label for="id_user_ppk_baru" class="block text-xs font-bold text-slate-700 mb-1">
-                    Pilih Akun PPK Pengganti (1 dari 4 Akun) <span class="text-rose-500">*</span>
+                    Pilih PPK Pengganti <span class="text-rose-500">*</span>
                 </label>
                 <select id="id_user_ppk_baru" name="id_user_ppk_baru" required class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
-                    <option value="">-- Pilih Akun PPK Aktif PNJ --</option>
+                    <option value="">-- Pilih PPK Aktif --</option>
                     @foreach($ppkUsers as $ppk)
                         <option value="{{ $ppk->id_user }}" {{ old('id_user_ppk_baru') == $ppk->id_user ? 'selected' : '' }}>
                             {{ $ppk->nama }} &bull; {{ $ppk->jabatan ?? 'PPK PNJ' }}
                         </option>
                     @endforeach
                 </select>
-                <p class="text-[11px] text-slate-400 mt-1">Sistem mengunci penugasan pada akun PPK aktif untuk menjaga tata kelola dan isolasi berkas.</p>
             </div>
 
             <div>

@@ -106,11 +106,11 @@ class NotifikasiUser extends Model
         if ($tipe === 'verifikasi' || str_contains($judul, 'verifikasi') || str_contains($judul, 'telaah')) {
             return 'Verifikasi';
         }
-        if ($tipe === 'pembayaran' || $tipe === 'h_minus_2_termin' || str_contains($judul, 'bayar') || str_contains($judul, 'termin') || str_contains($judul, 'sp2d') || str_contains($judul, 'spp')) {
+        if ($tipe === 'pembayaran' || $tipe === 'h_minus_2_termin' || str_contains($judul, 'bayar') || str_contains($judul, 'termin') || str_contains($judul, 'sp2d') || str_contains($judul, 'spp') || str_contains($judul, 'cair')) {
             return 'Pembayaran';
         }
         if (str_contains($judul, 'spk') || str_contains($judul, 'kontrak')) {
-            return 'Tembusan SPK';
+            return 'Dokumen Kontrak';
         }
         if (str_contains($judul, 'tindakan') || str_contains($pesan, 'tindak lanjut')) {
             return 'Perlu Tindakan';
@@ -136,7 +136,7 @@ class NotifikasiUser extends Model
             return $matches[0].' · Permohonan Pengadaan Terkait';
         }
 
-        return '032/PL3/TE/2026 · Komponen praktikum digital';
+        return 'Permohonan Pengadaan Terkait';
     }
 
     /**
@@ -156,17 +156,17 @@ class NotifikasiUser extends Model
         return match ($role) {
             'user' => 'Buka permohonan ↗',
             'staff_bidang_2' => 'Telaah Usulan ↗',
-            'wadir_2' => str_contains($judul, 'bayar') || str_contains($judul, 'memo') ? 'ACC Memo Bayar ↗' : 'Persetujuan Wadir 2 ↗',
-            'perencanaan' => 'Verifikasi MAK ↗',
+            'wadir_2' => str_contains($judul, 'bayar') || str_contains($judul, 'memo') ? 'Setujui Memo Bayar ↗' : 'Persetujuan Wadir 2 ↗',
+            'perencanaan' => 'Cek Pos Anggaran ↗',
             'ppbj' => match ($badge) {
-                'Tembusan SPK' => 'Tinjau SPK ↗',
-                'Pembayaran' => 'Terbitkan SPP ↗',
+                'Dokumen Kontrak' => 'Tinjau Kontrak ↗',
+                'Pembayaran' => 'Terbitkan Perintah Bayar ↗',
                 default => 'Lihat Paket ↗',
             },
             'pp' => 'Negosiasi Harga ↗',
             'ppk' => str_contains($judul, 'bayar') || str_contains($judul, 'memo') ? 'Tinjau Memo Bayar ↗' : 'Tinjau Kontrak ↗',
-            'perlengkapan' => 'Pemeriksaan BAST ↗',
-            'keuangan' => 'Pencairan SP2D ↗',
+            'perlengkapan' => 'Periksa Serah Terima ↗',
+            'keuangan' => 'Pencairan Dana ↗',
             'admin' => 'Persetujuan Registrasi ↗',
             default => 'Lihat Rincian ↗',
         };
@@ -192,7 +192,7 @@ class NotifikasiUser extends Model
             'wadir_2' => (str_contains($judul, 'bayar') || str_contains($judul, 'memo')) ? route('pembayaran.index') : route('verifikasi.wadir-2'),
             'perencanaan' => route('verifikasi.perencanaan'),
             'ppbj' => match ($badge) {
-                'Tembusan SPK' => route('kontrak.index'),
+                'Dokumen Kontrak' => route('kontrak.index'),
                 'Pembayaran' => route('pembayaran.index'),
                 default => route('paket.index'),
             },

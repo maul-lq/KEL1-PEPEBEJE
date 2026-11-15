@@ -175,7 +175,7 @@ class PenerimaanBarangController extends Controller
 
         return redirect()->route('penerimaan.index')->with(
             'success',
-            "Berita Acara Serah Terima (BAST) nomor {$penerimaan->nomor_bast} dan foto dokumentasi berhasil diterbitkan & dikirim ke PPBJ."
+            "Bukti Serah Terima Barang nomor {$penerimaan->nomor_bast} dan foto dokumentasi berhasil disimpan & dikirim ke Unit Pengadaan."
         );
     }
 

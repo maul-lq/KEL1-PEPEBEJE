@@ -3,311 +3,7 @@
 <head>
     <meta charset="utf-8">
     <title>Laporan SIM-PBJ Politeknik Negeri Jakarta</title>
-    <style>
-        @page {
-            size: A4 landscape;
-            margin: 14mm 12mm 16mm 12mm;
-            @bottom-left {
-                content: "SIM-PBJ Politeknik Negeri Jakarta • Dokumen Laporan RBAC Terverifikasi";
-                font-family: "DejaVu Sans", sans-serif;
-                font-size: 7.5pt;
-                color: #64748b;
-            }
-            @bottom-right {
-                content: "Halaman " counter(page) " dari " counter(pages);
-                font-family: "DejaVu Sans", sans-serif;
-                font-size: 7.5pt;
-                font-weight: bold;
-                color: #334155;
-            }
-        }
-
-        * {
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: "DejaVu Sans", sans-serif;
-            font-size: 8.5pt;
-            color: #1e293b;
-            line-height: 1.4;
-            margin: 0;
-            padding: 0;
-        }
-
-        .kop-banner {
-            width: 100%;
-            border-bottom: 3px solid #0969da;
-            background-color: #213153;
-            color: #ffffff;
-            padding: 12px 16px;
-            margin-bottom: 12px;
-        }
-
-        .kop-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .kop-instansi {
-            font-size: 7.5pt;
-            letter-spacing: 0.8px;
-            text-transform: uppercase;
-            color: #cbd5e1;
-            margin: 0 0 2px 0;
-        }
-
-        .kop-title {
-            font-size: 13pt;
-            font-weight: bold;
-            color: #ffffff;
-            margin: 0 0 3px 0;
-        }
-
-        .kop-sub {
-            font-size: 8.5pt;
-            color: #e2e8f0;
-            margin: 0;
-        }
-
-        .kop-badge {
-            text-align: right;
-            vertical-align: top;
-        }
-
-        .badge-scope {
-            display: inline-block;
-            background-color: #0969da;
-            color: #ffffff;
-            padding: 4px 10px;
-            font-size: 7.5pt;
-            font-weight: bold;
-            border-radius: 4px;
-            text-transform: uppercase;
-        }
-
-        .meta-box {
-            width: 100%;
-            border-collapse: collapse;
-            border: 1px solid #cbd5e1;
-            background-color: #f8fafc;
-            margin-bottom: 14px;
-        }
-
-        .meta-box td {
-            padding: 5px 10px;
-            font-size: 8pt;
-            border-bottom: 1px solid #e2e8f0;
-            vertical-align: top;
-        }
-
-        .meta-box tr:last-child td {
-            border-bottom: none;
-        }
-
-        .meta-label {
-            width: 15%;
-            font-weight: bold;
-            color: #475569;
-        }
-
-        .meta-val {
-            width: 35%;
-            color: #0f172a;
-        }
-
-        .section-block {
-            margin-bottom: 18px;
-        }
-
-        .section-head-wrap {
-            page-break-inside: avoid;
-        }
-
-        .section-header {
-            background-color: #eff6ff;
-            border-left: 4px solid #0969da;
-            border-top: 1px solid #bfdbfe;
-            border-right: 1px solid #bfdbfe;
-            border-bottom: 1px solid #bfdbfe;
-            padding: 7px 12px;
-            margin-bottom: 8px;
-        }
-
-        .section-title {
-            font-size: 10.5pt;
-            font-weight: bold;
-            color: #213153;
-            margin: 0;
-        }
-
-        .section-desc {
-            font-size: 7.5pt;
-            color: #475569;
-            margin: 2px 0 0 0;
-        }
-
-        .kpi-grid {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 6px;
-            margin: 0 -6px 8px -6px;
-        }
-
-        .kpi-card {
-            width: 33.33%;
-            border: 1px solid #cbd5e1;
-            border-top: 2.5px solid #0969da;
-            background-color: #ffffff;
-            padding: 7px 10px;
-            vertical-align: top;
-        }
-
-        .kpi-label {
-            font-size: 7pt;
-            font-weight: bold;
-            text-transform: uppercase;
-            color: #64748b;
-            margin: 0 0 3px 0;
-        }
-
-        .kpi-val {
-            font-size: 11pt;
-            font-weight: bold;
-            color: #213153;
-            margin: 0 0 2px 0;
-        }
-
-        .kpi-sub {
-            font-size: 7pt;
-            color: #64748b;
-            margin: 0;
-        }
-
-        .table-caption {
-            font-size: 8.5pt;
-            font-weight: bold;
-            color: #213153;
-            margin: 6px 0 4px 0;
-        }
-
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-            border: 1px solid #cbd5e1;
-            margin-bottom: 6px;
-        }
-
-        .data-table thead {
-            display: table-header-group;
-        }
-
-        .data-table th {
-            background-color: #213153;
-            color: #ffffff;
-            font-size: 7.5pt;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
-            padding: 6px 8px;
-            border: 1px solid #1e293b;
-            text-align: left;
-        }
-
-        .data-table td {
-            padding: 5.5px 8px;
-            font-size: 8pt;
-            border: 1px solid #e2e8f0;
-            vertical-align: middle;
-        }
-
-        .data-table tbody tr {
-            page-break-inside: avoid;
-        }
-
-        .data-table tbody tr:nth-child(even) {
-            background-color: #f8fafc;
-        }
-
-        .text-center {
-            text-align: center !important;
-        }
-
-        .text-right {
-            text-align: right !important;
-        }
-
-        .font-mono {
-            font-family: "DejaVu Sans Mono", monospace;
-        }
-
-        .font-bold {
-            font-weight: bold;
-        }
-
-        .pill {
-            display: inline-block;
-            padding: 2px 6px;
-            font-size: 7pt;
-            font-weight: bold;
-            border-radius: 3px;
-        }
-
-        .pill-emerald {
-            background-color: #ecfdf5;
-            color: #047857;
-            border: 1px solid #a7f3d0;
-        }
-
-        .pill-rose {
-            background-color: #fff1f2;
-            color: #be123c;
-            border: 1px solid #fecdd3;
-        }
-
-        .pill-amber {
-            background-color: #fffbeb;
-            color: #b45309;
-            border: 1px solid #fde68a;
-        }
-
-        .pill-blue {
-            background-color: #eff6ff;
-            color: #0969da;
-            border: 1px solid #bfdbfe;
-        }
-
-        .sign-box {
-            margin-top: 12px;
-            width: 100%;
-            border-collapse: collapse;
-            page-break-inside: avoid;
-        }
-
-        .sign-note {
-            width: 65%;
-            font-size: 7.5pt;
-            color: #64748b;
-            vertical-align: bottom;
-            padding-right: 16px;
-        }
-
-        .sign-stamp {
-            width: 35%;
-            border: 1px dashed #94a3b8;
-            background-color: #f8fafc;
-            padding: 8px 12px;
-            text-align: right;
-            font-size: 8pt;
-        }
-
-        .empty-row {
-            text-align: center;
-            color: #64748b;
-            padding: 14px !important;
-            font-style: italic;
-        }
-    </style>
+    <link rel="stylesheet" href="{{ resource_path('css/pdf/laporan.css') }}">
 </head>
 <body>
 
@@ -324,11 +20,11 @@
                             LAPORAN TERPADU PENGADAAN BARANG &amp; JASA (SIM-PBJ)
                         @endif
                     </h1>
-                    <p class="kop-sub">Sistem Informasi Pengadaan Barang dan Jasa • Ringkasan Kinerja &amp; Rincian Data Operasional</p>
+                    <p class="kop-sub">Sistem Informasi Pengadaan Barang dan Jasa</p>
                 </td>
                 <td class="kop-badge">
                     <span class="badge-scope">
-                        {{ $selectedModule === 'semua' ? count($sections).' Modul RBAC Aktif' : ($sections[0]['tab_label'] ?? 'Laporan PBJ') }}
+                        {{ $selectedModule === 'semua' ? count($sections).' Modul Aktif' : ($sections[0]['tab_label'] ?? 'Laporan Pengadaan') }}
                     </span>
                 </td>
             </tr>
@@ -349,13 +45,13 @@
             <td class="meta-val">{{ $generatedAt }}</td>
         </tr>
         <tr>
-            <td class="meta-label">Peran (Role)</td>
+            <td class="meta-label">Peran</td>
             <td class="meta-val">{{ $roleLabel }}</td>
             <td class="meta-label">Filter Aktif</td>
             <td class="meta-val">{{ $filterSummaryText }}</td>
         </tr>
         <tr>
-            <td class="meta-label">Modul RBAC</td>
+            <td class="meta-label">Hak Akses Modul</td>
             <td class="meta-val" colspan="3">
                 {{ ! empty($activeModuleLabels) ? implode('  •  ', $activeModuleLabels) : 'Tidak ada modul laporan aktif' }}
             </td>
@@ -391,7 +87,7 @@
                                     </td>
                                 @endforeach
                                 @for($pad = count($cardRow); $pad < 3; $pad++)
-                                    <td class="kpi-card" style="border: none; background: transparent;"></td>
+                                    <td class="kpi-card kpi-spacer"></td>
                                 @endfor
                             </tr>
                         @endforeach
@@ -406,10 +102,10 @@
                     <tr>
                         @foreach($section['columns'] as $cIdx => $col)
                             @php
-                                $isRight = str_contains($col, 'Pagu') || str_contains($col, 'Nilai') || str_contains($col, 'HPS') || str_contains($col, 'Saldo') || str_contains($col, 'Nominal') || str_contains($col, '%');
+                                $isRight = str_contains($col, 'Pagu') || str_contains($col, 'Nilai') || str_contains($col, 'HPS') || str_contains($col, 'Harga') || str_contains($col, 'Saldo') || str_contains($col, 'Nominal') || str_contains($col, '%');
                                 $isCenter = $cIdx === 0 || str_contains($col, 'Status') || str_contains($col, 'Tahun') || str_contains($col, 'Jumlah');
                             @endphp
-                            <th class="{{ $cIdx === 0 ? 'text-center' : ($isRight ? 'text-right' : ($isCenter ? 'text-center' : '')) }}" style="{{ $cIdx === 0 ? 'width: 34px;' : '' }}">
+                            <th class="{{ $cIdx === 0 ? 'text-center col-no' : ($isRight ? 'text-right' : ($isCenter ? 'text-center' : '')) }}">
                                 {{ $col }}
                             </th>
                         @endforeach
@@ -429,7 +125,7 @@
                                 $pillClass = 'pill-rose';
                             } elseif (preg_match('/revisi|perlu perbaikan|kurang lengkap|menunggu|pemeriksaan|pending/', $c5Lower)) {
                                 $pillClass = 'pill-amber';
-                            } elseif (preg_match('/aktif|disetujui|selesai|lunas|diterima|terima|lengkap|sesuai|spk terbit|terbit|cair/', $c5Lower)) {
+                            } elseif (preg_match('/aktif|disetujui|selesai|lunas|diterima|terima|lengkap|sesuai|spk terbit|kontrak terbit|terbit|cair/', $c5Lower)) {
                                 $pillClass = 'pill-emerald';
                             }
                         @endphp
@@ -464,7 +160,7 @@
     @empty
         <div class="section-header">
             <p class="section-title">Tidak Ada Modul Laporan Aktif</p>
-            <p class="section-desc">Akun peran Anda belum memiliki izin RBAC untuk menampilkan seksi laporan mana pun.</p>
+            <p class="section-desc">Akun Anda belum memiliki hak akses modul laporan.</p>
         </div>
     @endforelse
 
@@ -472,9 +168,9 @@
     <table class="sign-box">
         <tr>
             <td class="sign-note">
-                <strong>Catatan Integritas Data:</strong> Dokumen ini dihasilkan langsung oleh SIM-PBJ Politeknik Negeri Jakarta
-                mengikuti matriks hak akses RBAC peran aktif serta filter periode/unit yang ditetapkan pengguna.
-                Untuk pengolahan lanjutan (pivot/penjumlahan angka), gunakan file CSV RAW yang diunduh bersamaan.
+                <strong>Catatan:</strong> Dokumen ini dihasilkan oleh SIM-PBJ Politeknik Negeri Jakarta
+                sesuai hak akses peran aktif dan filter pengguna.
+                Untuk olah data lanjutan, gunakan file Data CSV yang diunduh bersamaan.
             </td>
             <td class="sign-stamp">
                 <strong>Depok, {{ now()->translatedFormat('d F Y') }}</strong><br>

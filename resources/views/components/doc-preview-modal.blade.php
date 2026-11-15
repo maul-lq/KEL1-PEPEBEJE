@@ -1,13 +1,9 @@
-<div x-data="{
-    open: false,
-    doc: { title: '', url: '', size: '' }
-}"
-x-on:open-preview-doc.window="doc = $event.detail; open = true;"
-x-on:close-preview-doc.window="open = false;"
+<div x-data="docPreviewModal"
+x-on:open-preview-doc.window="openPreview($event.detail)"
+x-on:close-preview-doc.window="close()"
 x-show="open"
 x-cloak
 class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4"
-style="display: none;"
 role="dialog"
 aria-modal="true">
     <div @click.stop class="bg-white rounded-2xl w-full max-w-[1100px] shadow-2xl flex flex-col max-h-[94vh] overflow-hidden border border-slate-200">

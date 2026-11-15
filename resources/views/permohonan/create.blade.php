@@ -3,26 +3,7 @@
 @section('title', 'Ajukan Permohonan Pengadaan Baru - SIM-PBJ PNJ')
 
 @section('content')
-<div class="min-h-screen bg-[#F5F7FC] p-4 sm:p-6 lg:p-8" x-data="{ 
-    nominal: '{{ old('anggaran_diajukan', '') }}',
-    fileNameSurat: '',
-    fileNameKak: '',
-    fileNameSpek: '',
-    isDraggingSurat: false,
-    isDraggingKak: false,
-    isDraggingSpek: false,
-    handleDrop(event, field) {
-        const file = event.dataTransfer?.files?.[0];
-        if (!file) return;
-        const input = document.getElementById(field);
-        if (input) {
-            const dt = new DataTransfer();
-            dt.items.add(file);
-            input.files = dt.files;
-            input.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-    }
-}">
+<div class="min-h-screen bg-[#F5F7FC] p-4 sm:p-6 lg:p-8" x-data="permohonanCreatePage" data-initial-nominal="{{ old('anggaran_diajukan', '') }}">
     <div class="mx-auto max-w-5xl space-y-6">
 
         <!-- 1. HEADER HALAMAN, TOMBOL KEMBALI & BADGE STATUS -->
@@ -40,9 +21,6 @@
                     <h1 class="text-xl sm:text-2xl md:text-3xl font-extrabold text-[#213153] tracking-tight">
                         Ajukan Usulan Pengadaan Baru
                     </h1>
-                    <p class="text-xs sm:text-sm text-slate-500 mt-1">
-                        Formulir pendaftaran naskah dinas resmi Srikandi PNJ dengan lampiran Kerangka Acuan Kerja (KAK) dan Spesifikasi Teknis.
-                    </p>
                 </div>
             </div>
 
@@ -61,10 +39,9 @@
                     </svg>
                 </div>
                 <div class="space-y-1">
-                    <div class="text-sm font-bold text-[#213153]">Ketentuan Naskah Dinas Resmi Srikandi PNJ</div>
+                    <div class="text-sm font-bold text-[#213153]">Ketentuan Naskah Dinas</div>
                     <p class="text-slate-600 leading-relaxed text-xs sm:text-sm">
-                        Pastikan nomor surat yang didaftarkan sesuai dengan nomor registrasi naskah dinas keluar pada sistem <strong>Srikandi PNJ</strong>. 
-                        Tersedia hingga 3 berkas lampiran utama (maksimal 5 berkas keseluruhan sistem, maksimal <strong>15 MB</strong> per berkas) untuk menjaga kinerja arsip digital.
+                        Pastikan nomor surat sama dengan arsip Srikandi. Maksimal 5 file total (15 MB per file).
                     </p>
                 </div>
             </div>
@@ -100,7 +77,6 @@
                 <div class="space-y-6">
                     <div class="border-b border-slate-100 pb-3">
                         <h2 class="text-lg font-bold text-[#213153]">Data Surat &amp; Dokumen Pendukung Pengadaan</h2>
-                        <p class="text-xs text-slate-400">Lengkapi identitas naskah dinas resmi Srikandi dan perihal pengusulan pengadaan.</p>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -116,7 +92,6 @@
                                    placeholder="Contoh: B/123/PL3/TIK/2026" 
                                    required 
                                    class="w-full h-11 px-4 rounded-xl border @error('nomor_surat') border-rose-300 ring-2 ring-rose-100 @else border-slate-300 @enderror text-sm font-mono text-[#213153] placeholder-slate-400 focus:ring-2 focus:ring-[#0969da]/20 focus:border-[#0969da] outline-none transition-all">
-                            <p class="text-[11px] text-slate-400 italic">Nomor naskah dinas harus unik dan terdaftar di buku agenda keluar unit.</p>
                             @error('nomor_surat') 
                                 <span class="text-xs text-rose-600 font-medium">{{ $message }}</span> 
                             @enderror
@@ -144,7 +119,7 @@
                                        required 
                                        class="w-full h-11 pl-11 pr-4 rounded-xl border @error('anggaran_diajukan') border-rose-300 ring-2 ring-rose-100 @else border-slate-300 @enderror text-sm font-mono text-[#213153] placeholder-slate-400 focus:ring-2 focus:ring-[#0969da]/20 focus:border-[#0969da] outline-none transition-all">
                             </div>
-                            <p class="text-[11px] text-slate-400 italic">Masukkan angka estimasi total tanpa titik atau koma (contoh: 150000000 untuk 150 juta).</p>
+                            <p class="text-[11px] text-slate-400 italic">Isi angka saja tanpa titik/koma (contoh: 150000000).</p>
                             @error('anggaran_diajukan') 
                                 <span class="text-xs text-rose-600 font-medium">{{ $message }}</span> 
                             @enderror
@@ -176,9 +151,8 @@
                         <textarea id="tujuan_pengadaan_ringkas" 
                                   name="tujuan_pengadaan_ringkas" 
                                   rows="3" 
-                                  placeholder="Jelaskan kebutuhan pengadaan, urgensi capaian IKU/pembelajaran jurusan, dan justifikasi penggunaan anggaran..." 
+                                  placeholder="Jelaskan kebutuhan pengadaan, tujuan kegiatan, dan alasan anggaran..." 
                                   class="w-full p-4 rounded-xl border border-slate-300 text-sm text-[#213153] placeholder-slate-400 focus:ring-2 focus:ring-[#0969da]/20 focus:border-[#0969da] outline-none transition-all">{{ old('tujuan_pengadaan_ringkas') }}</textarea>
-                        <p class="text-[11px] text-slate-400 italic">Deskripsi ini akan ditelaah oleh Staf Bidang II dan Wakil Direktur II saat evaluasi disposisi.</p>
                         @error('tujuan_pengadaan_ringkas') 
                             <span class="text-xs text-rose-600 font-medium">{{ $message }}</span> 
                         @enderror
@@ -219,7 +193,7 @@
                     <div class="border-b border-slate-100 pb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
                         <div>
                             <h2 class="text-lg font-bold text-[#213153]">Dokumen Lampiran Pengadaan</h2>
-                            <p class="text-xs text-slate-400">Unggah berkas resmi surat Srikandi, KAK bermeterai, dan rincian spesifikasi teknis format PDF.</p>
+                            <p class="text-xs text-slate-400">Format PDF, maksimal 15 MB per berkas.</p>
                         </div>
                         <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-50 text-[#0969da] border border-blue-200 w-fit">
                             Maksimal 5 file &bull; Maksimal 15 MB
@@ -255,10 +229,10 @@
                             @enderror
                         </div>
 
-                        <!-- File 2: Kerangka Acuan Kerja (KAK) -->
+                        <!-- File 2: Kerangka Acuan Kerja -->
                         <div class="space-y-2">
                             <label for="file_kak" class="block text-xs font-bold text-[#213153]">
-                                2. Kerangka Acuan Kerja / KAK (PDF)
+                                2. Kerangka Acuan Kerja (PDF)
                             </label>
                             <div @dragover.prevent="isDraggingKak = true"
                                  @dragleave.prevent="isDraggingKak = false"
@@ -274,7 +248,7 @@
                                 <svg class="size-8 mx-auto text-slate-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                                 </svg>
-                                <span class="text-xs font-semibold text-[#0969da] block" x-text="fileNameKak ? fileNameKak : 'Tarik & taruh atau Pilih Berkas KAK (PDF)'"></span>
+                                <span class="text-xs font-semibold text-[#0969da] block" x-text="fileNameKak ? fileNameKak : 'Tarik & taruh atau Pilih Kerangka Acuan (PDF)'"></span>
                                 <span class="text-[10px] text-slate-400 block mt-1">Format PDF &bull; Maksimal 15 MB</span>
                             </div>
                             @error('file_kak') 
@@ -282,10 +256,10 @@
                             @enderror
                         </div>
 
-                        <!-- File 3: Spesifikasi Teknis & RAB -->
+                        <!-- File 3: Spesifikasi Teknis & Rincian Biaya -->
                         <div class="space-y-2">
                             <label for="file_spesifikasi_teknis" class="block text-xs font-bold text-[#213153]">
-                                3. Spesifikasi Teknis &amp; RAB (PDF)
+                                3. Spesifikasi Teknis &amp; Rincian Biaya (PDF)
                             </label>
                             <div @dragover.prevent="isDraggingSpek = true"
                                  @dragleave.prevent="isDraggingSpek = false"

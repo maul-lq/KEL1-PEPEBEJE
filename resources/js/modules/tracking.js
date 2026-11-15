@@ -10,6 +10,8 @@
  * 4. Modal Hapus Pengajuan (744:7604)
  */
 
+import { parseJsonDataset } from './ui_helpers.js';
+
 export function trackingManager(initialItems = null) {
     const isArray = Array.isArray(initialItems);
     const itemsList = isArray ? initialItems : [];
@@ -96,7 +98,7 @@ export function trackingManager(initialItems = null) {
             tujuan: 'Mendukung praktikum dan proses belajar mengajar mahasiswa',
             nominal: 150000000,
             nominalFormatted: 'Rp 150.000.000',
-            pemohon: 'Riyan Sohibul Anam',
+            pemohon: 'Unit Pengusul',
             tanggal: '16 Januari 2026',
             url: '#',
             downloadUrl: '#',
@@ -122,16 +124,26 @@ export function trackingManager(initialItems = null) {
 
         tahapanList: [
             'Pengajuan',
-            'Persetujuan 1',
-            'Penyusunan Dokumen dan Penetapan Level Anggaran',
-            'Persetujuan 2 (Kondisional)',
-            'Pembelian dan Pembuatan Surat Kontrak',
+            'Pemeriksaan & Persetujuan Awal',
+            'Pembuatan Paket Pengadaan',
+            'Reviu & Persetujuan Paket',
+            'Kontrak & Pembelian',
             'Penerimaan Barang/Jasa',
-            'Pembayaran',
+            'Pembayaran & Pencairan',
             'Selesai'
         ],
 
         init() {
+            if (!initialItems && this.$el?.dataset?.items) {
+                const parsed = parseJsonDataset(this.$el, 'items', []);
+                if (Array.isArray(parsed)) {
+                    this.items = parsed;
+                    if (this.$el.dataset.defaultStatus !== undefined) {
+                        this.filterStatus = this.$el.dataset.defaultStatus;
+                    }
+                }
+            }
+
             // Periksa apakah terdapat query parameter `selected` di URL
             const urlParams = new URLSearchParams(window.location.search);
             const selectedParam = urlParams.get('selected');
@@ -199,6 +211,10 @@ export function trackingManager(initialItems = null) {
             return Math.max(0, Math.min(100, ((step - 1) / 7) * 100));
         },
 
+        detailStepPercent() {
+            return this.stepPercent();
+        },
+
         // Metadata Style Status (Figma Tone)
         statusMeta(raw) {
             const key = String(raw || '').toLowerCase().trim().replace(/[\s-]+/g, '_');
@@ -211,11 +227,11 @@ export function trackingManager(initialItems = null) {
             };
             const map = {
                 diajukan:                { label: 'Diajukan',                     t: 'sky' },
-                menunggu_bidang_2:       { label: 'Pemeriksaan Staf Bidang 2',    t: 'amber' },
-                cek_mak_perencanaan:     { label: 'Verifikasi MAK Perencanaan',   t: 'amber' },
-                menunggu_acc_wadir_ppk:  { label: 'Menunggu Persetujuan Wadir 2 & PPK', t: 'amber' },
-                reviu_paralel:           { label: 'Verifikasi Paralel Pimpinan',  t: 'amber' },
-                diproses_ppbj:           { label: 'Menunggu PPBJ',                t: 'amber' },
+                menunggu_bidang_2:       { label: 'Pemeriksaan Staf Bidang II',   t: 'amber' },
+                cek_mak_perencanaan:     { label: 'Cek Anggaran Perencanaan',     t: 'amber' },
+                menunggu_acc_wadir_ppk:  { label: 'Menunggu Persetujuan',         t: 'amber' },
+                reviu_paralel:           { label: 'Pemeriksaan Paralel',          t: 'amber' },
+                diproses_ppbj:           { label: 'Menunggu Unit Pengadaan',      t: 'amber' },
                 paket_terdaftar:         { label: 'Paket Terdaftar',              t: 'amber' },
                 diproses:                { label: 'Dalam Proses',                 t: 'amber' },
                 disetujui:               { label: 'Disetujui',                    t: 'emerald' },
@@ -266,8 +282,8 @@ export function trackingManager(initialItems = null) {
             const statusKey = String(item.statusRaw || item.status_permohonan || item.status || '').toLowerCase();
             const revNum = item.revisi_ke || 0;
             const tanggalStr = item.tanggal || '16 Jan 2026';
-            const pengusulNama = item.user?.nama || item.user?.name || item.pemohon || 'Riyan Sohibul Anam';
-            const judulStr = item.perihal || item.judul_pengadaan || item.judul || 'pengadaan laptop';
+            const pengusulNama = item.user?.nama || item.user?.name || item.pemohon || 'Unit Pengusul';
+            const judulStr = item.perihal || item.judul_pengadaan || item.judul || 'Pengadaan Barang/Jasa';
 
             const isRevisiState = ['ditolak', 'perlu_revisi', 'revisi'].includes(statusKey);
 
@@ -278,7 +294,7 @@ export function trackingManager(initialItems = null) {
                 // 1. Form perlu direvisi
                 list.push({
                     id: 1,
-                    time: tanggalStr + ' • 15:00 | Batas terakhir: 19 Jan 2026 • 15:00',
+                    time: tanggalStr,
                     title: 'Form perlu direvisi',
                     subtitle: item.alasan_revisi ? 'Catatan: ' + item.alasan_revisi : 'Catatan: file tidak dapat dilihat',
                     badge: 'Perlu Revisi',
@@ -355,13 +371,13 @@ export function trackingManager(initialItems = null) {
                     });
                 }
 
-                // Tahap 7: Pembayaran & BAST
+                // Tahap 7: Pembayaran & Serah Terima
                 if (currentStep >= 7) {
                     list.push({
                         id: 7,
                         time: tanggalStr + ' • 16:00',
-                        title: 'BAST resmi diterbitkan dan verifikasi tagihan oleh Keuangan',
-                        subtitle: 'Penerbitan BAST oleh Unit Perlengkapan & BMN',
+                        title: 'Bukti serah terima diterbitkan dan verifikasi tagihan oleh Keuangan',
+                        subtitle: 'Penerbitan bukti terima oleh Unit Perlengkapan',
                         badge: 'Dalam Proses',
                         badge_type: 'info',
                         type: 'info',
@@ -383,13 +399,13 @@ export function trackingManager(initialItems = null) {
                     });
                 }
 
-                // Tahap 5: Pembelian & Kontrak SPK
+                // Tahap 5: Pembelian & Kontrak
                 if (currentStep >= 5) {
                     list.push({
                         id: 5,
                         time: tanggalStr + ' • 15:15',
-                        title: 'Dokumen perikatan SPK / Kontrak / Kwitansi resmi diterbitkan',
-                        subtitle: 'Penerbitan perikatan pengadaan oleh PPBJ',
+                        title: 'Dokumen kontrak atau kwitansi resmi diterbitkan',
+                        subtitle: 'Penerbitan dokumen pembelian oleh Unit Pengadaan',
                         badge: 'Dalam Proses',
                         badge_type: 'info',
                         type: 'info',
@@ -397,12 +413,12 @@ export function trackingManager(initialItems = null) {
                     });
                 }
 
-                // Tahap 4: Reviu Dokumen & HPS PP/PPK
+                // Tahap 4: Reviu Dokumen & Perkiraan Harga
                 if (currentStep >= 4) {
                     list.push({
                         id: 4,
                         time: tanggalStr + ' • 15:10',
-                        title: 'Penelaahan berkas teknis dan evaluasi HPS oleh PP/PPK',
+                        title: 'Pemeriksaan berkas teknis dan perkiraan harga oleh Pejabat Pengadaan / PPK',
                         subtitle: 'Evaluasi kesesuaian harga dan spesifikasi teknis',
                         badge: 'Dalam Proses',
                         badge_type: 'info',
@@ -411,12 +427,12 @@ export function trackingManager(initialItems = null) {
                     });
                 }
 
-                // Tahap 3: PPBJ Penyusunan Dokumen & MAK
+                // Tahap 3: Unit Pengadaan Penyusunan Paket
                 if (currentStep >= 3) {
                     list.push({
                         id: 3,
                         time: tanggalStr + ' • 15:00',
-                        title: 'Penyusunan dokumen dan penetapan level anggaran oleh PPBJ',
+                        title: 'Pembuatan paket dan penentuan jalur pengadaan',
                         subtitle: 'Pengajuan ' + judulStr,
                         badge: 'Dalam Proses',
                         badge_type: 'info',
@@ -430,8 +446,8 @@ export function trackingManager(initialItems = null) {
                     list.push({
                         id: 2,
                         time: tanggalStr + ' • 15:00',
-                        title: 'Perencanaan, Wadir 2, dan PPK menyetujui form pengajuan',
-                        subtitle: 'Persetujuan pimpinan telah lengkap; berkas diteruskan ke PPBJ',
+                        title: 'Perencanaan, Wadir II, dan PPK menyetujui usulan',
+                        subtitle: 'Persetujuan lengkap; berkas diteruskan ke Unit Pengadaan',
                         badge: 'Disetujui',
                         badge_type: 'success',
                         type: 'success',
@@ -441,8 +457,8 @@ export function trackingManager(initialItems = null) {
                     list.push({
                         id: 202,
                         time: tanggalStr + ' • 14:00',
-                        title: 'Verifikasi MAK selesai, menunggu persetujuan (ACC) Wadir II & PPK',
-                        subtitle: 'Memo ketersediaan pagu MAK telah diterbitkan oleh Perencanaan',
+                        title: 'Cek anggaran selesai, menunggu persetujuan Wadir II & PPK',
+                        subtitle: 'Memo ketersediaan anggaran telah diterbitkan oleh Perencanaan',
                         badge: 'Dalam Proses',
                         badge_type: 'info',
                         type: 'info',
@@ -455,8 +471,8 @@ export function trackingManager(initialItems = null) {
                     list.push({
                         id: 201,
                         time: tanggalStr + ' • 11:00',
-                        title: 'Perencanaan dan Staf Bidang 2 sedang memeriksa form pengajuan',
-                        subtitle: 'Pemeriksaan berkas telaah administrasi dan alokasi pagu DIPA',
+                        title: 'Perencanaan dan Staf Bidang II sedang memeriksa usulan',
+                        subtitle: 'Pemeriksaan kelengkapan berkas dan ketersediaan anggaran',
                         badge: 'Informasi',
                         badge_type: 'info',
                         type: 'info',

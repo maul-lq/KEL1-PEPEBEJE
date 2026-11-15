@@ -43,7 +43,7 @@
     })->values();
 @endphp
 
-<div x-data="trackingManager({{ json_encode($normalizedItems, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) }})" class="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+<div x-data="trackingManager" data-items="{{ json_encode($normalizedItems, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) }}" class="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
     <!-- 1. HEADER HALAMAN & ROLE BADGE -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -67,9 +67,9 @@
             </div>
             <p class="mt-1 text-xs md:text-sm text-slate-500 leading-relaxed"
                x-text="viewMode === 'fullscreen' 
-                    ? 'Pantau status siklus, kelengkapan berkas naskah dinas Srikandi, dan riwayat verifikasi.' 
-                    : 'Pantau status berkas naskah dinas Srikandi, KAK, dan pagu MAK secara real-time melalui 8 siklus pengadaan.'">
-                Pantau status berkas naskah dinas Srikandi, KAK, dan pagu MAK secara real-time melalui 8 siklus pengadaan.
+                    ? 'Pantau status, kelengkapan berkas, dan riwayat pemeriksaan.' 
+                    : 'Pantau status berkas usulan, kerangka acuan, dan pos anggaran.'">
+                Pantau status berkas usulan, kerangka acuan, dan pos anggaran.
             </p>
         </div>
 
@@ -131,10 +131,10 @@
             </div>
         </div>
 
-        <!-- Card 3: Memo Cek MAK Terbit -->
+        <!-- Card 3: Memo Cek Anggaran Terbit -->
         <div class="bg-white rounded-xl border border-slate-200/80 p-4 shadow-sm flex items-center justify-between">
             <div>
-                <span class="text-xs font-medium text-slate-400 block">Memo Cek MAK Terbit</span>
+                <span class="text-xs font-medium text-slate-400 block">Memo Cek Anggaran Terbit</span>
                 <span class="text-2xl font-extrabold text-teal-600 mt-0.5 block font-mono">{{ $memoMakCount }}</span>
                 <span class="text-[11px] text-slate-500 font-medium">Diteruskan ke Perencanaan</span>
             </div>
@@ -176,7 +176,7 @@
                 <select x-model="filterStatus" class="w-full h-10 px-3 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-[#0969da]/20 focus:border-[#0969da] outline-none">
                     <option value="Semua">Semua Status</option>
                     <option value="diajukan">Diajukan</option>
-                    <option value="reviu_paralel">Reviu Paralel (B2/MAK)</option>
+                    <option value="reviu_paralel">Pemeriksaan Berkas &amp; Anggaran</option>
                     <option value="disetujui">Disetujui</option>
                     <option value="perlu_revisi">Perlu Revisi</option>
                     <option value="ditolak">Ditolak</option>
@@ -373,7 +373,7 @@
                                 <span class="font-extrabold text-[#0969da] text-sm font-mono mt-0.5 block" x-text="selectedItem.anggaran_formatted"></span>
                             </div>
                             <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                                <span class="text-slate-400 block font-medium">Ketersediaan Pagu MAK:</span>
+                                <span class="text-slate-400 block font-medium">Ketersediaan Pos Anggaran:</span>
                                 <span class="font-bold text-teal-700 text-sm mt-0.5 block" x-text="selectedItem.kode_mak || 'Ditinjau Perencanaan'"></span>
                             </div>
                         </div>
@@ -384,14 +384,14 @@
                         <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                             <h3 class="font-bold text-base text-[#213153]">Informasi Status &amp; Tindakan</h3>
                             <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 text-slate-600 px-2.5 py-0.5 text-[11px] font-semibold">
-                                Pemantauan Staf B2
+                                Pemantauan Staf Bidang II
                             </span>
                         </div>
 
-                        <!-- Info Read-Only Staf Bidang II -->
+                        <!-- Info Pemantauan Staf Bidang II -->
                         <div class="rounded-xl bg-blue-50/70 border border-blue-100 p-3.5 text-xs text-blue-900 flex items-start gap-2.5 leading-relaxed">
                             <svg class="size-4 text-[#0969da] shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                            <span>Staf Bidang II memantau berkas secara <strong>read-only</strong>. Pemeriksaan kelengkapan dokumen administrasi (Surat Srikandi, KAK, Spesifikasi) dan penetapan keputusan eksekutif (ACC/Tolak/Revisi) dilakukan langsung oleh <strong>Wakil Direktur II</strong>.</span>
+                            <span>Staf Bidang II memantau berkas pengajuan. Pemeriksaan dokumen dan keputusan akhir dilakukan oleh <strong>Wakil Direktur II</strong>.</span>
                         </div>
 
                         <!-- 3 Status Grid Administrasi dari fullstuck -->
@@ -405,7 +405,7 @@
                                 <span class="font-bold text-indigo-700 text-xs block">Wadir II &amp; Pengusul</span>
                             </div>
                             <div class="bg-slate-50 p-3 rounded-xl border border-slate-200/60 space-y-1">
-                                <span class="text-slate-400 block text-[11px]">Alokasi MAK:</span>
+                                <span class="text-slate-400 block text-[11px]">Pos Anggaran:</span>
                                 <span class="font-bold text-teal-700 text-xs block" x-text="selectedItem.kode_mak || 'Dalam Telaah'"></span>
                             </div>
                         </div>
@@ -552,7 +552,7 @@
                         </div>
                         <h3 class="font-extrabold text-2xl text-[#213153] tracking-tight">Pilih Pengajuan untuk Melihat Detail</h3>
                         <p class="text-sm text-slate-500 max-w-md mt-2 leading-relaxed">
-                            Silakan pilih salah satu pengajuan dari daftar sebelah kiri untuk melihat informasi lengkap, dokumen naskah dinas, dan riwayat verifikasi siklusnya.
+                            Pilih salah satu pengajuan di sebelah kiri.
                         </p>
                     </div>
                 </template>
@@ -627,7 +627,7 @@
                                     <span class="font-semibold text-slate-800" x-text="selectedItem.pemohon"></span>
                                 </div>
                                 <div class="flex justify-between">
-                                    <span class="text-slate-400">Alokasi Pagu MAK:</span>
+                                    <span class="text-slate-400">Alokasi Pos Anggaran:</span>
                                     <span class="font-semibold text-teal-700" x-text="selectedItem.kode_mak || 'Ditinjau Perencanaan'"></span>
                                 </div>
                             </div>
@@ -666,7 +666,7 @@
         <form action="{{ route('permohonan.store') }}" 
               method="POST" 
               enctype="multipart/form-data" 
-              x-data="{ nominalModal: '' }"
+              x-data="permohonanQuickModal"
               class="space-y-4">
             @csrf
 
@@ -713,7 +713,7 @@
                 </div>
 
                 <div class="space-y-1 md:col-span-2">
-                    <label class="text-xs font-bold text-slate-700">Unggah Berkas Lampiran (KAK / Spesifikasi - PDF Maks. 10 MB)</label>
+                    <label class="text-xs font-bold text-slate-700">Lampiran Tambahan (PDF, Maks. 10 MB)</label>
                     <input type="file" name="file_surat_permohonan" accept=".pdf" 
                            class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-600 focus:outline-none">
                 </div>

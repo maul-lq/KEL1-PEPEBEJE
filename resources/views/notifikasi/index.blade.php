@@ -8,8 +8,7 @@
     <!-- 1. HEADER HALAMAN & TOMBOL UJI COBA -->
     <div class="flex flex-wrap items-end justify-between gap-3">
         <div class="space-y-0.5">
-            <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-[#213153]">Notifikasi dan Reminder</h1>
-            <p class="text-sm font-normal text-slate-500">Pantau perkembangan pengajuan, permintaan revisi, dan tenggat pengadaan Anda secara real-time.</p>
+            <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-[#213153]">Notifikasi dan Pengingat</h1>
         </div>
 
         <div class="flex items-center gap-2">
@@ -56,21 +55,21 @@
 
             <div class="md:col-span-3 space-y-1">
                 <label for="type-filter" class="text-[11px] font-medium text-slate-600">Jenis Notifikasi</label>
-                <select id="type-filter" name="jenis" onchange="this.form.submit()"
+                <select id="type-filter" name="jenis" data-auto-submit
                         class="w-full h-9 rounded-xl border border-slate-200 bg-slate-50/50 px-3 text-xs text-slate-700 focus:border-[#0969da] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0969da]/20 transition-all cursor-pointer">
                     <option value="semua" {{ request('jenis', 'semua') === 'semua' ? 'selected' : '' }}>Semua Jenis</option>
                     <option value="verifikasi" {{ request('jenis') === 'verifikasi' ? 'selected' : '' }}>Verifikasi Usulan</option>
                     <option value="perlu_tindakan" {{ request('jenis') === 'perlu_tindakan' ? 'selected' : '' }}>Perlu Tindakan / Revisi</option>
                     <option value="pengingat" {{ request('jenis') === 'pengingat' ? 'selected' : '' }}>Pengingat Jadwal</option>
-                    <option value="pembayaran" {{ request('jenis') === 'pembayaran' ? 'selected' : '' }}>Pembayaran &amp; SP2D</option>
+                    <option value="pembayaran" {{ request('jenis') === 'pembayaran' ? 'selected' : '' }}>Pembayaran &amp; Pencairan</option>
                     <option value="pengiriman" {{ request('jenis') === 'pengiriman' ? 'selected' : '' }}>Pengiriman Barang</option>
-                    <option value="spk" {{ request('jenis') === 'spk' ? 'selected' : '' }}>Tembusan SPK</option>
+                    <option value="spk" {{ request('jenis') === 'spk' ? 'selected' : '' }}>Tembusan Kontrak</option>
                 </select>
             </div>
 
             <div class="md:col-span-3 space-y-1">
                 <label for="period-filter" class="text-[11px] font-medium text-slate-600">Periode</label>
-                <select id="period-filter" name="periode" onchange="this.form.submit()"
+                <select id="period-filter" name="periode" data-auto-submit
                         class="w-full h-9 rounded-xl border border-slate-200 bg-slate-50/50 px-3 text-xs text-slate-700 focus:border-[#0969da] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0969da]/20 transition-all cursor-pointer">
                     <option value="semua" {{ request('periode', 'semua') === 'semua' ? 'selected' : '' }}>Semua Periode</option>
                     <option value="hari_ini" {{ request('periode') === 'hari_ini' ? 'selected' : '' }}>Hari Ini</option>
@@ -137,7 +136,7 @@
                     </form>
                 @endif
 
-                <button type="button" onclick="window.location.reload()" class="inline-flex items-center gap-1.5 font-medium text-[#0969da] hover:underline cursor-pointer">
+                <button type="button" data-reload-page class="inline-flex items-center gap-1.5 font-medium text-[#0969da] hover:underline cursor-pointer">
                     <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                     <span>Refresh</span>
                 </button>
@@ -227,7 +226,7 @@
                         @endif
 
                         <!-- Menu Titik Tiga Dropdown -->
-                        <div class="relative" x-data="{ open: false }" @click.outside="open = false">
+                        <div class="relative" x-data="dropdownMenu" @click.outside="close()">
                             <button type="button" @click="open = !open" class="p-1 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">
                                 <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/></svg>
                             </button>

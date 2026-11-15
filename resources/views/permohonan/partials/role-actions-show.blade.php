@@ -42,18 +42,18 @@
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-                <label class="{{ $label }}">Nomor Memo Cek MAK (Opsional)</label>
+                <label class="{{ $label }}">Nomor Memo Cek Anggaran (Opsional)</label>
                 <input type="text" name="nomor_memo_cek_mak" placeholder="MEMO-B2/CEK-MAK/..." class="{{ $field }}">
             </div>
             <div>
-                <label class="{{ $label }}">Upload Dokumen Fisik Memo Cek MAK</label>
+                <label class="{{ $label }}">Unggah Dokumen Fisik Memo Cek Anggaran</label>
                 <input type="file" name="file_memo_cek_mak" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" class="{{ $field }}">
             </div>
         </div>
 
         <div>
             <label class="{{ $label }}">Catatan Telaah Staf Bidang II <span class="text-rose-500">*</span></label>
-            <textarea name="catatan_staff" rows="3" required placeholder="Tulis catatan kelengkapan berkas KAK & spesifikasi..." class="{{ $field }}"></textarea>
+            <textarea name="catatan_staff" rows="3" required placeholder="Tulis catatan kelengkapan kerangka acuan & spesifikasi..." class="{{ $field }}"></textarea>
         </div>
 
         <div class="flex justify-end">
@@ -83,7 +83,7 @@
                 <input type="text" name="nomor_memo" placeholder="025/PL3.WDIR2/PG/..." class="{{ $field }}">
             </div>
             <div>
-                <label class="{{ $label }}">Upload Dokumen Fisik Memo Disposisi</label>
+                <label class="{{ $label }}">Unggah Dokumen Fisik Memo Disposisi</label>
                 <input type="file" name="file_memo" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" class="{{ $field }}">
             </div>
         </div>
@@ -104,27 +104,27 @@
                     @if($inAlpine) :disabled="!selectedItem || (!selectedItem.nomor && !selectedItem.nomor_surat)" @endif
                     class="{{ $btn }} bg-emerald-600 hover:bg-emerald-700">
                 <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                Setujui Pengajuan (ACC Wadir 2)
+                Setujui Pengajuan
             </button>
         </div>
     </form>
 
-{{-- ============ 3. PERENCANAAN (Verifikasi MAK & Pagu DIPA) ============ --}}
+{{-- ============ 3. PERENCANAAN (Verifikasi Pos Anggaran & Pagu) ============ --}}
 @elseif($canPerencanaan && \Illuminate\Support\Facades\Route::has('verifikasi.perencanaan.mak'))
     <form action="{{ route('verifikasi.perencanaan.mak') }}" method="POST" class="space-y-4">
         @csrf
         <input type="hidden" name="nomor_surat" {!! $nomorField !!}>
 
         <div class="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
-            <h3 class="font-semibold text-base text-[#213153]">Alokasi MAK &amp; Anggaran DIPA</h3>
+            <h3 class="font-semibold text-base text-[#213153]">Cek &amp; Pilih Pos Anggaran</h3>
             <span class="rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-700 whitespace-nowrap">Perencanaan</span>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-                <label class="{{ $label }}">Kode MAK (Mata Anggaran) <span class="text-rose-500">*</span></label>
+                <label class="{{ $label }}">Pos Anggaran <span class="text-rose-500">*</span></label>
                 <select name="kode_mak" required class="{{ $field }}">
-                    <option value="">-- Pilih Rekening MAK DIPA --</option>
+                    <option value="">-- Pilih Pos Anggaran --</option>
                     @php $listMakGlobal = \App\Models\AnggaranMAK::orderBy('kode_mak')->get(); @endphp
                     @foreach($listMakGlobal as $makItem)
                         <option value="{{ $makItem->kode_mak }}" {{ $makItem->is_locked ? 'disabled' : '' }}>
@@ -140,9 +140,9 @@
         </div>
 
         <div>
-            <label class="{{ $label }}">Pilih PPK yang Ditugaskan (1 dari 4 Akun PPK)</label>
+            <label class="{{ $label }}">Pilih PPK Penanggung Jawab</label>
             <select name="id_user_ppk_awal" class="{{ $field }}">
-                <option value="">-- Tetapkan Akun PPK Awal --</option>
+                <option value="">-- Pilih Akun PPK --</option>
                 @php $ppkList = \App\Models\User::where('role', 'ppk')->where('status_aktif', true)->get(); @endphp
                 @foreach($ppkList as $ppkOpt)
                     <option value="{{ $ppkOpt->id_user }}">{{ $ppkOpt->nama }} ({{ $ppkOpt->jabatan ?? 'PPK' }})</option>
@@ -151,8 +151,8 @@
         </div>
 
         <div>
-            <label class="{{ $label }}">Catatan Ketersediaan MAK</label>
-            <textarea name="catatan_anggaran" rows="2" placeholder="Catatan ketersediaan pagu dan sumber dana DIPA..." class="{{ $field }}"></textarea>
+            <label class="{{ $label }}">Catatan Ketersediaan Anggaran</label>
+            <textarea name="catatan_anggaran" rows="2" placeholder="Catatan ketersediaan pagu dan sumber dana..." class="{{ $field }}"></textarea>
         </div>
 
         <div class="flex flex-wrap items-center justify-end gap-2">
@@ -164,21 +164,21 @@
             <button type="submit" name="keputusan_anggaran" value="setuju" 
                     @if($inAlpine) :disabled="!selectedItem || (!selectedItem.nomor && !selectedItem.nomor_surat)" @endif
                     class="{{ $btn }} bg-indigo-600 hover:bg-indigo-700">
-                Setujui &amp; Terbitkan Memo MAK
+                Setujui &amp; Terbitkan Memo Anggaran
             </button>
         </div>
     </form>
 
-{{-- ============ 4. PPK (Persetujuan Awal Usulan Berdasarkan Memo MAK) ============ --}}
+{{-- ============ 4. PPK (Persetujuan Awal Usulan) ============ --}}
 @elseif($canPpk && \Illuminate\Support\Facades\Route::has('verifikasi.ppk.keputusan'))
     @if(isset($permohonan) && empty($permohonan->id_user_ppk_awal))
         <div class="rounded-xl border border-amber-200 bg-amber-50/80 p-4 space-y-2">
             <div class="flex items-center gap-2 text-amber-800 font-bold text-xs">
                 <svg class="size-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                Menunggu Penetapan MAK &amp; Penugasan Akun PPK
+                Menunggu Penetapan Pos Anggaran &amp; Penugasan PPK
             </div>
             <p class="text-xs text-amber-700 leading-relaxed">
-                Usulan ini belum dialokasikan ke akun PPK Anda karena Subbagian Perencanaan belum menetapkan nomor rekening MAK DIPA dan belum memilih 1 dari 4 akun PPK yang bertugas.
+                Usulan ini belum diteruskan ke akun PPK Anda karena Bagian Perencanaan belum menetapkan pos anggaran dan memilih PPK yang bertugas.
             </p>
         </div>
     @elseif(isset($permohonan) && (int) $permohonan->id_user_ppk_awal !== (int) $u->id_user)
@@ -207,7 +207,7 @@
                     <input type="text" name="nomor_memo" placeholder="MEMO-PPK/{{ date('Y') }}/..." class="{{ $field }}">
                 </div>
                 <div>
-                    <label class="{{ $label }}">Upload Dokumen Fisik Memo</label>
+                    <label class="{{ $label }}">Unggah Dokumen Fisik Memo</label>
                     <input type="file" name="file_memo" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" class="{{ $field }}">
                 </div>
             </div>
@@ -215,7 +215,7 @@
             <div>
                 <label class="{{ $label }}">Catatan / Rekomendasi PPK</label>
                 <textarea name="catatan_alasan" rows="3" placeholder="Tuliskan catatan persetujuan usulan atau alasan bila menolak..." class="{{ $field }}"></textarea>
-                <p class="mt-1 text-[11px] text-slate-400">Persetujuan awal PPK diperlukan sebelum usulan diteruskan ke PPBJ.</p>
+                <p class="mt-1 text-[11px] text-slate-400">Persetujuan awal PPK diperlukan sebelum usulan diteruskan ke Unit Pengadaan.</p>
             </div>
 
             <div class="flex flex-wrap items-center justify-end gap-2">
@@ -228,61 +228,61 @@
                         @if($inAlpine) :disabled="!selectedItem || (!selectedItem.nomor && !selectedItem.nomor_surat)" @endif
                         class="{{ $btn }} bg-cyan-700 hover:bg-cyan-800">
                     <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                    Setujui Usulan (ACC PPK)
+                    Setujui Usulan
                 </button>
             </div>
         </form>
     @endif
 
-{{-- ============ 5. PPBJ (Registrasi Paket Pengadaan) ============ --}}
+{{-- ============ 5. UNIT PENGADAAN (Registrasi Paket Pengadaan) ============ --}}
 @elseif($canPpbj)
     <div class="space-y-4">
         <div class="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
-            <h3 class="font-semibold text-base text-[#213153]">Paket Pengadaan &amp; Routing PPBJ</h3>
-            <span class="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-[#0969da] whitespace-nowrap">PPBJ Kampus</span>
+            <h3 class="font-semibold text-base text-[#213153]">Paket Pengadaan</h3>
+            <span class="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-[#0969da] whitespace-nowrap">Unit Pengadaan</span>
         </div>
 
         <p class="text-xs text-slate-500 leading-relaxed">
-            Menerima Form Pengadaan, MAK, dan Memo permohonan yang telah disetujui pimpinan untuk diregistrasikan menjadi paket pengadaan, penetapan HPS, dan routing penugasan.
+            Terima usulan yang telah disetujui pimpinan untuk dibuat menjadi paket pengadaan, penentuan perkiraan harga, dan penugasan pelaksana.
         </p>
 
         <div class="flex flex-wrap items-center justify-end gap-2">
             @if($inAlpine)
                 <a :href="'/paket-pengadaan/create?selected=' + encodeURIComponent(selectedItem ? (selectedItem.nomor_surat || selectedItem.nomor) : '')"
                    class="{{ $btn }} bg-[#0969da] hover:bg-blue-700">
-                    Buka Registrasi Paket Baru
+                    Buat Paket Pengadaan Baru
                     <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
                 </a>
             @else
                 <a href="{{ route('paket.create', ['selected' => $nomorSurat ?? '']) }}" class="{{ $btn }} bg-[#0969da] hover:bg-blue-700">
-                    Buka Registrasi Paket Baru
+                    Buat Paket Pengadaan Baru
                     <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
                 </a>
             @endif
         </div>
     </div>
 
-{{-- ============ 6. PEMANTAU PP (lihat_pp / pp.monitoring_aktivitas) ============ --}}
+{{-- ============ 6. PEMANTAU PEJABAT PENGADAAN ============ --}}
 @elseif($canMonitorPp)
     <div class="space-y-4">
         <div class="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
-            <h3 class="font-semibold text-base text-[#213153]">Pemantauan Aktivitas PP</h3>
-            <span class="rounded-full bg-purple-100 px-2.5 py-1 text-xs font-semibold text-purple-700 whitespace-nowrap">Monitoring PP</span>
+            <h3 class="font-semibold text-base text-[#213153]">Pantau Pejabat Pengadaan</h3>
+            <span class="rounded-full bg-purple-100 px-2.5 py-1 text-xs font-semibold text-purple-700 whitespace-nowrap">Pemantauan</span>
         </div>
 
         <p class="text-xs text-slate-500 leading-relaxed">
-            Wewenang memantau proses verifikasi teknis, negosiasi harga rekanan, dan progres belanja Pejabat Pengadaan (PP).
+            Pantau pemeriksaan dokumen teknis, negosiasi harga penyedia, dan progres belanja Pejabat Pengadaan.
         </p>
 
         <div class="flex justify-end">
             <a href="{{ route('kontrak.index', ['tab' => 'reviu']) }}" class="{{ $btn }} bg-purple-700 hover:bg-purple-800">
-                Buka Monitor Aktivitas PP
+                Pantau Pejabat Pengadaan
                 <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
             </a>
         </div>
     </div>
 
-{{-- ============ 7. PP (Reviu Teknis & Negosiasi Harga) ============ --}}
+{{-- ============ 7. PEJABAT PENGADAAN (Reviu Teknis & Negosiasi Harga) ============ --}}
 @elseif($canPp)
     <div class="space-y-4">
         <div class="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
@@ -291,27 +291,27 @@
         </div>
 
         <p class="text-xs text-slate-500 leading-relaxed">
-            Lakukan telaah spesifikasi teknis, evaluasi rekanan penyedia, dan negosiasi harga paket pengadaan &le; 200 Juta.
+            Periksa spesifikasi teknis, evaluasi penyedia, dan lakukan negosiasi harga paket pengadaan hingga Rp 200 Juta.
         </p>
 
         <div class="flex justify-end">
             <a href="{{ route('kontrak.index', ['tab' => 'reviu']) }}" class="{{ $btn }} bg-amber-600 hover:bg-amber-700">
-                Buka Reviu Pengadaan PP
+                Buka Pemeriksaan
                 <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
             </a>
         </div>
     </div>
 
-{{-- ============ 8. PERLENGKAPAN (Penerimaan Barang & BAST) ============ --}}
+{{-- ============ 8. PERLENGKAPAN (Penerimaan Barang) ============ --}}
 @elseif($canPerlengkapan)
     <div class="space-y-4">
         <div class="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
-            <h3 class="font-semibold text-base text-[#213153]">Penerimaan Barang &amp; BAST</h3>
+            <h3 class="font-semibold text-base text-[#213153]">Penerimaan Barang</h3>
             <span class="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-[#0969da] whitespace-nowrap">Bagian Perlengkapan</span>
         </div>
 
         <p class="text-xs text-slate-500 leading-relaxed">
-            Periksa kesesuaian fisik kiriman barang dari penyedia, unggah bukti multi-foto, dan terbitkan Berita Acara Serah Terima (BAST).
+            Periksa kesesuaian fisik kiriman barang dari penyedia, unggah foto bukti, dan buat bukti serah terima barang.
         </p>
 
         <div class="flex justify-end">
@@ -322,16 +322,16 @@
         </div>
     </div>
 
-{{-- ============ 9. KEUANGAN (Tagihan & Pembayaran SP2D) ============ --}}
+{{-- ============ 9. KEUANGAN (Tagihan & Pembayaran) ============ --}}
 @elseif($canKeuangan)
     <div class="space-y-4">
         <div class="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
-            <h3 class="font-semibold text-base text-[#213153]">Tagihan &amp; Pembayaran SP2D</h3>
+            <h3 class="font-semibold text-base text-[#213153]">Tagihan &amp; Pembayaran</h3>
             <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700 whitespace-nowrap">Bagian Keuangan</span>
         </div>
 
         <p class="text-xs text-slate-500 leading-relaxed">
-            Verifikasi kelengkapan berkas BAST, terbitkan SPP/SPM, dan catat realisasi pencairan dana SP2D anti-duplicate bayar.
+            Verifikasi kelengkapan bukti serah terima, terbitkan perintah bayar, dan catat pencairan dana.
         </p>
 
         <div class="flex justify-end">
@@ -351,7 +351,7 @@
             </div>
             <div class="min-w-0">
                 <h4 class="font-semibold text-xs text-[#213153]">Status Pengajuan Saat Ini</h4>
-                <p class="text-[11px] text-slate-500">Berkas sedang dalam pemrosesan siklus pengadaan resmi PNJ.</p>
+                <p class="text-[11px] text-slate-500">Berkas sedang diproses.</p>
             </div>
         </div>
 

@@ -259,7 +259,7 @@ class PembayaranController extends Controller
 
         return redirect()->route('pembayaran.index')->with(
             'success',
-            "Berkas dokumen pembayaran {$pembayaran->nomor_pembayaran} berhasil diajukan secara paralel ke Wakil Direktur II dan Pejabat Pembuat Komitmen (PPK) untuk penerbitan memo persetujuan."
+            "Berkas pembayaran {$pembayaran->nomor_pembayaran} berhasil diajukan ke Wadir II dan PPK untuk persetujuan."
         );
     }
 
@@ -306,7 +306,7 @@ class PembayaranController extends Controller
         }
 
         $pembayaran->status_pembayaran = 'reviu_memo';
-        $pembayaran->catatan_reviu_akhir = 'Diperbaiki oleh PPBJ: '.($validated['catatan_perbaikan_ppbj'] ?? 'Dokumen pembayaran dan bukti perikatan telah disesuaikan.');
+        $pembayaran->catatan_reviu_akhir = 'Diperbaiki Unit Pengadaan: '.($validated['catatan_perbaikan_ppbj'] ?? 'Dokumen pembayaran dan bukti kontrak telah disesuaikan.');
         $pembayaran->save();
 
         // Reset HANYA memo bayar yang sebelumnya berstatus 'ditolak'
@@ -326,7 +326,7 @@ class PembayaranController extends Controller
             $pembayaran->nomor_pembayaran,
             'ditolak',
             'reviu_memo',
-            "PPBJ mengajukan ulang berkas pembayaran {$pembayaran->nomor_pembayaran} ke Wadir II / PPK terkait yang meminta perbaikan (BPMN N53 -> N56)"
+            "Unit Pengadaan mengajukan ulang berkas pembayaran {$pembayaran->nomor_pembayaran} ke Wadir II / PPK."
         );
 
         $memoLevel1 = $pembayaran->memoBayar->where('role_approver', 'wadir_2')->first();
@@ -335,7 +335,7 @@ class PembayaranController extends Controller
 
         return redirect()->route('pembayaran.index')->with(
             'success',
-            "Berkas dokumen pembayaran {$pembayaran->nomor_pembayaran} berhasil diperbaiki dan diteruskan kembali untuk penelaahan memo."
+            "Berkas pembayaran {$pembayaran->nomor_pembayaran} berhasil diperbaiki dan diajukan ulang."
         );
     }
 
@@ -422,7 +422,7 @@ class PembayaranController extends Controller
 
         return redirect()->route('pembayaran.index')->with(
             'success',
-            'Memo persetujuan pembayaran ('.($memo->role_approver === 'wadir_2' ? 'Wadir II' : 'PPK').') berhasil di-'.strtoupper($memo->status_memo).'.'
+            'Memo persetujuan pembayaran ('.($memo->role_approver === 'wadir_2' ? 'Wadir II' : 'PPK').') berhasil '.($memo->status_memo === 'disetujui' ? 'disetujui' : 'ditolak').'.'
         );
     }
 
@@ -488,7 +488,7 @@ class PembayaranController extends Controller
 
         return redirect()->route('pembayaran.index')->with(
             'success',
-            "Surat Perintah Pembayaran (SPP) {$pembayaran->nomor_pembayaran} beserta Dokumen Pembayaran, Legalitas Vendor, dan Memo Persetujuan berhasil diteruskan ke Bagian Keuangan (BPMN N71)."
+            "Perintah Bayar {$pembayaran->nomor_pembayaran} beserta kelengkapan berkas berhasil diteruskan ke Bagian Keuangan."
         );
     }
 
@@ -546,7 +546,7 @@ class PembayaranController extends Controller
 
         return redirect()->route('pembayaran.index')->with(
             'success',
-            "Pencairan dana SP2D nomor {$transaksi->nomor_transaksi_bank} berhasil diselesaikan dengan bukti transfer sah. Seluruh siklus pengadaan kini berstatus SELESAI 100%!"
+            "Pencairan dana nomor {$transaksi->nomor_transaksi_bank} berhasil diselesaikan. Seluruh tahap pengadaan kini selesai!"
         );
     }
 

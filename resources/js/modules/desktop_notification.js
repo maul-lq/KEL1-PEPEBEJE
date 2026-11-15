@@ -43,7 +43,7 @@ export function desktopNotificationManager() {
                 if (perm === 'granted') {
                     self.showNativeAlert(
                         'SIM-PBJ Politeknik Negeri Jakarta',
-                        'Notifikasi Desktop aktif! Anda akan menerima alarm pengadaan langsung di OS.',
+                        'Notifikasi browser aktif! Anda akan menerima pemberitahuan pengadaan secara langsung.',
                         '/notifikasi'
                     );
                     self.startPolling();

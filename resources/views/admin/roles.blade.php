@@ -3,19 +3,16 @@
 @section('title', 'Manajemen Role & Hak Akses - SIM-PBJ PNJ')
 
 @section('content')
-<div class="space-y-6" x-data="{ addRoleModal: false }">
+<div class="space-y-6" x-data="adminRolesPage">
 
     {{-- HEADER --}}
     <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
                 <div class="flex items-center gap-2">
-                    <span class="text-xs text-slate-400 font-mono">RBAC Matriks SIM-PBJ</span>
+                    <span class="text-xs text-slate-400 font-mono">Pengaturan Peran &amp; Hak Akses</span>
                 </div>
-                <h1 class="text-2xl font-bold text-[#213153] mt-1">Manajemen Role &amp; Hak Akses</h1>
-                <p class="text-xs text-slate-500 mt-0.5">
-                    Kelola master peran pengguna sivitas, tambah peran kustom, serta sesuaikan matriks hak akses fitur (permissions) secara aman.
-                </p>
+                <h1 class="text-2xl font-bold text-[#213153] mt-1">Peran &amp; Hak Akses</h1>
             </div>
 
             <button
@@ -69,7 +66,7 @@
     </div>
 
     {{-- MODAL TAMBAH ROLE --}}
-    <div x-show="addRoleModal" x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" style="display: none;">
+    <div x-show="addRoleModal" x-cloak x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
         <div @click.away="addRoleModal = false" class="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h3 class="text-base font-bold text-[#213153]">Tambah Peran (Role) Baru</h3>
@@ -81,7 +78,7 @@
             <form action="{{ route('admin.roles.store') }}" method="POST" class="mt-4 space-y-4">
                 @csrf
                 <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">Nama Kode Role (Slug huruf kecil &amp; underscore)</label>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Kode Peran (huruf kecil, contoh: staf_keuangan)</label>
                     <input type="text" name="nama_role" value="{{ old('nama_role') }}" required placeholder="Contoh: auditor_internal"
                            class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 font-mono focus:border-[#0969da] focus:ring-1 focus:ring-[#0969da]">
                 </div>
@@ -98,11 +95,11 @@
 
                 <div>
                     <div class="flex items-center justify-between mb-2">
-                        <label class="block text-xs font-bold text-slate-700">Pilih Hak Akses Fitur (Permissions)</label>
+                        <label class="block text-xs font-bold text-slate-700">Pilih Hak Akses Fitur</label>
                         <div class="flex items-center gap-1.5 text-xs">
-                            <button type="button" onclick="const p = this.closest('form').querySelectorAll('input[name=\'permissions[]\']'); p.forEach(c => c.checked = true);" class="px-2 py-0.5 rounded bg-blue-50 text-[#0969da] font-bold text-[11px] hover:bg-blue-100 transition">Pilih Seluruh Izin</button>
+                            <button type="button" data-check-scope="form" data-check-selector="input[name='permissions[]']" data-check-state="true" class="px-2 py-0.5 rounded bg-blue-50 text-[#0969da] font-bold text-[11px] hover:bg-blue-100 transition">Pilih Seluruh Izin</button>
                             <span class="text-slate-300">|</span>
-                            <button type="button" onclick="const p = this.closest('form').querySelectorAll('input[name=\'permissions[]\']'); p.forEach(c => c.checked = false);" class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-bold text-[11px] hover:bg-slate-200 transition">Kosongkan Izin</button>
+                            <button type="button" data-check-scope="form" data-check-selector="input[name='permissions[]']" data-check-state="false" class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-bold text-[11px] hover:bg-slate-200 transition">Kosongkan Izin</button>
                         </div>
                     </div>
                     <div class="space-y-3 max-h-64 overflow-y-auto border border-slate-200 p-3 rounded-xl bg-slate-50">
@@ -111,9 +108,9 @@
                                 <div class="flex items-center justify-between mb-1.5 pb-1 border-b border-slate-100">
                                     <div class="text-[11px] font-bold text-[#213153] uppercase tracking-wide">{{ $module }}</div>
                                     <div class="flex items-center gap-1.5 text-[10px]">
-                                        <button type="button" onclick="const p = this.closest('.modul-group').querySelectorAll('input[type=checkbox]'); p.forEach(c => c.checked = true);" class="text-[#0969da] hover:underline font-semibold">Pilih Semua</button>
+                                        <button type="button" data-check-scope=".modul-group" data-check-state="true" class="text-[#0969da] hover:underline font-semibold">Pilih Semua</button>
                                         <span class="text-slate-300">&bull;</span>
-                                        <button type="button" onclick="const p = this.closest('.modul-group').querySelectorAll('input[type=checkbox]'); p.forEach(c => c.checked = false);" class="text-slate-500 hover:underline">Batal</button>
+                                        <button type="button" data-check-scope=".modul-group" data-check-state="false" class="text-slate-500 hover:underline">Batal</button>
                                     </div>
                                 </div>
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
@@ -148,8 +145,7 @@
     <div class="rounded-2xl bg-white shadow-sm border border-slate-200/80 overflow-hidden">
         <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
             <div>
-                <h3 class="text-sm font-bold text-[#213153]">Daftar Peran Pengguna (Roles Directory)</h3>
-                <p class="text-xs text-slate-400 mt-0.5">Konfigurasi izin modul untuk setiap peran pengguna</p>
+                <h3 class="text-sm font-bold text-[#213153]">Daftar Peran Pengguna</h3>
             </div>
             <span class="text-xs font-bold text-slate-400 font-mono">{{ $roles->count() }} Peran</span>
         </div>
@@ -168,7 +164,7 @@
                 </thead>
                 <tbody class="divide-y divide-slate-100 text-slate-700">
                     @foreach($roles as $role)
-                        <tr class="hover:bg-slate-50/50 transition" x-data="{ editModal: false }">
+                        <tr class="hover:bg-slate-50/50 transition" x-data="adminRoleRow">
                             <td class="px-5 py-4 align-top">
                                 <div class="font-bold text-slate-900 text-sm">{{ $role->label }}</div>
                                 <div class="font-mono text-xs text-slate-400 mt-0.5">{{ $role->nama_role }}</div>
@@ -217,7 +213,7 @@
                                 </button>
 
                                 {{-- MODAL UBAH ROLE & MATRIKS HAK AKSES --}}
-                                <div x-show="editModal" x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 text-left" style="display: none;">
+                                <div x-show="editModal" x-cloak x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 text-left">
                                     <div @click.away="editModal = false" class="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
                                         <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                                             <div>
@@ -254,17 +250,17 @@
                                                         <input type="checkbox" name="is_system" value="1" {{ $role->is_system ? 'checked' : '' }} class="rounded text-[#0969da]">
                                                         <span>Proteksi Peran Sistem Institusi</span>
                                                     </label>
-                                                    <p class="text-[10px] text-slate-400 ml-6 mt-0.5">Jika dicentang, tombol hapus akan dikunci untuk mencegah peran ini terhapus secara tidak sengaja.</p>
+                                                    <p class="text-[10px] text-slate-400 ml-6 mt-0.5">Mencegah peran ini terhapus dari daftar.</p>
                                                 </div>
                                             @endif
 
                                             <div>
                                                 <div class="flex items-center justify-between mb-2">
-                                                    <label class="block text-xs font-bold text-slate-700">Pilih Hak Akses Fitur (Permissions)</label>
+                                                    <label class="block text-xs font-bold text-slate-700">Pilih Hak Akses Fitur</label>
                                                     <div class="flex items-center gap-1.5 text-xs">
-                                                        <button type="button" onclick="const p = this.closest('form').querySelectorAll('input[name=\'permissions[]\']'); p.forEach(c => c.checked = true);" class="px-2 py-0.5 rounded bg-blue-50 text-[#0969da] font-bold text-[11px] hover:bg-blue-100 transition">Pilih Seluruh Izin</button>
+                                                        <button type="button" data-check-scope="form" data-check-selector="input[name='permissions[]']" data-check-state="true" class="px-2 py-0.5 rounded bg-blue-50 text-[#0969da] font-bold text-[11px] hover:bg-blue-100 transition">Pilih Seluruh Izin</button>
                                                         <span class="text-slate-300">|</span>
-                                                        <button type="button" onclick="const p = this.closest('form').querySelectorAll('input[name=\'permissions[]\']'); p.forEach(c => c.checked = false);" class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-bold text-[11px] hover:bg-slate-200 transition">Kosongkan Izin</button>
+                                                        <button type="button" data-check-scope="form" data-check-selector="input[name='permissions[]']" data-check-state="false" class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-bold text-[11px] hover:bg-slate-200 transition">Kosongkan Izin</button>
                                                     </div>
                                                 </div>
 
@@ -277,9 +273,9 @@
                                                             <div class="flex items-center justify-between mb-1.5 pb-1 border-b border-slate-100">
                                                                 <div class="text-[11px] font-bold text-[#213153] uppercase tracking-wide">{{ $module }}</div>
                                                                 <div class="flex items-center gap-1.5 text-[10px]">
-                                                                    <button type="button" onclick="const p = this.closest('.modul-group').querySelectorAll('input[type=checkbox]'); p.forEach(c => c.checked = true);" class="text-[#0969da] hover:underline font-semibold">Pilih Semua</button>
+                                                                    <button type="button" data-check-scope=".modul-group" data-check-state="true" class="text-[#0969da] hover:underline font-semibold">Pilih Semua</button>
                                                                     <span class="text-slate-300">&bull;</span>
-                                                                    <button type="button" onclick="const p = this.closest('.modul-group').querySelectorAll('input[type=checkbox]'); p.forEach(c => c.checked = false);" class="text-slate-500 hover:underline">Batal</button>
+                                                                    <button type="button" data-check-scope=".modul-group" data-check-state="false" class="text-slate-500 hover:underline">Batal</button>
                                                                 </div>
                                                             </div>
                                                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">

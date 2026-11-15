@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id" x-data="{ sidebarOpen: false }">
+<html lang="id">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -19,7 +19,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Iceland&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
-<body x-data="{ sidebarExpanded: false, mobileSidebarOpen: false }" class="min-h-screen bg-[#F4F8FA] text-gray-800 flex antialiased">
+<body x-data="appShell" class="min-h-screen bg-[#F4F8FA] text-gray-800 flex antialiased">
 
     @auth
     @php
@@ -147,12 +147,12 @@
             @if($u->hasPermission('admin.role_manage'))
                 @php $aRole = request()->routeIs('admin.roles.*'); @endphp
                 <a href="{{ route('admin.roles.index') }}" 
-                   title="Master Role & Hak Akses" 
+                   title="Peran &amp; Hak Akses" 
                    class="flex h-[49px] w-full items-center gap-4 rounded-[10px] px-4 transition-all {{ $aRole ? $menuOn : $menuOff }}">
                     <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
                     </svg>
-                    <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Master Role &amp; Hak Akses</span>
+                    <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Peran &amp; Hak Akses</span>
                 </a>
             @endif
         @endif
@@ -206,16 +206,16 @@
             </a>
         @endif
 
-        <!-- 6. PERENCANAAN: Alokasi & Penguncian MAK -->
+        <!-- 6. PERENCANAAN: Alokasi & Penguncian Anggaran -->
         @if($u->hasAnyPermission(['anggaran.mak_view', 'anggaran.mak_manage', 'anggaran.mak_alokasi', 'anggaran.mak_lock', 'permohonan.split_mak']))
             @php $aPerencanaan = request()->routeIs('verifikasi.perencanaan*'); @endphp
             <a href="{{ route('verifikasi.perencanaan') }}" 
-               title="Verifikasi MAK & Pagu" 
+               title="Verifikasi Anggaran" 
                class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aPerencanaan ? $menuOn : $menuOff }}">
                 <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Verifikasi MAK &amp; Pagu</span>
+                <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Verifikasi Anggaran</span>
             </a>
         @endif
 
@@ -268,17 +268,17 @@
             </a>
         @endif
 
-        <!-- 9. MONITOR AKTIVITAS PP (FR RBAC lihat_pp / pp.monitoring_aktivitas) -->
+        <!-- 9. PANTAU PEJABAT PENGADAAN -->
         @if($u->canMonitorPp())
             @php $aMonitorPP = request()->routeIs('monitor-pp.*'); @endphp
             <a href="{{ route('monitor-pp.index') }}" 
-               title="Monitor Aktivitas PP" 
+               title="Pantau Pejabat Pengadaan" 
                class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aMonitorPP ? $menuOn : $menuOff }}">
                 <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                 </svg>
-                <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Monitor Aktivitas PP</span>
+                <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Pantau Pejabat Pengadaan</span>
             </a>
         @endif
 
@@ -286,7 +286,7 @@
         @if($u->hasPermission('reviu.pp'))
             @php $aPPKontrak = request()->routeIs('kontrak.*') && (! $u->hasAnyPermission(['spk.create', 'reviu.ppk']) || request('tab') === 'reviu'); @endphp
             <a href="{{ route('kontrak.index', ['tab' => 'reviu']) }}" 
-               title="Reviu & Negosiasi Harga (PP)" 
+               title="Reviu & Negosiasi Harga" 
                class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aPPKontrak ? $menuOn : $menuOff }}">
                 <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -323,37 +323,37 @@
             </a>
         @endif
 
-        <!-- 11. KONTRAK SPK / DOKUMEN PERIKATAN (Berbasis Permission RBAC) -->
+        <!-- 11. KONTRAK PENGADAAN / DOKUMEN PERIKATAN -->
         @if($u->hasAnyPermission(['spk.create', 'reviu.ppk']))
             @php $aKontrakSPK = request()->routeIs('kontrak.*') && (! $u->hasPermission('reviu.pp') || request('tab') !== 'reviu'); @endphp
             <a href="{{ route('kontrak.index') }}" 
-               title="Kontrak SPK & Dokumen Perikatan" 
+               title="Dokumen &amp; Kontrak Pengadaan" 
                class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aKontrakSPK ? $menuOn : $menuOff }}">
                 <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Kontrak SPK</span>
+                <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Kontrak Pengadaan</span>
             </a>
         @endif
 
-        <!-- 12. PERLENGKAPAN: Penerimaan Barang & BAST -->
+        <!-- 12. PERLENGKAPAN: Penerimaan & Serah Terima Barang -->
         @if($u->hasAnyPermission(['penerimaan.view', 'penerimaan.bast_create', 'penerimaan.bast_sign']))
             @php $aPerlengkapan = request()->routeIs('penerimaan.*'); @endphp
             <a href="{{ route('penerimaan.index') }}" 
-               title="Penerimaan Barang & BAST" 
+               title="Penerimaan &amp; Serah Terima Barang" 
                class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aPerlengkapan ? $menuOn : $menuOff }}">
                 <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
                 </svg>
-                <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Penerimaan Barang &amp; BAST</span>
+                <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Penerimaan Barang</span>
             </a>
         @endif
 
-        <!-- 13. TAGIHAN & PEMBAYARAN SP2D (Berbasis Permission RBAC) -->
+        <!-- 13. TAGIHAN & PEMBAYARAN -->
         @if($u->hasAnyPermission(['pembayaran.pencairan_sp2d', 'pembayaran.memo_wadir2', 'pembayaran.memo_ppk', 'pembayaran.spp_terbitkan', 'pembayaran.pengajuan']))
             @php $aKeuangan = request()->routeIs('pembayaran.*'); @endphp
             <a href="{{ route('pembayaran.index') }}" 
-               title="Tagihan & Pembayaran SP2D" 
+               title="Tagihan &amp; Pembayaran" 
                class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aKeuangan ? $menuOn : $menuOff }}">
                 <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -426,13 +426,13 @@
          aria-hidden="true">
         <!-- Ellipse 5 (Figma node-id: 348:1895 / 359:2271) -->
         <div class="absolute h-[344px] left-[142px] top-[103px] w-[637px]" data-node-id="348:1895" data-name="Ellipse 5">
-            <div class="absolute" style="top: -43.6%; right: -15.7%; bottom: -14.53%; left: -15.7%;">
+            <div class="sidebar-wave-outer absolute">
                 <img src="{{ asset('images/sidebar/ellipse-5.svg') }}" alt="" class="block max-w-none size-full pointer-events-none select-none">
             </div>
         </div>
         <!-- Ellipse 4 (Figma node-id: 348:1896 / 359:2272) -->
         <div class="absolute h-[450.4px] left-0 top-0 w-[1078.4px]" data-node-id="348:1896" data-name="Ellipse 4">
-            <div class="absolute" style="top: -33.31%; right: -9.27%; bottom: -11.1%; left: -9.27%;">
+            <div class="sidebar-wave-inner absolute">
                 <img src="{{ asset('images/sidebar/ellipse-4.svg') }}" alt="" class="block max-w-none size-full pointer-events-none select-none">
             </div>
         </div>
@@ -473,40 +473,11 @@
             @auth
             <div class="relative flex h-full items-center gap-[18px] sm:gap-[26px]"
                  data-node-id="751:7821"
-                 x-data="{
-                     openNotif: false,
-                     openProfile: false,
-                     notifTab: 'semua',
-                     unreadCount: {{ $unreadHeaderCount }},
-                     toggleNotif() {
-                         this.openNotif = !this.openNotif;
-                         if (this.openNotif) {
-                             this.openProfile = false;
-                         }
-                     },
-                     toggleProfile() {
-                         this.openProfile = !this.openProfile;
-                         if (this.openProfile) {
-                             this.openNotif = false;
-                         }
-                     },
-                     async fetchTerbaru() {
-                         try {
-                             const res = await fetch('/api/notifikasi-terbaru');
-                             const data = await res.json();
-                             if (data.status === 'success') {
-                                 this.unreadCount = data.unread_count || (this.unreadCount + 1);
-                             } else {
-                                 this.unreadCount++;
-                             }
-                         } catch (e) {
-                             this.unreadCount++;
-                         }
-                     }
-                 }"
+                 x-data="headerNotificationBar"
+                 data-unread-count="{{ $unreadHeaderCount }}"
                  @notification-updated.window="fetchTerbaru()"
-                 @click.outside="openNotif = false; openProfile = false"
-                 @keydown.escape.window="openNotif = false; openProfile = false">
+                 @click.outside="closeMenus()"
+                 @keydown.escape.window="closeMenus()">
 
                 <!-- Tombol Lonceng Notifikasi (Figma 751:7798) -->
                 <button @click="toggleNotif()"
@@ -751,7 +722,7 @@
 
             {{-- Banner Notifikasi OS Desktop --}}
             @auth
-            <div x-data="typeof desktopNotificationManager === 'function' ? desktopNotificationManager() : { showBanner: false, init() {} }"
+            <div x-data="desktopNotificationManager"
                  x-init="init()"
                  x-show="showBanner"
                  x-cloak
@@ -764,15 +735,15 @@
                         </svg>
                     </div>
                     <div>
-                        <h4 class="text-sm font-semibold">Aktifkan Notifikasi Desktop (OS Windows / Mac)</h4>
-                        <p class="text-xs text-blue-100">Dapatkan peringatan batas waktu SPK, pengiriman rekanan, dan disposisi langsung di layar komputer Anda.</p>
+                        <h4 class="text-sm font-semibold">Aktifkan Notifikasi Browser</h4>
+                        <p class="text-xs text-blue-100">Terima pengingat jadwal pengiriman dan persetujuan pengadaan secara langsung.</p>
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
                     <button @click="requestPermission()"
                             type="button"
                             class="rounded-lg bg-white px-4 py-2 text-xs font-bold text-[#213153] shadow-sm hover:bg-blue-50 transition-colors cursor-pointer">
-                        Izinkan Notifikasi OS
+                        Aktifkan Notifikasi
                     </button>
                     <button @click="dismissBanner()"
                             type="button"

@@ -8,44 +8,17 @@
     $hpsVal = (float) old('nilai_hps', $paket->nilai_hps);
     $makObj = $paket->permohonan?->anggaranMak;
     $sisaMak = (float) ($makObj?->sisa_pagu_mak ?? 0);
+    $paketEditConfig = [
+        'hps' => (string) $hpsVal,
+        'hpsAwal' => (float) $paket->nilai_hps,
+        'sisaMak' => $sisaMak,
+        'metode' => old('metode_pengadaan', $paket->metode_pengadaan),
+    ];
 @endphp
 
 <div
-    x-data="{
-        hps: '{{ $hpsVal }}',
-        hpsAwal: {{ (float) $paket->nilai_hps }},
-        sisaMak: {{ $sisaMak }},
-        metode: '{{ old('metode_pengadaan', $paket->metode_pengadaan) }}',
-        routing() {
-            let n = parseFloat(this.hps) || 0;
-            if (n <= 0) return null;
-            if (n <= 50000000) return 'langsung';
-            if (n <= 200000000) return 'pp';
-            return 'ppk';
-        },
-        syncMetodeWithRouting() {
-            let r = this.routing();
-            if (r === 'langsung') {
-                this.metode = 'Pengadaan Langsung';
-            } else if (r === 'pp') {
-                if (this.metode === 'Pengadaan Langsung' || !['SPK', 'Surat Pesanan', 'Surat Kontrak', 'E-Purchasing'].includes(this.metode)) {
-                    this.metode = 'SPK';
-                }
-            } else if (r === 'ppk') {
-                if (this.metode === 'Pengadaan Langsung' || !['Tender', 'E-Purchasing', 'Seleksi', 'Penunjukan Langsung'].includes(this.metode)) {
-                    this.metode = 'Tender';
-                }
-            }
-        },
-        getDeltaMak() {
-            let n = parseFloat(this.hps) || 0;
-            return n - this.hpsAwal;
-        },
-        formatRupiah(val) {
-            let n = parseFloat(val) || 0;
-            return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
-        }
-    }"
+    x-data="paketEdit"
+    data-config="{{ json_encode($paketEditConfig, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) }}"
     class="space-y-6"
 >
 
@@ -60,9 +33,6 @@
                     <span class="text-xs text-slate-400 font-mono">{{ $paket->nomor_paket }}</span>
                 </div>
                 <h1 class="text-2xl font-bold text-[#213153] mt-2">Penyusunan Ulang Dokumen Pengadaan</h1>
-                <p class="text-xs text-slate-500 mt-1">
-                    Paket dikembalikan oleh Pejabat Pengadaan (PP) atau PPK untuk penyesuaian spesifikasi, HPS, atau dokumen teknis sebelum diteruskan kembali ke alur pengadaan.
-                </p>
             </div>
 
             <div class="flex items-center gap-2 shrink-0">
@@ -122,7 +92,7 @@
                     <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
                         <h2 class="text-sm font-bold text-[#213153] flex items-center gap-2">
                             <span class="size-6 rounded-lg bg-blue-50 text-[#0969da] flex items-center justify-center text-xs font-bold">1</span>
-                            Informasi Paket &amp; Penetapan Ulang HPS
+                            Informasi Paket &amp; Perkiraan Harga
                         </h2>
                     </div>
 
@@ -176,11 +146,11 @@
                                 class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20"
                             >
                                 <option value="Pengadaan Langsung">Pengadaan Langsung (&le; 50 Jt)</option>
-                                <option value="SPK">Surat Perintah Kerja (SPK)</option>
-                                <option value="Surat Pesanan">Surat Pesanan (E-Katalog / Inaproc)</option>
+                                <option value="SPK">Kontrak Kerja (SPK)</option>
+                                <option value="Surat Pesanan">Surat Pesanan (E-Katalog)</option>
                                 <option value="Surat Kontrak">Surat Perjanjian Kontrak</option>
                                 <option value="E-Purchasing">E-Purchasing</option>
-                                <option value="Tender">Tender Terbuka (SPSE &gt; 200 Jt)</option>
+                                <option value="Tender">Tender Terbuka (&gt; 200 Jt)</option>
                                 <option value="Seleksi">Seleksi Konsultansi</option>
                                 <option value="Penunjukan Langsung">Penunjukan Langsung</option>
                             </select>
@@ -191,7 +161,7 @@
                     <div>
                         <div class="flex items-center justify-between mb-1">
                             <label for="nilai_hps" class="block text-xs font-bold text-slate-700">
-                                Nilai Harga Perkiraan Sendiri (HPS) <span class="text-rose-500">*</span>
+                                Perkiraan Harga <span class="text-rose-500">*</span>
                             </label>
                             <span class="text-[11px] text-slate-500">
                                 Pagu Awal: <strong>Rp {{ number_format($paket->nilai_hps, 0, ',', '.') }}</strong>
@@ -220,12 +190,12 @@
                              :class="getDeltaMak() > 0 ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'">
                             <template x-if="getDeltaMak() > 0">
                                 <div>
-                                    Penyesuaian HPS menambah anggaran sebesar <strong x-text="formatRupiah(getDeltaMak())"></strong>. Sisa pagu MAK saat ini: <strong x-text="formatRupiah(sisaMak)"></strong>.
+                                    Kenaikan perkiraan harga menambah anggaran sebesar <strong x-text="formatRupiah(getDeltaMak())"></strong>. Sisa pos anggaran: <strong x-text="formatRupiah(sisaMak)"></strong>.
                                 </div>
                             </template>
                             <template x-if="getDeltaMak() < 0">
                                 <div>
-                                    Efisiensi anggaran sebesar <strong x-text="formatRupiah(Math.abs(getDeltaMak()))"></strong> akan dikembalikan ke sisa pagu MAK.
+                                    Penghematan anggaran sebesar <strong x-text="formatRupiah(Math.abs(getDeltaMak()))"></strong> dikembalikan ke sisa pos anggaran.
                                 </div>
                             </template>
                         </div>
@@ -252,7 +222,7 @@
                                 name="id_user_ppk"
                                 class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20"
                             >
-                                <option value="">-- Warisi PPK Surat Permohonan --</option>
+                                <option value="">-- Sesuai Surat Permohonan --</option>
                                 @foreach($ppkUsers as $ppk)
                                     <option value="{{ $ppk->id_user }}" {{ (int) old('id_user_ppk', $paket->id_user_ppk) === (int) $ppk->id_user ? 'selected' : '' }}>
                                         {{ $ppk->nama }} ({{ $ppk->nip ?? 'NIP PNJ' }})
@@ -264,14 +234,14 @@
                         {{-- Penugasan PP (Aktif jika rute PP) --}}
                         <div x-show="routing() === 'pp'" x-cloak>
                             <label for="id_user_pp" class="block text-xs font-bold text-slate-700 mb-1">
-                                Pejabat Pengadaan (PP) <span class="text-rose-500">*</span>
+                                Pejabat Pengadaan <span class="text-rose-500">*</span>
                             </label>
                             <select
                                 id="id_user_pp"
                                 name="id_user_pp"
                                 class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20"
                             >
-                                <option value="">-- Pilih Pejabat PP --</option>
+                                <option value="">-- Pilih Pejabat Pengadaan --</option>
                                 @foreach($ppUsers as $pp)
                                     <option value="{{ $pp->id_user }}" {{ (int) old('id_user_pp', $paket->id_user_pp) === (int) $pp->id_user ? 'selected' : '' }}>
                                         {{ $pp->nama }}
@@ -302,16 +272,16 @@
                         </datalist>
                     </div>
 
-                    {{-- Catatan Perbaikan PPBJ --}}
+                    {{-- Catatan Perbaikan Unit Pengadaan --}}
                     <div>
                         <label for="catatan_perbaikan_ppbj" class="block text-xs font-bold text-slate-700 mb-1">
-                            Catatan Perbaikan / Tindak Lanjut PPBJ
+                            Catatan Perbaikan Unit Pengadaan
                         </label>
                         <textarea
                             id="catatan_perbaikan_ppbj"
                             name="catatan_perbaikan_ppbj"
                             rows="3"
-                            placeholder="Jelaskan penyesuaian yang telah dilakukan pada spesifikasi, dokumen, atau HPS..."
+                            placeholder="Jelaskan penyesuaian dokumen atau perkiraan harga..."
                             class="w-full rounded-xl border border-slate-200 p-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20"
                         >{{ old('catatan_perbaikan_ppbj') }}</textarea>
                     </div>
@@ -325,7 +295,7 @@
                 {{-- Status Klasifikasi Alur Pengadaan --}}
                 <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80 space-y-4">
                     <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                        Klasifikasi Alur Berdasarkan Nilai HPS
+                        Jalur Pengadaan Berdasarkan Perkiraan Harga
                     </h3>
 
                     {{-- Jalur 1: <= 50 Juta --}}
@@ -341,7 +311,7 @@
                             <span class="text-xs font-bold text-slate-800">&le; Rp 50.000.000</span>
                         </div>
                         <p class="text-[11px] text-slate-600 mt-2 leading-relaxed">
-                            <strong>Belanja Langsung:</strong> Eksekusi Kwitansi langsung oleh PPBJ tanpa review PP maupun persetujuan PPK.
+                            <strong>Belanja Langsung:</strong> Pembelian langsung oleh Unit Pengadaan dengan kwitansi (tanpa PPK).
                         </p>
                     </div>
 
@@ -358,7 +328,7 @@
                             <span class="text-xs font-bold text-slate-800">&gt; Rp 50 Jt s.d. Rp 200 Jt</span>
                         </div>
                         <p class="text-[11px] text-slate-600 mt-2 leading-relaxed">
-                            <strong>Jalur PP:</strong> Ditelaah oleh Pejabat Pengadaan (PP) terlebih dahulu sebelum diteruskan ke PPK.
+                            <strong>Jalur Pejabat Pengadaan:</strong> Ditelaah Pejabat Pengadaan sebelum diteruskan ke PPK.
                         </p>
                     </div>
 
@@ -375,7 +345,7 @@
                             <span class="text-xs font-bold text-slate-800">&gt; Rp 200.000.000</span>
                         </div>
                         <p class="text-[11px] text-slate-600 mt-2 leading-relaxed">
-                            <strong>Jalur PPK:</strong> Langsung ke antrean verifikasi &amp; Approval PPK tanpa melalui Pejabat Pengadaan (PP).
+                            <strong>Jalur PPK:</strong> Langsung diperiksa dan disetujui PPK tanpa Pejabat Pengadaan.
                         </p>
                     </div>
                 </div>
@@ -393,11 +363,11 @@
                             <span class="font-medium text-slate-800">{{ $paket->permohonan?->unit?->nama_unit ?? 'Unit Kerja PNJ' }}</span>
                         </div>
                         <div class="flex justify-between py-1 border-b border-slate-100">
-                            <span class="text-slate-500">Kode MAK:</span>
+                            <span class="text-slate-500">Kode Pos Anggaran:</span>
                             <span class="font-mono font-bold text-[#0969da]">{{ $makObj?->kode_mak ?? '-' }}</span>
                         </div>
                         <div class="flex justify-between py-1 border-b border-slate-100">
-                            <span class="text-slate-500">Sisa Pagu MAK:</span>
+                            <span class="text-slate-500">Sisa Pos Anggaran:</span>
                             <span class="font-mono font-bold text-emerald-600">Rp {{ number_format($sisaMak, 0, ',', '.') }}</span>
                         </div>
                     </div>

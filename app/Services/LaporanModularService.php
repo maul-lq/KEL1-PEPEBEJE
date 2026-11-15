@@ -319,7 +319,7 @@ class LaporanModularService
         $activeKeys = $this->resolveActiveModuleKeys($user);
 
         if ($requestedModule !== '' && $requestedModule !== 'semua' && ! in_array($requestedModule, $activeKeys, true)) {
-            abort(403, 'Akses Ditolak: Anda tidak memiliki izin RBAC untuk mengekspor modul laporan tersebut.');
+            abort(403, 'Akses Ditolak: Anda tidak memiliki hak akses untuk mengunduh laporan modul tersebut.');
         }
 
         $payload = $this->buildModularPayload($user, $rawFilters);
@@ -361,7 +361,7 @@ class LaporanModularService
         fwrite($handle, "\xEF\xBB\xBF");
 
         fputcsv($handle, ['POLITEKNIK NEGERI JAKARTA - SIM-PBJ']);
-        fputcsv($handle, ['LAPORAN DATA MENTAH (RAW CSV) BERBASIS RBAC']);
+        fputcsv($handle, ['DATA LAPORAN (CSV)']);
         fputcsv($handle, ['Pengguna', $user->nama, 'Peran', $export['role_label']]);
         fputcsv($handle, ['Cakupan Modul', $export['selected_module'] === 'semua' ? implode(' + ', $export['active_module_labels']) : ($sections[0]['tab_label'] ?? '-')]);
         fputcsv($handle, ['Filter Aktif', $export['filter_summary_text'], 'Waktu Unduh', now()->format('d/m/Y H:i:s')]);
@@ -369,7 +369,7 @@ class LaporanModularService
 
         if (count($sections) === 0) {
             fputcsv($handle, ['Keterangan']);
-            fputcsv($handle, ['Tidak ada modul laporan yang aktif pada izin RBAC akun ini.']);
+            fputcsv($handle, ['Belum ada modul laporan yang aktif pada hak akses akun ini.']);
         } elseif (count($sections) === 1) {
             $sec = $sections[0];
             fputcsv($handle, $sec['csv_columns']);
@@ -396,9 +396,9 @@ class LaporanModularService
         $content = (string) stream_get_contents($handle);
         fclose($handle);
 
-        $suffix = $export['selected_module'] === 'semua' ? 'Gabungan_RBAC' : $export['selected_module'];
+        $suffix = $export['selected_module'] === 'semua' ? 'Gabungan' : $export['selected_module'];
         $tahunTag = $filters['tahun'] !== '' ? $filters['tahun'] : 'SemuaTahun';
-        $filename = 'Laporan_RAW_PBJ_PNJ_'.$suffix.'_'.$tahunTag.'_'.now()->format('Ymd_His').'.csv';
+        $filename = 'Laporan_CSV_PNJ_'.$suffix.'_'.$tahunTag.'_'.now()->format('Ymd_His').'.csv';
 
         return [
             'filename' => $filename,
@@ -494,8 +494,8 @@ class LaporanModularService
         return [
             'key' => 'semua',
             'tab_label' => 'Semua Modul',
-            'description' => 'Gabungan seluruh modul laporan yang diaktifkan oleh izin RBAC peran Anda.',
-            'ringkasan_title' => 'Ringkasan Terpadu ('.count($modules).' Modul Aktif RBAC)',
+            'description' => 'Gabungan seluruh modul laporan sesuai hak akses akun Anda.',
+            'ringkasan_title' => 'Ringkasan Terpadu ('.count($modules).' Modul Aktif)',
             'table_title' => 'Ikhtisar Data Lintas Modul Aktif ('.$user->nama.')',
             'filters' => [
                 'tahun' => $usesTahun,
@@ -506,7 +506,7 @@ class LaporanModularService
                 'has_role_filter' => in_array('administrasi_rbac', array_keys($modules), true),
             ],
             'cards' => $combinedCards,
-            'columns' => ['No.', 'Modul RBAC', 'Referensi & Uraian Utama', 'Keterangan / Tanggal', 'Nilai / Atribut', 'Status / Ringkas'],
+            'columns' => ['No.', 'Modul', 'Referensi & Uraian Utama', 'Keterangan / Tanggal', 'Nilai / Atribut', 'Status / Ringkas'],
             'rows' => $combinedRows,
             'csv_columns' => [],
             'csv_rows' => [],
@@ -623,9 +623,9 @@ class LaporanModularService
 
         return [
             'key' => 'rekapitulasi_dipa',
-            'tab_label' => 'Rekapitulasi DIPA',
-            'description' => 'Rekapitulasi serapan anggaran DIPA institusi dan distribusi usulan per jurusan/unit.',
-            'ringkasan_title' => 'Ringkasan Keuangan & Realisasi DIPA Institusi',
+            'tab_label' => 'Rekapitulasi Anggaran',
+            'description' => 'Rekapitulasi serapan anggaran institusi dan distribusi usulan per unit.',
+            'ringkasan_title' => 'Ringkasan Realisasi Anggaran Institusi',
             'table_title' => 'Distribusi Anggaran per Jurusan dan Unit Kerja',
             'filters' => [
                 'tahun' => true,
@@ -636,12 +636,12 @@ class LaporanModularService
                 'has_role_filter' => false,
             ],
             'cards' => [
-                ['label' => 'Total Pagu Anggaran DIPA', 'val' => 'Rp '.number_format($totalPaguDipa, 0, ',', '.'), 'icon' => 'banknotes', 'sub' => $tahun ? 'Pagu DIPA tahun '.$tahun : 'Seluruh tahun anggaran'],
-                ['label' => 'Total Realisasi Pencairan SP2D', 'val' => 'Rp '.number_format($totalRealisasi, 0, ',', '.'), 'icon' => 'check-circle', 'sub' => 'Pencairan SP2D terbit'],
-                ['label' => 'Total Estimasi Usulan Permohonan', 'val' => 'Rp '.number_format($totalUsulan, 0, ',', '.'), 'icon' => 'document-text', 'sub' => $kodeUnit !== '' ? 'Unit '.$kodeUnit : 'Akumulasi seluruh usulan'],
-                ['label' => 'Sisa Anggaran Belum Terserap', 'val' => 'Rp '.number_format($sisaAnggaran, 0, ',', '.'), 'icon' => 'calculator', 'sub' => 'Sisa saldo alokasi DIPA'],
-                ['label' => 'Total Nilai Kontrak / SPK', 'val' => 'Rp '.number_format($totalKontrak, 0, ',', '.'), 'icon' => 'document-check', 'sub' => 'Kontrak & perikatan sah'],
-                ['label' => 'Persentase Serapan Anggaran', 'val' => $persentaseSerapan.'%', 'icon' => 'chart-pie', 'sub' => 'Realisasi terhadap DIPA'],
+                ['label' => 'Total Pagu Anggaran', 'val' => 'Rp '.number_format($totalPaguDipa, 0, ',', '.'), 'icon' => 'banknotes', 'sub' => $tahun ? 'Anggaran tahun '.$tahun : 'Semua tahun'],
+                ['label' => 'Total Pencairan Dana', 'val' => 'Rp '.number_format($totalRealisasi, 0, ',', '.'), 'icon' => 'check-circle', 'sub' => 'Dana sudah cair'],
+                ['label' => 'Total Estimasi Usulan', 'val' => 'Rp '.number_format($totalUsulan, 0, ',', '.'), 'icon' => 'document-text', 'sub' => $kodeUnit !== '' ? 'Unit '.$kodeUnit : 'Semua usulan'],
+                ['label' => 'Sisa Anggaran Belum Terserap', 'val' => 'Rp '.number_format($sisaAnggaran, 0, ',', '.'), 'icon' => 'calculator', 'sub' => 'Sisa alokasi anggaran'],
+                ['label' => 'Total Nilai Kontrak', 'val' => 'Rp '.number_format($totalKontrak, 0, ',', '.'), 'icon' => 'document-check', 'sub' => 'Kontrak aktif'],
+                ['label' => 'Persentase Serapan Anggaran', 'val' => $persentaseSerapan.'%', 'icon' => 'chart-pie', 'sub' => 'Realisasi terhadap pagu'],
             ],
             'columns' => ['No.', 'Kode Unit', 'Nama Jurusan / Unit Kerja', 'Jumlah Usulan', 'Total Nilai Usulan', 'Pangsa Usulan (%)'],
             'rows' => $rows,
@@ -742,16 +742,16 @@ class LaporanModularService
                 'has_role_filter' => false,
             ],
             'cards' => [
-                ['label' => 'Total Estimasi Usulan Unit', 'val' => 'Rp '.number_format($totalUsulan, 0, ',', '.'), 'icon' => 'banknotes', 'sub' => 'Total pagu yang Anda ajukan'],
-                ['label' => 'Total Realisasi Pencairan SP2D', 'val' => 'Rp '.number_format($totalRealisasi, 0, ',', '.'), 'icon' => 'check-circle', 'sub' => 'Dana belanja usulan telah cair'],
-                ['label' => 'Total Nilai Kontrak / SPK', 'val' => 'Rp '.number_format($totalKontrak, 0, ',', '.'), 'icon' => 'document-check', 'sub' => 'Perikatan resmi aktif'],
-                ['label' => 'Usulan Telah Disetujui', 'val' => $disetujuiCount.' Berkas', 'icon' => 'check-badge', 'sub' => 'Disetujui Wadir 2 & siap paket'],
+                ['label' => 'Total Estimasi Usulan Unit', 'val' => 'Rp '.number_format($totalUsulan, 0, ',', '.'), 'icon' => 'banknotes', 'sub' => 'Total usulan unit Anda'],
+                ['label' => 'Total Pencairan Dana', 'val' => 'Rp '.number_format($totalRealisasi, 0, ',', '.'), 'icon' => 'check-circle', 'sub' => 'Dana belanja sudah cair'],
+                ['label' => 'Total Nilai Kontrak', 'val' => 'Rp '.number_format($totalKontrak, 0, ',', '.'), 'icon' => 'document-check', 'sub' => 'Kontrak aktif'],
+                ['label' => 'Usulan Telah Disetujui', 'val' => $disetujuiCount.' Berkas', 'icon' => 'check-badge', 'sub' => 'Disetujui Wadir 2 & siap diproses'],
                 ['label' => 'Usulan Sedang Diproses', 'val' => $prosesCount.' Berkas', 'icon' => 'clock', 'sub' => 'Tahap verifikasi & pengadaan'],
-                ['label' => 'Persentase Serapan Unit', 'val' => $serapanPct.'%', 'icon' => 'chart-pie', 'sub' => 'Rasio realisasi belanja usulan'],
+                ['label' => 'Persentase Serapan Unit', 'val' => $serapanPct.'%', 'icon' => 'chart-pie', 'sub' => 'Rasio realisasi belanja unit'],
             ],
             'columns' => ['No.', 'Nomor Surat', 'Nama Pengadaan', 'Tanggal Pengajuan', 'Estimasi Pagu', 'Status Pengadaan'],
             'rows' => $rows,
-            'csv_columns' => ['No', 'Nomor Surat', 'Kode Unit', 'Nama Pengadaan', 'Tanggal Pengajuan', 'Estimasi Pagu (IDR)', 'Nilai Kontrak/SPK (IDR)', 'Realisasi SP2D (IDR)', 'Status Pengadaan'],
+            'csv_columns' => ['No', 'Nomor Surat', 'Kode Unit', 'Nama Pengadaan', 'Tanggal Pengajuan', 'Estimasi Pagu (IDR)', 'Nilai Kontrak (IDR)', 'Pencairan Dana (IDR)', 'Status Pengadaan'],
             'csv_rows' => $csvRows,
         ];
     }
@@ -844,14 +844,14 @@ class LaporanModularService
             'cards' => [
                 ['label' => 'Total Berkas Usulan Masuk', 'val' => $totalMasuk.' Berkas', 'icon' => 'document-text', 'sub' => 'Dari jurusan & unit kerja'],
                 ['label' => 'Menunggu Telaah Administrasi', 'val' => $menungguTelaah.' Berkas', 'icon' => 'clock', 'sub' => 'Tahap pemeriksaan berkas awal'],
-                ['label' => 'Reviu MAK & Pimpinan', 'val' => $reviuParalel.' Berkas', 'icon' => 'arrow-path', 'sub' => 'Cek MAK & persetujuan Wadir 2'],
-                ['label' => 'Berkas Disetujui / Proses', 'val' => $disetujui.' Berkas', 'icon' => 'check-badge', 'sub' => 'Lolos verifikasi & siap paket'],
+                ['label' => 'Reviu Anggaran & Pimpinan', 'val' => $reviuParalel.' Berkas', 'icon' => 'arrow-path', 'sub' => 'Cek anggaran & persetujuan Wadir 2'],
+                ['label' => 'Berkas Disetujui / Proses', 'val' => $disetujui.' Berkas', 'icon' => 'check-badge', 'sub' => 'Lolos verifikasi & siap diproses'],
                 ['label' => 'Berkas Ditolak / Revisi', 'val' => $revisiTolak.' Berkas', 'icon' => 'x-circle', 'sub' => 'Perlu perbaikan oleh unit'],
                 ['label' => 'Total Pagu Usulan Masuk', 'val' => 'Rp '.number_format($totalPaguMasuk, 0, ',', '.'), 'icon' => 'banknotes', 'sub' => 'Akumulasi estimasi usulan'],
             ],
             'columns' => ['No.', 'Nomor Surat', 'Jurusan / Unit Pengusul', 'Nama Pengadaan', 'Estimasi Pagu', 'Status Berkas'],
             'rows' => $rows,
-            'csv_columns' => ['No', 'Nomor Surat', 'Kode Unit', 'Unit Pengusul', 'Nama Pengadaan', 'Tanggal Pengajuan', 'Estimasi Pagu (IDR)', 'Kode MAK', 'Status Berkas'],
+            'csv_columns' => ['No', 'Nomor Surat', 'Kode Unit', 'Unit Pengusul', 'Nama Pengadaan', 'Tanggal Pengajuan', 'Estimasi Pagu (IDR)', 'Kode Pos Anggaran', 'Status Berkas'],
             'csv_rows' => $csvRows,
         ];
     }
@@ -931,32 +931,32 @@ class LaporanModularService
 
         return [
             'key' => 'anggaran_mak',
-            'tab_label' => 'Anggaran & MAK DIPA',
-            'description' => 'Rekapitulasi pagu, sisa saldo, serta status penguncian Mata Anggaran Kegiatan (MAK) DIPA.',
-            'ringkasan_title' => 'Ringkasan Alokasi Anggaran MAK DIPA (Perencanaan)',
-            'table_title' => 'Rekapitulasi Alokasi Mata Anggaran Kegiatan (MAK) DIPA',
+            'tab_label' => 'Pos Anggaran',
+            'description' => 'Rekapitulasi pagu, sisa saldo, serta status penguncian pos anggaran.',
+            'ringkasan_title' => 'Ringkasan Alokasi Pos Anggaran (Perencanaan)',
+            'table_title' => 'Daftar Alokasi Pos Anggaran',
             'filters' => [
                 'tahun' => true,
                 'bulan' => false,
                 'unit' => 'none',
-                'status_label' => 'Status Kunci MAK',
+                'status_label' => 'Status Kunci Anggaran',
                 'status_options' => [
-                    ['value' => 'aktif', 'label' => 'MAK Terbuka / Aktif'],
-                    ['value' => 'terkunci', 'label' => 'MAK Terkunci (Lock)'],
+                    ['value' => 'aktif', 'label' => 'Terbuka / Aktif'],
+                    ['value' => 'terkunci', 'label' => 'Terkunci'],
                 ],
                 'has_role_filter' => false,
             ],
             'cards' => [
-                ['label' => 'Total Pagu Anggaran DIPA', 'val' => 'Rp '.number_format($totalPaguDipa, 0, ',', '.'), 'icon' => 'banknotes', 'sub' => $tahun ? 'Pagu DIPA tahun '.$tahun : 'Semua tahun'],
-                ['label' => 'Pagu MAK Teralokasi', 'val' => 'Rp '.number_format($paguTeralokasi, 0, ',', '.'), 'icon' => 'check-circle', 'sub' => 'Alokasi komitmen pengadaan'],
-                ['label' => 'Sisa Saldo Bebas MAK', 'val' => 'Rp '.number_format($totalSisaMak, 0, ',', '.'), 'icon' => 'calculator', 'sub' => 'Saldo anggaran belum terserap'],
-                ['label' => 'Rekening MAK Terkunci (Lock)', 'val' => $lockedCount.' Rekening', 'icon' => 'lock-closed', 'sub' => 'Otoritas kunci perencanaan'],
-                ['label' => 'Rekening MAK Aktif / Terbuka', 'val' => $activeCount.' Rekening', 'icon' => 'lock-open', 'sub' => 'Dapat digunakan untuk usulan'],
-                ['label' => 'Usulan Menunggu Alokasi MAK', 'val' => $menungguMak.' Berkas', 'icon' => 'clock', 'sub' => 'Antrean verifikasi anggaran'],
+                ['label' => 'Total Pagu Anggaran', 'val' => 'Rp '.number_format($totalPaguDipa, 0, ',', '.'), 'icon' => 'banknotes', 'sub' => $tahun ? 'Anggaran tahun '.$tahun : 'Semua tahun'],
+                ['label' => 'Anggaran Teralokasi', 'val' => 'Rp '.number_format($paguTeralokasi, 0, ',', '.'), 'icon' => 'check-circle', 'sub' => 'Alokasi pengadaan'],
+                ['label' => 'Sisa Saldo Anggaran', 'val' => 'Rp '.number_format($totalSisaMak, 0, ',', '.'), 'icon' => 'calculator', 'sub' => 'Saldo belum terserap'],
+                ['label' => 'Pos Anggaran Terkunci', 'val' => $lockedCount.' Rekening', 'icon' => 'lock-closed', 'sub' => 'Dikunci Perencanaan'],
+                ['label' => 'Pos Anggaran Aktif', 'val' => $activeCount.' Rekening', 'icon' => 'lock-open', 'sub' => 'Tersedia untuk usulan'],
+                ['label' => 'Usulan Menunggu Cek Anggaran', 'val' => $menungguMak.' Berkas', 'icon' => 'clock', 'sub' => 'Antrean verifikasi anggaran'],
             ],
-            'columns' => ['No.', 'Kode MAK', 'Uraian Mata Anggaran', 'Tahun', 'Pagu Anggaran', 'Sisa Saldo MAK'],
+            'columns' => ['No.', 'Kode Pos Anggaran', 'Uraian Anggaran', 'Tahun', 'Pagu Anggaran', 'Sisa Saldo'],
             'rows' => $rows,
-            'csv_columns' => ['No', 'Kode MAK', 'Uraian Mata Anggaran', 'Sumber Dana', 'Tahun Anggaran', 'Pagu Anggaran (IDR)', 'Pagu Teralokasi (IDR)', 'Sisa Saldo MAK (IDR)', 'Status Kunci'],
+            'csv_columns' => ['No', 'Kode Pos Anggaran', 'Uraian Anggaran', 'Sumber Dana', 'Tahun Anggaran', 'Pagu Anggaran (IDR)', 'Anggaran Teralokasi (IDR)', 'Sisa Saldo (IDR)', 'Status Kunci'],
             'csv_rows' => $csvRows,
         ];
     }
@@ -1037,10 +1037,10 @@ class LaporanModularService
 
         return [
             'key' => 'pengadaan_ppbj',
-            'tab_label' => 'Paket & Kontrak PPBJ',
-            'description' => 'Rekapitulasi paket pengadaan lintas jalur routing (<=50Jt, PP 50-200Jt, PPK >200Jt) beserta perikatan SPK.',
-            'ringkasan_title' => 'Ringkasan Pengelolaan Paket Pengadaan (PPBJ)',
-            'table_title' => 'Rekapitulasi Paket Pengadaan & Jalur Eksekusi (PPBJ)',
+            'tab_label' => 'Paket & Kontrak',
+            'description' => 'Rekapitulasi paket pengadaan per jalur nilai (<=50Jt, 50-200Jt, >200Jt) beserta dokumen kontrak.',
+            'ringkasan_title' => 'Ringkasan Paket Pengadaan (Unit Pengadaan)',
+            'table_title' => 'Daftar Paket Pengadaan (Unit Pengadaan)',
             'filters' => [
                 'tahun' => true,
                 'bulan' => true,
@@ -1050,16 +1050,16 @@ class LaporanModularService
                 'has_role_filter' => false,
             ],
             'cards' => [
-                ['label' => 'Total Paket Terdaftar PPBJ', 'val' => $totalPaket.' Paket', 'icon' => 'briefcase', 'sub' => 'Pengadaan sesuai filter'],
-                ['label' => 'Jalur Belanja Langsung (<=50Jt)', 'val' => $langsungCount.' Paket', 'icon' => 'bolt', 'sub' => 'Kwitansi & non-kontrak'],
-                ['label' => 'Jalur Pejabat Pengadaan (50-200Jt)', 'val' => $ppCount.' Paket', 'icon' => 'user-check', 'sub' => 'Penugasan Pejabat Pengadaan'],
-                ['label' => 'Jalur Pokja / PPK (>200Jt)', 'val' => $ppkCount.' Paket', 'icon' => 'shield-check', 'sub' => 'Tender & perikatan PPK'],
-                ['label' => 'Total Nilai Kontrak / SPK', 'val' => 'Rp '.number_format($totalKontrak, 0, ',', '.'), 'icon' => 'document-check', 'sub' => 'Perikatan resmi aktif'],
+                ['label' => 'Total Paket Terdaftar', 'val' => $totalPaket.' Paket', 'icon' => 'briefcase', 'sub' => 'Pengadaan sesuai filter'],
+                ['label' => 'Belanja Langsung (<=50Jt)', 'val' => $langsungCount.' Paket', 'icon' => 'bolt', 'sub' => 'Kwitansi tanpa kontrak'],
+                ['label' => 'Pejabat Pengadaan (50-200Jt)', 'val' => $ppCount.' Paket', 'icon' => 'user-check', 'sub' => 'Penugasan Pejabat Pengadaan'],
+                ['label' => 'Jalur Pokja / PPK (>200Jt)', 'val' => $ppkCount.' Paket', 'icon' => 'shield-check', 'sub' => 'Tender & kontrak PPK'],
+                ['label' => 'Total Nilai Kontrak', 'val' => 'Rp '.number_format($totalKontrak, 0, ',', '.'), 'icon' => 'document-check', 'sub' => 'Kontrak aktif'],
                 ['label' => 'Usulan Siap Dibuat Paket', 'val' => $siapPaketCount.' Berkas', 'icon' => 'clock', 'sub' => 'Telah disetujui Wadir 2'],
             ],
-            'columns' => ['No.', 'Nomor Paket', 'Nama Paket Pengadaan', 'Jalur Eksekusi', 'Nilai HPS', 'Status Paket'],
+            'columns' => ['No.', 'Nomor Paket', 'Nama Paket Pengadaan', 'Jalur Pengadaan', 'Perkiraan Harga', 'Status Paket'],
             'rows' => $rows,
-            'csv_columns' => ['No', 'Nomor Paket', 'Nomor Surat Usulan', 'Kode Unit', 'Nama Paket Pengadaan', 'Jalur Eksekusi', 'Metode Pengadaan', 'Vendor / Rekanan', 'Nilai HPS (IDR)', 'Nilai Kontrak/SPK (IDR)', 'Status Paket'],
+            'csv_columns' => ['No', 'Nomor Paket', 'Nomor Surat Usulan', 'Kode Unit', 'Nama Paket Pengadaan', 'Jalur Pengadaan', 'Metode Pengadaan', 'Vendor / Rekanan', 'Perkiraan Harga (IDR)', 'Nilai Kontrak (IDR)', 'Status Paket'],
             'csv_rows' => $csvRows,
         ];
     }
@@ -1142,10 +1142,10 @@ class LaporanModularService
 
         return [
             'key' => 'penugasan_pp',
-            'tab_label' => 'Penugasan PP',
-            'description' => 'Rekapitulasi paket pengadaan jalur 50-200 Juta dalam penanganan Pejabat Pengadaan (PP).',
-            'ringkasan_title' => 'Ringkasan Kinerja Pejabat Pengadaan (PP: '.$user->nama.')',
-            'table_title' => 'Rekapitulasi Paket Pengadaan Langsung (Penugasan PP)',
+            'tab_label' => 'Penugasan Pejabat Pengadaan',
+            'description' => 'Rekapitulasi paket pengadaan Rp 50-200 Juta dalam penanganan Pejabat Pengadaan.',
+            'ringkasan_title' => 'Ringkasan Pejabat Pengadaan ('.$user->nama.')',
+            'table_title' => 'Daftar Paket Pengadaan Langsung',
             'filters' => [
                 'tahun' => true,
                 'bulan' => true,
@@ -1155,16 +1155,16 @@ class LaporanModularService
                 'has_role_filter' => false,
             ],
             'cards' => [
-                ['label' => 'Total Paket Penugasan PP', 'val' => $totalPaket.' Paket', 'icon' => 'briefcase', 'sub' => 'Paket jalur 50jt - 200jt'],
-                ['label' => 'Dalam Reviu & Negosiasi', 'val' => $reviuCount.' Paket', 'icon' => 'clock', 'sub' => 'Tahap verifikasi dokumen & harga'],
-                ['label' => 'Menunggu Approval PPK', 'val' => $menungguPpkCount.' Paket', 'icon' => 'shield-check', 'sub' => 'Menunggu persetujuan PPK'],
-                ['label' => 'Siap Belanja / SPK Terbit', 'val' => $siapBelanjaCount.' Paket', 'icon' => 'check-badge', 'sub' => 'Telah disetujui & eksekusi'],
-                ['label' => 'Total Nilai HPS Pengadaan PP', 'val' => 'Rp '.number_format($totalHps, 0, ',', '.'), 'icon' => 'banknotes', 'sub' => 'Total perkiraan sendiri PP'],
-                ['label' => 'Total Realisasi Kontrak / SPK', 'val' => 'Rp '.number_format($totalKontrak, 0, ',', '.'), 'icon' => 'document-check', 'sub' => 'Nilai perikatan resmi PP'],
+                ['label' => 'Total Paket Penugasan', 'val' => $totalPaket.' Paket', 'icon' => 'briefcase', 'sub' => 'Paket nilai 50jt - 200jt'],
+                ['label' => 'Dalam Reviu & Negosiasi', 'val' => $reviuCount.' Paket', 'icon' => 'clock', 'sub' => 'Tahap periksa dokumen & harga'],
+                ['label' => 'Menunggu Persetujuan PPK', 'val' => $menungguPpkCount.' Paket', 'icon' => 'shield-check', 'sub' => 'Menunggu persetujuan PPK'],
+                ['label' => 'Siap Belanja / Kontrak Terbit', 'val' => $siapBelanjaCount.' Paket', 'icon' => 'check-badge', 'sub' => 'Sudah disetujui'],
+                ['label' => 'Total Perkiraan Harga', 'val' => 'Rp '.number_format($totalHps, 0, ',', '.'), 'icon' => 'banknotes', 'sub' => 'Total perkiraan harga'],
+                ['label' => 'Total Nilai Kontrak', 'val' => 'Rp '.number_format($totalKontrak, 0, ',', '.'), 'icon' => 'document-check', 'sub' => 'Nilai kontrak final'],
             ],
-            'columns' => ['No.', 'Nomor Paket', 'Nama Paket Pengadaan', 'Metode Pengadaan', 'Nilai HPS', 'Status Paket'],
+            'columns' => ['No.', 'Nomor Paket', 'Nama Paket Pengadaan', 'Metode Pengadaan', 'Perkiraan Harga', 'Status Paket'],
             'rows' => $rows,
-            'csv_columns' => ['No', 'Nomor Paket', 'Kode Unit', 'Nama Paket Pengadaan', 'Metode Pengadaan', 'Vendor / Rekanan', 'Nilai HPS (IDR)', 'Harga Negosiasi / Kontrak (IDR)', 'Status Paket'],
+            'csv_columns' => ['No', 'Nomor Paket', 'Kode Unit', 'Nama Paket Pengadaan', 'Metode Pengadaan', 'Vendor / Rekanan', 'Perkiraan Harga (IDR)', 'Harga Negosiasi / Kontrak (IDR)', 'Status Paket'],
             'csv_rows' => $csvRows,
         ];
     }
@@ -1251,9 +1251,9 @@ class LaporanModularService
         return [
             'key' => 'komitmen_ppk',
             'tab_label' => 'Komitmen & Paket PPK',
-            'description' => 'Rekapitulasi paket pengadaan terisolasi di bawah komitmen PPK '.$user->nama.'.',
+            'description' => 'Rekapitulasi paket pengadaan di bawah tanggung jawab PPK '.$user->nama.'.',
             'ringkasan_title' => 'Ringkasan Komitmen & Paket Pengadaan (PPK: '.$user->nama.')',
-            'table_title' => 'Rekapitulasi Paket Komitmen Pengadaan (PPK: '.$user->nama.')',
+            'table_title' => 'Daftar Paket Komitmen PPK ('.$user->nama.')',
             'filters' => [
                 'tahun' => true,
                 'bulan' => true,
@@ -1263,16 +1263,16 @@ class LaporanModularService
                 'has_role_filter' => false,
             ],
             'cards' => [
-                ['label' => 'Total Paket Komitmen PPK', 'val' => $pakets->count().' Paket', 'icon' => 'briefcase', 'sub' => 'Paket di bawah penugasan Anda'],
-                ['label' => 'Antrean Persetujuan Awal', 'val' => $antreanAwal.' Berkas', 'icon' => 'clock', 'sub' => 'Permohonan masuk tahap PPK'],
-                ['label' => 'Total Nilai Kontrak / SPK', 'val' => 'Rp '.number_format($totalKontrak, 0, ',', '.'), 'icon' => 'document-check', 'sub' => 'Komitmen kontrak sah aktif'],
-                ['label' => 'Paket Tender / Seleksi (>200Jt)', 'val' => $tenderCount.' Paket', 'icon' => 'shield-check', 'sub' => 'Paket pengadaan skala besar'],
-                ['label' => 'Memo Bayar Menunggu ACC', 'val' => $memoPending.' Berkas', 'icon' => 'document-text', 'sub' => 'Persetujuan pembayaran tagihan'],
-                ['label' => 'Total Realisasi Pencairan SP2D', 'val' => 'Rp '.number_format($totalCair, 0, ',', '.'), 'icon' => 'check-circle', 'sub' => 'Realisasi pencairan belanja'],
+                ['label' => 'Total Paket Komitmen PPK', 'val' => $pakets->count().' Paket', 'icon' => 'briefcase', 'sub' => 'Paket penugasan Anda'],
+                ['label' => 'Antrean Persetujuan Awal', 'val' => $antreanAwal.' Berkas', 'icon' => 'clock', 'sub' => 'Usulan masuk tahap PPK'],
+                ['label' => 'Total Nilai Kontrak', 'val' => 'Rp '.number_format($totalKontrak, 0, ',', '.'), 'icon' => 'document-check', 'sub' => 'Kontrak aktif'],
+                ['label' => 'Paket Tender / Seleksi (>200Jt)', 'val' => $tenderCount.' Paket', 'icon' => 'shield-check', 'sub' => 'Paket skala besar'],
+                ['label' => 'Memo Bayar Menunggu Persetujuan', 'val' => $memoPending.' Berkas', 'icon' => 'document-text', 'sub' => 'Persetujuan pembayaran'],
+                ['label' => 'Total Pencairan Dana', 'val' => 'Rp '.number_format($totalCair, 0, ',', '.'), 'icon' => 'check-circle', 'sub' => 'Dana sudah cair'],
             ],
-            'columns' => ['No.', 'Nomor Paket', 'Nama Paket Pengadaan', 'Metode Pengadaan', 'Nilai Kontrak / HPS', 'Status Paket'],
+            'columns' => ['No.', 'Nomor Paket', 'Nama Paket Pengadaan', 'Metode Pengadaan', 'Nilai Kontrak / Perkiraan Harga', 'Status Paket'],
             'rows' => $rows,
-            'csv_columns' => ['No', 'Nomor Paket', 'Kode Unit', 'Nama Paket Pengadaan', 'Metode Pengadaan', 'Vendor / Rekanan', 'Nilai HPS (IDR)', 'Nilai Kontrak (IDR)', 'Realisasi SP2D (IDR)', 'Status Paket'],
+            'csv_columns' => ['No', 'Nomor Paket', 'Kode Unit', 'Nama Paket Pengadaan', 'Metode Pengadaan', 'Vendor / Rekanan', 'Perkiraan Harga (IDR)', 'Nilai Kontrak (IDR)', 'Pencairan Dana (IDR)', 'Status Paket'],
             'csv_rows' => $csvRows,
         ];
     }
@@ -1371,10 +1371,10 @@ class LaporanModularService
 
         return [
             'key' => 'penerimaan_bmn',
-            'tab_label' => 'Penerimaan & BAST',
-            'description' => 'Rekapitulasi serah terima fisik barang/aset, kategori belanja barang vs modal, dan BAST HMAC.',
-            'ringkasan_title' => 'Ringkasan Penerimaan Barang & Aset (Perlengkapan)',
-            'table_title' => 'Rekapitulasi Penerimaan Barang & Berita Acara Serah Terima (BAST)',
+            'tab_label' => 'Penerimaan & Serah Terima',
+            'description' => 'Rekapitulasi serah terima barang dan kategori belanja.',
+            'ringkasan_title' => 'Ringkasan Penerimaan Barang & Aset',
+            'table_title' => 'Daftar Penerimaan Barang & Serah Terima',
             'filters' => [
                 'tahun' => true,
                 'bulan' => true,
@@ -1390,16 +1390,16 @@ class LaporanModularService
                 'has_role_filter' => false,
             ],
             'cards' => [
-                ['label' => 'Total Kontrak / Belanja Masuk', 'val' => $totalSpkMasuk.' Berkas', 'icon' => 'document-check', 'sub' => 'Perikatan & belanja langsung'],
+                ['label' => 'Total Kontrak / Belanja Masuk', 'val' => $totalSpkMasuk.' Berkas', 'icon' => 'document-check', 'sub' => 'Kontrak & belanja langsung'],
                 ['label' => 'Menunggu Pemeriksaan Fisik', 'val' => $belumDiperiksa.' Paket', 'icon' => 'clock', 'sub' => 'Belum dilakukan serah terima'],
-                ['label' => 'Total BAST Diterbitkan', 'val' => $items->count().' BAST', 'icon' => 'check-badge', 'sub' => 'Serah terima fisik tercatat'],
-                ['label' => 'Aset Belanja Barang', 'val' => $barangCount.' Berkas', 'icon' => 'cube', 'sub' => 'Barang habis pakai / operasional'],
+                ['label' => 'Total Bukti Serah Terima', 'val' => $items->count().' Dokumen', 'icon' => 'check-badge', 'sub' => 'Serah terima tercatat'],
+                ['label' => 'Aset Belanja Barang', 'val' => $barangCount.' Berkas', 'icon' => 'cube', 'sub' => 'Barang habis pakai'],
                 ['label' => 'Aset Belanja Modal', 'val' => $modalCount.' Berkas', 'icon' => 'building-library', 'sub' => 'Aset tetap & inventaris'],
                 ['label' => 'Total Nilai Fisik Diterima', 'val' => 'Rp '.number_format($totalNilaiBast, 0, ',', '.'), 'icon' => 'banknotes', 'sub' => 'Akumulasi barang sesuai filter'],
             ],
-            'columns' => ['No.', 'Nomor BAST', 'Nama Paket / Barang', 'Tanggal Penerimaan', 'Kategori Belanja', 'Status Verifikasi'],
+            'columns' => ['No.', 'Nomor Serah Terima', 'Nama Paket / Barang', 'Tanggal Penerimaan', 'Kategori Belanja', 'Status Verifikasi'],
             'rows' => $rows,
-            'csv_columns' => ['No', 'Nomor BAST', 'Nomor Paket', 'Kode Unit', 'Nama Paket / Barang', 'Vendor / Rekanan', 'Tanggal Penerimaan', 'Kategori Belanja', 'Nilai Fisik (IDR)', 'Status Fisik'],
+            'csv_columns' => ['No', 'Nomor Serah Terima', 'Nomor Paket', 'Kode Unit', 'Nama Paket / Barang', 'Vendor / Rekanan', 'Tanggal Penerimaan', 'Kategori Belanja', 'Nilai Fisik (IDR)', 'Status Fisik'],
             'csv_rows' => $csvRows,
         ];
     }
@@ -1481,12 +1481,12 @@ class LaporanModularService
 
         return [
             'key' => 'pembayaran_sp2d',
-            'tab_label' => 'Pembayaran & SP2D',
+            'tab_label' => 'Pembayaran & Pencairan Dana',
             'description' => $strictPpk
                 ? 'Rekapitulasi pengajuan pembayaran & memo bayar khusus paket komitmen PPK Anda.'
-                : 'Rekapitulasi tagihan rekanan, penerbitan SPP, serta realisasi transfer pencairan SP2D.',
-            'ringkasan_title' => 'Ringkasan Pembayaran Tagihan & Realisasi SP2D',
-            'table_title' => 'Rekapitulasi Verifikasi Pembayaran & Pencairan Dana (SP2D)',
+                : 'Rekapitulasi tagihan penyedia, perintah bayar, serta pencairan dana.',
+            'ringkasan_title' => 'Ringkasan Pembayaran & Pencairan Dana',
+            'table_title' => 'Daftar Verifikasi Pembayaran & Pencairan Dana',
             'filters' => [
                 'tahun' => true,
                 'bulan' => true,
@@ -1494,23 +1494,23 @@ class LaporanModularService
                 'status_label' => 'Status Pembayaran',
                 'status_options' => [
                     ['value' => Pembayaran::STATUS_PENGAJUAN, 'label' => 'Pengajuan / Memo Bayar'],
-                    ['value' => Pembayaran::STATUS_PERINTAH_BAYAR, 'label' => 'Perintah Bayar (SPP Terbit)'],
-                    ['value' => Pembayaran::STATUS_LUNAS, 'label' => 'Lunas (SP2D Cair)'],
+                    ['value' => Pembayaran::STATUS_PERINTAH_BAYAR, 'label' => 'Perintah Bayar Terbit'],
+                    ['value' => Pembayaran::STATUS_LUNAS, 'label' => 'Lunas (Dana Cair)'],
                     ['value' => Pembayaran::STATUS_DITOLAK, 'label' => 'Ditolak / Revisi'],
                 ],
                 'has_role_filter' => false,
             ],
             'cards' => [
                 ['label' => 'Pengajuan & Memo Bayar', 'val' => $sppSiap.' Berkas', 'icon' => 'clock', 'sub' => 'Dalam reviu memo PPK / Wadir 2'],
-                ['label' => 'SP2D Siap Dicairkan', 'val' => $sp2dSiap.' Berkas', 'icon' => 'document-check', 'sub' => 'Perintah bayar / SPP terbit'],
-                ['label' => 'Total Transaksi Lunas / Cair', 'val' => $totalCairTx.' Transaksi', 'icon' => 'check-badge', 'sub' => 'SP2D berhasil ditransfer'],
-                ['label' => 'Total Realisasi Pencairan SP2D', 'val' => 'Rp '.number_format($totalNominalCair, 0, ',', '.'), 'icon' => 'banknotes', 'sub' => 'Dana belanja keluar ke vendor'],
+                ['label' => 'Siap Dicairkan', 'val' => $sp2dSiap.' Berkas', 'icon' => 'document-check', 'sub' => 'Perintah bayar terbit'],
+                ['label' => 'Transaksi Lunas / Cair', 'val' => $totalCairTx.' Transaksi', 'icon' => 'check-badge', 'sub' => 'Dana berhasil ditransfer'],
+                ['label' => 'Total Pencairan Dana', 'val' => 'Rp '.number_format($totalNominalCair, 0, ',', '.'), 'icon' => 'banknotes', 'sub' => 'Dana sudah cair ke penyedia'],
                 ['label' => 'Total Nilai Tagihan Masuk', 'val' => 'Rp '.number_format($totalTagihan, 0, ',', '.'), 'icon' => 'document-text', 'sub' => 'Akumulasi nominal pengajuan'],
                 ['label' => 'Sisa Tagihan Dalam Proses', 'val' => 'Rp '.number_format($sisaTagihan, 0, ',', '.'), 'icon' => 'calculator', 'sub' => 'Antrean verifikasi & pencairan'],
             ],
             'columns' => ['No.', 'Nomor Pembayaran', 'Nama Paket / Rekanan', 'Tanggal Pengajuan', 'Nominal Pembayaran', 'Status Pembayaran'],
             'rows' => $rows,
-            'csv_columns' => ['No', 'Nomor Pembayaran', 'Nomor Paket', 'Kode Unit', 'Nama Paket', 'Vendor / Rekanan', 'Nomor Kwitansi', 'Nomor Invoice', 'Tanggal Pengajuan', 'Nominal Tagihan (IDR)', 'Nominal Cair SP2D (IDR)', 'Status Pembayaran'],
+            'csv_columns' => ['No', 'Nomor Pembayaran', 'Nomor Paket', 'Kode Unit', 'Nama Paket', 'Vendor / Rekanan', 'Nomor Kwitansi', 'Nomor Invoice', 'Tanggal Pengajuan', 'Nominal Tagihan (IDR)', 'Pencairan Dana (IDR)', 'Status Pembayaran'],
             'csv_rows' => $csvRows,
         ];
     }
@@ -1559,7 +1559,7 @@ class LaporanModularService
             $roleLabel = $u->roleEntity?->label ?? strtoupper((string) $u->role);
             $statusLabel = $u->status_aktif
                 ? 'Aktif'
-                : ($u->status_registrasi === User::STATUS_REGISTRASI_MENUNGGU ? 'Menunggu ACC' : 'Nonaktif');
+                : ($u->status_registrasi === User::STATUS_REGISTRASI_MENUNGGU ? 'Menunggu Persetujuan' : 'Nonaktif');
 
             $row = [
                 'no' => $no,
@@ -1595,8 +1595,8 @@ class LaporanModularService
 
         return [
             'key' => 'administrasi_rbac',
-            'tab_label' => 'Administrasi & RBAC',
-            'description' => 'Rekapitulasi akun pengguna sivitas, status persetujuan registrasi, dan distribusi peran RBAC.',
+            'tab_label' => 'Pengguna & Hak Akses',
+            'description' => 'Rekapitulasi akun pengguna, status pendaftaran, dan pembagian peran.',
             'ringkasan_title' => 'Ringkasan Manajemen Pengguna & Sistem (Administrasi)',
             'table_title' => 'Distribusi dan Status Pengguna Institusi PNJ',
             'filters' => [
@@ -1606,20 +1606,20 @@ class LaporanModularService
                 'status_label' => 'Status Akun',
                 'status_options' => [
                     ['value' => 'aktif', 'label' => 'Akun Aktif'],
-                    ['value' => User::STATUS_REGISTRASI_MENUNGGU, 'label' => 'Menunggu ACC Admin'],
+                    ['value' => User::STATUS_REGISTRASI_MENUNGGU, 'label' => 'Menunggu Persetujuan Admin'],
                     ['value' => 'nonaktif', 'label' => 'Nonaktif / Ditolak'],
                 ],
                 'has_role_filter' => true,
             ],
             'cards' => [
-                ['label' => 'Total Pengguna Terdaftar', 'val' => $totalUsers.' Akun', 'icon' => 'users', 'sub' => 'Sivitas terdaftar sesuai filter'],
+                ['label' => 'Total Pengguna Terdaftar', 'val' => $totalUsers.' Akun', 'icon' => 'users', 'sub' => 'Pengguna terdaftar sesuai filter'],
                 ['label' => 'Pengguna Aktif Terverifikasi', 'val' => $activeUsers.' Akun', 'icon' => 'check-circle', 'sub' => 'Dapat mengakses sistem'],
-                ['label' => 'Registrasi Menunggu Persetujuan', 'val' => $pendingUsers.' Pendaftar', 'icon' => 'clock', 'sub' => 'Memerlukan ACC admin'],
+                ['label' => 'Registrasi Menunggu Persetujuan', 'val' => $pendingUsers.' Pendaftar', 'icon' => 'clock', 'sub' => 'Memerlukan persetujuan admin'],
                 ['label' => 'Registrasi Ditolak', 'val' => $rejectedUsers.' Akun', 'icon' => 'x-circle', 'sub' => 'Permohonan akun ditolak'],
-                ['label' => 'Total Peran / Role Terdaftar', 'val' => $totalRoles.' Peran', 'icon' => 'shield-check', 'sub' => 'Matriks hak akses RBAC'],
+                ['label' => 'Total Peran Terdaftar', 'val' => $totalRoles.' Peran', 'icon' => 'shield-check', 'sub' => 'Daftar peran & hak akses'],
                 ['label' => 'Persentase Akun Aktif', 'val' => $pctAktif.'%', 'icon' => 'chart-pie', 'sub' => 'Rasio akun terverifikasi'],
             ],
-            'columns' => ['No.', 'Nama Pengguna', 'NIP / Username', 'Unit Kerja / Jurusan', 'Role Akses', 'Status Akun'],
+            'columns' => ['No.', 'Nama Pengguna', 'NIP / Username', 'Unit Kerja / Jurusan', 'Peran Akses', 'Status Akun'],
             'rows' => $rows,
             'csv_columns' => ['No', 'Nama Pengguna', 'NIP / Username', 'Email', 'Unit Kerja', 'Kode Role', 'Label Role', 'Status Registrasi', 'Status Aktif'],
             'csv_rows' => $csvRows,
@@ -1636,8 +1636,8 @@ class LaporanModularService
         return [
             'key' => 'kosong',
             'tab_label' => 'Belum Ada Modul Laporan',
-            'description' => 'Peran akun Anda belum mengaktifkan modul operasional maupun pelaporan di matriks RBAC.',
-            'ringkasan_title' => 'Ringkasan Laporan (Belum Ada Modul RBAC Aktif)',
+            'description' => 'Akun Anda belum memiliki hak akses modul laporan aktif.',
+            'ringkasan_title' => 'Ringkasan Laporan (Belum Ada Modul Aktif)',
             'table_title' => 'Data Laporan Tidak Tersedia untuk Izin Saat Ini',
             'filters' => [
                 'tahun' => false,
@@ -1673,10 +1673,10 @@ class LaporanModularService
         return [
             ['value' => PermohonanPengadaan::STATUS_DIAJUKAN, 'label' => 'Diajukan'],
             ['value' => PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2, 'label' => 'Menunggu Telaah Bidang II'],
-            ['value' => PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN, 'label' => 'Cek MAK Perencanaan'],
-            ['value' => PermohonanPengadaan::STATUS_MENUNGGU_ACC_WADIR_PPK, 'label' => 'Menunggu ACC Wadir 2 / PPK'],
+            ['value' => PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN, 'label' => 'Cek Pos Anggaran Perencanaan'],
+            ['value' => PermohonanPengadaan::STATUS_MENUNGGU_ACC_WADIR_PPK, 'label' => 'Menunggu Persetujuan Wadir 2 / PPK'],
             ['value' => PermohonanPengadaan::STATUS_DISETUJUI, 'label' => 'Disetujui'],
-            ['value' => PermohonanPengadaan::STATUS_DIPROSES_PPBJ, 'label' => 'Diproses PPBJ'],
+            ['value' => PermohonanPengadaan::STATUS_DIPROSES_PPBJ, 'label' => 'Diproses Unit Pengadaan'],
             ['value' => 'revisi', 'label' => 'Perlu Revisi'],
             ['value' => PermohonanPengadaan::STATUS_DITOLAK, 'label' => 'Ditolak'],
             ['value' => PermohonanPengadaan::STATUS_SELESAI, 'label' => 'Selesai'],
@@ -1691,10 +1691,10 @@ class LaporanModularService
         return [
             ['value' => PaketPengadaan::STATUS_TERDAFTAR, 'label' => 'Terdaftar'],
             ['value' => PaketPengadaan::STATUS_BELANJA_LANGSUNG_SELESAI, 'label' => 'Belanja Langsung Selesai'],
-            ['value' => PaketPengadaan::STATUS_MENUNGGU_APPROVAL_PPK, 'label' => 'Menunggu Approval PPK'],
-            ['value' => PaketPengadaan::STATUS_DISETUJUI_PPK_SIAP_BELANJA_PP, 'label' => 'Disetujui PPK (Siap Belanja PP)'],
-            ['value' => PaketPengadaan::STATUS_SIAP_UPLOAD_DOKUMEN_PPBJ, 'label' => 'Siap Upload Dokumen Perikatan'],
-            ['value' => PaketPengadaan::STATUS_SPK_TERBIT, 'label' => 'SPK / Kontrak Terbit'],
+            ['value' => PaketPengadaan::STATUS_MENUNGGU_APPROVAL_PPK, 'label' => 'Menunggu Persetujuan PPK'],
+            ['value' => PaketPengadaan::STATUS_DISETUJUI_PPK_SIAP_BELANJA_PP, 'label' => 'Disetujui PPK (Siap Belanja)'],
+            ['value' => PaketPengadaan::STATUS_SIAP_UPLOAD_DOKUMEN_PPBJ, 'label' => 'Siap Unggah Dokumen Kontrak'],
+            ['value' => PaketPengadaan::STATUS_SPK_TERBIT, 'label' => 'Kontrak Terbit'],
             ['value' => PaketPengadaan::STATUS_SELESAI, 'label' => 'Selesai'],
         ];
     }
@@ -1780,13 +1780,13 @@ class LaporanModularService
             $kodeUnitLog = $paket?->permohonan?->kode_unit ?? '';
             $link = route('paket.index', ['selected' => $log->id_entitas]);
         } elseif ($log->nama_entitas === 'penerimaan_barang') {
-            $namaPengadaan = $log->alasan ?: 'Pemeriksaan Fisik Barang & BAST';
+            $namaPengadaan = $log->alasan ?: 'Pemeriksaan Fisik & Serah Terima';
             $link = route('penerimaan.index');
         } elseif (in_array($log->nama_entitas, ['pembayaran', 'memo_bayar', 'transaksi_pencairan'], true)) {
-            $namaPengadaan = $log->alasan ?: 'Verifikasi Tagihan / SP2D Pencairan';
+            $namaPengadaan = $log->alasan ?: 'Verifikasi Tagihan & Pencairan Dana';
             $link = route('pembayaran.index');
         } elseif (in_array($log->nama_entitas, ['anggaran_mak', 'alokasi_mak'], true)) {
-            $namaPengadaan = $log->alasan ?: 'Alokasi Pagu MAK DIPA';
+            $namaPengadaan = $log->alasan ?: 'Alokasi Pos Anggaran';
             $link = route('verifikasi.perencanaan');
         } elseif (in_array($log->nama_entitas, ['users', 'roles', 'permissions'], true)) {
             $namaPengadaan = $log->alasan ?: 'Manajemen Akun / Hak Akses';
@@ -1947,7 +1947,7 @@ class LaporanModularService
                         'nomor_surat' => $suratKey,
                         'kode_unit' => $pb->paket?->permohonan?->kode_unit ?? 'LKP',
                         'revisi' => 'Revisi ke-0',
-                        'aktivitas' => 'Penerbitan BAST & serah terima barang',
+                        'aktivitas' => 'Penerimaan & serah terima barang',
                         'jenis_aktivitas' => 'Penerimaan',
                         'status' => 'Disetujui',
                         'status_color' => 'emerald',
@@ -1975,7 +1975,7 @@ class LaporanModularService
                         'nomor_surat' => $byr->nomor_pembayaran,
                         'kode_unit' => $byr->paket?->permohonan?->kode_unit ?? 'KEU',
                         'revisi' => 'Revisi ke-0',
-                        'aktivitas' => 'Verifikasi tagihan & proses SP2D',
+                        'aktivitas' => 'Verifikasi tagihan & pencairan dana',
                         'jenis_aktivitas' => 'Pembayaran',
                         'status' => $isDone ? 'Disetujui' : 'Dalam Proses',
                         'status_color' => $isDone ? 'emerald' : 'blue',

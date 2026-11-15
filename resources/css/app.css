@@ -1,4 +1,8 @@
 @import "tailwindcss";
+@import "./modules/layout.css";
+@import "./modules/dashboard.css";
+@import "./modules/components.css";
+@import "./modules/profile.css";
 
 @theme {
     /* Brand & Layout Palette SIM-PBJ */

@@ -533,7 +533,7 @@ class HomeController extends Controller
                         'judul_paket' => $spk->paket->nama_paket ?? $spk->nomor_paket,
                         'vendor_nama' => $spk->paket->vendor->nama_vendor ?? 'Penyedia Resmi',
                         'unit_nama' => $spk->paket->permohonan->unit->nama_unit ?? ($spk->paket->permohonan->kode_unit ?? '-'),
-                        'jenis_jalur' => 'SPK / Kontrak',
+                        'jenis_jalur' => 'Kontrak Kerja',
                         'is_langsung' => false,
                         'batas_kirim' => $spk->tanggal_selesai
                             ? date('d M Y', strtotime((string) $spk->tanggal_selesai))
@@ -734,10 +734,10 @@ class HomeController extends Controller
                     'disetujui' => ['aktivitas' => 'Form disetujui', 'status' => 'Disetujui'],
                     'ditolak' => ['aktivitas' => 'Form ditolak', 'status' => 'Ditolak'],
                     'revisi', 'perlu_revisi' => ['aktivitas' => 'Perlu perbaikan berkas', 'status' => 'Perlu Revisi'],
-                    'diproses_ppbj' => ['aktivitas' => 'Diproses PPBJ', 'status' => 'Diproses PPBJ'],
+                    'diproses_ppbj' => ['aktivitas' => 'Diproses Unit Pengadaan', 'status' => 'Diproses Unit Pengadaan'],
                     'selesai' => ['aktivitas' => 'Pengadaan selesai', 'status' => 'Selesai'],
                     'menunggu_bidang_2' => ['aktivitas' => 'Telaah Bidang II', 'status' => 'Dalam Proses'],
-                    'cek_mak_perencanaan' => ['aktivitas' => 'Pemeriksaan MAK', 'status' => 'Dalam Proses'],
+                    'cek_mak_perencanaan' => ['aktivitas' => 'Cek Pos Anggaran', 'status' => 'Dalam Proses'],
                     'reviu_paralel', 'menunggu_acc_wadir_ppk' => ['aktivitas' => 'Reviu Pimpinan', 'status' => 'Dalam Proses'],
                     default => ['aktivitas' => 'Form diajukan', 'status' => 'Dalam Proses'],
                 };

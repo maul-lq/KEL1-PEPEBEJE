@@ -26,38 +26,18 @@
 @endphp
 
 <div
-    x-data="{
-        show: @js($show),
-        focusables() {
-            let selector = 'a, button, input:not([type=\'hidden\']), textarea, select, details, [tabindex]:not([tabindex=\'-1\'])';
-            return [...$el.querySelectorAll(selector)].filter(el => ! el.hasAttribute('disabled'));
-        },
-        firstFocusable() { return this.focusables()[0] },
-        lastFocusable() { return this.focusables().slice(-1)[0] },
-        nextFocusable() { return this.focusables()[this.nextFocusableIndex()] || this.firstFocusable() },
-        prevFocusable() { return this.focusables()[this.prevFocusableIndex()] || this.lastFocusable() },
-        nextFocusableIndex() { return (this.focusables().indexOf(document.activeElement) + 1) % (this.focusables().length + 1) },
-        prevFocusableIndex() { return (this.focusables().indexOf(document.activeElement) - 1 + this.focusables().length + 1) % (this.focusables().length + 1) },
-    }"
-    x-init="
-        $watch('show', value => {
-            if (value) {
-                document.body.classList.add('overflow-y-hidden');
-                {{ $focusable ? 'setTimeout(() => firstFocusable()?.focus(), 100)' : '' }}
-            } else {
-                document.body.classList.remove('overflow-y-hidden');
-            }
-        });
-    "
-    x-on:open-modal.window="$event.detail === '{{ $id }}' ? show = true : null"
-    x-on:close-modal.window="$event.detail === '{{ $id }}' ? show = false : null"
-    x-on:close.stop="show = false"
-    x-on:keydown.escape.window="show = false"
+    x-data="modalDialog"
+    data-show="{{ $show ? '1' : '0' }}"
+    data-focusable="{{ $focusable ? '1' : '0' }}"
+    x-on:open-modal.window="onWindowOpen($event.detail)"
+    x-on:close-modal.window="onWindowClose($event.detail)"
+    x-on:close.stop="close()"
+    x-on:keydown.escape.window="close()"
     x-on:keydown.tab.prevent="$event.shiftKey ? prevFocusable().focus() : nextFocusable().focus()"
     x-show="show"
+    x-cloak
     id="{{ $id }}"
     class="fixed inset-0 z-50 overflow-y-auto px-4 py-6 sm:px-0 flex items-center justify-center"
-    style="display: none;"
     role="dialog"
     aria-modal="true"
     @if($title) aria-labelledby="modal-title-{{ $id }}" @endif

@@ -22,7 +22,7 @@
         <x-figma-stat-card
             title="Persetujuan Awal"
             :value="$stats['antrean_persetujuan_awal'] ?? 0"
-            subtitle="Usulan masuk perlu ACC PPK"
+            subtitle="Usulan perlu persetujuan PPK"
             variant="active"
             :href="$verifPpkHref"
         />
@@ -30,15 +30,15 @@
         <x-figma-stat-card
             title="Reviu Dokumen Paket"
             :value="$stats['antrean_dokumen_pengadaan'] ?? 0"
-            subtitle="Dokumen pengadaan siap ACC"
+            subtitle="Dokumen paket siap disetujui"
             variant="action"
             :href="$dokumenPpkHref"
         />
 
         <x-figma-stat-card
-            title="Paket Komitmen Saya"
+            title="Paket Tugas Saya"
             :value="$stats['total_paket_ppk'] ?? 0"
-            :subtitle="'Terisolasi • SPK Aktif: ' . ($stats['spk_aktif'] ?? 0)"
+            :subtitle="'Tugas Saya • Kontrak Aktif: ' . ($stats['spk_aktif'] ?? 0)"
             variant="done"
             :href="$kontrakPpkHref"
         />
@@ -56,14 +56,14 @@
     <x-figma-workspace
         leftTitle="Perlu Tindakan Anda"
         :leftHref="$leftHref"
-        rightTitle="Paket Komitmen Terisolasi"
+        rightTitle="Paket Tugas Saya"
         :rightHref="$kontrakPpkHref"
     >
         <x-slot:left>
             @if($memoList->isEmpty() && $dokumenList->isEmpty() && $awalList->isEmpty())
                 <x-figma-empty
                     title="Tidak ada item yang memerlukan tindakan PPK"
-                    subtitle="Seluruh persetujuan awal, dokumen pengadaan, dan Memo Level 2 portofolio Anda sudah ditangani."
+                    subtitle=""
                 />
             @else
                 @foreach($memoList as $memoLvl2)
@@ -95,8 +95,8 @@
                         variant="action"
                         :title="$pktDok->nama_paket"
                         :meta="($pktDok->kode_paket ?? $pktDok->nomor_paket) . ' • ' . $unitNama"
-                        :submeta="'Pagu HPS: Rp ' . $hps . ' • Persetujuan Dokumen'"
-                        badge="ACC Dokumen"
+                        :submeta="'Perkiraan Harga: Rp ' . $hps . ' • Persetujuan Dokumen'"
+                        badge="Setujui Dokumen"
                         badgeClass="bg-[#fff5df] text-[#99660d]"
                         :href="$dokumenPpkHref"
                         buttonLabel="Buka"
@@ -114,7 +114,7 @@
                         :title="$usulan->judul_pengadaan ?? $usulan->perihal ?? $usulan->nomor_surat"
                         :meta="$usulan->nomor_surat . ' • ' . $unitNama"
                         :submeta="'Estimasi Pagu: Rp ' . $estimasiPagu . ' • Persetujuan Awal'"
-                        badge="ACC Awal"
+                        badge="Persetujuan Awal"
                         badgeClass="bg-teal-50 text-teal-800"
                         :href="$verifPpkHref"
                         buttonLabel="Buka"
@@ -126,7 +126,7 @@
         <x-slot:right>
             <div class="bg-[#deeeff] rounded-[5px] h-[35px] px-3 flex items-center text-[#4a4a4a] text-[13px] md:text-[14px] font-semibold">
                 <div class="w-[22%] shrink-0">Kode Paket</div>
-                <div class="w-[26%] shrink-0">Rekanan &amp; HPS</div>
+                <div class="w-[26%] shrink-0">Rekanan &amp; Harga</div>
                 <div class="flex-1 px-2">Nama Paket</div>
                 <div class="w-[18%] shrink-0 text-right">Status</div>
             </div>
@@ -154,7 +154,7 @@
                     </div>
                 @empty
                     <div class="py-10 text-center text-xs text-slate-400">
-                        Belum ada paket komitmen yang ditugaskan kepada akun PPK Anda.
+                        Belum ada paket yang ditugaskan kepada Anda.
                     </div>
                 @endforelse
             </div>

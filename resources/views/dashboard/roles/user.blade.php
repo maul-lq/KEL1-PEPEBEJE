@@ -72,7 +72,7 @@
             @empty
                 <x-figma-empty
                     title="Tidak ada pengajuan yang memerlukan tindakan Anda"
-                    subtitle="Semua usulan permohonan pengadaan unit Anda sedang berjalan dengan lancar."
+                    subtitle=""
                 />
             @endforelse
         </x-slot:left>

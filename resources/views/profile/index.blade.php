@@ -4,40 +4,22 @@
 
 @section('content')
 
-{{-- Sembunyikan ikon mata / hapus bawaan browser (Edge, IE, Safari) agar tidak ada 2 ikon mata.
-     CATATAN: sebelumnya memakai @push('styles'), tetapi layouts/app.blade.php tidak punya @stack('styles'),
-     sehingga CSS-nya tidak pernah dimuat. Sekarang ditaruh langsung di sini. --}}
-<style>
-    input::-ms-reveal,
-    input::-ms-clear {
-        display: none !important;
-    }
-    input[type="password"]::-webkit-credentials-auto-fill-button,
-    input[type="password"]::-webkit-contacts-auto-fill-button {
-        visibility: hidden;
-        display: none !important;
-        pointer-events: none;
-    }
-</style>
-
-<div x-data="{ 
-    editModalOpen: false, 
-    passwordModalOpen: {{ ($errors->has('old_password') || $errors->has('new_password') || $errors->has('confirm_password') || session('password_modal_error')) ? 'true' : 'false' }}, 
-    deleteAccountModalOpen: {{ (session('delete_modal_error') || $errors->has('password_konfirmasi')) ? 'true' : 'false' }} 
-}" class="mx-auto max-w-[1750px]">
+<div x-data="profilePage"
+     data-password-modal-open="{{ ($errors->has('old_password') || $errors->has('new_password') || $errors->has('confirm_password') || session('password_modal_error')) ? '1' : '0' }}"
+     data-delete-modal-open="{{ (session('delete_modal_error') || $errors->has('password_konfirmasi')) ? '1' : '0' }}"
+     class="mx-auto max-w-[1750px]">
 
     {{-- HEADER HALAMAN --}}
   <div class="flex flex-wrap items-start justify-between gap-4">
     <div>
         <h1 class="text-[40px] font-semibold leading-tight text-black">Profil Saya</h1>
-        <p class="mt-2 text-base text-[#4A4A4A]">Lihat dan kelola informasi akun Anda.</p>
     </div>
 
     @if(strtolower($user->role ?? '') === 'admin' && Route::has('admin.roles.index'))
         <a href="{{ route('admin.roles.index') }}"
            class="inline-flex h-11 items-center gap-2 rounded-lg bg-[#0969da] px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700">
             <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-            Manajemen Role
+            Peran &amp; Hak Akses
         </a>
     @endif
 </div>
@@ -154,7 +136,7 @@
                 Foto Profil
             </div>
             
-            <form action="{{ route('profile.update') }}" method="POST" enctype="multipart/form-data" class="mt-4 flex items-start gap-8" x-data="{ photoName: '' }">
+            <form action="{{ route('profile.update') }}" method="POST" enctype="multipart/form-data" class="mt-4 flex items-start gap-8" x-data="profilePhotoUpload">
                 @csrf
                 @method('PUT')
                 <input type="hidden" name="nama" value="{{ $user->nama }}">
@@ -201,7 +183,7 @@
                     </div>
                     
                     {{-- TOGGLE REMINDER --}}
-                    <div x-data="{ enabled: true }">
+                    <div x-data="profileReminderToggle">
                         <button
                             type="button"
                             role="switch"
@@ -212,12 +194,12 @@
                         >
                             <span
                                 class="absolute top-0.5 left-0.5 block h-5 w-5 rounded-full bg-white shadow-md transition-transform duration-200 ease-in-out"
-                                :style="enabled ? 'transform: translateX(24px)' : 'transform: translateX(0)'"
+                                :class="enabled ? 'translate-x-6' : 'translate-x-0'"
                             ></span>
                         </button>
                     </div>
                 </div>
-                <p class="mt-6 text-[17px] text-[#4A4A4A]">Aktifkan reminder melalui Gmail untuk mendapatkan notifikasi jadwal &amp; status pengadaan.</p>
+                <p class="mt-6 text-[17px] text-[#4A4A4A]">Aktifkan pengingat ke email Google Anda.</p>
                 <div class="mt-5 flex items-center gap-4 rounded-[10px] border border-[#B0CBE6] bg-[#E8F5FD] px-[26px] py-[18px]">
                     <svg class="size-8 shrink-0 text-black" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                     <div class="min-w-0">
@@ -256,7 +238,7 @@
 
                 @if($user->isGoogleLinked())
                     <p class="mt-4 text-[17px] text-[#4A4A4A]">
-                        Akun Google Anda telah terhubung. Anda dapat menggunakan akun Google ini untuk masuk ke SIM-PBJ dalam satu klik.
+                        Akun Google Anda terhubung untuk masuk sekali klik.
                     </p>
 
                     <div class="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-[10px] border border-[#B0CBE6] bg-[#E8F5FD] px-[26px] py-[18px]">
@@ -274,7 +256,7 @@
                             </div>
                         </div>
 
-                        <form action="{{ route('profile.google.unlink') }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin memutuskan tautan akun Google ini? Anda nantinya hanya dapat masuk menggunakan password akun lokal.');" class="shrink-0">
+                        <form action="{{ route('profile.google.unlink') }}" method="POST" data-confirm="Apakah Anda yakin ingin memutuskan tautan akun Google ini? Anda nantinya hanya dapat masuk menggunakan password akun lokal." class="shrink-0">
                             @csrf
                             <button type="submit" class="flex h-10 items-center justify-center rounded-[5px] border border-red-200 bg-white px-4 text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors">
                                 Putuskan Tautan
@@ -283,7 +265,7 @@
                     </div>
                 @else
                     <p class="mt-4 text-[17px] text-[#4A4A4A]">
-                        Tautkan akun Google Anda ke profil SIM-PBJ untuk mengaktifkan fitur masuk cepat (1-Click Google Login) secara aman tanpa perlu memasukkan kata sandi.
+                        Hubungkan akun Google untuk masuk sekali klik.
                     </p>
 
                     <a href="{{ route('profile.google.link') }}" class="mt-5 inline-flex h-11 w-full sm:w-auto items-center justify-center gap-3 rounded-[8px] border border-[#D2D2D2] bg-white px-6 text-base font-semibold text-black shadow-sm hover:bg-gray-50 transition-colors">
@@ -303,7 +285,6 @@
                 <svg class="size-8 text-black mt-1 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
                 <div>
                     <h3 class="text-2xl font-semibold text-black">Ubah Password</h3>
-                    <p class="mt-2 text-[17px] text-[#4A4A4A]">Pastikan password Anda aman dan sulit ditebak.</p>
                     <button @click="passwordModalOpen = true" type="button" class="mt-5 flex h-10 w-[245px] items-center justify-between rounded-[5px] border border-[#B0CBE6] bg-white px-4 text-base font-semibold text-[#3B82F6] hover:bg-[#E8F5FD] transition-colors">
                         Ubah Password
                         <svg class="size-4" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
@@ -383,13 +364,7 @@
         {{-- x-init + $watch: setiap modal ditutup (tombol X, Batal, atau klik di luar),
              semua isian dikosongkan dan ikon mata kembali ke mode tersembunyi --}}
         <div @click.away="passwordModalOpen = false" 
-             x-data="{ showOld: false, showNew: false, showConfirm: false }"
-             x-init="$watch('passwordModalOpen', open => {
-                 if (!open) {
-                     $refs.passwordForm.reset();
-                     showOld = false; showNew = false; showConfirm = false;
-                 }
-             })"
+             x-data="profilePasswordForm"
              class="relative w-full max-w-[596px] rounded-[10px] bg-white p-8 sm:p-10 shadow-2xl">
             
             <!-- Tombol Close (X) -->
@@ -398,11 +373,10 @@
             </button>
 
             <!-- Title & Subtitle -->
-            <div class="flex items-center gap-3 mb-2">
+            <div class="flex items-center gap-3 mb-6">
                 <svg class="size-7 text-black shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
                 <h2 class="text-2xl font-semibold text-black">Ubah Password</h2>
             </div>
-            <p class="text-[17px] text-[#494949] mb-6">Masukkan password baru Anda untuk mengganti kata sandi akun.</p>
 
             @if(session('password_modal_error') && session('error'))
                 <div class="mb-5 flex items-center gap-2.5 rounded-lg border border-rose-200 bg-rose-50 p-3.5 text-sm font-semibold text-rose-700">
@@ -500,13 +474,7 @@
          class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
         
         <div @click.away="deleteAccountModalOpen = false" 
-             x-data="{ showPass: false }"
-             x-init="$watch('deleteAccountModalOpen', open => {
-                 if (!open) {
-                     $refs.deleteForm.reset();
-                     showPass = false;
-                 }
-             })"
+             x-data="profileDeleteForm"
              class="relative w-full max-w-[596px] rounded-[10px] border border-[#e87474] bg-[#fff1f1] p-8 sm:p-10 shadow-2xl">
             
             <!-- Tombol Close (X) -->

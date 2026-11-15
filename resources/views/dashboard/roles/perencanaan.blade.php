@@ -14,25 +14,25 @@
     {{-- 1. 4-COLUMN FIGMA KPI STAT CARDS --}}
     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
         <x-figma-stat-card
-            title="Menunggu MAK"
+            title="Menunggu Anggaran"
             :value="$stats['menunggu_mak'] ?? 0"
-            subtitle="Perlu penetapan pos MAK"
+            subtitle="Perlu pilih pos anggaran"
             variant="action"
             :href="$alokasiHref"
         />
 
         <x-figma-stat-card
-            title="Total Pagu DIPA"
+            title="Total Pagu Anggaran"
             :value="$stats['total_pagu_dipa_compact'] ?? $totalPaguFull"
             :fullTitle="$totalPaguFull"
             :compact="true"
-            subtitle="Alokasi pagu DIPA aktif"
+            subtitle="Anggaran aktif tahun ini"
             variant="active"
             :href="$perencanaanHref"
         />
 
         <x-figma-stat-card
-            title="Sisa Pagu DIPA"
+            title="Sisa Pagu Anggaran"
             :value="$stats['sisa_pagu_dipa_compact'] ?? $sisaPaguFull"
             :fullTitle="$sisaPaguFull"
             :compact="true"
@@ -42,9 +42,9 @@
         />
 
         <x-figma-stat-card
-            title="MAK Terkunci"
+            title="Pos Terkunci"
             :value="$stats['mak_locked'] ?? 0"
-            subtitle="Rekening DIPA berstatus lock"
+            subtitle="Tidak dapat diubah lagi"
             variant="bell"
             :href="$perencanaanHref"
         />
@@ -54,7 +54,7 @@
     <x-figma-workspace
         leftTitle="Perlu Tindakan Anda"
         :leftHref="$alokasiHref"
-        rightTitle="Daftar MAK DIPA"
+        rightTitle="Daftar Pos Anggaran"
         :rightHref="$perencanaanHref"
     >
         <x-slot:left>
@@ -69,22 +69,22 @@
                     :title="$usulanMak->judul_pengadaan"
                     :meta="$usulanMak->nomor_surat . ' • ' . $unitNama"
                     :submeta="'Estimasi Usulan: Rp ' . $nilaiUsulan"
-                    badge="Alokasi MAK"
+                    badge="Pilih Anggaran"
                     badgeClass="bg-[#fff5df] text-[#99660d]"
                     :href="$alokasiHref"
                     buttonLabel="Buka"
                 />
             @empty
                 <x-figma-empty
-                    title="Tidak ada usulan yang menunggu penetapan MAK"
-                    subtitle="Seluruh usulan pengadaan telah diverifikasi ketersediaan anggarannya."
+                    title="Tidak ada usulan menunggu pos anggaran"
+                    subtitle=""
                 />
             @endforelse
         </x-slot:left>
 
         <x-slot:right>
             <div class="bg-[#deeeff] rounded-[5px] h-[35px] px-3 flex items-center text-[#4a4a4a] text-[13px] md:text-[14px] font-semibold">
-                <div class="w-[22%] shrink-0">Kode MAK</div>
+                <div class="w-[22%] shrink-0">Kode Pos</div>
                 <div class="w-[20%] shrink-0">Sumber</div>
                 <div class="flex-1 px-2">Uraian &amp; Sisa Pagu</div>
                 <div class="w-[16%] shrink-0 text-right">Status</div>
@@ -114,7 +114,7 @@
                     </div>
                 @empty
                     <div class="py-10 text-center text-xs text-slate-400">
-                        Belum ada rekening MAK DIPA yang terdaftar.
+                        Belum ada daftar pos anggaran.
                     </div>
                 @endforelse
             </div>

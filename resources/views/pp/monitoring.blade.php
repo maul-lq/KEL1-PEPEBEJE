@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Monitoring Aktivitas Pejabat Pengadaan (PP) - SIM-PBJ PNJ')
+@section('title', 'Pantau Aktivitas Pejabat Pengadaan - SIM-PBJ PNJ')
 
 @section('content')
 <div class="space-y-6">
@@ -9,9 +9,9 @@
     <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-                <h1 class="text-2xl font-bold text-[#213153] mt-2">Monitoring Aktivitas Pejabat Pengadaan (PP)</h1>
+                <h1 class="text-2xl font-bold text-[#213153] mt-2">Pantau Aktivitas Pejabat Pengadaan</h1>
                 <p class="text-xs text-slate-500 mt-1">
-                    Pemantauan terpusat untuk Koordinator PPBJ, Pengawas, dan Pimpinan terhadap proses penelaahan teknis spesifikasi, evaluasi kewajaran harga, serta negosiasi definitif pada paket pengadaan jalur PP (&gt; Rp 50 Juta s.d. Rp 200 Juta).
+                    Paket pengadaan jalur Pejabat Pengadaan (&gt; Rp 50 Juta s.d. Rp 200 Juta).
                 </p>
             </div>
 
@@ -39,7 +39,7 @@
         {{-- Card 1: Total Paket PP --}}
         <div class="rounded-2xl bg-white p-5 shadow-sm border border-slate-200/80">
             <div class="flex items-center justify-between">
-                <span class="text-xs font-medium text-slate-500">Total Paket Jalur PP</span>
+                <span class="text-xs font-medium text-slate-500">Total Paket</span>
                 <span class="size-9 rounded-xl bg-blue-50 text-[#0969da] flex items-center justify-center shrink-0">
                     <svg class="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
                 </span>
@@ -50,14 +50,14 @@
             </div>
             <div class="mt-2 text-[11px] text-slate-500 flex items-center gap-1.5">
                 <span class="inline-block size-1.5 rounded-full bg-[#0969da]"></span>
-                <span>Jalur Pengadaan Langsung</span>
+                <span>Nilai &gt; Rp 50&ndash;200 Juta</span>
             </div>
         </div>
 
-        {{-- Card 2: Menunggu / Sedang Ditelaah PP --}}
+        {{-- Card 2: Menunggu Reviu --}}
         <div class="rounded-2xl bg-white p-5 shadow-sm border border-slate-200/80">
             <div class="flex items-center justify-between">
-                <span class="text-xs font-medium text-slate-500">Antrean Telaah PP</span>
+                <span class="text-xs font-medium text-slate-500">Menunggu Reviu</span>
                 <span class="size-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
                     <svg class="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 </span>
@@ -72,10 +72,10 @@
             </div>
         </div>
 
-        {{-- Card 3: Selesai Ditelaah PP --}}
+        {{-- Card 3: Selesai Reviu --}}
         <div class="rounded-2xl bg-white p-5 shadow-sm border border-slate-200/80">
             <div class="flex items-center justify-between">
-                <span class="text-xs font-medium text-slate-500">Selesai Ditelaah PP</span>
+                <span class="text-xs font-medium text-slate-500">Selesai Reviu</span>
                 <span class="size-9 rounded-xl bg-teal-50 text-[#087F79] flex items-center justify-center shrink-0">
                     <svg class="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 </span>
@@ -97,7 +97,7 @@
         @endphp
         <div class="rounded-2xl bg-white p-5 shadow-sm border border-slate-200/80">
             <div class="flex items-center justify-between">
-                <span class="text-xs font-medium text-slate-500">Efisiensi Negosiasi PP</span>
+                <span class="text-xs font-medium text-slate-500">Selisih Negosiasi</span>
                 <span class="size-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
                     <svg class="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
                 </span>
@@ -107,12 +107,12 @@
                     Rp {{ number_format($hemat, 0, ',', '.') }}
                 </div>
                 <div class="text-[11px] text-slate-400">
-                    {{ number_format($persenHemat, 1) }}% efisiensi dari total HPS Rp {{ number_format($totalPaguPp, 0, ',', '.') }}
+                    {{ number_format($persenHemat, 1) }}% lebih hemat dari perkiraan Rp {{ number_format($totalPaguPp, 0, ',', '.') }}
                 </div>
             </div>
             <div class="mt-2 text-[11px] text-slate-500 flex items-center gap-1.5">
                 <span class="inline-block size-1.5 rounded-full bg-emerald-500"></span>
-                <span>Hasil negosiasi harga definitif</span>
+                <span>Hasil negosiasi harga</span>
             </div>
         </div>
     </div>
@@ -126,7 +126,7 @@
                     type="text"
                     name="keyword"
                     value="{{ request('keyword') }}"
-                    placeholder="Cari nomor paket, nama paket, vendor, atau nama PP..."
+                    placeholder="Cari nomor paket, nama paket, vendor, atau Pejabat Pengadaan..."
                     class="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-200 text-xs text-slate-800 placeholder-slate-400 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20"
                 >
             </div>
@@ -137,13 +137,13 @@
                     class="w-full h-10 px-3 rounded-xl border border-slate-200 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20"
                 >
                     <option value="">-- Semua Status --</option>
-                    <option value="terdaftar" {{ request('status') === 'terdaftar' ? 'selected' : '' }}>Terdaftar (Menunggu PP)</option>
-                    <option value="reviu_dokumen" {{ request('status') === 'reviu_dokumen' ? 'selected' : '' }}>Sedang Direviu PP</option>
+                    <option value="terdaftar" {{ request('status') === 'terdaftar' ? 'selected' : '' }}>Terdaftar (Menunggu Reviu)</option>
+                    <option value="reviu_dokumen" {{ request('status') === 'reviu_dokumen' ? 'selected' : '' }}>Sedang Direviu</option>
                     <option value="perlu_perbaikan" {{ request('status') === 'perlu_perbaikan' ? 'selected' : '' }}>Perlu Perbaikan</option>
-                    <option value="menunggu_approval_ppk" {{ request('status') === 'menunggu_approval_ppk' ? 'selected' : '' }}>Menunggu Approval PPK</option>
-                    <option value="disetujui_ppk_siap_belanja_pp" {{ request('status') === 'disetujui_ppk_siap_belanja_pp' ? 'selected' : '' }}>Disetujui PPK (Siap Belanja PP)</option>
-                    <option value="spk_terbit" {{ request('status') === 'spk_terbit' ? 'selected' : '' }}>SPK / Kontrak Terbit</option>
-                    <option value="penerimaan_selesai" {{ request('status') === 'penerimaan_selesai' ? 'selected' : '' }}>Penerimaan Selesai (BAST)</option>
+                    <option value="menunggu_approval_ppk" {{ request('status') === 'menunggu_approval_ppk' ? 'selected' : '' }}>Menunggu Persetujuan PPK</option>
+                    <option value="disetujui_ppk_siap_belanja_pp" {{ request('status') === 'disetujui_ppk_siap_belanja_pp' ? 'selected' : '' }}>Disetujui PPK (Siap Belanja)</option>
+                    <option value="spk_terbit" {{ request('status') === 'spk_terbit' ? 'selected' : '' }}>Kontrak Terbit</option>
+                    <option value="penerimaan_selesai" {{ request('status') === 'penerimaan_selesai' ? 'selected' : '' }}>Barang Diterima</option>
                 </select>
             </div>
 
@@ -172,7 +172,7 @@
         <div class="p-5 border-b border-slate-100 flex items-center justify-between">
             <h2 class="text-sm font-bold text-[#213153] flex items-center gap-2">
                 <svg class="size-4 text-[#0969da]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
-                Daftar Paket Pengadaan Jalur PP (&gt; 50 Juta s.d. 200 Juta)
+                Daftar Paket Pejabat Pengadaan (&gt; 50 Juta s.d. 200 Juta)
             </h2>
             <span class="text-xs text-slate-500">
                 Menampilkan <strong>{{ $paketPpList->total() }}</strong> paket pengadaan
@@ -184,9 +184,9 @@
                 <div class="size-12 rounded-full bg-slate-100 text-slate-400 mx-auto flex items-center justify-center mb-3">
                     <svg class="size-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 </div>
-                <h3 class="text-sm font-bold text-slate-700">Belum Ada Paket Pada Jalur PP</h3>
+                <h3 class="text-sm font-bold text-slate-700">Belum Ada Paket Pejabat Pengadaan</h3>
                 <p class="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-                    Paket dengan pagu di antara Rp 50.000.001 s.d. Rp 200.000.000 yang diterbitkan PPBJ akan otomatis diarahkan ke Pejabat Pengadaan (PP) dan muncul di sini.
+                    Paket dengan nilai di atas Rp 50 Juta s.d. Rp 200 Juta akan tampil di sini.
                 </p>
             </div>
         @else
@@ -195,9 +195,9 @@
                     <thead>
                         <tr class="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
                             <th class="py-3 px-4">Paket &amp; Pengusul</th>
-                            <th class="py-3 px-4">Pejabat PP &amp; PPK</th>
+                            <th class="py-3 px-4">Pejabat Pengadaan &amp; PPK</th>
                             <th class="py-3 px-4">Rekanan / Vendor</th>
-                            <th class="py-3 px-4 text-right">HPS &amp; Hasil Negosiasi</th>
+                            <th class="py-3 px-4 text-right">Perkiraan &amp; Negosiasi</th>
                             <th class="py-3 px-4">Status &amp; Telaah</th>
                             <th class="py-3 px-4 text-center">Aksi</th>
                         </tr>
@@ -228,7 +228,7 @@
                                 <td class="py-3 px-4">
                                     <div class="space-y-1">
                                         <div class="flex items-center gap-1.5">
-                                            <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-[#0969da]">PP</span>
+                                            <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-[#0969da]">Pejabat</span>
                                             <span class="font-medium text-slate-800">{{ $paket->ppUser?->nama ?? 'Belum Ditugaskan' }}</span>
                                         </div>
                                         <div class="flex items-center gap-1.5">
@@ -256,14 +256,14 @@
                                             </a>
                                         @endif
                                     @else
-                                        <span class="text-[11px] italic text-slate-400">Belum diinput oleh PP</span>
+                                        <span class="text-[11px] italic text-slate-400">Belum ada rekanan</span>
                                     @endif
                                 </td>
 
-                                {{-- Kolom 4: HPS & Hasil Negosiasi --}}
+                                {{-- Kolom 4: Perkiraan & Hasil Negosiasi --}}
                                 <td class="py-3 px-4 text-right">
                                     <div class="font-mono text-slate-600 text-[11px]">
-                                        HPS: Rp {{ number_format($hps, 0, ',', '.') }}
+                                        Perkiraan: Rp {{ number_format($hps, 0, ',', '.') }}
                                     </div>
                                     @if($nego)
                                         <div class="font-mono font-bold text-emerald-600 text-xs mt-0.5">
@@ -287,19 +287,19 @@
                                         </span>
                                     @elseif($paket->status_paket === 'menunggu_approval_ppk')
                                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                                            Menunggu Approval PPK
+                                            Menunggu Persetujuan PPK
                                         </span>
                                     @elseif($paket->status_paket === 'disetujui_ppk_siap_belanja_pp')
                                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200">
-                                            Disetujui PPK (Siap Belanja PP)
+                                            Disetujui PPK (Siap Belanja)
                                         </span>
                                     @elseif($paket->status_paket === 'spk_terbit')
                                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                                            SPK / Kontrak Terbit
+                                            Kontrak Terbit
                                         </span>
                                     @elseif($paket->status_paket === 'penerimaan_selesai')
                                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                            BAST Selesai
+                                            Barang Diterima
                                         </span>
                                     @else
                                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
@@ -313,7 +313,7 @@
                                         </p>
                                     @elseif(!empty($paket->catatan_verifikasi_pp))
                                         <p class="text-[11px] text-slate-500 mt-1 line-clamp-2" title="{{ $paket->catatan_verifikasi_pp }}">
-                                            <strong>Catatan PP:</strong> {{ $paket->catatan_verifikasi_pp }}
+                                            <strong>Catatan Pejabat Pengadaan:</strong> {{ $paket->catatan_verifikasi_pp }}
                                         </p>
                                     @endif
                                 </td>

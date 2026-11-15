@@ -1,14 +1,13 @@
 @extends('layouts.app')
 
-@section('title', 'Pemecahan Jenis Pengadaan (Split Jenis) - SIM-PBJ PNJ')
+@section('title', 'Pemecahan Jenis Pengadaan - SIM-PBJ PNJ')
 
 @section('content')
 <div class="max-w-3xl mx-auto space-y-6">
     <div class="rounded-2xl bg-white p-6 md:p-8 shadow-sm border border-slate-200/80">
         <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
             <div>
-                <h1 class="text-xl font-bold text-[#213153] mt-1">Pemecahan Jenis Pengadaan (Split Jenis)</h1>
-                <p class="text-xs text-slate-500 mt-0.5">Memecah usulan pengadaan berdasarkan jenis pengadaan (Barang / Jasa / Konstruksi)</p>
+                <h1 class="text-xl font-bold text-[#213153] mt-1">Pemecahan Jenis Pengadaan</h1>
             </div>
             <a href="{{ route('paket.index') }}" class="px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition">
                 &larr; Kembali
@@ -45,7 +44,7 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label for="nomor_surat_baru" class="block text-xs font-bold text-slate-700 mb-1">
-                        Nomor Surat Baru Hasil Split <span class="text-rose-500">*</span>
+                        Nomor Surat Baru <span class="text-rose-500">*</span>
                     </label>
                     <input type="text" id="nomor_surat_baru" name="nomor_surat_baru" value="{{ old('nomor_surat_baru') }}" required placeholder="Contoh: 123/PNJ/2026.PBJ.1" class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 font-mono focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20">
                 </div>

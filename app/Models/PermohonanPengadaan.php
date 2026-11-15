@@ -881,7 +881,7 @@ class PermohonanPengadaan extends Model
                     $buktiList[] = [
                         'url' => asset('storage/'.$pembayaran->transaksiPencairan->file_bukti_transfer),
                         'path' => $pembayaran->transaksiPencairan->file_bukti_transfer,
-                        'label' => 'Slip Bukti Transfer Bank / SP2D',
+                        'label' => 'Bukti Transfer Bank',
                         'nomor' => $pembayaran->transaksiPencairan->nomor_transaksi_bank,
                         'nominal' => (float) $pembayaran->transaksiPencairan->nominal_transfer,
                         'tanggal' => $pembayaran->transaksiPencairan->tanggal_transfer ? date('d/m/Y', strtotime($pembayaran->transaksiPencairan->tanggal_transfer)) : null,

@@ -42,8 +42,7 @@
             </h1>
         </div>
 
-        <div class="rounded-[10px] border-b-3 border-[#d2d2d2] py-8 md:py-10 px-6 flex items-center justify-center shadow-xs"
-             style="background-image: linear-gradient(0deg, #ffffff 1%, #f5f7fc 99%);">
+        <div class="dashboard-welcome-banner rounded-[10px] border-b-3 border-[#d2d2d2] py-8 md:py-10 px-6 flex items-center justify-center shadow-xs">
             <h2 class="text-2xl sm:text-3xl md:text-[38px] lg:text-[44px] font-semibold text-black text-center tracking-tight leading-tight">
                 Selamat Datang {{ $authUser->nama ?? 'Pengguna' }}!
             </h2>
@@ -55,8 +54,7 @@
         <div class="rounded-[5px] border border-[#d2d2d2] bg-white p-8 text-center shadow-xs space-y-2">
             <h3 class="text-base font-semibold text-[#4a4a4a]">Belum Ada Modul Dashboard Aktif</h3>
             <p class="text-xs text-[#657a7c] max-w-lg mx-auto">
-                Peran Anda saat ini belum memiliki izin fitur operasional yang diaktifkan pada matriks RBAC.
-                Hubungi Administrator untuk mengatur hak akses modul pada menu <strong>Master Role &amp; Hak Akses</strong>.
+                Akun Anda belum memiliki hak akses fitur. Hubungi Administrator untuk mengatur hak akses pada menu <strong>Peran &amp; Hak Akses</strong>.
             </p>
         </div>
     @else

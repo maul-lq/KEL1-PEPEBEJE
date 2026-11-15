@@ -16,7 +16,7 @@
 </head>
 <body class="bg-white">
 
-    <div class="relative flex min-h-screen w-full flex-col items-center justify-center overflow-x-hidden p-4 sm:p-8" x-data="{ showPassword: false, remember: false }">
+    <div class="relative flex min-h-screen w-full flex-col items-center justify-center overflow-x-hidden p-4 sm:p-8" x-data="loginForm">
         <!-- Background Image -->
         <img
             src="https://api.builder.io/api/v1/image/assets/TEMP/a6a346ae9082d34ec87b3f43d83776d06c5ee139?width=3840"
@@ -74,11 +74,11 @@
                             Aplikasi administratif Politeknik Negeri Jakarta
                         </h2>
                         <p class="mt-2 max-w-[382px] text-lg font-medium leading-[30px]">
-                            Pemantauan proses pengadaan barang dan jasa di lingkungan PNJ
+                            Sistem Pengadaan Barang dan Jasa PNJ
                         </p>
                     </div>
                     <p class="text-center text-xs font-medium leading-[30px] text-white/50 lg:mt-[200px]">
-                        &copy; 2026 SIM-PBJ. All rights reserved.
+                        &copy; 2026 SIM-PBJ Politeknik Negeri Jakarta
                     </p>
                 </aside>
 
@@ -91,12 +91,9 @@
                     >
                         @csrf
 
-                        <h1 class="text-3xl font-semibold text-black sm:text-4xl">
+                        <h1 class="mb-2 text-3xl font-semibold text-black sm:text-4xl">
                             Selamat Datang!
                         </h1>
-                        <p class="mt-[6px] text-lg font-medium text-[#AAA]">
-                            Silahkan masuk ke akun Anda untuk melanjutkan ke platform.
-                        </p>
 
                         @if(session('error'))
                             <div class="mt-4 flex items-start gap-3 rounded-[8px] border border-red-300 bg-red-50 p-4 text-sm text-red-800">
@@ -248,12 +245,9 @@
 
             <!-- Panel Akses Cepat untuk Pengujian Manual -->
             <section class="rounded-[10px] border border-slate-200 bg-white/95 p-6 shadow-md backdrop-blur-sm">
-                <h3 class="text-xl font-bold text-slate-800">
-                    Direktori Akun Dinas Pengguna Resmi Politeknik Negeri Jakarta
+                <h3 class="mb-4 text-xl font-bold text-slate-800">
+                    Daftar Akun Uji Coba
                 </h3>
-                <p class="mt-1 text-sm text-slate-600 mb-4">
-                    <em>Klik tombol <strong>"Gunakan Akun Ini"</strong> untuk otomatis mengisi data login di atas.</em>
-                </p>
 
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-sm border-collapse border border-slate-200">
@@ -305,9 +299,9 @@
                             </tr>
                             <tr>
                                 <td class="border border-slate-200 p-2 text-center">3</td>
-                                <td class="border border-slate-200 p-2 font-semibold">Wadir 2 (Hak Mutlak ACC)</td>
+                                <td class="border border-slate-200 p-2 font-semibold">Wadir II (Persetujuan Pimpinan)</td>
                                 <td class="border border-slate-200 p-2">Prof. Dr. Ir. Wadir Dua, M.Sc.</td>
-                                <td class="border border-slate-200 p-2">Bidang II (Umum & Keuangan)</td>
+                                <td class="border border-slate-200 p-2">Bidang II (Umum &amp; Keuangan)</td>
                                 <td class="border border-slate-200 p-2"><code>wadir2</code></td>
                                 <td class="border border-slate-200 p-2"><code>password123</code></td>
                                 <td class="border border-slate-200 p-2 text-center">
@@ -318,7 +312,7 @@
                                 <td class="border border-slate-200 p-2 text-center">4</td>
                                 <td class="border border-slate-200 p-2 font-semibold">Perencanaan</td>
                                 <td class="border border-slate-200 p-2">Budi Perencanaan, S.Kom.</td>
-                                <td class="border border-slate-200 p-2">Subbagian Perencanaan & MAK</td>
+                                <td class="border border-slate-200 p-2">Subbagian Perencanaan &amp; Anggaran</td>
                                 <td class="border border-slate-200 p-2"><code>perencanaan</code></td>
                                 <td class="border border-slate-200 p-2"><code>password123</code></td>
                                 <td class="border border-slate-200 p-2 text-center">
@@ -327,9 +321,9 @@
                             </tr>
                             <tr>
                                 <td class="border border-slate-200 p-2 text-center">5</td>
-                                <td class="border border-slate-200 p-2 font-semibold">PPBJ (Pengelola Paket)</td>
+                                <td class="border border-slate-200 p-2 font-semibold">Unit Pengadaan</td>
                                 <td class="border border-slate-200 p-2">Citra Koordinator PPBJ, M.M.</td>
-                                <td class="border border-slate-200 p-2">Unit Kerja PBJ</td>
+                                <td class="border border-slate-200 p-2">Unit Pengadaan</td>
                                 <td class="border border-slate-200 p-2"><code>ppbj</code></td>
                                 <td class="border border-slate-200 p-2"><code>password123</code></td>
                                 <td class="border border-slate-200 p-2 text-center">
@@ -338,7 +332,7 @@
                             </tr>
                             <tr>
                                 <td class="border border-slate-200 p-2 text-center">6</td>
-                                <td class="border border-slate-200 p-2 font-semibold">Pejabat Pengadaan (PP)</td>
+                                <td class="border border-slate-200 p-2 font-semibold">Pejabat Pengadaan</td>
                                 <td class="border border-slate-200 p-2">Dedi Pejabat Pengadaan, S.T.</td>
                                 <td class="border border-slate-200 p-2">Pejabat Pengadaan (&le; 200 Juta)</td>
                                 <td class="border border-slate-200 p-2"><code>pp_user</code></td>
@@ -349,7 +343,7 @@
                             </tr>
                             <tr>
                                 <td class="border border-slate-200 p-2 text-center">7</td>
-                                <td class="border border-slate-200 p-2 font-semibold">PPK 1 (Sarana - Terisolasi)</td>
+                                <td class="border border-slate-200 p-2 font-semibold">PPK I (Sarana)</td>
                                 <td class="border border-slate-200 p-2">Eko PPK Bidang Sarana, M.T.</td>
                                 <td class="border border-slate-200 p-2">PPK I (> 200 Juta)</td>
                                 <td class="border border-slate-200 p-2"><code>ppk_1</code></td>
@@ -393,9 +387,9 @@
                             </tr>
                             <tr>
                                 <td class="border border-slate-200 p-2 text-center">11</td>
-                                <td class="border border-slate-200 p-2 font-semibold">Perlengkapan (BAST)</td>
+                                <td class="border border-slate-200 p-2 font-semibold">Perlengkapan (Serah Terima)</td>
                                 <td class="border border-slate-200 p-2">Indra Staff Perlengkapan, A.Md.</td>
-                                <td class="border border-slate-200 p-2">Unit Perlengkapan & BMN</td>
+                                <td class="border border-slate-200 p-2">Unit Perlengkapan</td>
                                 <td class="border border-slate-200 p-2"><code>perlengkapan</code></td>
                                 <td class="border border-slate-200 p-2"><code>password123</code></td>
                                 <td class="border border-slate-200 p-2 text-center">
@@ -404,7 +398,7 @@
                             </tr>
                             <tr>
                                 <td class="border border-slate-200 p-2 text-center">12</td>
-                                <td class="border border-slate-200 p-2 font-semibold">Keuangan (SP2D / Bayar)</td>
+                                <td class="border border-slate-200 p-2 font-semibold">Keuangan (Pencairan Dana)</td>
                                 <td class="border border-slate-200 p-2">Joko Bendahara Keuangan, S.Ak.</td>
                                 <td class="border border-slate-200 p-2">Unit Keuangan & Pencairan</td>
                                 <td class="border border-slate-200 p-2"><code>keuangan</code></td>
@@ -419,27 +413,5 @@
             </section>
         </div>
     </div>
-
-    <!-- Script Autofill -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const autofillButtons = document.querySelectorAll('.btn-autofill-login');
-            const loginInput = document.getElementById('login');
-            const passwordInput = document.getElementById('password');
-
-            autofillButtons.forEach(button => {
-                button.addEventListener('click', function () {
-                    const username = this.getAttribute('data-username');
-                    const password = this.getAttribute('data-password');
-
-                    if (loginInput) loginInput.value = username;
-                    if (passwordInput) passwordInput.value = password;
-
-                    // Smooth scroll kembali ke form login atas
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                });
-            });
-        });
-    </script>
 </body>
 </html>

@@ -1,99 +1,61 @@
 @extends('layouts.app')
 
-@section('title', 'Registrasi Paket Pengadaan Baru & Auto-Routing HPS - SIM-PBJ PNJ')
+@section('title', 'Registrasi Paket Pengadaan Baru - SIM-PBJ PNJ')
 
 @section('content')
+@php
+    $permohonanMap = collect($permohonanDisetujui)->mapWithKeys(function ($p) {
+        $paguVal = (float) ($p->anggaran_diajukan ?? $p->estimasi_total_pagu ?? 0);
+        $makObj = $p->anggaranMak ?? ($p->alokasiMak?->anggaranMak ?? null);
+        $verifWadir = $p->verifikasiParalel ? $p->verifikasiParalel->where('role_verifikator', 'wadir_2')->first() : null;
+        $verifPpk = $p->verifikasiParalel ? $p->verifikasiParalel->where('role_verifikator', 'ppk')->first() : null;
+        $verifPerencanaan = $p->verifikasiParalel ? $p->verifikasiParalel->where('role_verifikator', 'perencanaan')->first() : null;
+
+        return [$p->nomor_surat => [
+            'nomorSurat' => $p->nomor_surat,
+            'pagu' => $paguVal,
+            'paguFormatted' => 'Rp ' . number_format($paguVal, 0, ',', '.'),
+            'perihal' => $p->perihal ?? $p->judul_pengadaan ?? '',
+            'tujuan' => $p->tujuan_pengadaan_ringkas ?? 'Pengadaan fasilitas operasional sesuai Kerangka Acuan Kerja.',
+            'unit' => $p->unit->nama_unit ?? $p->kode_unit ?? 'Unit Pengusul',
+            'tanggalPengajuan' => $p->tanggal_pengajuan ? date('d M Y', strtotime($p->tanggal_pengajuan)) : '-',
+            'filePermohonan' => $p->file_surat_permohonan ? asset('storage/' . $p->file_surat_permohonan) : route('dokumen.pdf', ['jenis' => 'permohonan', 'id' => $p->nomor_surat]),
+            'fileKak' => $p->file_kak ? asset('storage/' . $p->file_kak) : null,
+            'fileSpek' => $p->file_spesifikasi_teknis ? asset('storage/' . $p->file_spesifikasi_teknis) : null,
+            'kodeMak' => $p->kode_mak ?? ($makObj?->kode_mak ?? '-'),
+            'namaMak' => $makObj?->nama_mak ?? 'Pos Anggaran Kampus',
+            'paguMak' => 'Rp ' . number_format($makObj?->pagu_mak ?? 0, 0, ',', '.'),
+            'sisaMak' => (float) ($makObj?->sisa_pagu_mak ?? 0),
+            'sisaMakFormatted' => 'Rp ' . number_format($makObj?->sisa_pagu_mak ?? 0, 0, ',', '.'),
+            'sumberDana' => $makObj?->sumber_dana ?? 'Anggaran PNJ 2026',
+            'nomorMemoMak' => $p->nomor_memo_ketersediaan_mak ?? ($p->nomor_memo_cek_mak ?? 'MEMO-MAK/' . date('Y') . '/' . substr(md5($p->nomor_surat), 0, 6)),
+            'catatanMemoMak' => $p->catatan_memo_ketersediaan_mak ?? ($verifPerencanaan?->catatan_alasan ?? 'Ketersediaan pos anggaran telah diverifikasi Subbagian Perencanaan.'),
+            'wadirStatus' => $verifWadir ? ucwords($verifWadir->status_keputusan) : 'Disetujui',
+            'wadirCatatan' => $verifWadir?->catatan_alasan ?? 'Usulan pengadaan disetujui untuk dibentuk paket oleh Unit Pengadaan.',
+            'wadirTanggal' => $verifWadir?->tanggal_keputusan ? date('d M Y H:i', strtotime($verifWadir->tanggal_keputusan)) : date('d M Y'),
+            'wadirNomorMemo' => $verifWadir?->nomor_memo ?? $p->nomor_memo_ketersediaan_mak ?? ('MEMO-WADIR2/' . date('Y') . '/' . substr(md5($p->nomor_surat), 0, 6)),
+            'wadirFileMemo' => $verifWadir?->file_memo ? asset('storage/' . $verifWadir->file_memo) : ($p->file_memo_ketersediaan_mak ? asset('storage/' . $p->file_memo_ketersediaan_mak) : null),
+            'ppkNama' => $p->ppkAwal?->nama ?? ($verifPpk?->user?->nama ?? 'Pejabat Pembuat Komitmen (PPK)'),
+            'ppkStatus' => $verifPpk ? ucwords($verifPpk->status_keputusan) : 'Disetujui',
+            'ppkCatatan' => $verifPpk?->catatan_alasan ?? 'Usulan pengadaan disetujui untuk registrasi paket & penentuan metode belanja.',
+            'ppkTanggal' => $verifPpk?->tanggal_keputusan ? date('d M Y H:i', strtotime($verifPpk->tanggal_keputusan)) : date('d M Y'),
+            'ppkNomorMemo' => $verifPpk?->nomor_memo ?? $p->nomor_memo_cek_mak ?? ('MEMO-PPK/' . date('Y') . '/' . substr(md5($p->nomor_surat), 0, 6)),
+            'ppkFileMemo' => $verifPpk?->file_memo ? asset('storage/' . $verifPpk->file_memo) : ($p->file_memo_cek_mak ? asset('storage/' . $p->file_memo_cek_mak) : null),
+        ]];
+    })->all();
+
+    $paketCreateConfig = [
+        'hps' => old('nilai_hps', ''),
+        'namaPaket' => old('nama_paket', ''),
+        'metode' => old('metode_pengadaan', ''),
+        'selectedSurat' => request('selected', old('nomor_surat', '')),
+        'permohonanMap' => (object) $permohonanMap,
+    ];
+@endphp
+
 <div
-    x-data="{
-        hps: '{{ old('nilai_hps', '') }}',
-        namaPaket: '{{ old('nama_paket', '') }}',
-        metode: '{{ old('metode_pengadaan', '') }}',
-        selectedSurat: '{{ request('selected', old('nomor_surat', '')) }}',
-        permohonanMap: {
-            @foreach($permohonanDisetujui as $p)
-            @php
-                $paguVal = (float) ($p->anggaran_diajukan ?? $p->estimasi_total_pagu ?? 0);
-                $makObj = $p->anggaranMak ?? ($p->alokasiMak?->anggaranMak ?? null);
-                $verifWadir = $p->verifikasiParalel ? $p->verifikasiParalel->where('role_verifikator', 'wadir_2')->first() : null;
-                $verifPpk = $p->verifikasiParalel ? $p->verifikasiParalel->where('role_verifikator', 'ppk')->first() : null;
-                $verifPerencanaan = $p->verifikasiParalel ? $p->verifikasiParalel->where('role_verifikator', 'perencanaan')->first() : null;
-            @endphp
-            '{{ $p->nomor_surat }}': {
-                nomorSurat: @js($p->nomor_surat),
-                pagu: {{ $paguVal }},
-                paguFormatted: 'Rp {{ number_format($paguVal, 0, ',', '.') }}',
-                perihal: @js($p->perihal ?? $p->judul_pengadaan ?? ''),
-                tujuan: @js($p->tujuan_pengadaan_ringkas ?? 'Pengadaan fasilitas operasional sesuai Kerangka Acuan Kerja.'),
-                unit: @js($p->unit->nama_unit ?? $p->kode_unit ?? 'Unit Pengusul'),
-                tanggalPengajuan: @js($p->tanggal_pengajuan ? date('d M Y', strtotime($p->tanggal_pengajuan)) : '-'),
-                filePermohonan: @js($p->file_surat_permohonan ? asset('storage/' . $p->file_surat_permohonan) : route('dokumen.pdf', ['jenis' => 'permohonan', 'id' => $p->nomor_surat])),
-                fileKak: @js($p->file_kak ? asset('storage/' . $p->file_kak) : null),
-                fileSpek: @js($p->file_spesifikasi_teknis ? asset('storage/' . $p->file_spesifikasi_teknis) : null),
-                kodeMak: @js($p->kode_mak ?? ($makObj?->kode_mak ?? '-')),
-                namaMak: @js($makObj?->nama_mak ?? 'Mata Anggaran Kegiatan DIPA Institusi'),
-                paguMak: 'Rp {{ number_format($makObj?->pagu_mak ?? 0, 0, ',', '.') }}',
-                sisaMak: {{ (float) ($makObj?->sisa_pagu_mak ?? 0) }},
-                sisaMakFormatted: 'Rp {{ number_format($makObj?->sisa_pagu_mak ?? 0, 0, ',', '.') }}',
-                sumberDana: @js($makObj?->sumber_dana ?? 'DIPA PNJ Tahun Anggaran 2026'),
-                nomorMemoMak: @js($p->nomor_memo_ketersediaan_mak ?? ($p->nomor_memo_cek_mak ?? 'MEMO-MAK/' . date('Y') . '/' . substr(md5($p->nomor_surat), 0, 6))),
-                catatanMemoMak: @js($p->catatan_memo_ketersediaan_mak ?? ($verifPerencanaan?->catatan_alasan ?? 'Ketersediaan pagu MAK telah diverifikasi dan dialokasikan oleh Subbagian Perencanaan.')),
-                wadirStatus: @js($verifWadir ? ucwords($verifWadir->status_keputusan) : 'Disetujui'),
-                wadirCatatan: @js($verifWadir?->catatan_alasan ?? 'Usulan pengadaan disetujui untuk diteruskan dan dibentuk paket pengadaan oleh PPBJ.'),
-                wadirTanggal: @js($verifWadir?->tanggal_keputusan ? date('d M Y H:i', strtotime($verifWadir->tanggal_keputusan)) : date('d M Y')),
-                wadirNomorMemo: @js($verifWadir?->nomor_memo ?? $p->nomor_memo_ketersediaan_mak ?? ('MEMO-WADIR2/' . date('Y') . '/' . substr(md5($p->nomor_surat), 0, 6))),
-                wadirFileMemo: @js($verifWadir?->file_memo ? asset('storage/' . $verifWadir->file_memo) : ($p->file_memo_ketersediaan_mak ? asset('storage/' . $p->file_memo_ketersediaan_mak) : null)),
-                ppkNama: @js($p->ppkAwal?->nama ?? ($verifPpk?->user?->nama ?? 'Pejabat Pembuat Komitmen (PPK)')),
-                ppkStatus: @js($verifPpk ? ucwords($verifPpk->status_keputusan) : 'Disetujui'),
-                ppkCatatan: @js($verifPpk?->catatan_alasan ?? 'Usulan pengadaan disetujui untuk registrasi paket & penentuan metode belanja.'),
-                ppkTanggal: @js($verifPpk?->tanggal_keputusan ? date('d M Y H:i', strtotime($verifPpk->tanggal_keputusan)) : date('d M Y')),
-                ppkNomorMemo: @js($verifPpk?->nomor_memo ?? $p->nomor_memo_cek_mak ?? ('MEMO-PPK/' . date('Y') . '/' . substr(md5($p->nomor_surat), 0, 6))),
-                ppkFileMemo: @js($verifPpk?->file_memo ? asset('storage/' . $verifPpk->file_memo) : ($p->file_memo_cek_mak ? asset('storage/' . $p->file_memo_cek_mak) : null))
-            },
-            @endforeach
-        },
-        onSelectSurat(nomor) {
-            this.selectedSurat = nomor;
-            if (nomor && this.permohonanMap[nomor]) {
-                let item = this.permohonanMap[nomor];
-                this.hps = item.pagu;
-                if (!this.namaPaket || this.namaPaket.trim() === '') {
-                    this.namaPaket = item.perihal ? 'Pengadaan ' + item.perihal : '';
-                }
-                this.syncMetodeWithRouting();
-            }
-        },
-        routing() {
-            let n = parseFloat(this.hps) || 0;
-            if (n <= 0) return null;
-            if (n <= 50000000) return 'langsung';
-            if (n <= 200000000) return 'pp';
-            return 'ppk';
-        },
-        syncMetodeWithRouting() {
-            let r = this.routing();
-            if (r === 'langsung') {
-                this.metode = 'Pengadaan Langsung';
-            } else if (r === 'pp') {
-                if (this.metode === 'Pengadaan Langsung' || !['SPK', 'Surat Pesanan', 'Surat Kontrak', 'E-Purchasing'].includes(this.metode)) {
-                    this.metode = 'SPK';
-                }
-            } else if (r === 'ppk') {
-                if (this.metode === 'Pengadaan Langsung' || !['Tender', 'E-Purchasing', 'Seleksi', 'Penunjukan Langsung'].includes(this.metode)) {
-                    this.metode = 'Tender';
-                }
-            }
-        },
-        getDeltaMak() {
-            if (!this.selectedSurat || !this.permohonanMap[this.selectedSurat]) return 0;
-            let n = parseFloat(this.hps) || 0;
-            return n - this.permohonanMap[this.selectedSurat].pagu;
-        },
-        formatRupiah(val) {
-            let n = parseFloat(val) || 0;
-            return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
-        }
-    }"
-    x-init="if (selectedSurat) { onSelectSurat(selectedSurat); }"
+    x-data="paketCreate"
+    data-config="{{ json_encode($paketCreateConfig, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) }}"
     class="space-y-6"
 >
 
@@ -105,9 +67,6 @@
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-100 pb-5 mb-6">
             <div>
                 <h1 class="text-2xl font-bold text-[#213153] mt-1">Registrasi Paket Pengadaan Baru</h1>
-                <p class="text-xs text-slate-500 mt-0.5">
-                    Unit Kerja Pengadaan Barang &amp; Jasa (UKPBJ / PPBJ) Politeknik Negeri Jakarta
-                </p>
             </div>
 
             <a
@@ -141,7 +100,7 @@
 
                 <div class="flex-1 min-w-0">
                     <div class="flex flex-wrap items-center gap-2">
-                        <span class="text-xs font-bold uppercase tracking-wider">Routing HPS:</span>
+                        <span class="text-xs font-bold uppercase tracking-wider">Jalur Pengadaan:</span>
                         <template x-if="routing() === 'langsung'">
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-100 text-teal-800">
                                 &le; Rp 50 Juta &bull; Belanja Langsung
@@ -149,7 +108,7 @@
                         </template>
                         <template x-if="routing() === 'pp'">
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
-                                &gt; Rp 50 Jt s.d &le; Rp 200 Jt &bull;
+                                &gt; Rp 50 Jt s.d &le; Rp 200 Jt &bull; Pejabat Pengadaan
                             </span>
                         </template>
                         <template x-if="routing() === 'ppk'">
@@ -158,18 +117,18 @@
                             </span>
                         </template>
                         <template x-if="routing() === null">
-                            <span class="text-xs text-slate-400 italic">Pilih usulan permohonan atau masukkan nilai HPS untuk melihat jalur routing otomatis</span>
+                            <span class="text-xs text-slate-400 italic">Pilih usulan atau isi perkiraan harga untuk menentukan jalur pengadaan</span>
                         </template>
                     </div>
 
                     <p class="text-xs mt-1 leading-relaxed" x-show="routing() === 'langsung'">
-                        <strong>Alur Kerja:</strong> Nilai HPS &le; Rp 50 Juta adalah Belanja Langsung (output Kwitansi sah tanpa Kontrak/SPK/Surat Pesanan). Dropdown metode otomatis terkunci pada <em>Pengadaan Langsung</em>. Dokumen rekanan vendor diinput nanti saat eksekusi belanja langsung.
+                        <strong>Aturan:</strong> Nilai &le; Rp 50 Juta diproses sebagai Belanja Langsung dengan bukti kwitansi (tanpa kontrak).
                     </p>
                     <p class="text-xs mt-1 leading-relaxed" x-show="routing() === 'pp'">
-                        <strong>Alur Kerja:</strong> Ditugaskan ke Pejabat Pengadaan (PP) untuk review kelengkapan &amp; negosiasi &rarr; PPK menyetujui dokumen &rarr; PP belanja &rarr; PPBJ mengunggah 1 dokumen perikatan terpilih (SPK / Surat Pesanan / Surat Kontrak) beserta input vendor rekanan.
+                        <strong>Aturan:</strong> Nilai 50&ndash;200 Juta ditugaskan ke Pejabat Pengadaan, disetujui PPK, lalu Unit Pengadaan mengunggah dokumen kontrak dan rekanan.
                     </p>
                     <p class="text-xs mt-1 leading-relaxed" x-show="routing() === 'ppk'">
-                        <strong>Alur Kerja:</strong> Ditugaskan ke PPK terpilih untuk penelaahan spesifikasi teknis &rarr; PPK menyetujui &amp; mengeksekusi belanja &rarr; PPBJ mengunggah 1 dokumen perikatan terpilih beserta upload dokumen legalitas vendor. <em>Catatan: Paket &gt; Rp 200 Juta tidak menggunakan memo pengadaan PPBJ.</em>
+                        <strong>Aturan:</strong> Nilai &gt; Rp 200 Juta ditugaskan ke PPK hingga pelaksanaan belanja tanpa memo Unit Pengadaan.
                     </p>
                 </div>
             </div>
@@ -208,12 +167,12 @@
                         <option value="">-- Pilih Surat Permohonan Pengadaan Disetujui --</option>
                         @foreach($permohonanDisetujui as $p)
                             <option value="{{ $p->nomor_surat }}" {{ old('nomor_surat', request('selected')) == $p->nomor_surat ? 'selected' : '' }}>
-                                [{{ $p->nomor_surat }}] {{ $p->perihal ?? $p->judul_pengadaan }} &bull; Pagu: Rp {{ number_format($p->anggaran_diajukan ?? $p->estimasi_total_pagu, 0, ',', '.') }} ({{ $p->unit->nama_unit ?? $p->kode_unit }}) &bull; MAK: {{ $p->kode_mak }}
+                                [{{ $p->nomor_surat }}] {{ $p->perihal ?? $p->judul_pengadaan }} &bull; Pagu: Rp {{ number_format($p->anggaran_diajukan ?? $p->estimasi_total_pagu, 0, ',', '.') }} ({{ $p->unit->nama_unit ?? $p->kode_unit }}) &bull; Pos: {{ $p->kode_mak }}
                             </option>
                         @endforeach
                     </select>
 
-                    {{-- Dossier Berkas Diterima PPBJ (BPMN Node: Menerima Form Pengadaan, MAK, dan Memo Permohonan) --}}
+                    {{-- Dossier Berkas Diterima Unit Pengadaan --}}
                     <template x-if="selectedSurat && permohonanMap[selectedSurat]">
                         <div class="mt-4 p-5 rounded-2xl bg-slate-50/80 border border-slate-200 space-y-4">
                             <div class="flex items-center justify-between pb-3 border-b border-slate-200/80">
@@ -223,11 +182,8 @@
                                     </div>
                                     <div>
                                         <h3 class="text-xs font-extrabold uppercase tracking-wider text-[#213153]">
-                                            Kelengkapan Berkas Usulan Masuk (Form Pengadaan, MAK &amp; Memo Permohonan)
+                                            Kelengkapan Berkas Usulan Masuk
                                         </h3>
-                                        <p class="text-[11px] text-slate-500">
-                                            Berkas usulan permohonan telah disetujui lengkap oleh Subbagian Perencanaan, Wadir II, dan PPK Penanggung Jawab.
-                                        </p>
                                     </div>
                                 </div>
                                 <span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
@@ -257,7 +213,7 @@
                                         <template x-if="permohonanMap[selectedSurat].fileKak">
                                             <a :href="permohonanMap[selectedSurat].fileKak" target="_blank" class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#0969da] hover:underline">
                                                 <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                                                <span>Berkas KAK</span>
+                                                <span>Kerangka Acuan</span>
                                             </a>
                                         </template>
                                         <template x-if="permohonanMap[selectedSurat].fileSpek">
@@ -273,18 +229,18 @@
                                 <div class="p-4 rounded-xl bg-white border border-slate-200/80 shadow-xs space-y-2.5">
                                     <div class="flex items-center gap-2">
                                         <span class="size-6 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center text-[11px] font-bold">2</span>
-                                        <h4 class="text-xs font-bold text-[#213153] uppercase tracking-wide">Penetapan MAK</h4>
+                                        <h4 class="text-xs font-bold text-[#213153] uppercase tracking-wide">Pos Anggaran</h4>
                                     </div>
                                     <div class="text-xs space-y-1">
                                         <p class="text-slate-500">Kode: <strong class="text-emerald-700 font-mono text-[11px]" x-text="permohonanMap[selectedSurat].kodeMak"></strong></p>
                                         <p class="text-slate-500">Uraian: <span class="text-slate-800 font-medium block truncate text-[11px]" :title="permohonanMap[selectedSurat].namaMak" x-text="permohonanMap[selectedSurat].namaMak"></span></p>
-                                        <p class="text-slate-500">Pagu MAK: <span class="text-slate-700 font-mono text-[11px]" x-text="permohonanMap[selectedSurat].paguMak"></span></p>
+                                        <p class="text-slate-500">Pagu Anggaran: <span class="text-slate-700 font-mono text-[11px]" x-text="permohonanMap[selectedSurat].paguMak"></span></p>
                                         <p class="text-slate-500">Sisa Pagu: <strong class="text-emerald-600 font-mono text-[11px]" x-text="permohonanMap[selectedSurat].sisaMakFormatted"></strong></p>
                                     </div>
                                     <div class="pt-2 border-t border-slate-100">
                                         <span class="inline-flex items-center gap-1 text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
                                             <svg class="size-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                                            <span>MAK Dialokasikan</span>
+                                            <span>Anggaran Dialokasikan</span>
                                         </span>
                                     </div>
                                 </div>
@@ -399,7 +355,7 @@
                 {{-- Nilai HPS (Reactive with x-model) --}}
                 <div>
                     <label for="nilai_hps" class="block text-xs font-bold text-slate-700 mb-1">
-                        Nilai HPS (Harga Perkiraan Sendiri) Rupiah <span class="text-rose-500">*</span>
+                        Perkiraan Harga (HPS) - Rupiah <span class="text-rose-500">*</span>
                     </label>
                     <div class="relative">
                         <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-xs font-bold text-slate-400">
@@ -436,25 +392,25 @@
                             <template x-if="getDeltaMak() === 0">
                                 <div class="flex items-center gap-1.5">
                                     <svg class="size-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                                    <span>Pagu HPS sinkron dengan alokasi usulan permohonan awal (<span class="font-bold font-mono" x-text="formatRupiah(permohonanMap[selectedSurat].pagu)"></span>).</span>
+                                    <span>Perkiraan harga sama dengan pagu usulan awal (<span class="font-bold font-mono" x-text="formatRupiah(permohonanMap[selectedSurat].pagu)"></span>).</span>
                                 </div>
                             </template>
                             <template x-if="getDeltaMak() < 0">
                                 <div class="flex items-center gap-1.5">
                                     <svg class="size-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12"/></svg>
-                                    <span><strong>Efisiensi Anggaran:</strong> Terjadi penghematan <span class="font-bold font-mono" x-text="formatRupiah(Math.abs(getDeltaMak()))"></span> yang otomatis dikembalikan ke sisa pagu MAK (<span x-text="permohonanMap[selectedSurat].kodeMak"></span>).</span>
+                                    <span><strong>Hemat Anggaran:</strong> Selisih <span class="font-bold font-mono" x-text="formatRupiah(Math.abs(getDeltaMak()))"></span> dikembalikan ke sisa pos anggaran (<span x-text="permohonanMap[selectedSurat].kodeMak"></span>).</span>
                                 </div>
                             </template>
                             <template x-if="getDeltaMak() > 0 && getDeltaMak() <= permohonanMap[selectedSurat].sisaMak">
                                 <div class="flex items-center gap-1.5">
                                     <svg class="size-4 text-amber-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 13l-5 5m0 0l-5-5m5 5V6"/></svg>
-                                    <span><strong>Kenaikan HPS:</strong> Selisih <span class="font-bold font-mono" x-text="formatRupiah(getDeltaMak())"></span> akan dipotong dari saldo MAK (<span x-text="permohonanMap[selectedSurat].kodeMak"></span>). Sisa pagu MAK mencukupi (<span class="font-mono font-bold" x-text="formatRupiah(permohonanMap[selectedSurat].sisaMak)"></span>).</span>
+                                    <span><strong>Kenaikan Perkiraan:</strong> Selisih <span class="font-bold font-mono" x-text="formatRupiah(getDeltaMak())"></span> memotong sisa pos anggaran (<span x-text="permohonanMap[selectedSurat].kodeMak"></span>). Sisa mencukupi (<span class="font-mono font-bold" x-text="formatRupiah(permohonanMap[selectedSurat].sisaMak)"></span>).</span>
                                 </div>
                             </template>
                             <template x-if="getDeltaMak() > permohonanMap[selectedSurat].sisaMak">
                                 <div class="flex items-center gap-1.5">
                                     <svg class="size-4 text-rose-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                                    <span><strong>Defisit Anggaran:</strong> Kenaikan HPS sebesar <span class="font-bold font-mono" x-text="formatRupiah(getDeltaMak())"></span> melebihi sisa pagu MAK (<span x-text="permohonanMap[selectedSurat].kodeMak"></span> tersisa <span class="font-bold font-mono" x-text="formatRupiah(permohonanMap[selectedSurat].sisaMak)"></span>).</span>
+                                    <span><strong>Anggaran Kurang:</strong> Kenaikan <span class="font-bold font-mono" x-text="formatRupiah(getDeltaMak())"></span> melebihi sisa pos anggaran (<span x-text="permohonanMap[selectedSurat].kodeMak"></span> tersisa <span class="font-bold font-mono" x-text="formatRupiah(permohonanMap[selectedSurat].sisaMak)"></span>).</span>
                                 </div>
                             </template>
                         </div>
@@ -486,36 +442,32 @@
                             <option value="Pengadaan Langsung">Belanja Langsung (&le; Rp 50 Juta &bull; Kwitansi Tanpa Kontrak)</option>
                         </template>
 
-                        {{-- Opsi Jalur PP (> 50 Juta s.d 200 Juta) --}}
+                        {{-- Opsi Jalur Pejabat Pengadaan (> 50 Juta s.d 200 Juta) --}}
                         <template x-if="routing() === 'pp'">
-                            <optgroup label="Metode Jalur PP (50 Jt s.d 200 Jt)">
-                                <option value="SPK">SPK (Surat Perintah Kerja)</option>
-                                <option value="Surat Pesanan">Surat Pesanan (E-Purchasing / E-Katalog)</option>
-                                <option value="Surat Kontrak">Surat Kontrak (Non-Tender Rekanan)</option>
+                            <optgroup label="Metode Jalur Pejabat Pengadaan (50 Jt s.d 200 Jt)">
+                                <option value="SPK">Kontrak Kerja (SPK)</option>
+                                <option value="Surat Pesanan">Surat Pesanan (E-Katalog)</option>
+                                <option value="Surat Kontrak">Surat Kontrak (Rekanan)</option>
                             </optgroup>
                         </template>
 
                         {{-- Opsi Jalur PPK (> 200 Juta) --}}
                         <template x-if="routing() === 'ppk'">
                             <optgroup label="Metode Jalur PPK (&gt; 200 Jt)">
-                                <option value="Tender">Tender Terbuka (SPSE)</option>
-                                <option value="E-Purchasing">Non-Tender / E-Purchasing (E-Katalog LKPP)</option>
+                                <option value="Tender">Tender Terbuka</option>
+                                <option value="E-Purchasing">E-Purchasing (E-Katalog Pemerintah)</option>
                                 <option value="Seleksi">Seleksi Konsultansi</option>
                                 <option value="Penunjukan Langsung">Penunjukan Langsung</option>
                             </optgroup>
                         </template>
                     </select>
-
-                    <p class="text-[11px] text-slate-400 mt-1" x-show="routing() === 'langsung'">
-                        Paket &le; Rp 50 Juta otomatis berstatus Belanja Langsung dengan output Kwitansi sah.
-                    </p>
                 </div>
 
-                {{-- Nomor Memo Pengadaan PPBJ --}}
+                {{-- Nomor Memo Pengadaan Unit Pengadaan --}}
                 <div>
                     <label for="nomor_memo_ppbj" class="block text-xs font-bold text-slate-700 mb-1">
-                        Nomor Memo Pengadaan PPBJ
-                        <span class="text-slate-400 font-normal">(Khusus HPS &le; 200 Juta)</span>
+                        Nomor Memo Unit Pengadaan
+                        <span class="text-slate-400 font-normal">(Khusus &le; 200 Juta)</span>
                     </label>
                     <input
                         type="text"
@@ -523,43 +475,37 @@
                         name="nomor_memo_ppbj"
                         value="{{ old('nomor_memo_ppbj', 'MEMO-PPBJ/' . date('Y') . '/' . rand(100, 999)) }}"
                         :disabled="routing() === 'ppk'"
-                        :placeholder="routing() === 'ppk' ? 'Tanpa Memo PPBJ (Otomatis Kosong untuk HPS > 200 Juta)' : 'MEMO-PPBJ/...'"
+                        :placeholder="routing() === 'ppk' ? 'Tanpa Memo (Khusus > 200 Juta)' : 'MEMO-PPBJ/...'"
                         class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 font-mono focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20 disabled:bg-slate-100 disabled:text-slate-400"
                     />
-                    <p class="text-[11px] text-slate-400 mt-1" x-show="routing() === 'ppk'">
-                        Aturan bisnis K2/Q7: Paket &gt; Rp 200 Juta tidak menggunakan memo PPBJ.
-                    </p>
                 </div>
 
-                {{-- Penugasan PPK (BPMN N30-N36) --}}
+                {{-- Penugasan PPK --}}
                 <div>
                     <label for="id_user_ppk" class="block text-xs font-bold text-slate-700 mb-1">
                         Pejabat Pembuat Komitmen (PPK)
                         <span class="text-rose-500">*</span>
-                        <span class="text-slate-400 font-normal">(Diwarisi otomatis dari persetujuan awal)</span>
+                        <span class="text-slate-400 font-normal">(Otomatis dari persetujuan awal)</span>
                     </label>
                     <select
                         id="id_user_ppk"
                         name="id_user_ppk"
                         class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20"
                     >
-                        <option value="">-- Pilih 1 dari 4 Akun PPK Aktif PNJ --</option>
+                        <option value="">-- Pilih PPK Aktif --</option>
                         @foreach($ppkUsers as $ppk)
                             <option value="{{ $ppk->id_user }}" {{ old('id_user_ppk') == $ppk->id_user ? 'selected' : '' }}>
                                 {{ $ppk->nama }} &bull; {{ $ppk->jabatan ?? 'PPK PNJ' }}
                             </option>
                         @endforeach
                     </select>
-                    <p class="text-[11px] text-slate-400 mt-1">
-                        Sistem membatasi penugasan PPK pada akun PPK definitif aktif.
-                    </p>
                 </div>
 
-                {{-- Penugasan Pejabat Pengadaan (PP) --}}
+                {{-- Penugasan Pejabat Pengadaan --}}
                 <div x-show="routing() === 'pp'">
                     <label for="id_user_pp" class="block text-xs font-bold text-slate-700 mb-1">
-                        Pejabat Pengadaan (PP)
-                        <span class="text-amber-600 font-semibold">(Jalur 50jt s.d 200jt)</span>
+                        Pejabat Pengadaan
+                        <span class="text-amber-600 font-semibold">(Jalur 50&ndash;200 Juta)</span>
                     </label>
                     <select
                         id="id_user_pp"

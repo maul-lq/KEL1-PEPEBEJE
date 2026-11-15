@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Manajemen Penelaahan Dokumen & Kontrak SPK - SIM-PBJ PNJ')
+@section('title', 'Reviu Dokumen & Kontrak Pengadaan - SIM-PBJ PNJ')
 
 @section('content')
 @php
@@ -58,57 +58,20 @@
             'nilai_default' => (float) ($pkt->nominal_harga_akhir ?: ($pkt->nilai_hps ?: $pkt->alokasi_pagu_paket)),
             'vendor' => $pkt->vendor?->nama_vendor ?? '',
         ],
-    ]);
+    ])->all();
+
+    $kontrakConfig = [
+        'activeTab' => $initialTab,
+        'selectedStatusReviu' => ($canReviuPpk && ! $canReviuPp) ? 'disetujui' : 'terverifikasi_pp',
+        'spkSelectedPaket' => old('kode_paket', ''),
+        'spkPaketMap' => (object) $paketSiapSpkMap,
+        'spkNilaiKontrak' => old('nilai_kontrak', ''),
+        'spkNamaVendor' => old('nama_vendor', ''),
+    ];
 @endphp
 <div
-    x-data="{
-        activeTab: '{{ $initialTab }}',
-        hpsVal: 0,
-        selectedStatusReviu: '{{ ($canReviuPpk && ! $canReviuPp) ? 'disetujui' : 'terverifikasi_pp' }}',
-        selectedPaket: {
-            nomor: '',
-            nama: '',
-            unit: '',
-            hps: 0,
-            status: '',
-            surat: '',
-            fileDokumen: '',
-            fileKak: '',
-            fileSpek: ''
-        },
-        spkSelectedPaket: '{{ old('kode_paket', '') }}',
-        spkPaketMap: {{ Js::from($paketSiapSpkMap) }},
-        spkHpsMax: 0,
-        spkNilaiKontrak: '{{ old('nilai_kontrak', '') }}',
-        spkNamaVendor: '{{ old('nama_vendor', '') }}',
-        onSelectSpkPaket(overrideNilai = true) {
-            let data = this.spkPaketMap[this.spkSelectedPaket];
-            if (!data) {
-                this.spkHpsMax = 0;
-                if (overrideNilai) {
-                    this.spkNilaiKontrak = '';
-                }
-                return;
-            }
-            this.spkHpsMax = parseFloat(data.hps) || 0;
-            if (overrideNilai) {
-                let defVal = parseFloat(data.nilai_default) || this.spkHpsMax;
-                this.spkNilaiKontrak = defVal ? Math.round(defVal * 100) / 100 : '';
-            }
-            if (data.vendor && !this.spkNamaVendor) {
-                this.spkNamaVendor = data.vendor;
-            }
-        },
-        init() {
-            if (this.spkSelectedPaket && this.spkPaketMap[this.spkSelectedPaket]) {
-                this.onSelectSpkPaket(false);
-            }
-        },
-        formatRupiah(val) {
-            let n = parseFloat(val) || 0;
-            return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
-        }
-    }"
+    x-data="kontrakManager"
+    data-config="{{ json_encode($kontrakConfig, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) }}"
     class="space-y-6"
 >
 
@@ -119,10 +82,7 @@
     <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-                <h1 class="text-2xl font-bold text-[#213153] mt-1">Penelaahan Dokumen &amp; Penerbitan Kontrak SPK</h1>
-                <p class="text-xs text-slate-500 mt-0.5">
-                    Unit Kerja Pengadaan Barang &amp; Jasa, Pejabat Pengadaan, dan Pejabat Pembuat Komitmen (PPK) PNJ
-                </p>
+                <h1 class="text-2xl font-bold text-[#213153] mt-1">Reviu Dokumen &amp; Kontrak Pengadaan</h1>
             </div>
 
             {{-- Role Badge Indicator --}}
@@ -130,12 +90,12 @@
                 @if($canReviuPpk && ! $canCreateSpk && ! $canReviuPp)
                     <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-50 text-purple-700 border border-purple-200 text-xs font-bold">
                         <span class="size-2 rounded-full bg-purple-600"></span>
-                        {{ $authUser?->roleEntity?->label ?? 'PPK' }}: {{ $authUser?->nama }}{{ $hasViewAllPaket ? '' : ' (Isolasi Berkas Aktif)' }}
+                        {{ $authUser?->roleEntity?->label ?? 'PPK' }}: {{ $authUser?->nama }}{{ $hasViewAllPaket ? '' : ' (Tugas Saya)' }}
                     </span>
                 @elseif($canReviuPp && ! $canCreateSpk)
                     <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 text-xs font-bold">
                         <span class="size-2 rounded-full bg-amber-600"></span>
-                        {{ $authUser?->roleEntity?->label ?? 'Pejabat Pengadaan (PP)' }}: {{ $authUser?->nama }}
+                        {{ $authUser?->roleEntity?->label ?? 'Pejabat Pengadaan' }}: {{ $authUser?->nama }}
                     </span>
                 @else
                     <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 text-[#0969da] border border-blue-200 text-xs font-bold">
@@ -154,7 +114,7 @@
             :value="$stats['total_spk'] ?? $kontrakList->total()"
             icon="document"
             color="navy"
-            subtitle="Akumulasi SPK / Kontrak sah"
+            subtitle="Total kontrak sah"
         />
 
         <x-stat-card
@@ -164,17 +124,17 @@
             color="amber"
             badge="Tindak Lanjut"
             badgeColor="bg-amber-50 text-amber-700 border-amber-200"
-            subtitle="Menunggu telaah teknis PP &amp; PPK"
+            subtitle="Menunggu reviu Pejabat Pengadaan &amp; PPK"
         />
 
         <x-stat-card
-            title="Paket Siap Terbit SPK"
+            title="Paket Siap Kontrak"
             :value="$stats['siap_spk'] ?? 0"
             icon="check"
             color="blue"
-            badge="Siap SPK"
+            badge="Siap Kontrak"
             badgeColor="bg-blue-50 text-[#0969da] border-blue-200"
-            subtitle="Telaah teknis disetujui"
+            subtitle="Reviu teknis disetujui"
         />
 
         <x-stat-card
@@ -182,7 +142,7 @@
             :value="'Rp ' . number_format($stats['total_nilai'] ?? 0, 0, ',', '.')"
             icon="wallet"
             color="emerald"
-            subtitle="Komitmen pagu terkunci permanen"
+            subtitle="Total nilai kontrak aktif"
         />
     </div>
 
@@ -224,7 +184,7 @@
                 class="px-4 py-2.5 rounded-xl text-xs font-bold transition inline-flex items-center gap-2"
             >
                 <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                <span>2. Penerbitan Kontrak / SPK (PPBJ)</span>
+                <span>2. Terbitkan Kontrak Kerja</span>
                 <span class="px-2 py-0.5 rounded-full text-[10px] font-bold"
                       :class="activeTab === 'spk' ? 'bg-white/20 text-white' : 'bg-blue-100 text-[#0969da]'">
                     {{ $stats['siap_spk'] ?? 0 }}
@@ -240,7 +200,7 @@
                 class="px-4 py-2.5 rounded-xl text-xs font-bold transition inline-flex items-center gap-2"
             >
                 <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
-                <span>3. Direktori Kontrak SPK Diterbitkan</span>
+                <span>3. Daftar Kontrak Diterbitkan</span>
                 <span class="px-2 py-0.5 rounded-full text-[10px] font-bold"
                       :class="activeTab === 'daftar' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'">
                     {{ $kontrakList->total() }}
@@ -264,18 +224,12 @@
                             <svg class="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                         </div>
                         <div>
-                            <div class="flex items-center gap-2">
-                                <h2 class="text-base font-bold text-[#213153]">Monitoring Aktivitas Pejabat Pengadaan (PP)</h2>
-                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-[#0969da] border border-blue-200">Hak Akses: {{ $authUser?->hasPermission('lihat_pp') ? 'lihat_pp' : 'pp.monitoring_aktivitas' }}</span>
-                            </div>
-                            <p class="text-xs text-slate-500 mt-0.5">
-                                Pemantauan seluruh proses penelaahan teknis, negosiasi harga, pemilihan rekanan, dan progres review yang dilakukan oleh Pejabat Pengadaan (PP).
-                            </p>
+                            <h2 class="text-base font-bold text-[#213153]">Pantau Pejabat Pengadaan</h2>
                         </div>
                     </div>
                     <div class="flex items-center gap-2 shrink-0">
                         <span class="px-3 py-1.5 rounded-xl bg-white text-xs font-bold text-slate-700 border border-slate-200 shadow-xs">
-                            Paket Jalur PP (50-200 Juta): <strong class="text-[#0969da] font-mono">{{ $paketReviu->whereIn('jalur_routing', ['pp_50jt_sd_200jt', 'pp_50_sd_200jt'])->count() }}</strong>
+                            Paket 50&ndash;200 Juta: <strong class="text-[#0969da] font-mono">{{ $paketReviu->whereIn('jalur_routing', ['pp_50jt_sd_200jt', 'pp_50_sd_200jt'])->count() }}</strong>
                         </span>
                         <a href="{{ route('monitor-pp.index') }}" class="px-3 py-1.5 rounded-xl bg-[#0969da] text-xs font-bold text-white hover:bg-blue-700 shadow-sm transition inline-flex items-center gap-1">
                             <span>Monitor Lengkap</span> &rarr;
@@ -289,15 +243,12 @@
             {{-- Form Penelaahan Dokumen & Negosiasi --}}
             <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80">
                 <div class="border-b border-slate-100 pb-4 mb-5">
-                    <h2 class="text-base font-bold text-[#213153]">Form Review Dokumen Pengadaan</h2>
-                    <p class="text-xs text-slate-500 mt-0.5">
-                        Pejabat Pengadaan (PP) menelaah kelayakan spesifikasi teknis dan HPS; PPK menyetujui dokumen pengadaan sebelum pelaksanaan pengadaan oleh PPBJ.
-                    </p>
+                    <h2 class="text-base font-bold text-[#213153]">Form Reviu Dokumen</h2>
                 </div>
 
                 @if($paketReviuAksiList->isEmpty())
                     <div class="text-center py-10 px-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                        <p class="text-xs text-slate-500">Tidak ada antrean paket pengadaan yang membutuhkan reviu atau telaah dokumen pada akun Anda saat ini.</p>
+                        <p class="text-xs text-slate-500">Tidak ada paket yang menunggu reviu saat ini.</p>
                     </div>
                 @else
                     <form action="{{ route('kontrak.reviu') }}" method="POST" class="space-y-4">
@@ -349,7 +300,7 @@
                                             data-file-kak="{{ $pktR->permohonan && $pktR->permohonan->file_kak ? asset('storage/' . $pktR->permohonan->file_kak) : '' }}"
                                             data-file-spek="{{ $pktR->permohonan && $pktR->permohonan->file_spesifikasi_teknis ? asset('storage/' . $pktR->permohonan->file_spesifikasi_teknis) : '' }}"
                                         >
-                                            [{{ $pktR->nomor_paket }}] {{ $pktR->nama_paket }} &bull; HPS: Rp {{ number_format($pktR->nilai_hps, 0, ',', '.') }} &bull; {{ strtoupper(str_replace('_', ' ', $pktR->jalur_routing)) }}
+                                            [{{ $pktR->nomor_paket }}] {{ $pktR->nama_paket }} &bull; Perkiraan: Rp {{ number_format($pktR->nilai_hps, 0, ',', '.') }} &bull; {{ strtoupper(str_replace('_', ' ', $pktR->jalur_routing)) }}
                                         </option>
                                     @endforeach
                                 </select>
@@ -357,14 +308,14 @@
 
                             {{-- Keputusan Reviu Sesuai Permission --}}
                             <div class="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
-                                <span class="block text-xs font-bold text-slate-800">Keputusan Hasil Penelaahan <span class="text-rose-500">*</span></span>
+                                <span class="block text-xs font-bold text-slate-800">Keputusan Hasil Reviu <span class="text-rose-500">*</span></span>
                                 @if($canReviuPp)
                                     <label
                                         @if($canReviuPpk) x-show="!selectedPaket.status || ['terdaftar', 'reviu_dokumen'].includes(selectedPaket.status)" @endif
                                         class="flex items-center text-xs text-slate-800 cursor-pointer gap-2"
                                     >
                                         <input type="radio" name="status_reviu" value="terverifikasi_pp" x-model="selectedStatusReviu" class="text-[#0969da] focus:ring-[#0969da]">
-                                        <span><strong>Verifikasi Berhasil</strong> &mdash; Spesifikasi teknis &amp; HPS telah sesuai. Teruskan dokumen pengadaan ke PPK.</span>
+                                        <span><strong>Verifikasi Berhasil</strong> &mdash; Spesifikasi &amp; perkiraan harga sesuai. Teruskan ke PPK.</span>
                                     </label>
                                 @endif
                                 @if($canReviuPpk)
@@ -373,16 +324,16 @@
                                         class="flex items-center text-xs text-slate-800 cursor-pointer gap-2"
                                     >
                                         <input type="radio" name="status_reviu" value="disetujui" x-model="selectedStatusReviu" class="text-[#087F79] focus:ring-[#087F79]">
-                                        <span><strong>Disetujui</strong> &mdash; Dokumen pengadaan disetujui, siap pelaksanaan pengadaan &amp; penerbitan perikatan oleh PPBJ.</span>
+                                        <span><strong>Disetujui</strong> &mdash; Dokumen disetujui, siap penerbitan kontrak oleh Unit Pengadaan.</span>
                                     </label>
                                 @endif
                                 <label class="flex items-center text-xs text-slate-800 cursor-pointer gap-2">
                                     <input type="radio" name="status_reviu" value="perlu_perbaikan" x-model="selectedStatusReviu" class="text-rose-600 focus:ring-rose-500">
-                                    <span><strong>Perlu Perbaikan</strong> &mdash; Kembalikan berkas ke PPBJ untuk disusun ulang.</span>
+                                    <span><strong>Perlu Perbaikan</strong> &mdash; Kembalikan berkas ke Unit Pengadaan.</span>
                                 </label>
                             </div>
 
-                            {{-- PP: Info Box Spesifikasi Teknis & Pagu HPS (Murni Telaah Tanpa Input Vendor) --}}
+                            {{-- Info Box Spesifikasi Teknis & Perkiraan Harga --}}
                             @if($canReviuPp)
                                 <div
                                     @if($canReviuPpk) x-show="!selectedPaket.status || ['terdaftar', 'reviu_dokumen'].includes(selectedPaket.status)" @endif
@@ -391,7 +342,7 @@
                                     <div class="flex items-center justify-between pb-2 border-b border-amber-200/60">
                                         <span class="text-xs font-bold text-amber-900 flex items-center gap-1.5">
                                             <svg class="size-4 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                                            Ringkasan Dokumen Pengadaan yang Ditelaah
+                                            Ringkasan Dokumen Pengadaan
                                         </span>
                                         <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">Jalur 50 - 200 Juta</span>
                                     </div>
@@ -406,12 +357,12 @@
                                             <span class="font-semibold text-slate-800" x-text="selectedPaket.unit || '-'">-</span>
                                         </div>
                                         <div>
-                                            <span class="text-slate-500 block text-[11px]">Pagu HPS Pengadaan:</span>
+                                            <span class="text-slate-500 block text-[11px]">Perkiraan Harga:</span>
                                             <span class="font-mono font-bold text-emerald-700" x-text="selectedPaket.hps ? formatRupiah(selectedPaket.hps) : 'Rp 0'">Rp 0</span>
                                         </div>
                                         <div>
-                                            <span class="text-slate-500 block text-[11px]">Tugas Pejabat Pengadaan (PP):</span>
-                                            <span class="text-slate-700 font-medium">Review spesifikasi teknis &amp; kewajaran HPS (tanpa input vendor)</span>
+                                            <span class="text-slate-500 block text-[11px]">Tugas Pejabat Pengadaan:</span>
+                                            <span class="text-slate-700 font-medium">Reviu spesifikasi teknis &amp; kewajaran harga</span>
                                         </div>
                                     </div>
 
@@ -420,13 +371,13 @@
                                         <template x-if="selectedPaket.fileDokumen">
                                             <a :href="selectedPaket.fileDokumen" target="_blank" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-amber-300 text-amber-900 font-medium hover:bg-amber-100/50 shadow-xs">
                                                 <svg class="size-3.5 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                                                <span>Dokumen Pengadaan (PPBJ)</span>
+                                                <span>Dokumen Unit Pengadaan</span>
                                             </a>
                                         </template>
                                         <template x-if="selectedPaket.fileKak">
                                             <a :href="selectedPaket.fileKak" target="_blank" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-amber-300 text-amber-900 font-medium hover:bg-amber-100/50 shadow-xs">
                                                 <svg class="size-3.5 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                                                <span>Kerangka Acuan Kerja (KAK)</span>
+                                                <span>Kerangka Acuan Kerja</span>
                                             </a>
                                         </template>
                                         <template x-if="selectedPaket.fileSpek">
@@ -446,24 +397,24 @@
                                     @if($canReviuPp) x-show="selectedPaket.status === 'menunggu_approval_ppk'" @endif
                                     class="p-4 rounded-xl bg-purple-50/60 border border-purple-200/80 space-y-1"
                                 >
-                                    <h4 class="text-xs font-bold text-purple-900">Persetujuan Dokumen &amp; Hasil Telaah</h4>
+                                    <h4 class="text-xs font-bold text-purple-900">Persetujuan PPK</h4>
                                     <p class="text-[11px] text-purple-800 leading-relaxed">
-                                        Dengan menyetujui dokumen pengadaan ini, Anda selaku PPK secara resmi menyetujui spesifikasi teknis dan hasil telaah PP sebelum eksekusi belanja atau penerbitan dokumen perikatan.
+                                        Persetujuan PPK meneruskan paket ke tahap kontrak atau belanja.
                                     </p>
                                 </div>
                             @endif
 
-                            {{-- Catatan Perbaikan / BA Negosiasi --}}
+                            {{-- Catatan Perbaikan --}}
                             <div class="md:col-span-2">
                                 <label for="catatan_perbaikan" class="block text-xs font-bold text-slate-700 mb-1">
-                                    Berita Acara / Catatan Rekomendasi &amp; Catatan Perbaikan
+                                    Catatan Rekomendasi &amp; Perbaikan
                                     <span class="text-slate-400 font-normal">(Wajib jika memilih 'Perlu Perbaikan')</span>
                                 </label>
                                 <textarea
                                     id="catatan_perbaikan"
                                     name="catatan_perbaikan"
                                     rows="3"
-                                    placeholder="Tuliskan berita acara hasil penelaahan teknis atau catatan butir spesifikasi yang harus diperbaiki PPBJ..."
+                                    placeholder="Tuliskan hasil reviu atau poin yang perlu diperbaiki Unit Pengadaan..."
                                     class="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20"
                                 ></textarea>
                             </div>
@@ -476,11 +427,11 @@
                                 class="px-6 py-2.5 rounded-xl bg-[#213153] text-xs font-bold text-white hover:bg-slate-800 shadow-sm transition"
                             >
                                 @if($canReviuPp && $canReviuPpk)
-                                    <span x-text="selectedPaket.status === 'menunggu_approval_ppk' ? 'Kirim Persetujuan Dokumen PPK' : 'Kirim Keputusan Verifikasi PP'">Kirim Keputusan Penelaahan</span>
+                                    <span x-text="selectedPaket.status === 'menunggu_approval_ppk' ? 'Kirim Persetujuan PPK' : 'Kirim Keputusan Pejabat Pengadaan'">Kirim Keputusan</span>
                                 @elseif($canReviuPp)
-                                    Kirim Keputusan Verifikasi PP
+                                    Kirim Keputusan Pejabat Pengadaan
                                 @elseif($canReviuPpk)
-                                    Kirim Persetujuan Dokumen PPK
+                                    Kirim Persetujuan PPK
                                 @endif
                             </button>
                         </div>
@@ -489,28 +440,27 @@
             </div>
         @endif
 
-        {{-- Tabel Antrean Paket Telaah --}}
+        {{-- Tabel Antrean Paket Reviu --}}
         <div class="rounded-2xl bg-white shadow-sm border border-slate-200/80 overflow-hidden">
             <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                 <div>
-                    <h3 class="text-sm font-bold text-[#213153]">Daftar Antrean Paket Telaah (Reviu)</h3>
-                    <p class="text-xs text-slate-400 mt-0.5">Paket berstatus terdaftar, reviu dokumen, atau perbaikan</p>
+                    <h3 class="text-sm font-bold text-[#213153]">Antrean Reviu Dokumen</h3>
                 </div>
                 <span class="text-xs font-bold text-slate-400 font-mono">{{ $paketReviu->count() }} Paket</span>
             </div>
 
             @if($paketReviu->isEmpty())
-                <div class="text-center py-8 text-xs text-slate-400">Tidak ada paket pengadaan dalam antrean telaah.</div>
+                <div class="text-center py-8 text-xs text-slate-400">Tidak ada paket pengadaan dalam antrean reviu.</div>
             @else
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-xs border-collapse">
                         <thead>
                             <tr class="bg-slate-50 border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                                 <th class="px-5 py-3">Paket Pengadaan</th>
-                                <th class="px-5 py-3">Pagu HPS</th>
-                                <th class="px-5 py-3">Jalur Routing</th>
-                                <th class="px-5 py-3">Pejabat PP</th>
-                                <th class="px-5 py-3">Catatan Telaah &amp; Verifikasi</th>
+                                <th class="px-5 py-3">Perkiraan Harga</th>
+                                <th class="px-5 py-3">Jalur</th>
+                                <th class="px-5 py-3">Pejabat Pengadaan</th>
+                                <th class="px-5 py-3">Catatan Reviu</th>
                                 <th class="px-5 py-3">PPK Penanggung Jawab</th>
                                 <th class="px-5 py-3">Status</th>
                             </tr>
@@ -544,7 +494,7 @@
                                         @endphp
                                         @if($pr->catatan_verifikasi_pp)
                                             <div class="text-[11px] font-semibold text-slate-800">
-                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 mr-1">PP</span>
+                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 mr-1">Pejabat</span>
                                                 "{{ $pr->catatan_verifikasi_pp }}"
                                             </div>
                                         @endif
@@ -555,11 +505,11 @@
                                             </div>
                                         @endif
                                         @if(!$pr->catatan_verifikasi_pp && (!$reviuPpk || !$reviuPpk->catatan_perbaikan))
-                                            <span class="text-slate-400 italic">Belum ada catatan telaah</span>
+                                            <span class="text-slate-400 italic">Belum ada catatan</span>
                                         @endif
                                     </td>
                                     <td class="px-5 py-3.5 text-slate-700">
-                                        {{ $pr->ppkUser->nama ?? ($pr->jalur_routing === 'langsung_sd_50jt' ? '(Pengadaan Langsung)' : 'Belum Ditugaskan') }}
+                                        {{ $pr->ppkUser->nama ?? ($pr->jalur_routing === 'langsung_sd_50jt' ? '(Belanja Langsung)' : 'Belum Ditugaskan') }}
                                     </td>
                                     <td class="px-5 py-3.5">
                                         <x-status-badge :status="$pr->status_paket" size="sm" />
@@ -588,24 +538,18 @@
                     <svg class="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 </div>
                 <div class="text-xs leading-relaxed">
-                    <h4 class="font-bold text-sm text-[#213153]">Pemberitahuan Otomatis Tembusan SPK</h4>
+                    <h4 class="font-bold text-sm text-[#213153]">Pemberitahuan Otomatis</h4>
                     <p class="mt-0.5">
-                        Saat Kontrak / Surat Perintah Kerja (SPK) ini sah diterbitkan:
+                        Setelah kontrak diterbitkan, salinan otomatis dikirim ke Unit Perlengkapan untuk pemeriksaan barang dan Bagian Keuangan untuk pembayaran.
                     </p>
-                    <ul class="list-disc list-inside mt-1 space-y-0.5">
-                        <li><strong>Unit Perlengkapan (BMN):</strong> Otomatis menerima tembusan dokumen perikatan untuk persiapan pemeriksaan fisik dan penerbitan BAST.</li>
-                        <li><strong>Bagian Keuangan:</strong> Otomatis menerima salinan dokumen perikatan untuk pencadangan kas dan kesiapan penerbitan SPP/SP2D.</li>
-                        <li><strong>Alokasi MAK:</strong> Pembebanan anggaran mengacu pada rekening MAK DIPA yang telah diverifikasi Bagian Perencanaan.</li>
-                    </ul>
                 </div>
             </div>
         </div>
 
-        {{-- Form Penerbitan Kontrak SPK --}}
+        {{-- Form Penerbitan Kontrak --}}
         <div class="rounded-2xl bg-white p-6 md:p-8 shadow-sm border border-slate-200/80">
             <div class="border-b border-slate-100 pb-4 mb-6">
-                <h2 class="text-base font-bold text-[#213153]">Formulir Penerbitan Dokumen Kontrak / SPK</h2>
-                <p class="text-xs text-slate-500 mt-0.5">Diisi oleh Unit Kerja Pengadaan Barang &amp; Jasa (PPBJ) Politeknik Negeri Jakarta</p>
+                <h2 class="text-base font-bold text-[#213153]">Terbitkan Dokumen Kontrak Kerja</h2>
             </div>
 
             <form action="{{ route('kontrak.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
@@ -629,7 +573,7 @@
                             <option value="">-- Pilih Paket Pengadaan (&gt; Rp 50 Juta) --</option>
                             @foreach($paketSiapSpkList as $pkt)
                                 <option value="{{ $pkt->nomor_paket }}" {{ old('kode_paket') == $pkt->nomor_paket ? 'selected' : '' }}>
-                                    [{{ $pkt->kode_paket ?? $pkt->nomor_paket }}] {{ $pkt->nama_paket }} &bull; HPS: Rp {{ number_format($pkt->nilai_hps, 0, ',', '.') }}
+                                    [{{ $pkt->kode_paket ?? $pkt->nomor_paket }}] {{ $pkt->nama_paket }} &bull; Perkiraan: Rp {{ number_format($pkt->nilai_hps, 0, ',', '.') }}
                                 </option>
                             @endforeach
                         </select>
@@ -639,7 +583,7 @@
                     <div class="space-y-4 rounded-xl p-4 bg-slate-50 border border-slate-200/80">
                         <div class="flex items-center gap-2">
                             <span class="size-6 rounded-lg bg-blue-100 text-[#0969da] flex items-center justify-center font-bold text-xs">V</span>
-                            <span class="text-xs font-bold text-slate-800">Penetapan Rekanan / Vendor Pemenang &amp; Dokumen Legalitas</span>
+                            <span class="text-xs font-bold text-slate-800">Rekanan &amp; Dokumen Legalitas</span>
                         </div>
 
                         <div>
@@ -661,14 +605,11 @@
                                     <option value="{{ $v->nama_vendor }}">{{ $v->nama_vendor }}</option>
                                 @endforeach
                             </datalist>
-                            <p class="text-[11px] text-slate-400 mt-1">
-                                Ketik nama rekanan baru atau pilih saran rekanan yang pernah tersimpan; dokumen legalitas dapat diunggah/diperbarui di bawah.
-                            </p>
                         </div>
 
                         <div>
                             <label for="file_dokumen_legalitas" class="block text-xs font-bold text-slate-700 mb-1">
-                                Unggah Dokumen Legalitas Rekanan (PDF/Gambar &bull; Izin Usaha / NIB / Sertifikasi)
+                                Unggah Legalitas Rekanan (PDF/Gambar)
                             </label>
                             <input
                                 type="file"
@@ -678,15 +619,15 @@
                                 class="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0969da]"
                             />
                             <p class="text-[11px] text-slate-400 mt-1">
-                                Format file: PDF atau Gambar (maksimal 10 MB). Tidak memerlukan input NPWP / NIB manual.
+                                Maksimal 10 MB.
                             </p>
                         </div>
                     </div>
 
-                    {{-- Nomor Resmi SPK --}}
+                    {{-- Nomor Resmi Kontrak --}}
                     <div>
                         <label for="nomor_kontrak_spk" class="block text-xs font-bold text-slate-700 mb-1">
-                            Nomor Resmi Kontrak / SPK <span class="text-rose-500">*</span>
+                            Nomor Kontrak Kerja <span class="text-rose-500">*</span>
                         </label>
                         <input
                             type="text"
@@ -698,10 +639,10 @@
                         />
                     </div>
 
-                    {{-- Nilai Kontrak Definitif --}}
+                    {{-- Nilai Kontrak --}}
                     <div>
                         <label for="nilai_kontrak" class="block text-xs font-bold text-slate-700 mb-1">
-                            Nilai Kontrak Definitif (Rupiah) <span class="text-rose-500">*</span>
+                            Nilai Kontrak (Rupiah) <span class="text-rose-500">*</span>
                         </label>
                         <div class="relative">
                             <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-xs font-bold text-slate-400 pointer-events-none">Rp</span>
@@ -720,17 +661,14 @@
                             />
                         </div>
                         <p x-show="spkHpsMax > 0" x-cloak class="text-[11px] text-slate-400 mt-1">
-                            Batas maksimal sesuai pagu HPS: <span class="font-mono font-semibold text-slate-600" x-text="formatRupiah(spkHpsMax)"></span>. Jika lebih rendah, nilai HPS &amp; sisa pagu MAK otomatis disesuaikan.
-                        </p>
-                        <p x-show="!spkHpsMax" class="text-[11px] text-slate-400 mt-1">
-                            Harga kesepakatan final dalam kontrak (maksimal sebesar pagu HPS paket yang dipilih).
+                            Maksimal sesuai perkiraan harga: <span class="font-mono font-semibold text-slate-600" x-text="formatRupiah(spkHpsMax)"></span>.
                         </p>
                     </div>
 
-                    {{-- Tipe Dokumen Tunggal --}}
+                    {{-- Jenis Dokumen Kontrak --}}
                     <div>
                         <label for="tipe_dokumen" class="block text-xs font-bold text-slate-700 mb-1">
-                            Tipe Dokumen Perjanjian Tunggal <span class="text-rose-500">*</span>
+                            Jenis Dokumen Kontrak <span class="text-rose-500">*</span>
                         </label>
                         <select
                             id="tipe_dokumen"
@@ -738,11 +676,10 @@
                             required
                             class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20"
                         >
-                            <option value="spk" {{ old('tipe_dokumen', 'spk') === 'spk' ? 'selected' : '' }}>Surat Perintah Kerja (SPK)</option>
-                            <option value="surat_pesanan" {{ old('tipe_dokumen') === 'surat_pesanan' ? 'selected' : '' }}>Surat Pesanan (E-Katalog / Inaproc)</option>
+                            <option value="spk" {{ old('tipe_dokumen', 'spk') === 'spk' ? 'selected' : '' }}>Kontrak Kerja (SPK)</option>
+                            <option value="surat_pesanan" {{ old('tipe_dokumen') === 'surat_pesanan' ? 'selected' : '' }}>Surat Pesanan (E-Katalog)</option>
                             <option value="surat_kontrak" {{ old('tipe_dokumen') === 'surat_kontrak' ? 'selected' : '' }}>Surat Perjanjian Kontrak</option>
                         </select>
-                        <p class="text-[11px] text-slate-400 mt-1">Sistem menerapkan pembatasan satu dokumen perikatan tunggal per paket pengadaan.</p>
                     </div>
 
                     {{-- Sifat Kontrak --}}
@@ -795,7 +732,7 @@
                     {{-- Jadwal Pengiriman Rekanan --}}
                     <div>
                         <label for="jadwal_pengiriman" class="block text-xs font-bold text-slate-700 mb-1">
-                            Jadwal Pengiriman Rekanan (Target Serah Terima)
+                            Target Pengiriman Barang
                         </label>
                         <input
                             type="date"
@@ -804,13 +741,12 @@
                             value="{{ old('jadwal_pengiriman', date('Y-m-d', strtotime('+28 days'))) }}"
                             class="w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20"
                         />
-                        <p class="text-[11px] text-slate-400 mt-1">Sistem otomatis memasang Reminder alarm H-2 sebelum tanggal ini.</p>
                     </div>
 
                     {{-- Berkas Pindaian PDF --}}
                     <div>
                         <label for="file_spk" class="block text-xs font-bold text-slate-700 mb-1">
-                            Unggah Dokumen Kontrak / SPK Sah (PDF, Maks 10MB)
+                            Unggah Berkas Kontrak (PDF, Maks. 10 MB)
                         </label>
                         <input
                             type="file"
@@ -843,7 +779,7 @@
                         class="px-6 py-2.5 rounded-xl bg-[#0969da] text-xs font-bold text-white hover:bg-blue-700 shadow-sm transition inline-flex items-center gap-1.5"
                     >
                         <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        Terbitkan &amp; Tanda Tangani Dokumen Perikatan
+                        Terbitkan Dokumen Kontrak
                     </button>
                 </div>
             </form>
@@ -853,14 +789,14 @@
     @endif
 
     {{-- ===================================================================== --}}
-    {{-- TAB 3: DIREKTORI KONTRAK SPK DITERBITKAN                              --}}
+    {{-- TAB 3: DIREKTORI KONTRAK DITERBITKAN                                   --}}
     {{-- ===================================================================== --}}
     @if($canTabDaftar)
     <div x-show="activeTab === 'daftar'" class="space-y-6">
 
         <x-filter-bar
             :action="route('kontrak.index')"
-            searchPlaceholder="Cari nomor SPK, paket, atau rekanan..."
+            searchPlaceholder="Cari nomor kontrak, paket, atau rekanan..."
         >
             <x-slot:filters>
                 <input type="hidden" name="tab" value="daftar">
@@ -868,7 +804,7 @@
                     name="status_spk"
                     class="h-10 rounded-xl border border-slate-200 bg-slate-50/60 px-3 text-xs text-slate-700 focus:border-[#0969da] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0969da]/20 transition-all"
                 >
-                    <option value="">Semua Status SPK</option>
+                    <option value="">Semua Status</option>
                     <option value="aktif" {{ request('status_spk') === 'aktif' ? 'selected' : '' }}>Aktif Berjalan</option>
                     <option value="terbit" {{ request('status_spk') === 'terbit' ? 'selected' : '' }}>Terbit</option>
                     <option value="selesai" {{ request('status_spk') === 'selesai' ? 'selected' : '' }}>Selesai</option>
@@ -879,21 +815,21 @@
         <div class="rounded-2xl bg-white shadow-sm border border-slate-200/80 overflow-hidden">
             <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                 <div>
-                    <h3 class="text-sm font-bold text-[#213153]">Direktori Kontrak SPK Sah</h3>
-                    <p class="text-xs text-slate-400 mt-0.5">Menampilkan {{ $kontrakList->count() }} dari {{ $kontrakList->total() }} total SPK diterbitkan</p>
+                    <h3 class="text-sm font-bold text-[#213153]">Daftar Kontrak Diterbitkan</h3>
+                    <p class="text-xs text-slate-400 mt-0.5">Menampilkan {{ $kontrakList->count() }} dari {{ $kontrakList->total() }} total kontrak diterbitkan</p>
                 </div>
             </div>
 
             @if($kontrakList->isEmpty())
                 <div class="text-center py-12 px-4">
-                    <p class="text-xs text-slate-500">Belum ada Kontrak SPK yang diterbitkan atau cocok dengan pencarian.</p>
+                    <p class="text-xs text-slate-500">Belum ada kontrak yang diterbitkan.</p>
                 </div>
             @else
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-xs border-collapse">
                         <thead>
                             <tr class="bg-slate-50 border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                                <th class="px-5 py-3.5">Nomor SPK &amp; Tanggal</th>
+                                <th class="px-5 py-3.5">Nomor Kontrak &amp; Tanggal</th>
                                 <th class="px-5 py-3.5">Paket Pengadaan</th>
                                 <th class="px-5 py-3.5">Rekanan Vendor</th>
                                 <th class="px-5 py-3.5">Nilai Kontrak</th>
@@ -969,7 +905,7 @@
                                                 href="{{ route('dokumen.pdf', ['jenis' => 'spk', 'id' => $k->nomor_spk]) }}"
                                                 target="_blank"
                                                 class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-xs"
-                                                title="Unduh Berkas Resmi SPK (PDF)"
+                                                title="Unduh Berkas Kontrak (PDF)"
                                             >
                                                 <svg class="size-3.5 text-rose-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/></svg>
                                                 PDF

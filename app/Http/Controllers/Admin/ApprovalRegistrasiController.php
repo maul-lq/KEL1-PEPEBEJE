@@ -126,7 +126,7 @@ class ApprovalRegistrasiController extends Controller
             'verifikasi'
         );
 
-        $successMsg = "Pendaftaran akun {$user->nama} berhasil disetujui (ACC) dengan peran: {$role->label}.";
+        $successMsg = "Pendaftaran akun {$user->nama} berhasil disetujui dengan peran: {$role->label}.";
 
         if ($request->expectsJson() || $request->is('api/*')) {
             return response()->json([

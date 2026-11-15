@@ -10,26 +10,14 @@
 
 <div
     class="space-y-6"
-    x-data="{
-        approveModalOpen: false,
-        rejectModalOpen: false,
-        selectedUser: { nama: '', nip: '', email: '', unit: '', accUrl: '', tolakUrl: '' },
-        openApprove(userData) {
-            this.selectedUser = userData;
-            this.approveModalOpen = true;
-        },
-        openReject(userData) {
-            this.selectedUser = userData;
-            this.rejectModalOpen = true;
-        }
-    }"
+    x-data="adminDashboardApproval"
 >
     {{-- 1. 4-COLUMN FIGMA KPI STAT CARDS --}}
     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
         <x-figma-stat-card
             title="Persetujuan Akun"
             :value="$stats['pending_registrations'] ?? 0"
-            subtitle="Pendaftar baru menunggu ACC"
+            subtitle="Pendaftar menunggu persetujuan"
             variant="action"
             :href="$canApproveRegistrasi ? route('admin.persetujuan-registrasi.index') : null"
         />
@@ -43,9 +31,9 @@
         />
 
         <x-figma-stat-card
-            title="Master Role RBAC"
+            title="Daftar Peran"
             :value="$stats['total_roles'] ?? 0"
-            subtitle="Matriks hak akses sistem"
+            subtitle="Pengaturan hak akses"
             variant="done"
             :href="$user->hasPermission('admin.role_manage') ? route('admin.roles.index') : null"
         />
@@ -63,7 +51,7 @@
     <x-figma-workspace
         leftTitle="Perlu Tindakan Anda"
         :leftHref="$canApproveRegistrasi ? route('admin.persetujuan-registrasi.index') : null"
-        :rightTitle="$canViewAudit ? 'Aktivitas Terbaru' : 'Distribusi Role RBAC'"
+        :rightTitle="$canViewAudit ? 'Aktivitas Terbaru' : 'Sebaran Peran'"
         :rightHref="$rightHref"
     >
         <x-slot:left>
@@ -198,7 +186,6 @@
             <div class="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
                 <div>
                     <h3 class="text-base font-semibold text-[#14213d]">Setujui Pendaftaran Akun</h3>
-                    <p class="text-xs text-[#657a7c] mt-0.5">Pilih role resmi untuk mengaktifkan akun pengguna ini.</p>
                 </div>
                 <button type="button" @click="approveModalOpen = false" class="text-slate-400 hover:text-slate-600 text-lg leading-none cursor-pointer">&times;</button>
             </div>
@@ -213,7 +200,7 @@
 
                 <div>
                     <label for="admin-acc-role" class="block text-xs font-semibold text-[#4a4a4a] mb-1.5">
-                        Tetapkan Role RBAC <span class="text-rose-500">*</span>
+                        Pilih Peran <span class="text-rose-500">*</span>
                     </label>
                     <select
                         id="admin-acc-role"
@@ -253,7 +240,6 @@
             <div class="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
                 <div>
                     <h3 class="text-base font-semibold text-[#14213d]">Tolak Pendaftaran Akun</h3>
-                    <p class="text-xs text-[#657a7c] mt-0.5">Berikan alasan penolakan yang jelas untuk pendaftar.</p>
                 </div>
                 <button type="button" @click="rejectModalOpen = false" class="text-slate-400 hover:text-slate-600 text-lg leading-none cursor-pointer">&times;</button>
             </div>

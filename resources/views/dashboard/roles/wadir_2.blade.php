@@ -16,9 +16,9 @@
     {{-- 1. 4-COLUMN FIGMA KPI STAT CARDS --}}
     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
         <x-figma-stat-card
-            title="Menunggu ACC Usulan"
+            title="Menunggu Persetujuan"
             :value="$stats['menunggu_persetujuan'] ?? 0"
-            subtitle="Menunggu disposisi Wadir 2"
+            subtitle="Menunggu keputusan Wadir II"
             variant="action"
             :href="$wadirVerifHref"
         />
@@ -26,7 +26,7 @@
         <x-figma-stat-card
             title="Memo Bayar Lvl 1"
             :value="$stats['memo_bayar_pending'] ?? 0"
-            :subtitle="$canMemoWadir ? 'Antrean ACC Memo Level 1' : 'Akses Memo tidak aktif'"
+            :subtitle="$canMemoWadir ? 'Antrean persetujuan memo' : 'Akses Memo tidak aktif'"
             variant="bell"
             :href="$memoWadirHref"
         />
@@ -34,7 +34,7 @@
         <x-figma-stat-card
             title="Usulan Disetujui"
             :value="$stats['total_disetujui'] ?? 0"
-            subtitle="Diteruskan resmi ke PPBJ"
+            subtitle="Diteruskan ke Unit Pengadaan"
             variant="done"
             :href="$wadirVerifHref"
         />
@@ -58,8 +58,8 @@
         <x-slot:left>
             @if($disposisiItems->isEmpty() && $memoItems->isEmpty())
                 <x-figma-empty
-                    title="Tidak ada disposisi atau Memo Bayar yang pending"
-                    subtitle="Seluruh usulan pengadaan dan Memo Pembayaran Level 1 telah Anda tindak lanjuti."
+                    title="Tidak ada disposisi atau Memo Bayar menunggu"
+                    subtitle=""
                 />
             @else
                 @foreach($disposisiItems as $disposisi)
@@ -73,7 +73,7 @@
                         :title="$disposisi->judul_pengadaan"
                         :meta="$disposisi->nomor_surat . ' • ' . $unitNama"
                         :submeta="'Estimasi Pagu: Rp ' . $estimasiPagu"
-                        badge="Disposisi ACC"
+                        badge="Perlu Persetujuan"
                         badgeClass="bg-[#fff5df] text-[#99660d]"
                         :href="$wadirVerifHref"
                         buttonLabel="Buka"

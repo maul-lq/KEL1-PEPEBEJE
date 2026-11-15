@@ -45,7 +45,7 @@ class PengadaanRoutingService
                 'waktu_trigger' => now(),
                 'interval_bulan' => null,
                 'judul_alert' => 'Belanja Langsung Selesai: '.$paket->nama_paket,
-                'pesan_alert' => 'Belanja Langsung (Kwitansi '.($paket->nomor_kwitansi_belanja ?? '-').') senilai Rp '.number_format($nominal, 0, ',', '.').' telah dieksekusi oleh PPBJ tanpa Kontrak/SPK. Menunggu pemeriksaan fisik dan BAST Perlengkapan.',
+                'pesan_alert' => 'Belanja Langsung (Kwitansi '.($paket->nomor_kwitansi_belanja ?? '-').') senilai Rp '.number_format($nominal, 0, ',', '.').' telah dicatat tanpa kontrak. Menunggu pemeriksaan barang Perlengkapan.',
             ]
         );
 
@@ -114,8 +114,8 @@ class PengadaanRoutingService
             [
                 'waktu_trigger' => now(),
                 'interval_bulan' => null,
-                'judul_alert' => 'Tembusan SPK: '.$paket->nama_paket,
-                'pesan_alert' => 'Tembusan SPK nomor '.($spk?->nomor_spk ?? '-').' dengan nilai kontrak Rp '.number_format($nominal, 0, ',', '.').' untuk persiapan penerimaan barang dan pencatatan komitmen anggaran.',
+                'judul_alert' => 'Tembusan Dokumen Kontrak: '.$paket->nama_paket,
+                'pesan_alert' => 'Dokumen Kontrak nomor '.($spk?->nomor_spk ?? '-').' senilai Rp '.number_format($nominal, 0, ',', '.').' telah terbit untuk persiapan penerimaan barang dan pencatatan anggaran.',
             ]
         );
 

@@ -53,7 +53,7 @@
                 </div>
                 <h1 class="text-2xl font-bold text-[#213153] mt-1">{{ $paket->nama_paket }}</h1>
                 <p class="text-xs text-slate-500 mt-0.5">
-                    Terdaftar pada {{ $paket->tanggal_registrasi_paket ? \Carbon\Carbon::parse($paket->tanggal_registrasi_paket)->format('d F Y') : '-' }} &bull; Koordinator PPBJ: {{ $paket->ppbjUser->nama ?? '-' }}
+                    Terdaftar pada {{ $paket->tanggal_registrasi_paket ? \Carbon\Carbon::parse($paket->tanggal_registrasi_paket)->format('d F Y') : '-' }} &bull; Unit Pengadaan: {{ $paket->ppbjUser->nama ?? '-' }}
                 </p>
             </div>
 
@@ -85,7 +85,7 @@
                         href="{{ route('kontrak.index') }}"
                         class="px-4 py-2 rounded-xl bg-[#0969da] text-xs font-bold text-white hover:bg-blue-700 shadow-sm transition inline-flex items-center gap-1.5"
                     >
-                        <span>Modul Dokumen Perikatan / SPK</span>
+                        <span>Modul Kontrak Pengadaan</span>
                         <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
                     </a>
                 @endif
@@ -108,7 +108,7 @@
                         <dd class="font-bold text-slate-800">{{ $paket->metode_pengadaan }}</dd>
                     </div>
                     <div>
-                        <dt class="text-slate-400">Jalur Routing HPS:</dt>
+                        <dt class="text-slate-400">Jalur Pengadaan:</dt>
                         <dd class="mt-0.5">
                             @if($paket->jalur_routing === 'ppk_diatas_200jt')
                                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800">
@@ -116,17 +116,17 @@
                                 </span>
                             @elseif($paket->jalur_routing === 'pp_50jt_sd_200jt')
                                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
-                                    50 - 200 Juta (PP &amp; PPK)
+                                    50 - 200 Juta (Pejabat Pengadaan &amp; PPK)
                                 </span>
                             @else
                                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-100 text-teal-800">
-                                    &le; 50 Juta (Pengadaan Langsung)
+                                    &le; 50 Juta (Belanja Langsung)
                                 </span>
                             @endif
                         </dd>
                     </div>
                     <div>
-                        <dt class="text-slate-400">Nomor Memo PPBJ:</dt>
+                        <dt class="text-slate-400">Nomor Memo Unit Pengadaan:</dt>
                         <dd class="font-mono text-slate-800">
                             {{ $paket->nomor_memo_ppbj ?? '(Tanpa Memo Pengadaan)' }}
                         </dd>
@@ -134,19 +134,19 @@
                 </dl>
             </div>
 
-            {{-- Kolom 2: Keuangan & Pagu HPS --}}
+            {{-- Kolom 2: Keuangan & Perkiraan Harga --}}
             <div class="rounded-xl bg-slate-50/70 p-5 border border-slate-100 space-y-3">
-                <h3 class="text-xs font-bold text-[#213153] uppercase tracking-wider">Keuangan &amp; Pagu HPS</h3>
+                <h3 class="text-xs font-bold text-[#213153] uppercase tracking-wider">Keuangan &amp; Perkiraan Harga</h3>
                 <dl class="space-y-2 text-xs">
                     <div>
-                        <dt class="text-slate-400">Harga Perkiraan Sendiri (HPS):</dt>
+                        <dt class="text-slate-400">Perkiraan Harga:</dt>
                         <dd class="text-lg font-bold font-mono text-emerald-600">
                             Rp {{ number_format($paket->nilai_hps, 0, ',', '.') }}
                         </dd>
                     </div>
                     @if($paket->nilai_hasil_negosiasi)
                         <div>
-                            <dt class="text-slate-400">Nilai Hasil Negosiasi PP:</dt>
+                            <dt class="text-slate-400">Hasil Negosiasi:</dt>
                             <dd class="text-sm font-bold font-mono text-[#0969da]">
                                 Rp {{ number_format($paket->nilai_hasil_negosiasi, 0, ',', '.') }}
                             </dd>
@@ -163,20 +163,20 @@
 
             {{-- Kolom 3: Pejabat Penanggung Jawab --}}
             <div class="rounded-xl bg-slate-50/70 p-5 border border-slate-100 space-y-3">
-                <h3 class="text-xs font-bold text-[#213153] uppercase tracking-wider">Aktor &amp; Pejabat Berwenang</h3>
+                <h3 class="text-xs font-bold text-[#213153] uppercase tracking-wider">Pejabat Penanggung Jawab</h3>
                 <dl class="space-y-2 text-xs">
                     <div>
-                        <dt class="text-slate-400">Koordinator PPBJ:</dt>
+                        <dt class="text-slate-400">Unit Pengadaan:</dt>
                         <dd class="font-semibold text-slate-800">{{ $paket->ppbjUser->nama ?? '-' }}</dd>
                     </div>
                     <div>
-                        <dt class="text-slate-400">Pejabat Pengadaan (PP):</dt>
+                        <dt class="text-slate-400">Pejabat Pengadaan:</dt>
                         <dd class="font-semibold text-slate-800">{{ $paket->ppUser->nama ?? 'Tidak Ditugaskan' }}</dd>
                     </div>
                     <div>
                         <dt class="text-slate-400">Pejabat Pembuat Komitmen (PPK):</dt>
                         <dd class="font-bold text-[#213153]">
-                            {{ $paket->ppkUser->nama ?? ($paket->jalur_routing === 'langsung_sd_50jt' ? '(Pengadaan Langsung PPBJ)' : 'Belum Ditugaskan') }}
+                            {{ $paket->ppkUser->nama ?? ($paket->jalur_routing === 'langsung_sd_50jt' ? '(Belanja Langsung Unit Pengadaan)' : 'Belum Ditugaskan') }}
                         </dd>
                         @if($paket->alasan_pengalihan_ppk)
                             <div class="mt-1 text-[11px] text-amber-700 bg-amber-50 rounded-md p-1.5 border border-amber-200">
@@ -195,8 +195,7 @@
         <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80 space-y-4">
             <div class="flex items-center justify-between pb-3 border-b border-slate-100">
                 <div>
-                    <h3 class="text-sm font-bold text-[#213153]">Dasar Berkas Permohonan Masuk (Form Pengadaan, MAK &amp; Memo)</h3>
-                    <p class="text-xs text-slate-400 mt-0.5">Dokumen usulan dan disposisi persetujuan pimpinan yang mendasari paket pengadaan ini</p>
+                    <h3 class="text-sm font-bold text-[#213153]">Berkas Usulan Awal</h3>
                 </div>
                 <a
                     href="{{ route('permohonan.show', $paket->permohonan->nomor_surat) }}"
@@ -222,7 +221,7 @@
                         </a>
                         @if($paket->permohonan->file_kak)
                             <a href="{{ asset('storage/' . $paket->permohonan->file_kak) }}" target="_blank" class="text-[11px] font-semibold text-[#0969da] hover:underline">
-                                KAK
+                                Kerangka Acuan
                             </a>
                         @endif
                         @if($paket->permohonan->file_spesifikasi_teknis)
@@ -233,12 +232,12 @@
                     </div>
                 </div>
 
-                {{-- 2. Penetapan Rekening MAK DIPA --}}
+                {{-- 2. Pos Anggaran --}}
                 <div class="p-4 rounded-xl bg-slate-50/70 border border-slate-200/80 space-y-2">
-                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">2. Penetapan MAK DIPA</span>
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">2. Pos Anggaran</span>
                     <div>
-                        <span class="font-mono font-bold text-emerald-700 block">{{ $paket->permohonan->kode_mak ?? '(MAK Belum Terhubung)' }}</span>
-                        <p class="text-xs text-slate-800 font-medium mt-0.5">{{ $paket->permohonan->anggaranMak->uraian_mak ?? 'Pagu DIPA Kampus' }}</p>
+                        <span class="font-mono font-bold text-emerald-700 block">{{ $paket->permohonan->kode_mak ?? '(Pos Anggaran Belum Terhubung)' }}</span>
+                        <p class="text-xs text-slate-800 font-medium mt-0.5">{{ $paket->permohonan->anggaranMak->uraian_mak ?? 'Anggaran Kampus' }}</p>
                         <p class="text-slate-500 text-[11px] mt-0.5">Pagu Usulan: <strong class="font-mono text-slate-800">Rp {{ number_format($paket->permohonan->anggaran_diajukan ?? $paket->permohonan->estimasi_total_pagu, 0, ',', '.') }}</strong></p>
                     </div>
                     <div class="pt-2 border-t border-slate-200/60">
@@ -321,21 +320,21 @@
                             </a>
                         @endif
                     @else
-                        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tahap 5: Dokumen Perikatan</span>
+                        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tahap 5: Dokumen Kontrak</span>
                         <h4 class="text-sm font-bold text-slate-800 mt-1">
                             {{ $paket->kontrakSpk->nomor_spk ?? 'Belum Diterbitkan' }}
                         </h4>
                         @if($paket->kontrakSpk)
                             <p class="text-xs text-slate-500 mt-1">Tipe: {{ strtoupper($paket->kontrakSpk->tipe_dokumen ?? 'SPK') }} &bull; Nilai: Rp {{ number_format($paket->kontrakSpk->nilai_kontrak, 0, ',', '.') }}</p>
                         @else
-                            <p class="text-xs text-slate-400 mt-1">Menunggu penelaahan reviu teknis atau penerbitan SPK.</p>
+                            <p class="text-xs text-slate-400 mt-1">Menunggu reviu teknis atau penerbitan kontrak.</p>
                         @endif
                     @endif
                 </div>
                 <div class="mt-4 pt-3 border-t border-slate-200/60">
                     @if(! $isBelanjaLangsung)
                         <a href="{{ route('kontrak.index') }}" class="text-xs font-bold text-[#0969da] hover:underline">
-                            Buka Modul Dokumen Perikatan &rarr;
+                            Buka Modul Kontrak &rarr;
                         </a>
                     @else
                         <span class="text-xs text-slate-400">Kwitansi sah Belanja Langsung</span>
@@ -343,10 +342,10 @@
                 </div>
             </div>
 
-            {{-- Dokumen BAST --}}
+            {{-- Dokumen Serah Terima --}}
             <div class="p-4 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col justify-between">
                 <div>
-                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tahap 7: BAST Fisik</span>
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tahap 7: Serah Terima Barang</span>
                     @php
                         $bast = $paket->penerimaanBarang->first();
                     @endphp
@@ -369,7 +368,7 @@
             {{-- Dokumen Pembayaran --}}
             <div class="p-4 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col justify-between">
                 <div>
-                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tahap 8: SP2D Cair</span>
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tahap 8: Pencairan Dana</span>
                     @php
                         $bayar = $paket->pembayaran->first();
                     @endphp
@@ -379,7 +378,7 @@
                     @if($bayar)
                         <p class="text-xs text-slate-500 mt-1">Status: {{ strtoupper($bayar->status_pembayaran ?? 'Diproses') }}</p>
                     @else
-                        <p class="text-xs text-slate-400 mt-1">Menunggu BAST terbit untuk pengajuan pembayaran.</p>
+                        <p class="text-xs text-slate-400 mt-1">Menunggu serah terima selesai untuk pengajuan bayar.</p>
                     @endif
                 </div>
                 <div class="mt-4 pt-3 border-t border-slate-200/60">
@@ -399,9 +398,8 @@
                 <h3 class="text-sm font-bold text-[#213153] flex items-center gap-2">
                     <svg class="size-4 text-[#0969da]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                     <span>Berita Acara Telaah &amp; Persetujuan Dokumen Pengadaan</span>
-                    <span class="text-xs font-normal text-slate-400 font-mono">(PP &amp; PPK)</span>
+                    <span class="text-xs font-normal text-slate-400 font-mono">(Pejabat Pengadaan &amp; PPK)</span>
                 </h3>
-                <p class="text-xs text-slate-500 mt-0.5">Keputusan persetujuan dokumen pengadaan dan catatan berita acara rekomendasi penelaahan.</p>
             </div>
             <span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700">
                 {{ $paket->reviuDokumen->count() }} Catatan Reviu

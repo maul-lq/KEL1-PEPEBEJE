@@ -17,10 +17,10 @@
     $ppMonitoringList = $roleData['pp_monitoring_list'] ?? collect();
     $cardIdx = 0;
 
-    $routingSummary = '<=50Jt: ' . ($stats['routing_langsung'] ?? 0) . ' • PP: ' . ($stats['routing_pp'] ?? 0) . ' • PPK: ' . ($stats['routing_ppk'] ?? 0);
+    $routingSummary = '<= 50 Jt: ' . ($stats['routing_langsung'] ?? 0) . ' • Pejabat: ' . ($stats['routing_pp'] ?? 0) . ' • PPK: ' . ($stats['routing_ppk'] ?? 0);
 @endphp
 
-<div class="space-y-6" x-data="{ rightTab: 'paket' }">
+<div class="space-y-6" x-data="ppbjDashboard">
     {{-- 1. 4-COLUMN FIGMA KPI STAT CARDS --}}
     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
         <x-figma-stat-card
@@ -40,17 +40,17 @@
         />
 
         <x-figma-stat-card
-            title="Menunggu SPK"
+            title="Menunggu Kontrak"
             :value="$stats['belum_spk'] ?? 0"
-            subtitle="Paket belum diterbitkan SPK"
+            subtitle="Belum dibuat kontrak"
             variant="bell"
             :href="$paketHref"
         />
 
         <x-figma-stat-card
-            title="BAST Siap Bayar"
+            title="Siap Pengajuan Bayar"
             :value="$stats['bast_siap_bayar_count'] ?? 0"
-            subtitle="Menunggu pengajuan SPP/bayar"
+            subtitle="Barang sudah diterima"
             variant="done"
             :href="$bayarHref"
         />
@@ -80,7 +80,7 @@
                         :class="rightTab === 'pp' ? 'bg-white text-[#14213d] shadow-xs' : 'text-[#657a7c] hover:text-[#14213d]'"
                         class="px-2.5 py-1 rounded-[4px] transition-all cursor-pointer"
                     >
-                        Monitor PP ({{ $stats['pp_total'] ?? 0 }})
+                        Pantau Pejabat ({{ $stats['pp_total'] ?? 0 }})
                     </button>
                 </div>
             </x-slot:rightHeaderExtra>
@@ -89,8 +89,8 @@
         <x-slot:left>
             @if($bastSiapList->isEmpty() && $siapPaketList->isEmpty())
                 <x-figma-empty
-                    title="Tidak ada BAST atau usulan siap registrasi"
-                    subtitle="Seluruh usulan yang disetujui telah didaftarkan menjadi paket pengadaan."
+                    title="Tidak ada paket atau serah terima siap proses"
+                    subtitle=""
                 />
             @else
                 @foreach($bastSiapList as $bast)
@@ -100,10 +100,10 @@
                     <x-figma-action-card
                         :index="$cardIdx++"
                         variant="done"
-                        :title="$bast->paket?->nama_paket ?? ('BAST ' . $bast->nomor_bast)"
+                        :title="$bast->paket?->nama_paket ?? ('Bukti Terima ' . $bast->nomor_bast)"
                         :meta="$bast->nomor_bast . ' • Paket: ' . $bast->nomor_paket"
-                        :submeta="'Nilai Realisasi: Rp ' . $nilaiBast . ' • BAST Sah Siap Pengajuan Bayar'"
-                        badge="BAST Sah"
+                        :submeta="'Nilai Realisasi: Rp ' . $nilaiBast . ' • Barang Diterima, Siap Diajukan Bayar'"
+                        badge="Barang Diterima"
                         badgeClass="bg-emerald-100 text-emerald-800"
                         :href="$canBayar ? route('pembayaran.index', ['nomor_paket' => $bast->nomor_paket]) : null"
                         buttonLabel="Dokumen Bayar"
@@ -120,7 +120,7 @@
                         variant="action"
                         :title="$siap->judul_pengadaan"
                         :meta="$siap->nomor_surat . ' • ' . $unitNama"
-                        :submeta="'Estimasi Pagu: Rp ' . $estimasi . ' • Usulan Siap Dibuat Paket'"
+                        :submeta="'Perkiraan Harga: Rp ' . $estimasi . ' • Siap Dibuat Paket'"
                         badge="Siap Paket"
                         badgeClass="bg-[#fff5df] text-[#99660d]"
                         :href="$canCreatePaket ? route('paket.create', ['nomor_surat' => $siap->nomor_surat]) : $paketHref"
@@ -145,7 +145,7 @@
                             $kode = $pkt->kode_paket ?? $pkt->nomor_paket;
                             $jalur = match ($pkt->jalur_routing) {
                                 'langsung_sd_50jt' => '<= 50 Jt',
-                                'pp_50jt_sd_200jt', 'pp_50_sd_200jt' => 'Jalur PP',
+                                'pp_50jt_sd_200jt', 'pp_50_sd_200jt' => 'Pejabat Pengadaan',
                                 'ppk_diatas_200jt' => 'Jalur PPK',
                                 default => ucwords(str_replace('_', ' ', $pkt->jalur_routing ?? '-')),
                             };
@@ -206,14 +206,14 @@
                             </div>
                         @empty
                             <div class="py-10 text-center text-xs text-slate-400">
-                                Belum ada paket yang sedang berada dalam jalur Pejabat Pengadaan (PP).
+                                Belum ada paket jalur Pejabat Pengadaan.
                             </div>
                         @endforelse
                     </div>
 
                     <div class="mt-3 pt-2 border-t border-slate-100 flex justify-end">
                         <a href="{{ route('monitor-pp.index') }}" class="text-xs font-semibold text-[#3b82f6] hover:underline">
-                            Buka Halaman Monitor PP Lengkap &rarr;
+                            Pantau Pejabat Pengadaan &rarr;
                         </a>
                     </div>
                 </div>

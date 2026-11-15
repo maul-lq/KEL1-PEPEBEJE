@@ -216,8 +216,8 @@ class PermohonanPengadaanController extends Controller
                     'path' => $fileKakPath,
                     'url' => asset('storage/'.$fileKakPath),
                     'type' => 'PDF',
-                    'size' => 'Kerangka Acuan Kerja',
-                    'label' => 'Kerangka Acuan Kerja (KAK)',
+                    'size' => 'Kerangka Acuan',
+                    'label' => 'Kerangka Acuan',
                 ];
             }
             if ($fileSpekPath) {
@@ -226,8 +226,8 @@ class PermohonanPengadaanController extends Controller
                     'path' => $fileSpekPath,
                     'url' => asset('storage/'.$fileSpekPath),
                     'type' => 'PDF',
-                    'size' => 'Spesifikasi & RAB',
-                    'label' => 'Spesifikasi Teknis & RAB',
+                    'size' => 'Spesifikasi & Rincian Biaya',
+                    'label' => 'Spesifikasi & Rincian Biaya',
                 ];
             }
         } else {
@@ -302,7 +302,7 @@ class PermohonanPengadaanController extends Controller
 
         return redirect()->route('permohonan.index')->with(
             'success',
-            "Usulan permohonan nomor {$permohonan->nomor_surat} berhasil diajukan ke Bidang II untuk pemeriksaan berkas dan penerbitan Memo Cek MAK."
+            "Usulan permohonan nomor {$permohonan->nomor_surat} berhasil diajukan ke Bidang II untuk pemeriksaan berkas dan Memo Cek Anggaran."
         );
     }
 
@@ -375,7 +375,7 @@ class PermohonanPengadaanController extends Controller
         if ($mak && $alokasiLama) {
             if ($selisih > 0) {
                 if ((float) $mak->sisa_pagu_mak < $selisih) {
-                    return back()->with('error', "Penyesuaian anggaran melebihi sisa pagu MAK {$mak->kode_mak} yang tersedia (tersisa Rp ".number_format($mak->sisa_pagu_mak, 0, ',', '.').').')->withInput();
+                    return back()->with('error', "Penyesuaian anggaran melebihi sisa pagu pos anggaran {$mak->kode_mak} yang tersedia (tersisa Rp ".number_format($mak->sisa_pagu_mak, 0, ',', '.').').')->withInput();
                 }
                 $mak->sisa_pagu_mak = max(0, (float) $mak->sisa_pagu_mak - $selisih);
                 $mak->save();
@@ -550,7 +550,7 @@ class PermohonanPengadaanController extends Controller
 
             return redirect()->route('permohonan.index')->with(
                 'success',
-                "Usulan permohonan nomor {$activePermohonan->nomor_surat} berhasil direvisi (Revisi ke-{$activePermohonan->revisi_ke}) dan diajukan kembali ke Bagian Perencanaan untuk konfirmasi MAK."
+                "Usulan permohonan nomor {$activePermohonan->nomor_surat} berhasil diperbarui (Revisi ke-{$activePermohonan->revisi_ke}) dan diajukan kembali ke Bagian Perencanaan."
             );
         }
 
@@ -590,7 +590,7 @@ class PermohonanPengadaanController extends Controller
 
         return redirect()->route('permohonan.index')->with(
             'success',
-            "Usulan permohonan nomor {$activePermohonan->nomor_surat} berhasil direvisi (Revisi ke-{$activePermohonan->revisi_ke}) dan diajukan kembali ke antrean Bidang II."
+            "Usulan permohonan nomor {$activePermohonan->nomor_surat} berhasil direvisi (ke-{$activePermohonan->revisi_ke}) dan diajukan kembali ke Bidang II."
         );
     }
 

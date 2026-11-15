@@ -246,7 +246,7 @@ class PaketPengadaanController extends Controller
             if ($selisih > 0) {
                 if ((float) $mak->sisa_pagu_mak < $selisih) {
                     return back()->withErrors([
-                        'nilai_hps' => 'Penetapan HPS (Rp '.number_format($hps, 0, ',', '.').') melebihi pagu awal permohonan (Rp '.number_format($paguAwal, 0, ',', '.').') dan sisa pagu MAK '.$mak->kode_mak.' tidak mencukupi (tersisa Rp '.number_format($mak->sisa_pagu_mak, 0, ',', '.').').',
+                        'nilai_hps' => 'Perkiraan Harga (Rp '.number_format($hps, 0, ',', '.').') melebihi anggaran awal permohonan (Rp '.number_format($paguAwal, 0, ',', '.').') dan sisa pos anggaran '.$mak->kode_mak.' tidak mencukupi (tersisa Rp '.number_format($mak->sisa_pagu_mak, 0, ',', '.').').',
                     ])->withInput();
                 }
                 $mak->sisa_pagu_mak = max(0, (float) $mak->sisa_pagu_mak - $selisih);
@@ -272,7 +272,7 @@ class PaketPengadaanController extends Controller
         $inheritedPpk = $validated['id_user_ppk'] ?? $permohonan->id_user_ppk_awal;
 
         if ($jalur === PaketPengadaan::ROUTING_PPK && empty($inheritedPpk)) {
-            return back()->withErrors(['id_user_ppk' => 'Nilai HPS > Rp 200 Juta wajib menugaskan salah satu dari 4 akun PPK aktif.'])->withInput();
+            return back()->withErrors(['id_user_ppk' => 'Perkiraan Harga di atas Rp 200 Juta wajib menugaskan salah satu akun PPK aktif.'])->withInput();
         }
 
         $nomorMemoPpbj = ($jalur === PaketPengadaan::ROUTING_PPK)
@@ -353,7 +353,7 @@ class PaketPengadaanController extends Controller
 
         return redirect()->route('paket.index')->with(
             'success',
-            "Paket pengadaan {$paket->kode_paket} berhasil diterbitkan dengan metode {$metodePengadaan} (jalur: ".strtoupper(str_replace('_', ' ', $jalur)).').'
+            "Paket pengadaan {$paket->kode_paket} berhasil diterbitkan dengan metode {$metodePengadaan}."
         );
     }
 
@@ -384,7 +384,7 @@ class PaketPengadaanController extends Controller
 
         if ($paket->jalur_routing !== PaketPengadaan::ROUTING_LANGSUNG) {
             return back()->withErrors([
-                'nomor_paket' => 'Eksekusi Belanja Langsung (Kwitansi tanpa Kontrak/SPK) hanya berlaku untuk paket <= Rp 50.000.000.',
+                'nomor_paket' => 'Belanja Langsung hanya berlaku untuk paket hingga Rp 50.000.000.',
             ])->withInput();
         }
 
@@ -395,7 +395,7 @@ class PaketPengadaanController extends Controller
             PaketPengadaan::STATUS_BELANJA_LANGSUNG_SELESAI,
         ], true)) {
             return back()->withErrors([
-                'nomor_paket' => 'Dokumen pengadaan paket ini belum disetujui oleh PPK (BPMN N30-N35). PPBJ baru dapat mengunggah kwitansi belanja setelah persetujuan PPK.',
+                'nomor_paket' => 'Dokumen paket ini belum disetujui PPK. Unit Pengadaan baru dapat mengunggah kwitansi setelah persetujuan PPK.',
             ])->withInput();
         }
 
@@ -452,7 +452,7 @@ class PaketPengadaanController extends Controller
 
         return redirect()->route('paket.index')->with(
             'success',
-            "Belanja Langsung paket {$paket->nomor_paket} berhasil dieksekusi dengan Kwitansi {$paket->nomor_kwitansi_belanja} (tanpa Kontrak/SPK). Siap pemeriksaan fisik & BAST Perlengkapan."
+            "Belanja Langsung paket {$paket->nomor_paket} selesai diproses dengan Kwitansi {$paket->nomor_kwitansi_belanja}. Siap diperiksa dan dibuatkan bukti serah terima oleh Unit Perlengkapan."
         );
     }
 
@@ -573,7 +573,7 @@ class PaketPengadaanController extends Controller
             if ($selisih > 0) {
                 if ((float) $mak->sisa_pagu_mak < $selisih) {
                     return back()->withErrors([
-                        'nilai_hps' => 'Penyesuaian HPS melebihi sisa pagu MAK '.$mak->kode_mak.' yang tersedia (tersisa Rp '.number_format($mak->sisa_pagu_mak, 0, ',', '.').').',
+                        'nilai_hps' => 'Penyesuaian Perkiraan Harga melebihi sisa pos anggaran '.$mak->kode_mak.' yang tersedia (tersisa Rp '.number_format($mak->sisa_pagu_mak, 0, ',', '.').').',
                     ])->withInput();
                 }
                 $mak->sisa_pagu_mak = max(0, (float) $mak->sisa_pagu_mak - $selisih);
@@ -644,14 +644,14 @@ class PaketPengadaanController extends Controller
             $paket->nomor_paket,
             'perlu_perbaikan',
             $statusBaru,
-            'PPBJ menyusun ulang dokumen pengadaan (BPMN N18/N22/N25) dengan HPS Rp '.number_format($hps).' menuju jalur '.strtoupper(str_replace('_', ' ', $jalur)).': '.($validated['catatan_perbaikan_ppbj'] ?? 'Dokumen telah diperbaiki')
+            'Unit Pengadaan memperbaiki dokumen paket dengan Perkiraan Harga Rp '.number_format($hps).': '.($validated['catatan_perbaikan_ppbj'] ?? 'Dokumen telah diperbaiki')
         );
 
         $this->notificationService->notifyPendaftaranPaket($paket);
 
         return redirect()->route('paket.index')->with(
             'success',
-            "Dokumen paket {$paket->nomor_paket} berhasil diperbaiki dan diteruskan kembali ke jalur ".strtoupper(str_replace('_', ' ', $jalur)).' (BPMN N28).'
+            "Dokumen paket {$paket->nomor_paket} berhasil diperbaiki dan diteruskan kembali."
         );
     }
 
@@ -684,7 +684,7 @@ class PaketPengadaanController extends Controller
 
         $user = Auth::user();
         if ($user && $user->cannot('view', $paket)) {
-            abort(403, 'Akses Ditolak: Berkas paket pengadaan ini ditugaskan kepada PPK lain (Isolasi Berkas PPK).');
+            abort(403, 'Akses Ditolak: Paket pengadaan ini ditugaskan kepada PPK lain.');
         }
 
         $ppkUsers = User::where('role', 'ppk')->where('status_aktif', true)->get();

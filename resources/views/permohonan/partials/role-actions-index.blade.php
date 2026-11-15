@@ -19,23 +19,23 @@
     // [tone, judul, deskripsi, label tombol, nama route (null = buka fullscreen)]
     $banner = null;
     if ($canBidang2) {
-        $banner = ['blue', 'Verifikasi Staf Bidang 2', 'Telaah berkas administrasi dan teruskan ke pimpinan.', 'Proses Telaah', null];
+        $banner = ['blue', 'Pemeriksaan Staf Bidang II', 'Telaah berkas administrasi dan teruskan ke pimpinan.', 'Proses Telaah', null];
     } elseif ($canWadir2) {
-        $banner = ['blue', 'Aksi Disposisi Wadir II', 'Berikan keputusan mutlak persetujuan tingkat pimpinan.', 'Proses Persetujuan', null];
+        $banner = ['blue', 'Persetujuan Wadir II', 'Tetapkan keputusan persetujuan pimpinan.', 'Proses Persetujuan', null];
     } elseif ($canPerencanaan) {
-        $banner = ['blue', 'Alokasi MAK Perencanaan', 'Tetapkan Mata Anggaran (MAK) dan alokasi pagu DIPA.', 'Alokasikan MAK', null];
+        $banner = ['blue', 'Cek Anggaran Perencanaan', 'Pilih pos anggaran dan alokasi pagu yang tersedia.', 'Pilih Pos Anggaran', null];
     } elseif ($canPpk) {
-        $banner = ['blue', 'Persetujuan Awal PPK', 'Tinjau usulan pengadaan atas penetapan MAK Perencanaan.', 'Proses Persetujuan', null];
+        $banner = ['blue', 'Persetujuan Awal PPK', 'Tinjau usulan pengadaan dan pos anggaran.', 'Proses Persetujuan', null];
     } elseif ($canPpbj) {
-        $banner = ['blue', 'Paket Pengadaan PPBJ', 'Bentuk paket pengadaan, tetapkan routing HPS, dan terbitkan SPK.', 'Buka Paket Pengadaan', 'paket.index'];
+        $banner = ['blue', 'Paket Pengadaan', 'Buat paket pengadaan, tentukan jalur, dan unggah kontrak kerja.', 'Buka Paket Pengadaan', 'paket.index'];
     } elseif ($canMonitorPp) {
-        $banner = ['purple', 'Monitor Aktivitas PP', 'Pantau seluruh aktivitas verifikasi teknis dan negosiasi PP.', 'Buka Monitor PP', 'kontrak.index'];
+        $banner = ['purple', 'Pantau Pejabat Pengadaan', 'Pantau pemeriksaan dokumen dan negosiasi harga.', 'Pantau Pejabat Pengadaan', 'kontrak.index'];
     } elseif ($canPp) {
-        $banner = ['amber', 'Reviu & Negosiasi PP', 'Reviu spesifikasi teknis dan lakukan negosiasi harga rekanan.', 'Buka Reviu PP', 'kontrak.index'];
+        $banner = ['amber', 'Reviu Pejabat Pengadaan', 'Periksa spesifikasi teknis dan negosiasi harga rekanan.', 'Buka Pemeriksaan', 'kontrak.index'];
     } elseif ($canPerlengkapan) {
-        $banner = ['blue', 'Penerimaan Barang & BAST', 'Periksa fisik barang masuk dan terbitkan BAST bertoken resmi.', 'Buka Penerimaan', 'penerimaan.index'];
+        $banner = ['blue', 'Penerimaan Barang', 'Periksa barang masuk dan buat bukti serah terima.', 'Buka Penerimaan', 'penerimaan.index'];
     } elseif ($canKeuangan) {
-        $banner = ['emerald', 'Tagihan & Pembayaran SP2D', 'Verifikasi berkas tagihan dan unggah bukti pencairan SP2D.', 'Buka Pembayaran', 'pembayaran.index'];
+        $banner = ['emerald', 'Tagihan & Pembayaran', 'Verifikasi berkas tagihan dan catat pencairan dana.', 'Buka Pembayaran', 'pembayaran.index'];
     }
 
     $isLink = $banner && $banner[4] !== null;

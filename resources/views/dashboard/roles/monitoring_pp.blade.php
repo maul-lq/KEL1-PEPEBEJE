@@ -14,15 +14,15 @@
     {{-- 1. 4-COLUMN FIGMA KPI STAT CARDS --}}
     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
         <x-figma-stat-card
-            title="Total Paket di PP"
+            title="Total Pejabat Pengadaan"
             :value="$stats['pp_total'] ?? 0"
-            subtitle="Jalur pengadaan 50jt - 200jt"
+            subtitle="Jalur pengadaan 50–200 Juta"
             variant="active"
             :href="$monitorRoute"
         />
 
         <x-figma-stat-card
-            title="Sedang Reviu PP"
+            title="Sedang Reviu"
             :value="$stats['pp_dalam_reviu'] ?? 0"
             subtitle="Telaah spesifikasi & negosiasi"
             variant="action"
@@ -30,17 +30,17 @@
         />
 
         <x-figma-stat-card
-            title="Menunggu ACC PPK"
+            title="Menunggu Persetujuan PPK"
             :value="$stats['pp_menunggu_ppk'] ?? 0"
-            subtitle="Proses persetujuan dokumen PPK"
+            subtitle="Proses persetujuan dokumen"
             variant="bell"
             :href="$monitorRoute"
         />
 
         <x-figma-stat-card
-            title="Siap Belanja / SPK PP"
+            title="Siap Belanja / Kontrak"
             :value="$stats['pp_siap_belanja'] ?? 0"
-            subtitle="Eksekusi belanja atau terbit SPK"
+            subtitle="Eksekusi belanja atau kontrak"
             variant="done"
             :href="$monitorRoute"
         />
@@ -50,7 +50,7 @@
     <x-figma-workspace
         leftTitle="Perlu Tindakan Anda"
         :leftHref="$monitorRoute"
-        rightTitle="Aktivitas Terbaru PP"
+        rightTitle="Aktivitas Pejabat Pengadaan"
         :rightHref="$logHref"
     >
         <x-slot:left>
@@ -65,7 +65,7 @@
                     :index="$loop->index"
                     variant="action"
                     :title="$ppPkt->nama_paket"
-                    :meta="$kode . ' • HPS: Rp ' . $hps"
+                    :meta="$kode . ' • Perkiraan Harga: Rp ' . $hps"
                     :submeta="'Penyedia: ' . $vendor"
                     :badge="$statusLabel"
                     badgeClass="bg-[#fff5df] text-[#99660d]"
@@ -74,8 +74,8 @@
                 />
             @empty
                 <x-figma-empty
-                    title="Belum ada paket dalam pemantauan PP"
-                    subtitle="Saat ini belum ada paket pengadaan jalur PP yang aktif berjalan."
+                    title="Belum ada paket jalur Pejabat Pengadaan"
+                    subtitle=""
                 />
             @endforelse
         </x-slot:left>

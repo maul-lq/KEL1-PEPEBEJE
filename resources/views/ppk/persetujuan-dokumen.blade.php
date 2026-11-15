@@ -9,14 +9,11 @@
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
             <div class="flex items-center gap-2.5">
-                <span class="rounded-lg bg-teal-100 text-[#087F79] px-2.5 py-1 text-xs font-bold font-mono">Tahap 4 &bull; Telaah Komitmen</span>
+                <span class="rounded-lg bg-teal-100 text-[#087F79] px-2.5 py-1 text-xs font-bold font-mono">Tahap 4 &bull; Persetujuan PPK</span>
                 <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight text-[#213153]">
                     Persetujuan Dokumen Pengadaan (PPK)
                 </h1>
             </div>
-            <p class="text-xs md:text-sm text-slate-500 mt-1">
-                Pejabat Pembuat Komitmen (PPK) memeriksa dokumen pengadaan hasil susunan PPBJ dan verifikasi Pejabat Pengadaan (PP). Persetujuan PPK (ACC) menjadi syarat mutlak sebelum PPBJ dapat melaksanakan belanja langsung atau menerbitkan dokumen perikatan (SPK/Kontrak/Surat Pesanan).
-            </p>
         </div>
 
         <div class="flex items-center gap-2">
@@ -32,17 +29,17 @@
 
     <!-- 3. KPI STAT CARDS -->
     <div class="grid gap-4 sm:grid-cols-3">
-        <x-stat-card title="Antrean Review Dokumen" 
+        <x-stat-card title="Antrean Reviu Dokumen" 
                      :value="$paketAntrean->count()" 
                      subtitle="Menunggu persetujuan Anda" 
                      color="amber" />
 
         <x-stat-card title="Dokumen Telah Disetujui" 
                      :value="$riwayatDisetujui->count()" 
-                     subtitle="Diteruskan ke PPBJ" 
+                     subtitle="Diteruskan ke Unit Pengadaan" 
                      color="emerald" />
 
-        <x-stat-card title="Dikembalikan ke PPBJ" 
+        <x-stat-card title="Dikembalikan ke Unit Pengadaan" 
                      :value="$riwayatDitolak->count()" 
                      subtitle="Perlu perbaikan" 
                      color="rose" />
@@ -53,7 +50,7 @@
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
                 <span class="size-2 rounded-full bg-amber-500 animate-pulse"></span>
-                <h2 class="text-lg font-bold text-[#213153]">Antrean Dokumen Pengadaan Siap Review</h2>
+                <h2 class="text-lg font-bold text-[#213153]">Antrean Dokumen Pengadaan</h2>
             </div>
             <span class="text-xs font-bold text-slate-400 font-mono">{{ $paketAntrean->count() }} Paket Siap Keputusan</span>
         </div>
@@ -65,7 +62,7 @@
                 </div>
                 <h3 class="text-base font-bold text-[#213153]">Tidak Ada Antrean Dokumen Pengadaan</h3>
                 <p class="mt-1 text-xs text-slate-400 max-w-md mx-auto">
-                    Seluruh dokumen pengadaan yang dialokasikan ke akun PPK Anda telah diproses. Paket baru akan muncul setelah PPBJ menyusun paket atau PP menyelesaikan verifikasi teknis.
+                    Semua dokumen pengadaan sudah diproses.
                 </p>
             </div>
         @else
@@ -95,7 +92,7 @@
                             </div>
 
                             <div class="text-right">
-                                <span class="text-[11px] text-slate-400 block">Pagu HPS Pengadaan</span>
+                                <span class="text-[11px] text-slate-400 block">Perkiraan Harga</span>
                                 <div class="text-lg font-extrabold text-[#087F79] font-mono">
                                     Rp {{ number_format($pkt->nilai_hps, 0, ',', '.') }}
                                 </div>
@@ -115,7 +112,7 @@
                                         <div class="flex items-center justify-between text-xs font-bold text-rose-900">
                                             <span class="flex items-center gap-1.5">
                                                 <svg class="size-4 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                                                Dokumen Telah Disusun Ulang oleh PPBJ (Pasca Penolakan Putaran ke-{{ $lastPerbaikan->putaran_ke }})
+                                                Dokumen Diperbaiki Unit Pengadaan (Putaran ke-{{ $lastPerbaikan->putaran_ke }})
                                             </span>
                                             <span class="text-[10px] bg-rose-100 text-rose-800 px-2.5 py-0.5 rounded-full font-mono">
                                                 Ditolak: {{ $lastPerbaikan->tanggal_reviu ? date('d/m/Y H:i', strtotime($lastPerbaikan->tanggal_reviu)) : '-' }}
@@ -133,7 +130,7 @@
                                 <div>
                                     <h3 class="text-base font-bold text-[#213153] leading-snug">{{ $pkt->nama_paket }}</h3>
                                     <p class="text-xs text-slate-600 mt-1 leading-relaxed bg-slate-50/80 p-3 rounded-xl border border-slate-100">
-                                        {{ $pkt->permohonan->tujuan_pengadaan_ringkas ?? 'Pengadaan barang/jasa institusi sesuai Kerangka Acuan Kerja dan persetujuan DIPA kampus.' }}
+                                        {{ $pkt->permohonan->tujuan_pengadaan_ringkas ?? 'Pengadaan barang/jasa institusi sesuai Kerangka Acuan dan persetujuan anggaran kampus.' }}
                                     </p>
                                 </div>
 
@@ -144,15 +141,15 @@
                                     </div>
                                     <div>
                                         <span class="text-slate-400 block text-[11px]">Mekanisme / Platform:</span>
-                                        <span class="font-bold text-slate-800">{{ $pkt->mekanisme_pengadaan ?? $pkt->metode_pengadaan }} ({{ $pkt->platform_pengadaan ?? 'Inaproc/SPSE' }})</span>
+                                        <span class="font-bold text-slate-800">{{ $pkt->mekanisme_pengadaan ?? $pkt->metode_pengadaan }} ({{ $pkt->platform_pengadaan ?? 'Sistem Pengadaan' }})</span>
                                     </div>
                                     <div>
                                         <span class="text-slate-400 block text-[11px]">Pejabat Pembuat Komitmen:</span>
                                         <span class="font-bold text-[#087F79]">{{ $pkt->ppkUser->nama ?? Auth::user()->nama }}</span>
                                     </div>
                                     <div>
-                                        <span class="text-slate-400 block text-[11px]">Disusun Oleh (PPBJ):</span>
-                                        <span class="font-bold text-slate-800">{{ $pkt->ppbjUser->nama ?? 'Unit PPBJ PNJ' }}</span>
+                                        <span class="text-slate-400 block text-[11px]">Disusun Oleh:</span>
+                                        <span class="font-bold text-slate-800">{{ $pkt->ppbjUser->nama ?? 'Unit Pengadaan PNJ' }}</span>
                                     </div>
                                 </div>
 
@@ -162,10 +159,10 @@
                                     <div class="flex flex-wrap items-center gap-2.5">
                                         @if($pkt->file_dokumen_pengadaan)
                                             <button type="button"
-                                                @click="$dispatch('open-preview-doc', { title: 'Dokumen Pengadaan (PPBJ)', url: '{{ asset('storage/' . $pkt->file_dokumen_pengadaan) }}', size: '-' })"
+                                                @click="$dispatch('open-preview-doc', { title: 'Dokumen Pengadaan', url: '{{ asset('storage/' . $pkt->file_dokumen_pengadaan) }}', size: '-' })"
                                                 class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 border border-blue-200 text-[#0969da] text-xs font-bold hover:bg-blue-100 transition shadow-xs">
                                                 <svg class="size-4 text-[#0969da]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                                                Dokumen Pengadaan (PPBJ)
+                                                Dokumen Unit Pengadaan
                                             </button>
                                         @endif
 
@@ -209,45 +206,44 @@
                                     </div>
                                 </div>
 
-                                <!-- Box Telaah Khusus Jalur PP (50-200 Juta) -->
+                                <!-- Box Telaah Khusus Jalur Pejabat Pengadaan (50-200 Juta) -->
                                 @if(in_array($pkt->jalur_routing, ['pp_50jt_sd_200jt', 'pp_50_sd_200jt']))
                                     <div class="rounded-xl border border-blue-200 bg-blue-50/60 p-4 space-y-2">
                                         <div class="flex items-center justify-between">
                                             <span class="text-xs font-bold text-blue-900 flex items-center gap-1.5">
                                                 <svg class="size-4 text-blue-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                                Hasil Verifikasi Dokumen oleh Pejabat Pengadaan (PP)
+                                                Hasil Verifikasi Pejabat Pengadaan
                                             </span>
                                             <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">Verifikasi Berhasil</span>
                                         </div>
                                         <div class="text-xs text-slate-700 space-y-1">
-                                            <div>Pejabat Pengadaan (PP): <strong>{{ $pkt->ppUser->nama ?? ($lastPpReviu->user->nama ?? 'PP Bertugas') }}</strong></div>
+                                            <div>Pejabat Pengadaan: <strong>{{ $pkt->ppUser->nama ?? ($lastPpReviu->user->nama ?? 'Pejabat Pengadaan') }}</strong></div>
                                             <p class="italic bg-white p-2.5 rounded-lg border border-blue-100 text-slate-700 mt-1">
-                                                "{{ $lastPpReviu?->catatan_perbaikan ?: ($pkt->catatan_verifikasi_pp ?: 'Spesifikasi teknis dan kewajaran HPS telah diverifikasi oleh PP. Berkas diteruskan ke PPK.') }}"
+                                                "{{ $lastPpReviu?->catatan_perbaikan ?: ($pkt->catatan_verifikasi_pp ?: 'Spesifikasi teknis dan perkiraan harga telah diperiksa. Berkas diteruskan ke PPK.') }}"
                                             </p>
                                         </div>
                                     </div>
                                 @elseif($pkt->jalur_routing === 'langsung_sd_50jt')
                                     <div class="rounded-xl border border-teal-200 bg-teal-50/50 p-3 text-xs text-teal-900 flex items-center gap-2">
                                         <svg class="size-4 text-teal-700 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                        <span>Paket Belanja Langsung (&le; Rp 50 Juta): Setelah PPK menyetujui dokumen, PPBJ dapat langsung mengeksekusi pembelian dan mengunggah Kwitansi.</span>
+                                        <span>Belanja Langsung (&le; Rp 50 Juta): Setelah disetujui, Unit Pengadaan langsung membeli dengan bukti kwitansi.</span>
                                     </div>
                                 @else
                                     <div class="rounded-xl border border-purple-200 bg-purple-50/50 p-3 text-xs text-purple-900 flex items-center gap-2">
                                         <svg class="size-4 text-purple-700 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                        <span>Paket Tender / Seleksi (&gt; Rp 200 Juta): Pengadaan strategis langsung berada di bawah pengawasan dan persetujuan PPK.</span>
+                                        <span>Paket &gt; Rp 200 Juta (PPK Mandiri): Pengadaan ditangani langsung oleh PPK.</span>
                                     </div>
                                 @endif
                             </div>
 
                             <!-- Kolom Kanan: Form Keputusan Persetujuan PPK -->
                             <div class="rounded-xl bg-slate-50 p-5 border border-slate-200 space-y-4"
-                                 x-data="{ keputusan: 'disetujui' }">
+                                 x-data="ppkPersetujuanDokumen">
                                 <div class="border-b border-slate-200 pb-3">
                                     <h4 class="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
                                         <svg class="size-4 text-[#087F79]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
                                         Keputusan Persetujuan PPK
                                     </h4>
-                                    <p class="text-[11px] text-slate-500 mt-0.5">Tentukan persetujuan dokumen pengadaan</p>
                                 </div>
 
                                 <form action="{{ route('ppk.persetujuan-dokumen.keputusan') }}" method="POST" class="space-y-4">
@@ -266,7 +262,7 @@
                                             <div>
                                                 <span class="text-xs font-extrabold text-[#087F79] block">SETUJUI DOKUMEN</span>
                                                 <span class="text-[11px] text-slate-500 leading-tight block mt-0.5">
-                                                    Dokumen pengadaan disetujui; PPBJ dapat melaksanakan belanja &amp; menerbitkan perikatan.
+                                                    Dokumen disetujui; lanjut ke tahap kontrak atau belanja.
                                                 </span>
                                             </div>
                                         </label>
@@ -279,9 +275,9 @@
                                                    x-model="keputusan"
                                                    class="size-4 text-rose-600 focus:ring-rose-500 mt-0.5">
                                             <div>
-                                                <span class="text-xs font-extrabold text-rose-800 block">KEMBALIKAN KE PPBJ</span>
+                                                <span class="text-xs font-extrabold text-rose-800 block">KEMBALIKAN</span>
                                                 <span class="text-[11px] text-slate-500 leading-tight block mt-0.5">
-                                                    Dokumen belum layak / perlu perbaikan; PPBJ wajib menyusun ulang dokumen.
+                                                    Dokumen perlu diperbaiki oleh Unit Pengadaan.
                                                 </span>
                                             </div>
                                         </label>
@@ -306,7 +302,7 @@
                                         <button type="submit" 
                                                 class="w-full inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold text-white shadow-md transition-all cursor-pointer"
                                                 :class="keputusan === 'disetujui' ? 'bg-[#087F79] hover:bg-[#06635e] shadow-[#087F79]/20' : 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/20'">
-                                            <span x-text="keputusan === 'disetujui' ? 'Simpan & Setujui Dokumen (ACC)' : 'Kembalikan Berkas ke PPBJ'"></span>
+                                            <span x-text="keputusan === 'disetujui' ? 'Simpan & Setujui Dokumen' : 'Kembalikan ke Unit Pengadaan'"></span>
                                             <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
                                         </button>
                                     </div>
@@ -340,7 +336,7 @@
                         <tr class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-100">
                             <th class="px-3 py-2.5">Nomor Paket</th>
                             <th class="px-3 py-2.5">Nama Paket</th>
-                            <th class="px-3 py-2.5">HPS</th>
+                            <th class="px-3 py-2.5">Perkiraan Harga</th>
                             <th class="px-3 py-2.5 text-center">Status</th>
                         </tr>
                     </thead>
@@ -372,7 +368,7 @@
             <div class="flex items-center justify-between pb-3 border-b border-slate-100">
                 <div class="flex items-center gap-2">
                     <span class="size-2 rounded-full bg-rose-500"></span>
-                    <h3 class="text-sm font-bold text-[#213153]">Riwayat Dokumen Dikembalikan ke PPBJ</h3>
+                    <h3 class="text-sm font-bold text-[#213153]">Riwayat Dokumen Dikembalikan ke Unit Pengadaan</h3>
                 </div>
                 <span class="text-xs font-mono font-bold text-rose-700">{{ $riwayatDitolak->count() }} Paket</span>
             </div>

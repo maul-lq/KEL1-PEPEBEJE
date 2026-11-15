@@ -74,7 +74,7 @@ class VerifikasiParalelController extends Controller
 
         $permohonan = PermohonanPengadaan::findOrFail($validated['nomor_surat']);
         $nomorMemo = $validated['nomor_memo_cek_mak'] ?? ('MEMO-B2/CEK-MAK/'.date('Ymd').'/'.rand(100, 999));
-        $catatan = $validated['catatan_memo_cek_mak'] ?? $validated['catatan_staff'] ?? 'Berkas KAK dan spesifikasi teknis lengkap, mohon cek ketersediaan MAK DIPA';
+        $catatan = $validated['catatan_memo_cek_mak'] ?? $validated['catatan_staff'] ?? 'Berkas Kerangka Acuan dan spesifikasi teknis lengkap, mohon cek ketersediaan pos anggaran.';
 
         $fileMemoPath = null;
         if ($request->hasFile('file_memo_cek_mak')) {
@@ -128,7 +128,7 @@ class VerifikasiParalelController extends Controller
 
         return redirect()->route('verifikasi.bidang-2')->with(
             'success',
-            "Memo Cek MAK ({$nomorMemo}) untuk surat {$permohonan->nomor_surat} berhasil dikirimkan ke Bagian Perencanaan."
+            "Memo Cek Anggaran ({$nomorMemo}) untuk surat {$permohonan->nomor_surat} berhasil dikirim ke Bagian Perencanaan."
         );
     }
 
@@ -281,7 +281,7 @@ class VerifikasiParalelController extends Controller
 
             return redirect()->back()->with(
                 'success',
-                'Persetujuan Wadir 2 berhasil dicatat. Wadir 2 dan PPK telah menyetujui lengkap, usulan diteruskan ke PPBJ.'
+                'Persetujuan Wadir 2 berhasil dicatat. Wadir 2 dan PPK telah menyetujui, usulan diteruskan ke Unit Pengadaan.'
             );
         }
 
@@ -295,7 +295,7 @@ class VerifikasiParalelController extends Controller
 
         return redirect()->back()->with(
             'success',
-            'Persetujuan kegiatan (ACC) Wadir 2 telah dicatat. Menunggu persetujuan PPK terpilih / Perencanaan sebelum lanjut ke PPBJ.'
+            'Persetujuan Wadir 2 berhasil dicatat. Menunggu persetujuan PPK terpilih dan Perencanaan.'
         );
     }
 
@@ -415,7 +415,7 @@ class VerifikasiParalelController extends Controller
 
             return redirect()->back()->with(
                 'success',
-                "Persetujuan PPK dicatat. Wadir 2 dan PPK telah menyetujui lengkap, berkas {$permohonan->nomor_surat} diteruskan ke PPBJ."
+                "Persetujuan PPK dicatat. Wadir 2 dan PPK telah menyetujui, berkas {$permohonan->nomor_surat} diteruskan ke Unit Pengadaan."
             );
         }
 
@@ -430,14 +430,14 @@ class VerifikasiParalelController extends Controller
             $permohonan->nomor_surat,
             PermohonanPengadaan::STATUS_MENUNGGU_ACC_WADIR_PPK,
             PermohonanPengadaan::STATUS_MENUNGGU_ACC_WADIR_PPK,
-            "PPK ({$user->nama}) menyetujui usulan awal; menunggu ACC kegiatan Wadir 2."
+            "PPK ({$user->nama}) menyetujui usulan awal; menunggu persetujuan Wadir 2."
         );
 
         $this->notificationService->notifyKeputusanPpkAwal($permohonan, 'disetujui', $validated['catatan_alasan'] ?? null);
 
         return redirect()->back()->with(
             'success',
-            "Persetujuan awal PPK untuk surat {$permohonan->nomor_surat} berhasil dicatat. Menunggu ACC kegiatan oleh Wadir II."
+            "Persetujuan PPK untuk surat {$permohonan->nomor_surat} berhasil dicatat. Menunggu persetujuan Wadir II."
         );
     }
 
@@ -516,7 +516,7 @@ class VerifikasiParalelController extends Controller
         );
 
         return redirect()->route('verifikasi.perencanaan')
-            ->with('success', "Rekening MAK {$mak->kode_mak} ({$mak->uraian_mak}) berhasil ditambahkan ke DIPA kampus.");
+            ->with('success', "Pos Anggaran {$mak->kode_mak} ({$mak->uraian_mak}) berhasil ditambahkan ke anggaran kampus.");
     }
 
     /**
@@ -537,7 +537,7 @@ class VerifikasiParalelController extends Controller
         );
 
         return redirect()->route('verifikasi.perencanaan')
-            ->with('success', "Rekening MAK {$anggaran_mak->kode_mak} berhasil dikunci oleh Bagian Perencanaan.");
+            ->with('success', "Pos Anggaran {$anggaran_mak->kode_mak} berhasil dikunci oleh Bagian Perencanaan.");
     }
 
     /**
@@ -558,7 +558,7 @@ class VerifikasiParalelController extends Controller
         );
 
         return redirect()->route('verifikasi.perencanaan')
-            ->with('success', "Kunci rekening MAK {$anggaran_mak->kode_mak} berhasil dibuka oleh Bagian Perencanaan.");
+            ->with('success', "Kunci Pos Anggaran {$anggaran_mak->kode_mak} berhasil dibuka oleh Bagian Perencanaan.");
     }
 
     /**
@@ -588,7 +588,7 @@ class VerifikasiParalelController extends Controller
             );
             $verifPerencanaan->id_user = $user->id_user;
             $verifPerencanaan->status_keputusan = 'pending_anggaran';
-            $verifPerencanaan->catatan_alasan = $validated['catatan_anggaran'] ?? 'Pagu anggaran belum tersedia di DIPA kampus (Hold).';
+            $verifPerencanaan->catatan_alasan = $validated['catatan_anggaran'] ?? 'Anggaran belum tersedia di kampus (Ditahan).';
             $verifPerencanaan->tanggal_keputusan = now();
             $verifPerencanaan->save();
 
@@ -612,7 +612,7 @@ class VerifikasiParalelController extends Controller
 
             return redirect()->route('verifikasi.perencanaan')->with(
                 'error',
-                "Usulan {$permohonan->nomor_surat} ditandai pending anggaran (Hold) oleh Bagian Perencanaan."
+                "Usulan {$permohonan->nomor_surat} ditahan sementara karena anggaran belum siap."
             );
         }
 
@@ -654,7 +654,7 @@ class VerifikasiParalelController extends Controller
         // Validasi ketersediaan saldo sisa pagu MAK sebelum alokasi
         if ($netDeduction > (float) $mak->sisa_pagu_mak) {
             return redirect()->back()
-                ->with('error', 'Nominal alokasi melebihi sisa pagu MAK yang tersedia.');
+                ->with('error', 'Nominal alokasi melebihi sisa pos anggaran yang tersedia.');
         }
 
         // Catat alokasi MAK
@@ -680,7 +680,7 @@ class VerifikasiParalelController extends Controller
         );
         $verifPerencanaan->id_user = $user->id_user;
         $verifPerencanaan->status_keputusan = 'disetujui';
-        $verifPerencanaan->catatan_alasan = $validated['catatan_anggaran'] ?? 'MAK tersedia di DIPA dan Memo Ketersediaan MAK diterbitkan ke Bidang 2 & PPK.';
+        $verifPerencanaan->catatan_alasan = $validated['catatan_anggaran'] ?? 'Pos Anggaran tersedia dan Memo Ketersediaan Anggaran diterbitkan ke Bidang 2 & PPK.';
         $verifPerencanaan->tanggal_keputusan = now();
         $verifPerencanaan->save();
 
@@ -690,7 +690,7 @@ class VerifikasiParalelController extends Controller
         $permohonan->status_anggaran = 'tersedia';
         $permohonan->id_user_ppk_awal = $idPpkAwal;
         $permohonan->nomor_memo_ketersediaan_mak = $nomorMemoMak;
-        $permohonan->catatan_memo_ketersediaan_mak = $validated['catatan_anggaran'] ?? 'MAK tersedia di DIPA kampus.';
+        $permohonan->catatan_memo_ketersediaan_mak = $validated['catatan_anggaran'] ?? 'Pos Anggaran tersedia di anggaran kampus.';
 
         // Penanganan Verifikasi Wadir 2:
         // Pihak yang sudah menyetujui tetap berstatus 'disetujui'
@@ -765,14 +765,14 @@ class VerifikasiParalelController extends Controller
                 $permohonan->nomor_surat,
                 $statusLama,
                 'disetujui',
-                "MAK {$mak->kode_mak} tersedia (Memo: {$nomorMemoMak}), Wadir 2 dan PPK telah ACC, diteruskan ke PPBJ."
+                "Pos Anggaran {$mak->kode_mak} tersedia (Memo: {$nomorMemoMak}), Wadir 2 dan PPK telah menyetujui, diteruskan ke Unit Pengadaan."
             );
 
             $this->notificationService->notifyAlokasiMak($permohonan, $mak, 'setuju', $validated['catatan_anggaran'] ?? null);
 
             return redirect()->route('verifikasi.perencanaan')->with(
                 'success',
-                "MAK {$mak->kode_mak} berhasil dialokasikan. Wadir 2 dan PPK telah menyetujui, berkas diteruskan ke PPBJ."
+                "Pos Anggaran {$mak->kode_mak} berhasil dialokasikan. Wadir 2 dan PPK telah menyetujui, berkas diteruskan ke Unit Pengadaan."
             );
         }
 
@@ -804,7 +804,7 @@ class VerifikasiParalelController extends Controller
 
         return redirect()->route('verifikasi.perencanaan')->with(
             'success',
-            "MAK {$mak->kode_mak} tersedia dan Memo Ketersediaan MAK ({$nomorMemoMak}) telah dikirimkan ke {$infoTujuan} untuk disetujui."
+            "Pos Anggaran {$mak->kode_mak} tersedia dan Memo Ketersediaan Anggaran ({$nomorMemoMak}) telah dikirim ke {$infoTujuan}."
         );
     }
 
@@ -831,7 +831,7 @@ class VerifikasiParalelController extends Controller
             $totalSplit = array_sum(array_column($validated['items'], 'estimasi_pagu_pecahan'));
 
             if ($totalSplit > (float) ($induk->estimasi_total_pagu ?? $induk->anggaran_diajukan)) {
-                return back()->with('error', 'Total alokasi pagu pecahan melebihi pagu usulan induk.')->withInput();
+                return back()->with('error', 'Total alokasi pecahan melebihi anggaran usulan induk.')->withInput();
             }
 
             DB::transaction(function () use ($validated, $induk, $user, $totalSplit) {
@@ -895,7 +895,7 @@ class VerifikasiParalelController extends Controller
         }
         if (! $request->filled('judul_pengadaan') && $nomorInduk) {
             $indukRef = PermohonanPengadaan::find($nomorInduk);
-            $judul = ($indukRef?->judul_pengadaan ?? $indukRef?->perihal ?? 'Pecahan Pengadaan').' (Pecahan MAK '.$request->input('kode_mak').')';
+            $judul = ($indukRef?->judul_pengadaan ?? $indukRef?->perihal ?? 'Pecahan Pengadaan').' (Pecahan Pos Anggaran '.$request->input('kode_mak').')';
             $request->merge(['judul_pengadaan' => $judul]);
         }
 
@@ -913,7 +913,7 @@ class VerifikasiParalelController extends Controller
         $paguInduk = (float) ($induk->estimasi_total_pagu ?? $induk->anggaran_diajukan ?? 0);
 
         if (round($nominalSplit, 2) > round($paguInduk, 2)) {
-            return back()->with('error', 'Alokasi pagu pecahan melebihi pagu usulan induk.')->withInput();
+            return back()->with('error', 'Alokasi pecahan melebihi anggaran usulan induk.')->withInput();
         }
 
         $anak = DB::transaction(function () use ($validated, $induk, $nominalSplit, $paguInduk, $user) {
@@ -966,7 +966,7 @@ class VerifikasiParalelController extends Controller
 
         return redirect()->route('verifikasi.perencanaan')->with(
             'success',
-            "Permohonan berhasil dipecah menjadi surat baru {$anak->nomor_surat} dengan alokasi MAK {$validated['kode_mak']}."
+            "Permohonan berhasil dipecah menjadi surat {$anak->nomor_surat} dengan pos anggaran {$validated['kode_mak']}."
         );
     }
 }

@@ -10,29 +10,54 @@
  * - Unduh Laporan simultan (PDF terformat + RAW CSV) sesuai modul & filter aktif
  */
 
-export function laporanApp(config = {}) {
-    const modular = config.modularPayload && typeof config.modularPayload === 'object'
-        ? config.modularPayload
+import { parseJsonDataset } from './ui_helpers.js';
+
+function applyLaporanConfig(target, config) {
+    const cfg = config && typeof config === 'object' ? config : {};
+    const modular = cfg.modularPayload && typeof cfg.modularPayload === 'object'
+        ? cfg.modularPayload
         : {};
 
-    return {
+    target.activeTab = cfg.initialTab || 'riwayat';
+    target.rawRiwayat = Array.isArray(cfg.riwayatData) ? cfg.riwayatData : [];
+    target.modularPayload = modular;
+    target.selectedModule = modular.selected_module || 'semua';
+    target.rolesList = Array.isArray(modular.roles_list) ? modular.roles_list : [];
+    target.canDownload = Boolean(cfg.canDownload);
+    target.userUnitCode = cfg.userUnitCode || '';
+    target.userUnitName = cfg.userUnitName || '';
+    target.endpointUrl = cfg.endpointUrl || '/laporan';
+    target.pdfUrl = cfg.pdfUrl || '/laporan/unduh-pdf';
+    target.csvUrl = cfg.csvUrl || '/laporan/unduh-csv';
+    target.defaultYear = cfg.defaultYear || new Date().getFullYear().toString();
+    target.laporanSearch = cfg.currentSearch || '';
+    target.serverFilteredQ = cfg.currentSearch || '';
+    target.laporanFilterTahun = cfg.currentYear || new Date().getFullYear().toString();
+    target.laporanFilterBulan = cfg.currentMonth || '';
+    target.laporanFilterUnit = cfg.currentUnit || '';
+    target.laporanFilterStatus = cfg.currentStatus || '';
+    target.laporanFilterRole = cfg.currentRoleFilter || '';
+}
+
+export function laporanApp(config = null) {
+    const state = {
         // State Tab Utama
-        activeTab: config.initialTab || 'riwayat',
+        activeTab: 'riwayat',
 
         // Data Tab Riwayat
-        rawRiwayat: Array.isArray(config.riwayatData) ? config.riwayatData : [],
+        rawRiwayat: [],
 
         // Data & Konfigurasi Tab Laporan Modular RBAC
-        modularPayload: modular,
-        selectedModule: modular.selected_module || 'semua',
-        rolesList: Array.isArray(modular.roles_list) ? modular.roles_list : [],
-        canDownload: Boolean(config.canDownload),
-        userUnitCode: config.userUnitCode || '',
-        userUnitName: config.userUnitName || '',
-        endpointUrl: config.endpointUrl || '/laporan',
-        pdfUrl: config.pdfUrl || '/laporan/unduh-pdf',
-        csvUrl: config.csvUrl || '/laporan/unduh-csv',
-        defaultYear: config.defaultYear || new Date().getFullYear().toString(),
+        modularPayload: {},
+        selectedModule: 'semua',
+        rolesList: [],
+        canDownload: false,
+        userUnitCode: '',
+        userUnitName: '',
+        endpointUrl: '/laporan',
+        pdfUrl: '/laporan/unduh-pdf',
+        csvUrl: '/laporan/unduh-csv',
+        defaultYear: new Date().getFullYear().toString(),
 
         // State Filter Tab Riwayat
         riwayatSearch: '',
@@ -43,13 +68,13 @@ export function laporanApp(config = {}) {
         riwayatPerPage: 10,
 
         // State Filter Tab Laporan
-        laporanSearch: config.currentSearch || '',
-        serverFilteredQ: config.currentSearch || '',
-        laporanFilterTahun: config.currentYear || new Date().getFullYear().toString(),
-        laporanFilterBulan: config.currentMonth || '',
-        laporanFilterUnit: config.currentUnit || '',
-        laporanFilterStatus: config.currentStatus || '',
-        laporanFilterRole: config.currentRoleFilter || '',
+        laporanSearch: '',
+        serverFilteredQ: '',
+        laporanFilterTahun: new Date().getFullYear().toString(),
+        laporanFilterBulan: '',
+        laporanFilterUnit: '',
+        laporanFilterStatus: '',
+        laporanFilterRole: '',
         laporanPage: 1,
         laporanPerPage: 10,
         isLoadingLaporan: false,
@@ -58,9 +83,12 @@ export function laporanApp(config = {}) {
         fetchController: null,
 
         /**
-         * Inisialisasi komponen: sinkronkan parameter dari URL query string
+         * Inisialisasi komponen: muat konfigurasi atribut data dan sinkronkan query string
          */
         init() {
+            if (!config && this.$el?.dataset?.config) {
+                applyLaporanConfig(this, parseJsonDataset(this.$el, 'config', {}));
+            }
             const params = new URLSearchParams(window.location.search);
             if (params.has('tab')) {
                 const tabParam = params.get('tab');
@@ -139,7 +167,7 @@ export function laporanApp(config = {}) {
             return this.modularPayload.current_view || {
                 key: 'kosong',
                 tab_label: 'Belum Ada Modul Laporan',
-                description: 'Peran akun Anda belum memiliki izin modul laporan aktif.',
+                description: 'Akun Anda belum memiliki akses modul laporan aktif.',
                 ringkasan_title: 'Ringkasan Realisasi & Pengadaan',
                 table_title: 'Rincian Data Laporan',
                 filters: {
@@ -463,7 +491,7 @@ export function laporanApp(config = {}) {
             if (['revisi', 'perlu perbaikan', 'kurang lengkap', 'menunggu'].some(s => lower.includes(s))) {
                 return 'bg-amber-50 text-amber-700 border border-amber-200';
             }
-            if (['aktif', 'disetujui', 'selesai', 'lunas', 'diterima', 'terima', 'lengkap', 'sesuai', 'spk terbit', 'spk_terbit', 'cair'].some(s => lower.includes(s))) {
+            if (['aktif', 'disetujui', 'selesai', 'lunas', 'diterima', 'terima', 'lengkap', 'sesuai', 'spk terbit', 'spk_terbit', 'kontrak terbit', 'cair'].some(s => lower.includes(s))) {
                 return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
             }
             return 'bg-blue-50 text-[#0969da] border border-blue-200';
@@ -581,4 +609,10 @@ export function laporanApp(config = {}) {
             return Math.min(this.laporanPage * this.laporanPerPage, this.filteredLaporan.length);
         },
     };
+
+    if (config && typeof config === 'object') {
+        applyLaporanConfig(state, config);
+    }
+
+    return state;
 }

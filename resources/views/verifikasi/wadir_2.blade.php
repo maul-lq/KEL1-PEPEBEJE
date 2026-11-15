@@ -13,9 +13,6 @@
                     Disposisi Eksekutif Wakil Direktur II
                 </h1>
             </div>
-            <p class="text-xs md:text-sm text-slate-500 mt-1">
-                Wakil Direktur Bidang Umum dan Keuangan memegang wewenang eksekutif institusi untuk memberikan keputusan mutlak persetujuan (ACC), permintaan revisi, atau penolakan usulan pengadaan.
-            </p>
         </div>
 
         <div class="flex items-center gap-2">
@@ -36,9 +33,9 @@
                      subtitle="Menunggu persetujuan" 
                      color="navy" />
 
-        <x-stat-card title="Telah Disetujui (ACC)" 
+        <x-stat-card title="Telah Disetujui" 
                      :value="\App\Models\VerifikasiParalel::where('role_verifikator', 'wadir_2')->where('status_keputusan', 'disetujui')->count()" 
-                     subtitle="Diteruskan ke PPBJ" 
+                     subtitle="Diteruskan ke Unit Pengadaan" 
                      color="emerald" />
 
         <x-stat-card title="Ditolak / Diminta Revisi" 
@@ -108,30 +105,30 @@
                                 <span>Rekomendasi Telaah Staf Bidang II:</span>
                             </div>
                             <p class="text-slate-700 leading-relaxed">
-                                {{ $vpStaff && $vpStaff->catatan_alasan ? $vpStaff->catatan_alasan : 'Berkas administrasi dan KAK telah diverifikasi lengkap dan memenuhi standar.' }}
+                                {{ $vpStaff && $vpStaff->catatan_alasan ? $vpStaff->catatan_alasan : 'Berkas administrasi dan kerangka acuan telah lengkap.' }}
                             </p>
                         </div>
 
-                        <!-- Box Status Verifikasi MAK Perencanaan -->
+                        <!-- Box Status Cek Anggaran Perencanaan -->
                         <div class="rounded-xl bg-slate-50 p-3.5 border border-slate-200/70 space-y-1">
                             <div class="font-bold text-slate-800 flex items-center justify-between">
                                 <span class="flex items-center gap-1.5">
                                     <svg class="size-4 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-                                    Verifikasi MAK Perencanaan:
+                                    Cek Anggaran Perencanaan:
                                 </span>
                                 @if($vpPerencanaan && $vpPerencanaan->status_keputusan === 'disetujui')
-                                    <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">MAK Dialokasikan</span>
+                                    <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">Pos Dialokasikan</span>
                                 @elseif($vpPerencanaan && $vpPerencanaan->status_keputusan === 'pending_anggaran')
-                                    <span class="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-800">Anggaran Ditahan (Hold)</span>
+                                    <span class="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-800">Anggaran Ditahan</span>
                                 @else
-                                    <span class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">Menunggu Alokasi</span>
+                                    <span class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">Menunggu Anggaran</span>
                                 @endif
                             </div>
                             <p class="text-slate-600 leading-relaxed">
                                 @if($p->kode_mak)
-                                    Pos Rekening: <strong class="font-mono text-[#0969da]">{{ $p->kode_mak }}</strong> ({{ $p->anggaranMak->uraian_mak ?? 'DIPA PNJ' }})
+                                    Pos Anggaran: <strong class="font-mono text-[#0969da]">{{ $p->kode_mak }}</strong> ({{ $p->anggaranMak->uraian_mak ?? 'Anggaran PNJ' }})
                                 @else
-                                    Mata anggaran sedang ditinjau Subbagian Perencanaan untuk ketersediaan pagu DIPA.
+                                    Pos anggaran sedang ditinjau Bagian Perencanaan.
                                 @endif
                             </p>
                         </div>
@@ -183,8 +180,7 @@
                                         <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
                                     </span>
                                     <div>
-                                        <h3 class="text-sm font-bold text-emerald-950">Telah Disetujui oleh Wakil Direktur II (ACC Kegiatan)</h3>
-                                        <p class="text-xs text-emerald-800">Persetujuan Anda telah tersimpan secara permanen dan tetap berlaku.</p>
+                                        <h3 class="text-sm font-bold text-emerald-950">Telah Disetujui oleh Wakil Direktur II</h3>
                                     </div>
                                 </div>
                                 <span class="rounded-full bg-emerald-200/90 text-emerald-900 px-3 py-1 text-xs font-bold font-mono">
@@ -213,7 +209,7 @@
                             <div class="rounded-xl bg-white/80 p-3.5 border border-emerald-200 text-xs text-slate-700 flex items-start gap-2.5">
                                 <svg class="size-4 text-emerald-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                                 <div>
-                                    <strong class="text-emerald-950 font-bold">Status Verifikasi Lanjutan:</strong> Usulan ini sedang menunggu verifikasi/persetujuan oleh Pejabat Pembuat Komitmen (PPK): <strong class="text-slate-900">{{ $p->ppkAwal->nama ?? 'PPK Terpilih' }}</strong>. Segera setelah PPK memberikan persetujuan, berkas otomatis diteruskan ke antrean PPBJ untuk diproses lebih lanjut.
+                                    Menunggu persetujuan PPK: <strong class="text-slate-900">{{ $p->ppkAwal->nama ?? 'PPK Terpilih' }}</strong>.
                                 </div>
                             </div>
                         </div>
@@ -242,10 +238,7 @@
                         <form action="{{ route('verifikasi.wadir-2.keputusan') }}" 
                               method="POST" 
                               enctype="multipart/form-data"
-                              x-data="{ 
-                                  keputusan: 'disetujui', 
-                                  get isMandatory() { return this.keputusan === 'ditolak' || this.keputusan === 'revisi'; } 
-                              }"
+                              x-data="verifikasiKeputusanWadir2"
                               class="rounded-xl bg-slate-50/70 p-5 md:p-6 border border-slate-200/80 space-y-4">
                             @csrf
                             <input type="hidden" name="nomor_surat" value="{{ $p->nomor_surat }}">
@@ -270,10 +263,10 @@
                                                value="disetujui" 
                                                x-model="keputusan"
                                                class="size-4 text-emerald-600 focus:ring-emerald-500">
-                                        <span class="text-xs font-extrabold text-emerald-800">SETUJUI USULAN (ACC)</span>
+                                        <span class="text-xs font-extrabold text-emerald-800">SETUJUI USULAN</span>
                                     </div>
                                     <p class="text-[11px] text-slate-500 mt-2 leading-relaxed">
-                                        Disetujui untuk diproses ke PPBJ. Catatan alasan bersifat opsional.
+                                        Disetujui untuk diproses Unit Pengadaan. Catatan bersifat opsional.
                                     </p>
                                 </label>
 
@@ -289,7 +282,7 @@
                                         <span class="text-xs font-extrabold text-amber-800">MINTA REVISI BERKAS</span>
                                     </div>
                                     <p class="text-[11px] text-slate-500 mt-2 leading-relaxed">
-                                        Kembalikan berkas ke unit pengusul untuk perbaikan KAK/Pagu. <strong>Catatan wajib</strong>.
+                                        Kembalikan berkas ke unit pengusul untuk perbaikan kerangka acuan/anggaran. <strong>Catatan wajib</strong>.
                                     </p>
                                 </label>
 
@@ -318,7 +311,7 @@
                                     <h4 class="text-xs font-bold text-indigo-950">Memo Permohonan / Disposisi Resmi Wadir II</h4>
                                 </div>
                                 <p class="text-[11px] text-slate-600">
-                                    Sesuai prosedur, penerbitan memo persetujuan ke PPBJ wajib menyertakan nomor memo dan unggahan dokumen fisik resmi.
+                                    Wajib isi nomor memo dan unggah berkas fisik memo.
                                 </p>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
                                     <div>
@@ -354,7 +347,7 @@
                                           name="catatan_alasan" 
                                           rows="3"
                                           :required="isMandatory"
-                                          placeholder="Tuliskan arahan disposisi, catatan efisiensi pagu anggaran, atau rincian perbaikan KAK yang diminta..."
+                                          placeholder="Tuliskan arahan, catatan anggaran, atau perbaikan kerangka acuan yang diminta..."
                                           class="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"></textarea>
                             </div>
 

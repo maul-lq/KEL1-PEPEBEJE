@@ -5,10 +5,12 @@
  * berdasarkan pos rekening MAK DIPA Kampus PNJ (FR 6.3).
  */
 
+import { parseJsonDataset } from './ui_helpers.js';
+
 export function splitMakManager(initialData = {}) {
     return {
-        permohonanList: initialData.permohonanList || [],
-        makList: initialData.makList || [],
+        permohonanList: initialData?.permohonanList || [],
+        makList: initialData?.makList || [],
         selectedIndukNomor: '',
         parentTotalPagu: 0,
         alasanPemecahan: '',
@@ -18,6 +20,11 @@ export function splitMakManager(initialData = {}) {
         ],
 
         init() {
+            if ((!initialData || (!initialData.permohonanList && !initialData.makList)) && this.$el?.dataset?.config) {
+                const cfg = parseJsonDataset(this.$el, 'config', {});
+                this.permohonanList = cfg.permohonanList || [];
+                this.makList = cfg.makList || [];
+            }
             if (this.selectedIndukNomor) {
                 this.onSelectInduk();
             }

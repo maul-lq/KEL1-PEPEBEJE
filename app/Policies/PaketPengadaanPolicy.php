@@ -39,7 +39,7 @@ class PaketPengadaanPolicy
         if ($user->hasRole('ppk') || ($user->hasPermission('reviu.ppk') && ! $user->hasRole('ppbj'))) {
             return (int) $paket->id_user_ppk === (int) $user->id_user
                 ? Response::allow()
-                : Response::deny('Akses Ditolak: Berkas paket pengadaan ini ditugaskan kepada PPK lain (Isolasi Berkas PPK).');
+                : Response::deny('Akses Ditolak: Paket pengadaan ini ditugaskan kepada PPK lain.');
         }
 
         // 2. Pemeriksaan Khusus Peran PP (Pejabat Pengadaan Tunggal)
@@ -51,7 +51,7 @@ class PaketPengadaanPolicy
 
             return ($isAssigned || $isPpRouting)
                 ? Response::allow()
-                : Response::deny('Akses Ditolak: Paket pengadaan ini bukan wewenang Pejabat Pengadaan (PP).');
+                : Response::deny('Akses Ditolak: Paket pengadaan ini bukan wewenang Pejabat Pengadaan.');
         }
 
         // 3. Pemeriksaan Khusus Peran User (Unit Pemohon / Jurusan)
@@ -118,6 +118,6 @@ class PaketPengadaanPolicy
         }
 
         // Tolak permintaan mutasi penugasan jika diajukan oleh peran selain PPBJ / Perencanaan
-        return Response::deny('Akses Ditolak: Hanya PPBJ dan Perencanaan yang dapat mengubah penugasan PPK.');
+        return Response::deny('Akses Ditolak: Hanya Unit Pengadaan dan Perencanaan yang dapat mengubah penugasan PPK.');
     }
 }

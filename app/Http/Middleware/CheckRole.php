@@ -151,12 +151,12 @@ class CheckRole
                 if ($request->expectsJson() || $request->is('api/*')) {
                     return response()->json([
                         'status' => 'error',
-                        'message' => "Akses Ditolak: Peran [{$userRole}] tidak memiliki wewenang untuk mengakses fungsi ini (FR 2 & NFR RBAC).",
+                        'message' => "Akses Ditolak: Peran [{$userRole}] tidak memiliki wewenang untuk mengakses fungsi ini.",
                     ], 403);
                 }
 
                 // Jika request berasal dari browser biasa, lempar abort 403 dengan pesan bahasa Indonesia
-                abort(403, "Akses Ditolak: Peran [{$userRole}] tidak memiliki wewenang untuk mengakses halaman ini (FR 2 & NFR RBAC).");
+                abort(403, "Akses Ditolak: Peran [{$userRole}] tidak memiliki wewenang untuk mengakses halaman ini.");
             }
         }
 

@@ -7,7 +7,6 @@
      x-transition:leave-start="opacity-100"
      x-transition:leave-end="opacity-0"
      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs"
-     style="display: none;"
      x-cloak>
 
     <!-- CARD CONTAINER MODAL HAPUS -->
@@ -19,7 +18,7 @@
          x-transition:leave-start="opacity-100 scale-100 translate-y-0"
          x-transition:leave-end="opacity-0 scale-95 translate-y-4"
          class="relative w-full max-w-[596px] bg-white rounded-2xl border-t-[5px] border-rose-600 shadow-2xl p-8 overflow-hidden"
-         x-data="{ showPassword: false }">
+         x-data="permohonanDeleteModal">
 
         <!-- HEADER MODAL -->
         <div class="flex items-start justify-between">

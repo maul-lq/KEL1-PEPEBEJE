@@ -102,7 +102,7 @@ class AuthController extends Controller
         // Berikan pesan sukses dan alihkan pengguna ke formulir login
         return redirect()->route('login')->with(
             'success',
-            'Pendaftaran akun berhasil diajukan! Akun Anda sedang menunggu verifikasi dan persetujuan (ACC) dari Administrator sebelum dapat digunakan.'
+            'Pendaftaran akun berhasil diajukan! Akun Anda menunggu verifikasi dan persetujuan Administrator sebelum dapat digunakan.'
         );
     }
 
@@ -208,7 +208,7 @@ class AuthController extends Controller
             return view('auth.forgot-password');
         }
 
-        return redirect()->route('login')->with('info', 'Layanan reset mandiri sedang dalam persiapan oleh tim IT.');
+        return redirect()->route('login')->with('info', 'Layanan reset kata sandi belum tersedia. Silakan hubungi Administrator.');
     }
 
     /**
@@ -232,7 +232,7 @@ class AuthController extends Controller
             return view('auth.reset-password', ['token' => $token]);
         }
 
-        return redirect()->route('login')->with('info', 'Tautan pemulihan kata sandi dapat digunakan setelah modul frontend diaktifkan.');
+        return redirect()->route('login')->with('info', 'Tautan pemulihan kata sandi belum tersedia. Silakan hubungi Administrator.');
     }
 
     /**

@@ -71,7 +71,7 @@
             @if(Auth::user()->hasPermission('permohonan.delete') || (Auth::user()->hasPermission('permohonan.create') && in_array($st, ['draft', 'diajukan', 'ditolak']) && Auth::user()->id_user === $permohonan->id_user))
                 <form action="{{ route('permohonan.destroy', $permohonan->nomor_surat) }}" 
                       method="POST" 
-                      onsubmit="return confirm('Apakah Anda yakin ingin membatalkan dan menghapus usulan pengadaan ini? Tindakan ini tidak dapat dibatalkan.');"
+                      data-confirm="Apakah Anda yakin ingin membatalkan dan menghapus usulan pengadaan ini? Tindakan ini tidak dapat dibatalkan."
                       class="inline-block">
                     @csrf
                     @method('DELETE')
@@ -99,10 +99,10 @@
 
         <x-stat-card title="Estimasi Pagu" 
                      :value="'Rp ' . number_format($permohonan->estimasi_total_pagu ?? $permohonan->anggaran_diajukan, 0, ',', '.')" 
-                     subtitle="Sesuai KAK usulan" 
+                     subtitle="Sesuai usulan" 
                      color="teal" />
 
-        <x-stat-card title="Mata Anggaran (MAK)" 
+        <x-stat-card title="Pos Anggaran" 
                      :value="$permohonan->kode_mak ?: 'Belum Ditetapkan'" 
                      :subtitle="$permohonan->anggaranMak->uraian_mak ?? 'Ditetapkan Bagian Perencanaan'" 
                      color="amber" />
@@ -123,11 +123,11 @@
                 </div>
                 <div class="space-y-1">
                     <h3 class="text-sm font-bold text-indigo-950 flex items-center gap-2">
-                        <span>Wadir 2 Telah Menyetujui Usulan</span>
-                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">ACC Wadir II Selesai</span>
+                        <span>Wadir II Telah Menyetujui Usulan</span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">Disetujui Wadir II</span>
                     </h3>
                     <p class="text-xs text-indigo-900/80 leading-relaxed">
-                        Persetujuan eksekutif dari Wakil Direktur II telah diberikan. Agar berkas muncul dan dapat ditelaah oleh PPK, <strong>Subbagian Perencanaan</strong> perlu menetapkan rekening MAK DIPA dan memilih 1 dari 4 akun PPK pada menu <a href="{{ route('verifikasi.perencanaan') }}" class="font-bold underline text-[#0969da]">Verifikasi MAK &amp; Pagu</a>.
+                        Perlu penetapan pos anggaran dan penugasan PPK oleh Bagian Perencanaan di menu <a href="{{ route('verifikasi.perencanaan') }}" class="font-bold underline text-[#0969da]">Verifikasi Anggaran</a>.
                     </p>
                 </div>
             </div>
@@ -138,11 +138,11 @@
                 </div>
                 <div class="space-y-1">
                     <h3 class="text-sm font-bold text-teal-950 flex items-center gap-2">
-                        <span>Menunggu Persetujuan Awal PPK Terpilih</span>
-                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-100 text-teal-800">Menunggu ACC PPK</span>
+                        <span>Menunggu Persetujuan PPK</span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-100 text-teal-800">Menunggu Persetujuan PPK</span>
                     </h3>
                     <p class="text-xs text-teal-900/80 leading-relaxed">
-                        Wadir 2 dan Perencanaan telah menyelesaikan verifikasi. Berkas saat ini telah dialokasikan dan berada di antrean persetujuan awal PPK: <strong>{{ $permohonan->ppkAwal->nama ?? 'PPK Penanggung Jawab' }}</strong>.
+                        Berkas sedang menunggu persetujuan awal dari <strong>{{ $permohonan->ppkAwal->nama ?? 'PPK Penanggung Jawab' }}</strong>.
                     </p>
                 </div>
             </div>
@@ -159,8 +159,7 @@
             <div class="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-6">
                 <div class="flex items-center justify-between pb-4 border-b border-slate-100">
                     <div>
-                        <span class="text-xs font-bold uppercase tracking-wider text-[#0969da]">Alur Eksekusi Pengadaan</span>
-                        <h2 class="text-xl font-bold text-[#213153] mt-0.5">Pelacakan 8 Tahapan Siklus Pengadaan</h2>
+                        <h2 class="text-xl font-bold text-[#213153]">Riwayat Tahapan</h2>
                     </div>
                     <span class="text-xs font-bold font-mono text-[#0969da]">Tahap {{ $currentStep }} dari 8</span>
                 </div>
@@ -178,10 +177,7 @@
                             <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                         </div>
                         <div>
-                            <h3 class="text-base font-bold text-amber-900">Ajukan Revisi Usulan Permohonan (Figma 509:1651)</h3>
-                            <p class="text-xs text-amber-800 mt-0.5">
-                                Usulan ini memerlukan penyesuaian berkas atau rincian harga. Silakan isi form di bawah ini untuk menerbitkan surat revisi baru.
-                            </p>
+                            <h3 class="text-base font-bold text-amber-900">Ajukan Revisi Usulan Permohonan</h3>
                         </div>
                     </div>
 
@@ -269,12 +265,12 @@
                                 <textarea name="keterangan_revisi" 
                                           rows="3" 
                                           required 
-                                          placeholder="Jelaskan poin perbaikan yang telah dilakukan pada KAK atau spesifikasi..."
+                                          placeholder="Jelaskan poin perbaikan pada kerangka acuan atau spesifikasi..."
                                           class="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-medium focus:border-[#0969da] focus:outline-none focus:ring-2 focus:ring-[#0969da]/20"></textarea>
                             </div>
 
                             <div class="space-y-1 md:col-span-2">
-                                <label class="text-xs font-bold text-slate-700">Unggah KAK Baru (PDF Maks. 10 MB)</label>
+                                <label class="text-xs font-bold text-slate-700">Unggah Kerangka Acuan Baru (PDF, Maks. 10 MB)</label>
                                 <input type="file" 
                                        name="file_kak" 
                                        accept=".pdf"
@@ -388,7 +384,7 @@
                             <svg class="size-5 text-teal-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
                             </svg>
-                            <h3 class="text-base font-bold text-teal-950">Bukti Bayar & Realisasi Kas (SP2D / Kwitansi)</h3>
+                            <h3 class="text-base font-bold text-teal-950">Bukti Bayar &amp; Pencairan</h3>
                         </div>
                         <span class="rounded-full bg-teal-100 text-teal-800 font-bold text-xs px-2.5 py-1">
                             {{ count($buktiBayarList) }} Berkas
@@ -493,20 +489,20 @@
                     </div>
 
                     <div class="pt-3 border-t border-slate-100">
-                        <span class="font-bold text-slate-700">Pemecahan (Split MAK):</span>
+                        <span class="font-bold text-slate-700">Pemecahan Anggaran:</span>
                         @if($permohonan->isSplit())
                             <p class="text-slate-600 mt-1">
-                                Hasil split dari: 
+                                Hasil pemecahan dari: 
                                 <a href="{{ route('permohonan.show', $permohonan->nomor_surat_induk_split) }}" class="font-mono text-[#0969da] hover:underline font-bold">
                                     {{ $permohonan->nomor_surat_induk_split }}
                                 </a>
                             </p>
                         @else
-                            <p class="text-slate-400 italic mt-0.5">Usulan mandiri (Bukan hasil pemecahan).</p>
+                            <p class="text-slate-400 italic mt-0.5">Usulan mandiri (tidak dipecah).</p>
                         @endif
 
                         @if($permohonan->anakSplit && $permohonan->anakSplit->isNotEmpty())
-                            <div class="mt-2.5 font-bold text-slate-700">Berkas Pecahan (Anak Split):</div>
+                            <div class="mt-2.5 font-bold text-slate-700">Berkas Pecahan:</div>
                             <ul class="list-disc pl-4 space-y-1 text-slate-600 mt-1">
                                 @foreach($permohonan->anakSplit as $anak)
                                     <li>

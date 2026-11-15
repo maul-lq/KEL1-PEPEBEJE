@@ -15,9 +15,9 @@
     {{-- 1. 4-COLUMN FIGMA KPI STAT CARDS --}}
     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
         <x-figma-stat-card
-            title="Paket Siap Cair (SPP)"
+            title="Siap Pencairan"
             :value="$stats['paket_masuk_ppbj'] ?? ($stats['sp2d_siap_cair'] ?? 0)"
-            subtitle="Menunggu pencairan kas SP2D"
+            subtitle="Menunggu transfer dana"
             variant="active"
             :href="$keuanganHref"
         />
@@ -25,7 +25,7 @@
         <x-figma-stat-card
             title="Pengingat Masuk"
             :value="$stats['reminder_masuk'] ?? 0"
-            subtitle="Notifikasi termin dari PPBJ"
+            subtitle="Pengingat dari Unit Pengadaan"
             variant="bell"
             :href="$notifikasiHref"
         />
@@ -33,7 +33,7 @@
         <x-figma-stat-card
             title="Pencairan Selesai"
             :value="$stats['transaksi_lunas'] ?? 0"
-            subtitle="Transaksi kas SP2D lunas"
+            subtitle="Pembayaran telah selesai"
             variant="done"
             :href="$keuanganHref"
         />
@@ -53,14 +53,14 @@
     <x-figma-workspace
         leftTitle="Perlu Tindakan Anda"
         :leftHref="$keuanganHref"
-        rightTitle="Riwayat Pencairan SP2D"
+        rightTitle="Riwayat Pencairan Dana"
         :rightHref="$keuanganHref"
     >
         <x-slot:left>
             @if($tagihanList->isEmpty() && $reminderList->isEmpty())
                 <x-figma-empty
-                    title="Tidak ada tagihan SP2D atau pengingat pending"
-                    subtitle="Seluruh paket pembayaran dari PPBJ dan pengingat termin sudah tertangani."
+                    title="Tidak ada tagihan siap bayar"
+                    subtitle="Semua tagihan dan pengingat pembayaran telah diproses."
                 />
             @else
                 @foreach($tagihanList as $tagihan)
@@ -77,8 +77,8 @@
                         variant="action"
                         :title="$tagihan->paket->nama_paket ?? ('Pembayaran ' . $tagihan->nomor_pembayaran)"
                         :meta="$tagihan->nomor_pembayaran . ' • Paket: ' . $tagihan->nomor_paket . ' • Termin Ke-' . ($tagihan->tahap_termin ?? 1)"
-                        :submeta="$vendorNama . ' • Nominal: Rp ' . $nominal . ' • SPP: ' . $sppTgl"
-                        badge="SPP Siap Cair"
+                        :submeta="$vendorNama . ' • Nominal: Rp ' . $nominal . ' • Perintah Bayar: ' . $sppTgl"
+                        badge="Siap Cair"
                         badgeClass="bg-[#fff5df] text-[#99660d]"
                         :href="$keuanganHref"
                         buttonLabel="Buka"
@@ -140,7 +140,7 @@
                     </div>
                 @empty
                     <div class="py-10 text-center text-xs text-slate-400">
-                        Belum ada rekaman pencairan dana SP2D yang tercatat.
+                        Belum ada riwayat pencairan dana.
                     </div>
                 @endforelse
             </div>

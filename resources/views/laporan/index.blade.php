@@ -3,29 +3,30 @@
 @section('title', 'Riwayat dan Laporan - SIM-PBJ Politeknik Negeri Jakarta')
 
 @section('content')
-<script>
-    window.__laporanConfig = {
-        initialTab: {!! json_encode($activeTab) !!},
-        riwayatData: {!! json_encode($riwayatList, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!},
-        modularPayload: {!! json_encode($modularPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!},
-        canDownload: {!! json_encode((bool) $canDownload) !!},
-        userUnitCode: {!! json_encode((string) ($userUnitCode ?? '')) !!},
-        userUnitName: {!! json_encode((string) ($userUnitName ?? '')) !!},
-        endpointUrl: {!! json_encode(route('laporan.index')) !!},
-        pdfUrl: {!! json_encode(route('laporan.unduh.pdf')) !!},
-        csvUrl: {!! json_encode(route('laporan.unduh.csv')) !!},
-        defaultYear: {!! json_encode((string) date('Y')) !!},
-        currentYear: {!! json_encode($tahun !== '' ? (string) $tahun : 'all') !!},
-        currentMonth: {!! json_encode((string) ($bulan ?? '')) !!},
-        currentUnit: {!! json_encode((string) ($kodeUnit ?? '')) !!},
-        currentStatus: {!! json_encode((string) ($modularPayload['filters_applied']['status'] ?? '')) !!},
-        currentRoleFilter: {!! json_encode((string) ($modularPayload['filters_applied']['role_filter'] ?? '')) !!},
-        currentSearch: {!! json_encode((string) ($modularPayload['filters_applied']['q'] ?? '')) !!}
-    };
-</script>
+@php
+    $laporanConfig = [
+        'initialTab' => $activeTab,
+        'riwayatData' => $riwayatList,
+        'modularPayload' => $modularPayload,
+        'canDownload' => (bool) $canDownload,
+        'userUnitCode' => (string) ($userUnitCode ?? ''),
+        'userUnitName' => (string) ($userUnitName ?? ''),
+        'endpointUrl' => route('laporan.index'),
+        'pdfUrl' => route('laporan.unduh.pdf'),
+        'csvUrl' => route('laporan.unduh.csv'),
+        'defaultYear' => (string) date('Y'),
+        'currentYear' => $tahun !== '' ? (string) $tahun : 'all',
+        'currentMonth' => (string) ($bulan ?? ''),
+        'currentUnit' => (string) ($kodeUnit ?? ''),
+        'currentStatus' => (string) ($modularPayload['filters_applied']['status'] ?? ''),
+        'currentRoleFilter' => (string) ($modularPayload['filters_applied']['role_filter'] ?? ''),
+        'currentSearch' => (string) ($modularPayload['filters_applied']['q'] ?? ''),
+    ];
+@endphp
 
 <div 
-    x-data="laporanApp(window.__laporanConfig)"
+    x-data="laporanApp"
+    data-config="{{ json_encode($laporanConfig, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) }}"
     class="mx-auto max-w-[1780px] space-y-6 pb-12"
 >
     {{-- ===================================================================== --}}
@@ -36,11 +37,8 @@
             <h1 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#213153] tracking-tight mt-1.5">
                 Riwayat dan Laporan
             </h1>
-            <span class="sr-only">Laporan Rekapitulasi Realisasi Anggaran</span>
-            <span class="sr-only">Monitoring Agregat 8 Siklus</span>
-            <p class="text-xs sm:text-sm text-slate-600 mt-1 max-w-4xl">
-                Lihat rekapitulasi pengajuan, telusuri riwayat aktivitas, dan unduh laporan berdasarkan periode tertentu.
-            </p>
+            <span class="sr-only">Laporan Rekapitulasi Anggaran</span>
+            <span class="sr-only">Monitoring 8 Tahap</span>
         </div>
 
         {{-- Quick Refresh Button --}}
@@ -164,11 +162,11 @@
                         <option value="Persetujuan">Persetujuan</option>
                         <option value="Penolakan">Penolakan</option>
                         <option value="Revisi">Revisi</option>
-                        <option value="Anggaran">Anggaran & MAK</option>
-                        <option value="Kontrak">Kontrak / SPK</option>
-                        <option value="Pengadaan Langsung (PP)">Pengadaan Langsung (PP)</option>
-                        <option value="Penerimaan">Penerimaan & BAST</option>
-                        <option value="Pembayaran">Pembayaran & SP2D</option>
+                        <option value="Anggaran">Anggaran & Pos Anggaran</option>
+                        <option value="Kontrak">Dokumen Kontrak</option>
+                        <option value="Pengadaan Langsung (PP)">Pengadaan Langsung</option>
+                        <option value="Penerimaan">Penerimaan & Serah Terima</option>
+                        <option value="Pembayaran">Pembayaran & Pencairan</option>
                         <option value="Sistem">Sistem & Pengguna</option>
                     </select>
                 </div>
@@ -314,8 +312,7 @@
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m5.231 13.481L15 18m-4.5-4.5l-4.5 4.5m4.5-4.5l4.5 4.5M3 13.5V6a2.25 2.25 0 012.25-2.25h8.25a2.25 2.25 0 012.25 2.25v7.5"/>
                                             </svg>
                                         </div>
-                                        <p class="text-sm font-bold text-slate-700">Tidak ada data riwayat aktivitas yang sesuai</p>
-                                        <p class="text-xs text-slate-400 mt-1">Coba sesuaikan kata kunci pencarian atau ubah filter di atas.</p>
+                                        <p class="text-sm font-bold text-slate-700">Belum ada data riwayat yang sesuai</p>
                                         <button
                                             type="button"
                                             @click="resetRiwayatFilter()"
@@ -464,15 +461,14 @@
                         </select>
                     </div>
 
-                    {{-- Filter Peran / Role RBAC (Khusus Modul Administrasi & RBAC) --}}
                     <div x-show="currentFiltersConfig.has_role_filter && rolesList.length > 0" class="space-y-1.5 min-w-[180px] flex-1 sm:flex-none sm:w-52">
-                        <label class="block text-xs font-bold text-slate-700">Peran / Role RBAC</label>
+                        <label class="block text-xs font-bold text-slate-700">Peran / Hak Akses</label>
                         <select
                             x-model="laporanFilterRole"
                             @change="onQueryFilterChange()"
                             class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20 transition"
                         >
-                            <option value="">Semua Peran / Role</option>
+                            <option value="">Semua Peran</option>
                             <template x-for="r in rolesList" :key="r.value">
                                 <option :value="r.value" x-text="r.label"></option>
                             </template>
@@ -508,7 +504,7 @@
                             @click="downloadLaporan()"
                             :disabled="isDownloading || activeModuleKeys.length === 0"
                             class="h-10 px-5 flex items-center gap-2 rounded-xl bg-[#0969da] hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-bold text-white shadow-sm transition cursor-pointer"
-                            title="Unduh Laporan terformat (PDF) dan data mentah (CSV) sesuai modul aktif"
+                            title="Unduh laporan (PDF dan Data CSV)"
                         >
                             <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
@@ -553,8 +549,8 @@
 
             <template x-if="activeModuleKeys.length === 0">
                 <div class="rounded-xl border border-slate-200 bg-slate-50/70 p-6 text-center">
-                    <p class="text-sm font-bold text-slate-700">Belum ada modul laporan yang aktif pada izin RBAC akun Anda</p>
-                    <p class="text-xs text-slate-500 mt-1">Hubungi Administrator sistem apabila peran Anda memerlukan akses modul pelaporan atau fitur pengadaan tertentu.</p>
+                    <p class="text-sm font-bold text-slate-700">Belum ada modul laporan yang aktif pada akun Anda</p>
+                    <p class="text-xs text-slate-500 mt-1">Hubungi Admin apabila peran Anda memerlukan akses laporan.</p>
                 </div>
             </template>
 
@@ -640,7 +636,7 @@
                                         :class="{
                                             'w-16 text-center': cIdx === 0,
                                             'w-36': cIdx === 1,
-                                            'text-right': (col || '').includes('Pagu') || (col || '').includes('Nilai') || (col || '').includes('HPS') || (col || '').includes('Saldo') || (col || '').includes('Nominal') || (col || '').includes('%'),
+                                            'text-right': (col || '').includes('Pagu') || (col || '').includes('Nilai') || (col || '').includes('HPS') || (col || '').includes('Harga') || (col || '').includes('Saldo') || (col || '').includes('Nominal') || (col || '').includes('%'),
                                             'text-center': (col || '').includes('Status') || (col || '').includes('Tahun') || (col || '').includes('Jumlah') || cIdx === 0
                                         }"
                                         class="py-3 px-4"
@@ -713,7 +709,6 @@
                                 <tr>
                                     <td :colspan="Math.max(1, tableColumns.length)" class="py-10 px-6 text-center text-slate-500">
                                         <p class="text-sm font-bold text-slate-700">Tidak ada data laporan yang cocok</p>
-                                        <p class="text-xs text-slate-400 mt-1">Gunakan kata kunci lain atau pilih periode filter yang sesuai.</p>
                                     </td>
                                 </tr>
                             </template>

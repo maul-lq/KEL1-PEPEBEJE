@@ -69,8 +69,8 @@
                 />
             @empty
                 <x-figma-empty
-                    title="Tidak ada berkas baru yang menunggu telaah"
-                    subtitle="Seluruh berkas Srikandi yang masuk saat ini telah diteruskan sesuai alur."
+                    title="Tidak ada berkas baru menunggu telaah"
+                    subtitle=""
                 />
             @endforelse
         </x-slot:left>
