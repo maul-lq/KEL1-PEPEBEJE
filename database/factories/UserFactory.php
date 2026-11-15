@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
@@ -10,9 +11,9 @@ use Illuminate\Support\Str;
 /**
  * Factory Data Uji Pengguna (User Factory)
  *
- * Bertanggung jawab menghasilkan dummy data pengguna acak untuk keperluan testing otomatis (Pest/PHPUnit).
- * Mendefinisikan atribut bawaan seperti nama, surel acak aman, kata sandi ter-hash,
- * serta state pembantu seperti email yang belum terverifikasi.
+ * Bertanggung jawab menghasilkan data uji pengguna secara otomatis untuk keperluan pengujian (Pest/PHPUnit).
+ * Mendefinisikan atribut bawaan seperti nama, alamat surel acak yang aman, kata sandi ter-hash,
+ * serta relasi peran tunggal melalui `id_role`.
  *
  * @extends Factory<User>
  */
@@ -40,7 +41,10 @@ class UserFactory extends Factory
             'jabatan' => 'Staff Pengajar / Pengusul',
             'kode_unit' => 'TIK',
             'no_hp' => fake()->phoneNumber(),
-            'role' => 'user',
+            'id_role' => fn (): int => Role::firstOrCreate(
+                ['nama_role' => User::ROLE_USER],
+                ['label' => 'Pengusul / Unit', 'is_system' => true]
+            )->id,
             'status_aktif' => true,
             'status_registrasi' => User::STATUS_REGISTRASI_DISETUJUI,
             'tanggal_approval' => now(),
@@ -78,25 +82,32 @@ class UserFactory extends Factory
     }
 
     /**
+     * State mutator untuk menetapkan peran tertentu berdasarkan slug `nama_role`.
+     */
+    public function withRole(string $roleSlug, ?string $label = null): static
+    {
+        return $this->state(function () use ($roleSlug, $label): array {
+            $role = Role::firstOrCreate(
+                ['nama_role' => $roleSlug],
+                [
+                    'label' => $label ?? ucwords(str_replace('_', ' ', $roleSlug)),
+                    'is_system' => true,
+                ]
+            );
+
+            return ['id_role' => $role->id];
+        });
+    }
+
+    /**
      * State mutator untuk pengguna Administrator.
      */
     public function admin(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'role' => User::ROLE_ADMIN,
+        return $this->withRole(User::ROLE_ADMIN, 'Administrator')->state(fn (array $attributes) => [
             'status_aktif' => true,
             'status_registrasi' => User::STATUS_REGISTRASI_DISETUJUI,
             'tanggal_approval' => now(),
-        ]);
-    }
-
-    /**
-     * State mutator untuk mengkondisikan pengguna dengan email belum terverifikasi.
-     */
-    public function unverified(): static
-    {
-        return $this->state(fn (array $attributes) => [
-            'email_verified_at' => null,
         ]);
     }
 }

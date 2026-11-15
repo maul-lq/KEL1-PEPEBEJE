@@ -76,9 +76,27 @@ class PaketPengadaan extends Model
 
     public const METODE_E_PURCHASING = 'E-Purchasing';
 
+    public const METODE_BELANJA_LANGSUNG = 'belanja_langsung';
+
+    public const METODE_NON_TENDER = 'non_tender';
+
+    public const METODE_E_KATALOG = 'e_katalog';
+
+    public const METODE_SPSE = 'spse';
+
+    public const METODE_TENDER_SLUG = 'tender';
+
     public const STATUS_TERDAFTAR = 'terdaftar';
 
     public const STATUS_REGISTRASI_PPBJ = 'terdaftar';
+
+    public const STATUS_BELANJA_LANGSUNG_SELESAI = 'belanja_langsung_selesai';
+
+    public const STATUS_MENUNGGU_APPROVAL_PPK = 'menunggu_approval_ppk';
+
+    public const STATUS_DISETUJUI_PPK_SIAP_BELANJA_PP = 'disetujui_ppk_siap_belanja_pp';
+
+    public const STATUS_SIAP_UPLOAD_DOKUMEN_PPBJ = 'siap_upload_dokumen_ppbj';
 
     public const STATUS_SPK_TERBIT = 'spk_terbit';
 
@@ -105,26 +123,28 @@ class PaketPengadaan extends Model
         'jenis_pengadaan',
         'platform_pengadaan',
         'mekanisme_pengadaan',
+        'metode_pengadaan',
         'jalur_routing',
         'nilai_hps',
+        'nominal_harga_perkiraan',
         'alokasi_pagu_paket',
         'file_dokumen_pengadaan',
         'status_paket',
-        'id_paket_lkpp',
         'nomor_surat',
         'tanggal_registrasi_paket',
         'nomor_memo_ppbj',
         'id_user_ppbj',
         'id_user_ppk',
-        'tanggal_penugasan_ppk',
-        'status_penugasan_ppk',
         'alasan_pengalihan_ppk',
         'id_user_pp',
-        'tanggal_penugasan_pp',
         'nilai_hasil_negosiasi',
+        'nominal_harga_akhir',
         'catatan_verifikasi_pp',
-        'npwp_vendor',
-        'tanggal_penunjukan_vendor',
+        'id_vendor',
+        'dieksekusi_belanja_oleh',
+        'tanggal_eksekusi_belanja',
+        'nomor_kwitansi_belanja',
+        'file_kwitansi_belanja',
     ];
 
     /**
@@ -136,12 +156,12 @@ class PaketPengadaan extends Model
     {
         return [
             'nilai_hps' => 'decimal:2',
+            'nominal_harga_perkiraan' => 'decimal:2',
             'alokasi_pagu_paket' => 'decimal:2',
             'nilai_hasil_negosiasi' => 'decimal:2',
+            'nominal_harga_akhir' => 'decimal:2',
             'tanggal_registrasi_paket' => 'datetime',
-            'tanggal_penugasan_ppk' => 'datetime',
-            'tanggal_penugasan_pp' => 'datetime',
-            'tanggal_penunjukan_vendor' => 'datetime',
+            'tanggal_eksekusi_belanja' => 'datetime',
         ];
     }
 
@@ -151,6 +171,18 @@ class PaketPengadaan extends Model
     protected static function booted(): void
     {
         static::creating(function (PaketPengadaan $model) {
+            if (empty($model->nilai_hps) && ! empty($model->nominal_harga_perkiraan)) {
+                $model->nilai_hps = $model->nominal_harga_perkiraan;
+            }
+            if (empty($model->nominal_harga_perkiraan) && ! empty($model->nilai_hps)) {
+                $model->nominal_harga_perkiraan = $model->nilai_hps;
+            }
+            if (empty($model->nilai_hasil_negosiasi) && ! empty($model->nominal_harga_akhir)) {
+                $model->nilai_hasil_negosiasi = $model->nominal_harga_akhir;
+            }
+            if (empty($model->nominal_harga_akhir) && ! empty($model->nilai_hasil_negosiasi)) {
+                $model->nominal_harga_akhir = $model->nilai_hasil_negosiasi;
+            }
             if (empty($model->alokasi_pagu_paket)) {
                 $model->alokasi_pagu_paket = $model->nilai_hps ?? 0;
             }
@@ -161,8 +193,9 @@ class PaketPengadaan extends Model
                 $model->mekanisme_pengadaan = $model->metode_pengadaan ?? 'Tender';
             }
             if (empty($model->id_user_ppbj)) {
-                $ppbjUser = User::where('role', 'ppbj')->first() ?? User::first();
+                $ppbjUser = User::withRole(User::ROLE_PPBJ)->first() ?? User::first();
                 if (! $ppbjUser) {
+                    $ppbjRoleId = Role::where('nama_role', User::ROLE_PPBJ)->value('id');
                     $ppbjUser = User::create([
                         'nip' => '198403122008121099',
                         'username' => 'system_ppbj',
@@ -170,34 +203,48 @@ class PaketPengadaan extends Model
                         'nama' => 'Staff PPBJ Default',
                         'password' => 'secret123',
                         'jabatan' => 'Staff PBJ',
-                        'role' => 'ppbj',
+                        'id_role' => $ppbjRoleId,
                         'no_hp' => '081234567899',
                     ]);
                 }
                 $model->id_user_ppbj = $ppbjUser->id_user;
             }
 
-            // Aturan bisnis: Paket >= 200 Juta (jalur PPK) tidak menggunakan memo pengadaan PPBJ
-            if ($model->jalur_routing === self::ROUTING_PPK || (float) ($model->nilai_hps ?? 0) >= 200000000) {
+            // Warisi otomatis id_user_ppk dari permohonan.id_user_ppk_awal untuk paket > 50jt jika belum ditentukan
+            if (empty($model->id_user_ppk) && $model->jalur_routing !== self::ROUTING_LANGSUNG && ! empty($model->nomor_surat)) {
+                $permohonanAsal = PermohonanPengadaan::find($model->nomor_surat);
+                if ($permohonanAsal && $permohonanAsal->id_user_ppk_awal) {
+                    $model->id_user_ppk = $permohonanAsal->id_user_ppk_awal;
+                }
+            }
+
+            // Aturan bisnis Notulensi PPBJ: Paket > 200 Juta (jalur PPK) tidak menggunakan memo pengadaan PPBJ
+            if ($model->jalur_routing === self::ROUTING_PPK || (float) ($model->nilai_hps ?? 0) > 200000000) {
                 $model->nomor_memo_ppbj = null;
             }
         });
 
         static::saving(function (PaketPengadaan $model) {
-            // Pastikan paket >= 200 Juta selalu tanpa nomor memo pengadaan PPBJ
-            if ($model->jalur_routing === self::ROUTING_PPK || (float) ($model->nilai_hps ?? 0) >= 200000000) {
+            if ($model->isDirty('nominal_harga_akhir') && ! $model->isDirty('nilai_hasil_negosiasi') && $model->nominal_harga_akhir !== null) {
+                $model->nilai_hasil_negosiasi = $model->nominal_harga_akhir;
+            } elseif ($model->isDirty('nilai_hasil_negosiasi') && ! $model->isDirty('nominal_harga_akhir') && $model->nilai_hasil_negosiasi !== null) {
+                $model->nominal_harga_akhir = $model->nilai_hasil_negosiasi;
+            }
+
+            // Pastikan paket > 200 Juta selalu tanpa nomor memo pengadaan PPBJ
+            if ($model->jalur_routing === self::ROUTING_PPK || (float) ($model->nilai_hps ?? 0) > 200000000) {
                 $model->nomor_memo_ppbj = null;
             }
         });
     }
 
     /**
-     * Menghitung jalur pengadaan berdasarkan batas nilai nominal pagu atau HPS.
+     * Menghitung jalur pengadaan berdasarkan batas nilai nominal pagu atau HPS (Notulensi Pertemuan PPBJ).
      *
-     * Aturan sesuai BPMN (bepemen.drawio) & Dokumen Alur Pekerjaan:
-     * - Nilai <= Rp 50.000.000: Pengadaan Langsung (PPBJ langsung menerbitkan SPK -> Perlengkapan)
-     * - Nilai > Rp 50.000.000 dan < Rp 200.000.000: Pejabat Pengadaan (PP) -> PPK -> PPBJ -> Perlengkapan
-     * - Nilai >= Rp 200.000.000: Pejabat Pembuat Komitmen (PPK) -> PPBJ -> Perlengkapan (Tanpa Memo Pengadaan)
+     * Aturan:
+     * - Nilai <= Rp 50.000.000: Belanja Langsung oleh PPBJ (output Kwitansi, tanpa Kontrak/SPK -> Perlengkapan)
+     * - Nilai > Rp 50.000.000 s.d. Rp 200.000.000: Melibatkan PP (Review PP + Input Harga & Vendor -> Approval PPK -> PP Belanja -> PPBJ Upload 1 Dokumen)
+     * - Nilai > Rp 200.000.000: Melibatkan PPK (PPBJ Input Data Lelang -> Approval & Belanja PPK -> PPBJ Upload 1 Dokumen, Tanpa Memo PPBJ)
      *
      * @param  float  $nominal  Nominal nilai paket pengadaan
      * @return string Kode jalur routing yang sesuai
@@ -206,7 +253,7 @@ class PaketPengadaan extends Model
     {
         if ($nominal <= 50000000) {
             return self::ROUTING_LANGSUNG;
-        } elseif ($nominal < 200000000) {
+        } elseif ($nominal <= 200000000) {
             return self::ROUTING_PP;
         } else {
             return self::ROUTING_PPK;
@@ -274,13 +321,23 @@ class PaketPengadaan extends Model
     }
 
     /**
+     * Relasi many-to-one ke pejabat pelaksana kewenangan belanja (PPBJ untuk <=50jt, PP untuk 50-200jt, PPK untuk >200jt).
+     *
+     * @return BelongsTo Relasi ke model User
+     */
+    public function pelaksanaBelanja(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'dieksekusi_belanja_oleh', 'id_user');
+    }
+
+    /**
      * Relasi many-to-one ke data Vendor/Penyedia terpilih.
      *
      * @return BelongsTo Relasi ke model Vendor
      */
     public function vendor(): BelongsTo
     {
-        return $this->belongsTo(Vendor::class, 'npwp_vendor', 'npwp');
+        return $this->belongsTo(Vendor::class, 'id_vendor', 'id');
     }
 
     /**
@@ -294,13 +351,14 @@ class PaketPengadaan extends Model
     }
 
     /**
-     * Relasi one-to-many ke rekam jejak pengalihan tugas PPK.
+     * Relasi one-to-many ke rekam jejak audit mutasi pengalihan tugas PPK.
      *
-     * @return HasMany Koleksi riwayat penugasan PPK
+     * @return HasMany Koleksi jejak audit log alih tugas PPK
      */
     public function riwayatPpk(): HasMany
     {
-        return $this->hasMany(RiwayatPenugasanPPK::class, 'nomor_paket', 'nomor_paket');
+        return $this->hasMany(AuditLog::class, 'id_entitas', 'nomor_paket')
+            ->where('jenis_aksi', 'REASSIGN_PPK');
     }
 
     /**
@@ -368,12 +426,17 @@ class PaketPengadaan extends Model
      */
     public function scopeForUser($query, User $user)
     {
-        if ($user->role === 'ppk') {
-            // Isolasi berkas 4 akun PPK: Hanya melihat paket yang ditugaskan ke ID akun PPK bersangkutan
-            return $query->where('id_user_ppk', $user->id_user);
+        if ($user->hasPermission('paket.view_all')) {
+            return $query;
         }
 
-        if ($user->role === 'pp') {
+        if ($user->hasPermission('reviu.ppk')) {
+            // Isolasi berkas 4 akun PPK: Hanya melihat paket yang ditugaskan ke ID akun PPK bersangkutan (>200jt / non-langsung)
+            return $query->where('id_user_ppk', $user->id_user)
+                ->where('jalur_routing', '!=', self::ROUTING_LANGSUNG);
+        }
+
+        if ($user->hasPermission('reviu.pp')) {
             // PP hanya melihat paket yang dialokasikan ke jalur PP (50jt - 200jt) atau ditugaskan kepadanya
             return $query->where(function ($q) use ($user) {
                 $q->where('jalur_routing', self::ROUTING_PP)
@@ -381,7 +444,7 @@ class PaketPengadaan extends Model
             });
         }
 
-        if ($user->role === 'user') {
+        if ($user->hasPermission('permohonan.view_own') && ! $user->hasPermission('permohonan.view_all')) {
             // Pemohon hanya melihat paket dari permohonan yang diajukannya
             return $query->whereHas('permohonan', function ($q) use ($user) {
                 $q->where('id_user', $user->id_user);
@@ -416,6 +479,24 @@ class PaketPengadaan extends Model
     public function setPpbjUserIdAttribute(?int $value): void
     {
         $this->attributes['id_user_ppbj'] = $value;
+    }
+
+    /**
+     * Accessor alias metode_pengadaan yang merujuk ke kolom mekanisme_pengadaan.
+     */
+    public function getMetodePengadaanAttribute(): ?string
+    {
+        return $this->attributes['mekanisme_pengadaan'] ?? null;
+    }
+
+    /**
+     * Mutator alias metode_pengadaan yang menyelaraskan ke kolom mekanisme_pengadaan.
+     */
+    public function setMetodePengadaanAttribute(?string $value): void
+    {
+        if ($value !== null) {
+            $this->attributes['mekanisme_pengadaan'] = $value;
+        }
     }
 
     /**

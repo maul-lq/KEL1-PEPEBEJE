@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\PengadaanRoutingService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -70,14 +71,23 @@ class Pembayaran extends Model
         'tanggal_pengajuan',
         'jatuh_tempo',
         'status_pembayaran',
-        'file_tagihan_vendor',
         'file_dokumen_penunjang',
-        'nomor_memo',
-        'file_memo',
-        'id_user_reviu',
+        'file_spp',
+        'nomor_kwitansi',
+        'file_kwitansi',
+        'nomor_invoice',
+        'file_invoice',
         'tanggal_perintah_bayar',
-        'status_reviu_akhir',
         'catatan_reviu_akhir',
+    ];
+
+    /**
+     * Atribut tambahan terstruktur untuk Informasi Dokumen Pembayaran pada serialisasi JSON.
+     *
+     * @var array<int, string>
+     */
+    protected $appends = [
+        'informasi_dokumen_pembayaran',
     ];
 
     /**
@@ -109,6 +119,10 @@ class Pembayaran extends Model
                 $model->tanggal_pengajuan = now()->toDateString();
             }
         });
+
+        static::saved(function (Pembayaran $pembayaran): void {
+            PengadaanRoutingService::syncPembayaranSchedules($pembayaran);
+        });
     }
 
     /**
@@ -132,16 +146,6 @@ class Pembayaran extends Model
     }
 
     /**
-     * Relasi many-to-one ke User pereviu akhir / verifikator keuangan.
-     *
-     * @return BelongsTo Relasi ke model User
-     */
-    public function reviuUser(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'id_user_reviu', 'id_user');
-    }
-
-    /**
      * Relasi one-to-many ke tahapan persetujuan Memo Bayar berjenjang.
      *
      * @return HasMany Koleksi tahapan memo bayar
@@ -159,5 +163,51 @@ class Pembayaran extends Model
     public function transaksiPencairan(): HasOne
     {
         return $this->hasOne(TransaksiPencairan::class, 'nomor_pembayaran', 'nomor_pembayaran');
+    }
+
+    /**
+     * Menyusun ringkasan terstruktur Informasi Dokumen Pembayaran sesuai Notulensi PPBJ:
+     * Menampilkan dokumen perikatan tunggal (SPK / Surat Pesanan / Surat Kontrak untuk > 50jt,
+     * atau keterangan tanpa kontrak untuk <= 50jt Belanja Langsung) ditambah Kwitansi dan Invoice.
+     *
+     * @return array{dokumen_perikatan: array<string, mixed>, kwitansi: array<string, mixed>, invoice: array<string, mixed>, file_dokumen_penunjang: ?string, file_spp: ?string}
+     */
+    public function getInformasiDokumenPembayaranAttribute(): array
+    {
+        $paket = $this->relationLoaded('paket')
+            ? $this->paket
+            : $this->paket()->with('kontrakSpk')->first();
+        $kontrak = ($paket && $paket->relationLoaded('kontrakSpk'))
+            ? $paket->kontrakSpk
+            : $paket?->kontrakSpk;
+
+        $isBelanjaLangsung = $paket?->jalur_routing === PaketPengadaan::ROUTING_LANGSUNG;
+
+        return [
+            'dokumen_perikatan' => $isBelanjaLangsung
+                ? [
+                    'jenis' => 'tanpa_kontrak_belanja_langsung',
+                    'nomor' => null,
+                    'file' => null,
+                    'nilai_kontrak' => null,
+                    'keterangan' => 'Belanja Langsung (<= Rp 50 Juta) tidak menggunakan Kontrak/SPK/Surat Pesanan.',
+                ]
+                : [
+                    'jenis' => $kontrak?->tipe_dokumen,
+                    'nomor' => $kontrak?->nomor_spk,
+                    'file' => $kontrak?->file_spk,
+                    'nilai_kontrak' => $kontrak?->nilai_kontrak,
+                ],
+            'kwitansi' => [
+                'nomor_kwitansi' => $this->nomor_kwitansi ?? $paket?->nomor_kwitansi_belanja,
+                'file_kwitansi' => $this->file_kwitansi ?? $paket?->file_kwitansi_belanja,
+            ],
+            'invoice' => [
+                'nomor_invoice' => $this->nomor_invoice,
+                'file_invoice' => $this->file_invoice,
+            ],
+            'file_dokumen_penunjang' => $this->file_dokumen_penunjang,
+            'file_spp' => $this->file_spp,
+        ];
     }
 }

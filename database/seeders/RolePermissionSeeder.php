@@ -54,13 +54,13 @@ class RolePermissionSeeder extends Seeder
             [
                 'nama_role' => 'perencanaan',
                 'label' => 'Bagian Perencanaan',
-                'deskripsi' => 'Verifikator MAK DIPA, alokasi pagu, penahanan anggaran, pemecahan usulan MAK (FR 6.3), dan penguncian MAK.',
+                'deskripsi' => 'Verifikator MAK DIPA, alokasi pagu, penahanan anggaran, pemecahan usulan MAK, dan penguncian MAK.',
                 'is_system' => true,
             ],
             [
                 'nama_role' => 'ppbj',
                 'label' => 'Unit Pengadaan Barang & Jasa (PPBJ)',
-                'deskripsi' => 'Pengelola paket, pemecah jenis pengadaan (FR 7.2), auto-routing HPS, penerbit Kontrak/SPK, dan pengaju tagihan/SPP.',
+                'deskripsi' => 'Pengelola paket, pemecah jenis pengadaan, auto-routing HPS, penerbit Kontrak/SPK, dan pengaju tagihan/SPP.',
                 'is_system' => true,
             ],
             [
@@ -106,14 +106,14 @@ class RolePermissionSeeder extends Seeder
             ['nama_permission' => 'permohonan.view_own', 'label' => 'Melihat Usulan Milik Sendiri & Catatan Penolakan', 'kategori_modul' => 'Permohonan'],
             ['nama_permission' => 'permohonan.view_all', 'label' => 'Melihat Seluruh Usulan Permohonan Unit', 'kategori_modul' => 'Permohonan'],
             ['nama_permission' => 'permohonan.revisi', 'label' => 'Mengajukan Revisi Usulan yang Ditolak', 'kategori_modul' => 'Permohonan'],
-            ['nama_permission' => 'permohonan.split_mak', 'label' => 'Memecah Usulan Berdasarkan Kode MAK (FR 6.3)', 'kategori_modul' => 'Permohonan'],
-            ['nama_permission' => 'permohonan.split_jenis', 'label' => 'Memecah Berkas Berdasarkan Jenis Pengadaan (FR 7.2)', 'kategori_modul' => 'Permohonan'],
+            ['nama_permission' => 'permohonan.delete', 'label' => 'Menghapus Usulan Permohonan Pengadaan', 'kategori_modul' => 'Permohonan'],
+            ['nama_permission' => 'permohonan.split_mak', 'label' => 'Memecah Usulan Berdasarkan Kode MAK', 'kategori_modul' => 'Permohonan'],
+            ['nama_permission' => 'permohonan.split_jenis', 'label' => 'Memecah Berkas Berdasarkan Jenis Pengadaan', 'kategori_modul' => 'Permohonan'],
 
             // Modul Verifikasi & Anggaran
-            ['nama_permission' => 'verifikasi.bidang_2_view', 'label' => 'Melihat Antrean Telaah Berkas Masuk (Staf B2)', 'kategori_modul' => 'Verifikasi'],
-            ['nama_permission' => 'verifikasi.bidang_2_teruskan', 'label' => 'Meneruskan Hasil Telaah Berkas ke Wadir 2', 'kategori_modul' => 'Verifikasi'],
-            ['nama_permission' => 'verifikasi.wadir_2_view', 'label' => 'Melihat Antrean Verifikasi Eksekutif Wadir 2', 'kategori_modul' => 'Verifikasi'],
-            ['nama_permission' => 'verifikasi.wadir_2_decide', 'label' => 'Memberikan Keputusan ACC / Tolak Usulan', 'kategori_modul' => 'Verifikasi'],
+            ['nama_permission' => 'verifikasi.bidang_2_view', 'label' => 'Melihat Antrean & Dokumen Usulan Masuk (Staf B2 Read-Only)', 'kategori_modul' => 'Verifikasi'],
+            ['nama_permission' => 'verifikasi.wadir_2_view', 'label' => 'Melihat Antrean & Telaah Kelengkapan Dokumen Wadir 2', 'kategori_modul' => 'Verifikasi'],
+            ['nama_permission' => 'verifikasi.wadir_2_decide', 'label' => 'Memberikan Keputusan ACC / Tolak / Revisi Usulan', 'kategori_modul' => 'Verifikasi'],
             ['nama_permission' => 'anggaran.mak_view', 'label' => 'Melihat Daftar Rekening MAK dan Pagu DIPA', 'kategori_modul' => 'Anggaran'],
             ['nama_permission' => 'anggaran.mak_manage', 'label' => 'Mengelola Master MAK DIPA', 'kategori_modul' => 'Anggaran'],
             ['nama_permission' => 'anggaran.mak_alokasi', 'label' => 'Mengalokasikan Pagu MAK atau Menetapkan Hold', 'kategori_modul' => 'Anggaran'],
@@ -125,9 +125,10 @@ class RolePermissionSeeder extends Seeder
             ['nama_permission' => 'paket.view_assigned', 'label' => 'Melihat Paket yang Ditugaskan Khusus (Terisolasi)', 'kategori_modul' => 'Pengadaan'],
             ['nama_permission' => 'paket.reassign_ppk', 'label' => 'Mengalihkan Penugasan Paket ke PPK Lain', 'kategori_modul' => 'Pengadaan'],
             ['nama_permission' => 'reviu.pp', 'label' => 'Verifikasi Teknis & Negosiasi Harga Rekanan (PP)', 'kategori_modul' => 'Pengadaan'],
+            ['nama_permission' => 'pp.monitoring_aktivitas', 'label' => 'Memonitor Seluruh Aktivitas & Hasil Negosiasi PP', 'kategori_modul' => 'Pengadaan'],
+            ['nama_permission' => 'lihat_pp', 'label' => 'Melihat & Memonitor Seluruh Berkas / Aktivitas PP (Lihat PP)', 'kategori_modul' => 'Pengadaan'],
             ['nama_permission' => 'reviu.ppk', 'label' => 'Tinjauan Dokumen, Kunci MAK & Beli/Sewa (PPK)', 'kategori_modul' => 'Pengadaan'],
             ['nama_permission' => 'spk.create', 'label' => 'Menerbitkan Surat Kontrak/SPK & Tembusan Otomatis', 'kategori_modul' => 'Pengadaan'],
-            ['nama_permission' => 'reminder.manage', 'label' => 'Mengonfigurasi Jadwal Alarm Pengingat Pengiriman', 'kategori_modul' => 'Pengadaan'],
 
             // Modul Penerimaan (BMN)
             ['nama_permission' => 'penerimaan.view', 'label' => 'Melihat Daftar Penerimaan Fisik Barang', 'kategori_modul' => 'Penerimaan'],
@@ -165,7 +166,16 @@ class RolePermissionSeeder extends Seeder
         // 3. Pemetaan Default Permissions ke 9 Role Sistem
         // =========================================================================
         $rolePermissionMap = [
-            'admin' => array_keys($permissionModels), // Admin memiliki seluruh permissions
+            'admin' => [
+                'admin.approval_registrasi',
+                'admin.user_manage',
+                'admin.role_manage',
+                'permohonan.view_all',
+                'permohonan.delete',
+                'monitoring.view',
+                'audit_log.view',
+                'dokumen.unduh_pdf',
+            ],
             'user' => [
                 'permohonan.create',
                 'permohonan.view_own',
@@ -176,7 +186,6 @@ class RolePermissionSeeder extends Seeder
             'staff_bidang_2' => [
                 'permohonan.view_all',
                 'verifikasi.bidang_2_view',
-                'verifikasi.bidang_2_teruskan',
                 'monitoring.view',
                 'dokumen.unduh_pdf',
             ],
@@ -208,8 +217,9 @@ class RolePermissionSeeder extends Seeder
                 'paket.create',
                 'paket.view_all',
                 'paket.reassign_ppk',
+                'pp.monitoring_aktivitas',
+                'lihat_pp',
                 'spk.create',
-                'reminder.manage',
                 'pembayaran.pengajuan',
                 'pembayaran.spp_terbitkan',
                 'monitoring.view',
@@ -256,13 +266,15 @@ class RolePermissionSeeder extends Seeder
             }
         }
 
+        // Hapus permission usang yang sudah tidak digunakan lagi
+        Permission::where('nama_permission', 'reminder.manage')->delete();
+
         // =========================================================================
-        // 4. Sinkronisasi id_role pada Pengguna Eksisting
+        // 4. Penetapan Peran Default bagi Pengguna yang Belum Memiliki id_role
         // =========================================================================
-        foreach ($roleModels as $slug => $role) {
-            User::where('role', $slug)->whereNull('id_role')->update([
-                'id_role' => $role->id,
-                'status_registrasi' => User::STATUS_REGISTRASI_DISETUJUI,
+        if (isset($roleModels[User::ROLE_USER])) {
+            User::whereNull('id_role')->update([
+                'id_role' => $roleModels[User::ROLE_USER]->id,
             ]);
         }
     }

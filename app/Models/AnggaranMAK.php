@@ -122,7 +122,7 @@ class AnggaranMAK extends Model
     }
 
     /**
-     * Mengunci anggaran MAK secara permanen dan mencatat timestamp penguncian.
+     * Mengunci anggaran MAK dan mencatat timestamp penguncian (wewenang eksklusif Perencanaan).
      *
      * @return bool True jika penyimpanan status berhasil
      */
@@ -130,6 +130,19 @@ class AnggaranMAK extends Model
     {
         $this->is_locked = true;
         $this->tanggal_kunci = now();
+
+        return $this->save();
+    }
+
+    /**
+     * Membuka kembali kunci anggaran MAK dan mengosongkan timestamp kunci (wewenang eksklusif Perencanaan).
+     *
+     * @return bool True jika penyimpanan status buka kunci berhasil
+     */
+    public function unlock(): bool
+    {
+        $this->is_locked = false;
+        $this->tanggal_kunci = null;
 
         return $this->save();
     }

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\PengadaanRoutingService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -85,15 +86,17 @@ class TransaksiPencairan extends Model
             // Pembaruan status pembayaran menjadi lunas dan kaskade status paket/permohonan menjadi selesai (FR 18.2)
             $pembayaran = $cair->pembayaran;
             if ($pembayaran) {
-                // Tandai pembayaran saat ini lunas
+                // Tandai pembayaran saat ini lunas dan hentikan reminder jatuh tempo
                 $pembayaran->status_pembayaran = 'lunas';
                 $pembayaran->save();
+                PengadaanRoutingService::deactivateForPembayaran($pembayaran->nomor_pembayaran);
 
                 // Tandai paket pengadaan telah selesai seluruh prosesnya
                 $paket = $pembayaran->paket;
                 if ($paket) {
                     $paket->status_paket = 'selesai';
                     $paket->save();
+                    PengadaanRoutingService::deactivateForPaket($paket->nomor_paket);
 
                     // Tandai surat usulan permohonan awal pengadaan selesai paripurna
                     if ($paket->permohonan) {

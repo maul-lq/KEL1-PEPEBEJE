@@ -3,87 +3,312 @@
 @section('title', 'Ajukan Permohonan Pengadaan Baru - SIM-PBJ PNJ')
 
 @section('content')
-<section>
-    <h2>Pengajuan Usulan Permohonan Pengadaan Barang & Jasa</h2>
-    <p>
-        Formulir ini digunakan oleh Unit Kerja / Jurusan untuk mendaftarkan usulan pengadaan berbasis surat dinas resmi Srikandi,
-        dilengkapi dengan Kerangka Acuan Kerja (KAK) dan Spesifikasi Teknis.
-    </p>
+<div class="min-h-screen bg-[#F5F7FC] p-4 sm:p-6 lg:p-8" x-data="permohonanCreatePage" data-initial-nominal="{{ old('anggaran_diajukan', '') }}">
+    <div class="mx-auto max-w-5xl space-y-6">
 
-    <form action="{{ route('permohonan.store') }}" method="POST" enctype="multipart/form-data">
-        @csrf
-        <fieldset>
-            <legend>Data Surat & Dokumen Pendukung Pengadaan</legend>
+        <!-- 1. HEADER HALAMAN, TOMBOL KEMBALI & BADGE STATUS -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="flex items-start sm:items-center gap-3">
+                <a href="{{ route('permohonan.index') }}" 
+                   class="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 bg-[#0969da] hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs hover:shadow-md transition-all duration-200 shrink-0"
+                   title="Batal dan Kembali">
+                    <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                    </svg>
+                    <span class="hidden sm:inline">Batal dan Kembali</span>
+                </a>
+                <div>
+                    <h1 class="text-xl sm:text-2xl md:text-3xl font-extrabold text-[#213153] tracking-tight">
+                        Ajukan Usulan Pengadaan Baru
+                    </h1>
+                </div>
+            </div>
 
-            <p>
-                <label for="nomor_surat"><strong>Nomor Surat Resmi Srikandi PNJ:</strong></label><br>
-                <input type="text" id="nomor_surat" name="nomor_surat" value="{{ old('nomor_surat') }}" required placeholder="Contoh: B/123/PL3/TIK/2026">
-                <br>
-                <small><em>Nomor surat dicatat sesuai identitas registrasi naskah dinas Srikandi dan harus unik.</em></small>
-            </p>
+            <!-- Status Usulan Default -->
+            <div class="flex items-center self-start sm:self-center shrink-0">
+                <x-status-badge status="diajukan" size="md" />
+            </div>
+        </div>
 
-            <p>
-                <label for="perihal"><strong>Perihal / Judul Pengadaan:</strong></label><br>
-                <input type="text" id="perihal" name="perihal" value="{{ old('perihal') }}" required placeholder="Contoh: Pengadaan Perangkat Server dan Lab Cloud AI" size="60">
-            </p>
+        <!-- 2. CALLOUT NOTICE SRIKANDI (Figma 498:5218) DENGAN STYLE FRONTEND -->
+        <div class="rounded-2xl border border-blue-200/80 bg-blue-50/80 p-4 md:p-5 text-xs text-blue-900 shadow-xs">
+            <div class="flex items-start gap-3.5">
+                <div class="size-8 rounded-xl bg-[#0969da] text-white flex items-center justify-center shrink-0 shadow-sm shadow-[#0969da]/20 mt-0.5">
+                    <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+                <div class="space-y-1">
+                    <div class="text-sm font-bold text-[#213153]">Ketentuan Naskah Dinas</div>
+                    <p class="text-slate-600 leading-relaxed text-xs sm:text-sm">
+                        Pastikan nomor surat sama dengan arsip Srikandi. Maksimal 5 file total (15 MB per file).
+                    </p>
+                </div>
+            </div>
+        </div>
 
-            <p>
-                <label for="tujuan_pengadaan_ringkas"><strong>Tujuan Pengadaan Secara Ringkas:</strong></label><br>
-                <textarea id="tujuan_pengadaan_ringkas" name="tujuan_pengadaan_ringkas" rows="3" cols="60" placeholder="Tuliskan tujuan dan latar belakang pengadaan secara ringkas...">{{ old('tujuan_pengadaan_ringkas') }}</textarea>
-                <br>
-                <small><em>Sesuai ketentuan Srikandi dan kebutuhan justifikasi pengadaan institusi.</em></small>
-            </p>
-
-            <p>
-                <label for="anggaran_diajukan"><strong>Estimasi Nilai Anggaran yang Diusulkan (Rp):</strong></label><br>
-                <input type="number" id="anggaran_diajukan" name="anggaran_diajukan" value="{{ old('anggaran_diajukan') }}" step="0.01" min="1" required placeholder="Contoh: 150000000">
-                <br>
-                <small><em>Masukkan angka estimasi total tanpa titik atau koma (misal: 150000000 untuk 150 juta).</em></small>
-            </p>
-
-            <p>
-                <label for="kode_unit"><strong>Unit Kerja / Jurusan Pengusul:</strong></label><br>
-                <select id="kode_unit" name="kode_unit" required>
-                    @foreach($units as $u)
-                        <option value="{{ $u->kode_unit }}" {{ (Auth::user()->kode_unit === $u->kode_unit) ? 'selected' : '' }}>
-                            [{{ $u->kode_unit }}] {{ $u->nama_unit }}
-                        </option>
+        <!-- 3. ERROR MESSAGES VALIDASI -->
+        @if ($errors->any())
+            <div class="rounded-xl bg-rose-50 border border-rose-200 p-4 text-xs sm:text-sm text-rose-800 space-y-1.5 shadow-xs">
+                <div class="font-bold flex items-center gap-2 text-rose-900">
+                    <svg class="size-4.5 text-rose-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                    Terjadi kesalahan input data:
+                </div>
+                <ul class="list-disc list-inside space-y-0.5 text-xs text-rose-700 pl-1">
+                    @foreach ($errors->all() as $error)
+                        <li>{{ $error }}</li>
                     @endforeach
-                </select>
-            </p>
+                </ul>
+            </div>
+        @endif
 
-            <p>
-                <label for="tanggal_pengajuan"><strong>Tanggal Pengajuan Usulan:</strong></label><br>
-                <input type="date" id="tanggal_pengajuan" name="tanggal_pengajuan" value="{{ old('tanggal_pengajuan', date('Y-m-d')) }}" required>
-            </p>
+        <!-- MAIN FORM CONTAINER CARD (Gaya Frontend-pemula dengan Logika Fullstuck) -->
+        <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+            
+            <form action="{{ route('permohonan.store') }}" 
+                  method="POST" 
+                  enctype="multipart/form-data" 
+                  class="p-6 lg:p-8 space-y-8">
+                @csrf
 
-            <p>
-                <label for="file_surat_permohonan"><strong>Unggah Berkas Surat Permohonan Srikandi (PDF):</strong></label><br>
-                <input type="file" id="file_surat_permohonan" name="file_surat_permohonan" accept=".pdf">
-                <br>
-                <small><em>Format: .pdf (Maksimal 10 MB). Opsional jika file fisik menyusul.</em></small>
-            </p>
+                <!-- SECTION 1: DATA SURAT & DOKUMEN PENDUKUNG -->
+                <div class="space-y-6">
+                    <div class="border-b border-slate-100 pb-3">
+                        <h2 class="text-lg font-bold text-[#213153]">Data Surat &amp; Dokumen Pendukung Pengadaan</h2>
+                    </div>
 
-            <p>
-                <label for="file_kak"><strong>Unggah Berkas Kerangka Acuan Kerja / KAK (PDF/DOCX):</strong></label><br>
-                <input type="file" id="file_kak" name="file_kak" accept=".pdf,.doc,.docx">
-                <br>
-                <small><em>Format: .pdf, .docx (Maksimal 10 MB).</em></small>
-            </p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Nomor Surat Resmi Srikandi PNJ -->
+                        <div class="space-y-1.5">
+                            <label for="nomor_surat" class="block text-sm font-semibold text-[#213153]">
+                                Nomor Registrasi Surat Srikandi <span class="text-rose-600">*</span>
+                            </label>
+                            <input type="text" 
+                                   id="nomor_surat" 
+                                   name="nomor_surat" 
+                                   value="{{ old('nomor_surat') }}" 
+                                   placeholder="Contoh: B/123/PL3/TIK/2026" 
+                                   required 
+                                   class="w-full h-11 px-4 rounded-xl border @error('nomor_surat') border-rose-300 ring-2 ring-rose-100 @else border-slate-300 @enderror text-sm font-mono text-[#213153] placeholder-slate-400 focus:ring-2 focus:ring-[#0969da]/20 focus:border-[#0969da] outline-none transition-all">
+                            @error('nomor_surat') 
+                                <span class="text-xs text-rose-600 font-medium">{{ $message }}</span> 
+                            @enderror
+                        </div>
 
-            <p>
-                <label for="file_spesifikasi_teknis"><strong>Unggah Berkas Spesifikasi Teknis & Rincian Harga (PDF/DOCX/XLSX):</strong></label><br>
-                <input type="file" id="file_spesifikasi_teknis" name="file_spesifikasi_teknis" accept=".pdf,.doc,.docx,.xlsx">
-                <br>
-                <small><em>Format: .pdf, .docx, .xlsx (Maksimal 10 MB).</em></small>
-            </p>
+                        <!-- Estimasi Nilai Anggaran with Live Preview -->
+                        <div class="space-y-1.5">
+                            <div class="flex items-center justify-between">
+                                <label for="anggaran_diajukan" class="block text-sm font-semibold text-[#213153]">
+                                    Estimasi Nilai Anggaran Usulan (Rp) <span class="text-rose-600">*</span>
+                                </label>
+                                <span class="text-xs font-bold text-[#0969da] font-mono" 
+                                      x-text="nominal ? 'Rp ' + Number(nominal).toLocaleString('id-ID') : 'Rp 0'"></span>
+                            </div>
+                            <div class="relative">
+                                <span class="absolute left-4 top-3 text-sm font-bold text-slate-400">Rp</span>
+                                <input type="number" 
+                                       id="anggaran_diajukan" 
+                                       name="anggaran_diajukan" 
+                                       x-model="nominal"
+                                       value="{{ old('anggaran_diajukan') }}" 
+                                       step="0.01" 
+                                       min="1" 
+                                       placeholder="Contoh: 150000000" 
+                                       required 
+                                       class="w-full h-11 pl-11 pr-4 rounded-xl border @error('anggaran_diajukan') border-rose-300 ring-2 ring-rose-100 @else border-slate-300 @enderror text-sm font-mono text-[#213153] placeholder-slate-400 focus:ring-2 focus:ring-[#0969da]/20 focus:border-[#0969da] outline-none transition-all">
+                            </div>
+                            <p class="text-[11px] text-slate-400 italic">Isi angka saja tanpa titik/koma (contoh: 150000000).</p>
+                            @error('anggaran_diajukan') 
+                                <span class="text-xs text-rose-600 font-medium">{{ $message }}</span> 
+                            @enderror
+                        </div>
+                    </div>
 
-            <p>
-                <button type="submit"><strong>Kirimkan Usulan Permohonan Pengadaan</strong></button>
-                &nbsp;
-                <a href="{{ route('permohonan.index') }}">Batal dan Kembali</a>
-            </p>
-        </fieldset>
-    </form>
-</section>
+                    <!-- Perihal / Judul Kegiatan Pengadaan -->
+                    <div class="space-y-1.5">
+                        <label for="perihal" class="block text-sm font-semibold text-[#213153]">
+                            Perihal / Judul Kegiatan Pengadaan <span class="text-rose-600">*</span>
+                        </label>
+                        <input type="text" 
+                               id="perihal" 
+                               name="perihal" 
+                               value="{{ old('perihal') }}" 
+                               placeholder="Contoh: Pengadaan Perangkat Server dan Fasilitas Laboratorium Cloud AI" 
+                               required 
+                               class="w-full h-11 px-4 rounded-xl border @error('perihal') border-rose-300 ring-2 ring-rose-100 @else border-slate-300 @enderror text-sm text-[#213153] placeholder-slate-400 focus:ring-2 focus:ring-[#0969da]/20 focus:border-[#0969da] outline-none transition-all">
+                        @error('perihal') 
+                            <span class="text-xs text-rose-600 font-medium">{{ $message }}</span> 
+                        @enderror
+                    </div>
+
+                    <!-- Uraian Singkat Latar Belakang & Justifikasi -->
+                    <div class="space-y-1.5">
+                        <label for="tujuan_pengadaan_ringkas" class="block text-sm font-semibold text-[#213153]">
+                            Uraian Singkat Latar Belakang &amp; Tujuan Justifikasi
+                        </label>
+                        <textarea id="tujuan_pengadaan_ringkas" 
+                                  name="tujuan_pengadaan_ringkas" 
+                                  rows="3" 
+                                  placeholder="Jelaskan kebutuhan pengadaan, tujuan kegiatan, dan alasan anggaran..." 
+                                  class="w-full p-4 rounded-xl border border-slate-300 text-sm text-[#213153] placeholder-slate-400 focus:ring-2 focus:ring-[#0969da]/20 focus:border-[#0969da] outline-none transition-all">{{ old('tujuan_pengadaan_ringkas') }}</textarea>
+                        @error('tujuan_pengadaan_ringkas') 
+                            <span class="text-xs text-rose-600 font-medium">{{ $message }}</span> 
+                        @enderror
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Unit Kerja / Jurusan Pengusul (Otomatis dari Akun) -->
+                        <div class="space-y-1.5">
+                            <label class="block text-sm font-semibold text-[#213153]">
+                                Unit Kerja / Jurusan Pengusul
+                            </label>
+                            <input type="hidden" name="kode_unit" value="{{ Auth::user()->kode_unit ?? 'TIK' }}">
+                            <input type="text" readonly disabled 
+                                   value="{{ Auth::user()->unit ? '[' . Auth::user()->kode_unit . '] ' . Auth::user()->unit->nama_unit : (Auth::user()->kode_unit ?? 'Unit Pengusul') }}"
+                                   class="w-full h-11 px-4 rounded-xl border border-slate-200 bg-slate-100 text-sm font-semibold text-slate-700 cursor-not-allowed">
+                        </div>
+
+                        <!-- Tanggal Pengajuan Usulan -->
+                        <div class="space-y-1.5">
+                            <label for="tanggal_pengajuan" class="block text-sm font-semibold text-[#213153]">
+                                Tanggal Pengajuan Usulan <span class="text-rose-600">*</span>
+                            </label>
+                            <input type="date" 
+                                   id="tanggal_pengajuan" 
+                                   name="tanggal_pengajuan" 
+                                   value="{{ old('tanggal_pengajuan', date('Y-m-d')) }}" 
+                                   required 
+                                   class="w-full h-11 px-4 rounded-xl border border-slate-300 text-sm text-[#213153] focus:ring-2 focus:ring-[#0969da]/20 focus:border-[#0969da] outline-none transition-all">
+                            @error('tanggal_pengajuan') 
+                                <span class="text-xs text-rose-600 font-medium">{{ $message }}</span> 
+                            @enderror
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECTION 2: UNGGAH BERKAS DOKUMEN RESMI (PDF Only Srikandi) -->
+                <div class="space-y-6 pt-4 border-t border-slate-100">
+                    <div class="border-b border-slate-100 pb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                        <div>
+                            <h2 class="text-lg font-bold text-[#213153]">Dokumen Lampiran Pengadaan</h2>
+                            <p class="text-xs text-slate-400">Format PDF, maksimal 15 MB per berkas.</p>
+                        </div>
+                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-50 text-[#0969da] border border-blue-200 w-fit">
+                            Maksimal 5 file &bull; Maksimal 15 MB
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        
+                        <!-- File 1: Surat Permohonan Srikandi -->
+                        <div class="space-y-2">
+                            <label for="file_surat_permohonan" class="block text-xs font-bold text-[#213153]">
+                                1. Surat Pengantar Srikandi (PDF)
+                            </label>
+                            <div @dragover.prevent="isDraggingSurat = true"
+                                 @dragleave.prevent="isDraggingSurat = false"
+                                 @drop.prevent="isDraggingSurat = false; handleDrop($event, 'file_surat_permohonan')"
+                                 :class="isDraggingSurat ? 'border-[#0969da] bg-blue-50/80 scale-[0.99]' : 'border-slate-300 hover:border-[#0969da] bg-slate-50/50'"
+                                 class="relative border-2 border-dashed rounded-xl p-4 text-center transition-all">
+                                <input type="file" 
+                                       id="file_surat_permohonan" 
+                                       name="file_surat_permohonan" 
+                                       accept=".pdf" 
+                                       @change="fileNameSurat = $event.target.files[0] ? $event.target.files[0].name : ''"
+                                       class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+                                <svg class="size-8 mx-auto text-slate-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                                </svg>
+                                <span class="text-xs font-semibold text-[#0969da] block" x-text="fileNameSurat ? fileNameSurat : 'Tarik & taruh atau Pilih Surat Pengantar (PDF)'"></span>
+                                <span class="text-[10px] text-slate-400 block mt-1">Format PDF &bull; Maksimal 15 MB</span>
+                            </div>
+                            @error('file_surat_permohonan') 
+                                <span class="text-xs text-rose-600 font-medium">{{ $message }}</span> 
+                            @enderror
+                        </div>
+
+                        <!-- File 2: Kerangka Acuan Kerja -->
+                        <div class="space-y-2">
+                            <label for="file_kak" class="block text-xs font-bold text-[#213153]">
+                                2. Kerangka Acuan Kerja (PDF)
+                            </label>
+                            <div @dragover.prevent="isDraggingKak = true"
+                                 @dragleave.prevent="isDraggingKak = false"
+                                 @drop.prevent="isDraggingKak = false; handleDrop($event, 'file_kak')"
+                                 :class="isDraggingKak ? 'border-[#0969da] bg-blue-50/80 scale-[0.99]' : 'border-slate-300 hover:border-[#0969da] bg-slate-50/50'"
+                                 class="relative border-2 border-dashed rounded-xl p-4 text-center transition-all">
+                                <input type="file" 
+                                       id="file_kak" 
+                                       name="file_kak" 
+                                       accept=".pdf" 
+                                       @change="fileNameKak = $event.target.files[0] ? $event.target.files[0].name : ''"
+                                       class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+                                <svg class="size-8 mx-auto text-slate-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                                <span class="text-xs font-semibold text-[#0969da] block" x-text="fileNameKak ? fileNameKak : 'Tarik & taruh atau Pilih Kerangka Acuan (PDF)'"></span>
+                                <span class="text-[10px] text-slate-400 block mt-1">Format PDF &bull; Maksimal 15 MB</span>
+                            </div>
+                            @error('file_kak') 
+                                <span class="text-xs text-rose-600 font-medium">{{ $message }}</span> 
+                            @enderror
+                        </div>
+
+                        <!-- File 3: Spesifikasi Teknis & Rincian Biaya -->
+                        <div class="space-y-2">
+                            <label for="file_spesifikasi_teknis" class="block text-xs font-bold text-[#213153]">
+                                3. Spesifikasi Teknis &amp; Rincian Biaya (PDF)
+                            </label>
+                            <div @dragover.prevent="isDraggingSpek = true"
+                                 @dragleave.prevent="isDraggingSpek = false"
+                                 @drop.prevent="isDraggingSpek = false; handleDrop($event, 'file_spesifikasi_teknis')"
+                                 :class="isDraggingSpek ? 'border-[#0969da] bg-blue-50/80 scale-[0.99]' : 'border-slate-300 hover:border-[#0969da] bg-slate-50/50'"
+                                 class="relative border-2 border-dashed rounded-xl p-4 text-center transition-all">
+                                <input type="file" 
+                                       id="file_spesifikasi_teknis" 
+                                       name="file_spesifikasi_teknis" 
+                                       accept=".pdf" 
+                                       @change="fileNameSpek = $event.target.files[0] ? $event.target.files[0].name : ''"
+                                       class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+                                <svg class="size-8 mx-auto text-slate-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                                </svg>
+                                <span class="text-xs font-semibold text-[#0969da] block" x-text="fileNameSpek ? fileNameSpek : 'Tarik & taruh atau Pilih Spesifikasi Teknis (PDF)'"></span>
+                                <span class="text-[10px] text-slate-400 block mt-1">Format PDF &bull; Maksimal 15 MB</span>
+                            </div>
+                            @error('file_spesifikasi_teknis') 
+                                <span class="text-xs text-rose-600 font-medium">{{ $message }}</span> 
+                            @enderror
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- ACTION BUTTONS -->
+                <div class="flex flex-col-reverse sm:flex-row items-center justify-end gap-3 pt-6 border-t border-slate-100">
+                    <a href="{{ route('permohonan.index') }}" 
+                       class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 h-11 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl border border-slate-300 transition-all duration-200">
+                        <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                        </svg>
+                        <span>Batal dan Kembali</span>
+                    </a>
+                    <button type="submit" 
+                            class="w-full sm:w-auto h-11 px-8 rounded-xl bg-[#0969da] hover:bg-blue-700 text-white font-bold text-sm transition-colors shadow-sm shadow-[#0969da]/30 flex items-center justify-center gap-2">
+                        <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                        </svg>
+                        <span>Kirimkan Usulan Permohonan Pengadaan</span>
+                    </button>
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+</div>
+
 @endsection

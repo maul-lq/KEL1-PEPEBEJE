@@ -1,0 +1,312 @@
+@page {
+    size: A4 landscape;
+    margin: 14mm 12mm 16mm 12mm;
+    @bottom-left {
+        content: "SIM-PBJ Politeknik Negeri Jakarta • Laporan Resmi";
+        font-family: "DejaVu Sans", sans-serif;
+        font-size: 7.5pt;
+        color: #64748b;
+    }
+    @bottom-right {
+        content: "Halaman " counter(page) " dari " counter(pages);
+        font-family: "DejaVu Sans", sans-serif;
+        font-size: 7.5pt;
+        font-weight: bold;
+        color: #334155;
+    }
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: "DejaVu Sans", sans-serif;
+    font-size: 8.5pt;
+    color: #1e293b;
+    line-height: 1.4;
+    margin: 0;
+    padding: 0;
+}
+
+.kop-banner {
+    width: 100%;
+    border-bottom: 3px solid #0969da;
+    background-color: #213153;
+    color: #ffffff;
+    padding: 12px 16px;
+    margin-bottom: 12px;
+}
+
+.kop-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.kop-instansi {
+    font-size: 7.5pt;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: #cbd5e1;
+    margin: 0 0 2px 0;
+}
+
+.kop-title {
+    font-size: 13pt;
+    font-weight: bold;
+    color: #ffffff;
+    margin: 0 0 3px 0;
+}
+
+.kop-sub {
+    font-size: 8.5pt;
+    color: #e2e8f0;
+    margin: 0;
+}
+
+.kop-badge {
+    text-align: right;
+    vertical-align: top;
+}
+
+.badge-scope {
+    display: inline-block;
+    background-color: #0969da;
+    color: #ffffff;
+    padding: 4px 10px;
+    font-size: 7.5pt;
+    font-weight: bold;
+    border-radius: 4px;
+    text-transform: uppercase;
+}
+
+.meta-box {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid #cbd5e1;
+    background-color: #f8fafc;
+    margin-bottom: 14px;
+}
+
+.meta-box td {
+    padding: 5px 10px;
+    font-size: 8pt;
+    border-bottom: 1px solid #e2e8f0;
+    vertical-align: top;
+}
+
+.meta-box tr:last-child td {
+    border-bottom: none;
+}
+
+.meta-label {
+    width: 15%;
+    font-weight: bold;
+    color: #475569;
+}
+
+.meta-val {
+    width: 35%;
+    color: #0f172a;
+}
+
+.section-block {
+    margin-bottom: 18px;
+}
+
+.section-head-wrap {
+    page-break-inside: avoid;
+}
+
+.section-header {
+    background-color: #eff6ff;
+    border-left: 4px solid #0969da;
+    border-top: 1px solid #bfdbfe;
+    border-right: 1px solid #bfdbfe;
+    border-bottom: 1px solid #bfdbfe;
+    padding: 7px 12px;
+    margin-bottom: 8px;
+}
+
+.section-title {
+    font-size: 10.5pt;
+    font-weight: bold;
+    color: #213153;
+    margin: 0;
+}
+
+.section-desc {
+    font-size: 7.5pt;
+    color: #475569;
+    margin: 2px 0 0 0;
+}
+
+.kpi-grid {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 6px;
+    margin: 0 -6px 8px -6px;
+}
+
+.kpi-card {
+    width: 33.33%;
+    border: 1px solid #cbd5e1;
+    border-top: 2.5px solid #0969da;
+    background-color: #ffffff;
+    padding: 7px 10px;
+    vertical-align: top;
+}
+
+.kpi-spacer {
+    border: none;
+    background: transparent;
+}
+
+.kpi-label {
+    font-size: 7pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    color: #64748b;
+    margin: 0 0 3px 0;
+}
+
+.kpi-val {
+    font-size: 11pt;
+    font-weight: bold;
+    color: #213153;
+    margin: 0 0 2px 0;
+}
+
+.kpi-sub {
+    font-size: 7pt;
+    color: #64748b;
+    margin: 0;
+}
+
+.table-caption {
+    font-size: 8.5pt;
+    font-weight: bold;
+    color: #213153;
+    margin: 6px 0 4px 0;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid #cbd5e1;
+    margin-bottom: 6px;
+}
+
+.data-table thead {
+    display: table-header-group;
+}
+
+.data-table th {
+    background-color: #213153;
+    color: #ffffff;
+    font-size: 7.5pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    padding: 6px 8px;
+    border: 1px solid #1e293b;
+    text-align: left;
+}
+
+.col-no {
+    width: 34px;
+}
+
+.data-table td {
+    padding: 5.5px 8px;
+    font-size: 8pt;
+    border: 1px solid #e2e8f0;
+    vertical-align: middle;
+}
+
+.data-table tbody tr {
+    page-break-inside: avoid;
+}
+
+.data-table tbody tr:nth-child(even) {
+    background-color: #f8fafc;
+}
+
+.text-center {
+    text-align: center !important;
+}
+
+.text-right {
+    text-align: right !important;
+}
+
+.font-mono {
+    font-family: "DejaVu Sans Mono", monospace;
+}
+
+.font-bold {
+    font-weight: bold;
+}
+
+.pill {
+    display: inline-block;
+    padding: 2px 6px;
+    font-size: 7pt;
+    font-weight: bold;
+    border-radius: 3px;
+}
+
+.pill-emerald {
+    background-color: #ecfdf5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
+}
+
+.pill-rose {
+    background-color: #fff1f2;
+    color: #be123c;
+    border: 1px solid #fecdd3;
+}
+
+.pill-amber {
+    background-color: #fffbeb;
+    color: #b45309;
+    border: 1px solid #fde68a;
+}
+
+.pill-blue {
+    background-color: #eff6ff;
+    color: #0969da;
+    border: 1px solid #bfdbfe;
+}
+
+.sign-box {
+    margin-top: 12px;
+    width: 100%;
+    border-collapse: collapse;
+    page-break-inside: avoid;
+}
+
+.sign-note {
+    width: 65%;
+    font-size: 7.5pt;
+    color: #64748b;
+    vertical-align: bottom;
+    padding-right: 16px;
+}
+
+.sign-stamp {
+    width: 35%;
+    border: 1px dashed #94a3b8;
+    background-color: #f8fafc;
+    padding: 8px 12px;
+    text-align: right;
+    font-size: 8pt;
+}
+
+.empty-row {
+    text-align: center;
+    color: #64748b;
+    padding: 14px !important;
+    font-style: italic;
+}

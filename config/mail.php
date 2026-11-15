@@ -40,7 +40,7 @@ return [
         'smtp' => [
             'transport' => 'smtp',
             'scheme' => env('MAIL_SCHEME'),
-            'url' => env('MAIL_URL'),
+            'url' => (! empty(env('MAIL_URL')) && filter_var(env('MAIL_URL'), FILTER_VALIDATE_URL)) ? env('MAIL_URL') : null,
             'host' => env('MAIL_HOST', '127.0.0.1'),
             'port' => env('MAIL_PORT', 2525),
             'encryption' => env('MAIL_ENCRYPTION', 'tls'),

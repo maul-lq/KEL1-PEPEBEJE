@@ -7,6 +7,12 @@
       "skillPath": "skills/docx/SKILL.md",
       "computedHash": "3b8f8cf1ca7a427607c78312655e95e21b5f8f2b06a1aad4dc5554cc90eb095c"
     },
+    "firecrawl": {
+      "source": "firecrawl/skills",
+      "sourceType": "github",
+      "skillPath": "skills/core/firecrawl/SKILL.md",
+      "computedHash": "a5e6c731b74eadd9692232ebc7ca82b13decbd7a1aa8ba910489126eda82095e"
+    },
     "pdf": {
       "source": "anthropics/skills",
       "sourceType": "github",

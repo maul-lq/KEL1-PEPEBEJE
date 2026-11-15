@@ -10,9 +10,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * Model Rekanan / Penyedia (Vendor)
  *
  * Merepresentasikan perusahaan atau penyedia barang/jasa yang bermitra dengan institusi.
- * Menyimpan data pokok legalitas (NPWP sebagai primary key, NIB), nama perusahaan, alamat,
- * status keaktifan bermitra (is_active), data kontak PIC (nama, telepon, email),
- * serta identitas rekening bank untuk penyaluran pembayaran non-tunai.
+ * Diselaraskan ke struktur minimalis dan operasional:
+ * - Identitas: id (primary key auto-increment), nama_vendor
+ * - Berkas Legalitas: file_dokumen_legalitas (unggah berkas izin usaha / legalitas penyedia)
  */
 class Vendor extends Model
 {
@@ -26,25 +26,25 @@ class Vendor extends Model
     protected $table = 'vendors';
 
     /**
-     * Primary key berupa nomor NPWP perusahaan.
+     * Primary key model.
      *
      * @var string
      */
-    protected $primaryKey = 'npwp';
+    protected $primaryKey = 'id';
 
     /**
-     * Kunci utama tidak bersifat auto-increment.
+     * Kunci utama bersifat auto-increment.
      *
      * @var bool
      */
-    public $incrementing = false;
+    public $incrementing = true;
 
     /**
-     * Tipe data primary key adalah string.
+     * Tipe data primary key adalah integer.
      *
      * @var string
      */
-    protected $keyType = 'string';
+    protected $keyType = 'int';
 
     /**
      * Kolom-kolom yang dapat diisi melalui mass assignment.
@@ -52,55 +52,16 @@ class Vendor extends Model
      * @var array<int, string>
      */
     protected $fillable = [
-        'npwp',
-        'nib',
-        'nama_perusahaan',
-        'alamat',
-        'is_active',
-        'nama_pic',
-        'telepon_pic',
-        'email_pic',
-        'nama_bank',
-        'nomor_rekening',
-        'atas_nama',
+        'nama_vendor',
+        'file_dokumen_legalitas',
     ];
 
     /**
-     * Konfigurasi type casting untuk boolean status keaktifan rekanan.
-     *
-     * @return array<string, string>
+     * Accessor alias id_vendor untuk primary key id.
      */
-    protected function casts(): array
+    public function getIdVendorAttribute(): int|string|null
     {
-        return [
-            'is_active' => 'boolean',
-        ];
-    }
-
-    /**
-     * Accessor alias id_vendor untuk primary key npwp.
-     */
-    public function getIdVendorAttribute(): ?string
-    {
-        return $this->npwp;
-    }
-
-    /**
-     * Accessor alias nama_vendor untuk nama_perusahaan.
-     */
-    public function getNamaVendorAttribute(): ?string
-    {
-        return $this->nama_perusahaan;
-    }
-
-    /**
-     * Relasi one-to-many ke berkas-berkas legalitas resmi vendor (SIUP, Akta, dsb).
-     *
-     * @return HasMany Koleksi berkas legalitas vendor
-     */
-    public function filesLegalitas(): HasMany
-    {
-        return $this->hasMany(VendorFileLegalitas::class, 'npwp', 'npwp');
+        return $this->id;
     }
 
     /**
@@ -110,6 +71,6 @@ class Vendor extends Model
      */
     public function paketPengadaan(): HasMany
     {
-        return $this->hasMany(PaketPengadaan::class, 'npwp_vendor', 'npwp');
+        return $this->hasMany(PaketPengadaan::class, 'id_vendor', 'id');
     }
 }

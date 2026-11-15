@@ -1,0 +1,14 @@
+/* Dekorasi gelombang di bagian bawah bilah sisi */
+.sidebar-wave-outer {
+    top: -43.6%;
+    right: -15.7%;
+    bottom: -14.53%;
+    left: -15.7%;
+}
+
+.sidebar-wave-inner {
+    top: -33.31%;
+    right: -9.27%;
+    bottom: -11.1%;
+    left: -9.27%;
+}
