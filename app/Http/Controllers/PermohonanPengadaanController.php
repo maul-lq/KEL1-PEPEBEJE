@@ -433,20 +433,7 @@ class PermohonanPengadaanController extends Controller
             // ==========================================
             // KASUS 2: Surat Baru dengan Pewarisan MAK
             // ==========================================
-            $activePermohonan = DB::transaction(function () use (
-                $induk,
-                $targetNomorSurat,
-                $validated,
-                $nominalBaru,
-                $fileKakPath,
-                $finalDokumenLampiran,
-                $finalFilePermohonan,
-                $finalFileSpesifikasiTeknis,
-                $revisiKe,
-                $user,
-                $alokasiLama,
-                $targetStatus
-            ) {
+            $activePermohonan = DB::transaction(function () use ($induk, $targetNomorSurat, $validated, $nominalBaru, $fileKakPath, $revisiKe, $user, $alokasiLama, $targetStatus) {
                 $revisi = PermohonanPengadaan::create([
                     'nomor_surat' => $targetNomorSurat,
                     'judul_pengadaan' => $validated['perihal'],
@@ -457,7 +444,8 @@ class PermohonanPengadaanController extends Controller
                     'kode_unit' => $induk->kode_unit,
                     'id_user' => $user->id_user,
                     'tanggal_pengajuan' => now(),
-                    'file_permohonan' => $finalFilePermohonan,
+                    'file_permohonan' => $induk->file_permohonan ?? 'permohonan/dummy.pdf',
+                    'file_surat_permohonan' => $induk->file_surat_permohonan ?? $induk->file_permohonan ?? 'permohonan/dummy.pdf',
                     'file_kak' => $fileKakPath,
                     'file_spesifikasi_teknis' => $finalFileSpesifikasiTeknis,
                     'dokumen_lampiran' => $finalDokumenLampiran,
