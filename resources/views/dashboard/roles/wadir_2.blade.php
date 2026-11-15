@@ -2,6 +2,7 @@
 {{-- Modul RBAC: Wakil Direktur II - Disposisi Eksekutif & Memo Bayar Level 1 (verifikasi_wadir2) --}}
 @php
     $canVerifWadir = $user->hasAnyPermission(['verifikasi.wadir_2_view', 'verifikasi.wadir_2_decide']);
+    $canDecideWadir = $user->hasPermission('verifikasi.wadir_2_decide');
     $canMemoWadir = $user->hasPermission('pembayaran.memo_wadir2');
     $wadirVerifHref = $canVerifWadir ? route('verifikasi.wadir-2') : null;
     $memoWadirHref = $canMemoWadir ? route('pembayaran.index') : null;
@@ -76,7 +77,7 @@
                         badge="Perlu Persetujuan"
                         badgeClass="bg-[#fff5df] text-[#99660d]"
                         :href="$wadirVerifHref"
-                        buttonLabel="Buka"
+                        :buttonLabel="$canDecideWadir ? 'Buka' : 'Lihat'"
                     />
                 @endforeach
 

@@ -6,7 +6,7 @@
 @php
     $permohonanMap = collect($permohonanDisetujui)->mapWithKeys(function ($p) {
         $paguVal = (float) ($p->anggaran_diajukan ?? $p->estimasi_total_pagu ?? 0);
-        $makObj = $p->anggaranMak ?? ($p->alokasiMak?->anggaranMak ?? null);
+        $makObj = $p->anggaranMak ?? ($p->alokasiMak?->first()?->anggaranMak ?? null);
         $verifWadir = $p->verifikasiParalel ? $p->verifikasiParalel->where('role_verifikator', 'wadir_2')->first() : null;
         $verifPpk = $p->verifikasiParalel ? $p->verifikasiParalel->where('role_verifikator', 'ppk')->first() : null;
         $verifPerencanaan = $p->verifikasiParalel ? $p->verifikasiParalel->where('role_verifikator', 'perencanaan')->first() : null;
@@ -22,6 +22,7 @@
             'filePermohonan' => $p->file_surat_permohonan ? asset('storage/' . $p->file_surat_permohonan) : route('dokumen.pdf', ['jenis' => 'permohonan', 'id' => $p->nomor_surat]),
             'fileKak' => $p->file_kak ? asset('storage/' . $p->file_kak) : null,
             'fileSpek' => $p->file_spesifikasi_teknis ? asset('storage/' . $p->file_spesifikasi_teknis) : null,
+            'dokumenLampiran' => $p->dokumen_lampiran_list,
             'kodeMak' => $p->kode_mak ?? ($makObj?->kode_mak ?? '-'),
             'namaMak' => $makObj?->nama_mak ?? 'Pos Anggaran Kampus',
             'paguMak' => 'Rp ' . number_format($makObj?->pagu_mak ?? 0, 0, ',', '.'),
@@ -205,22 +206,26 @@
                                         <p class="text-slate-500">Pagu: <strong class="text-[#0969da] font-mono" x-text="permohonanMap[selectedSurat].paguFormatted"></strong></p>
                                     </div>
                                     <div class="pt-2 border-t border-slate-100 flex flex-col gap-1.5">
-                                        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Lampiran Fisik:</span>
-                                        <a :href="permohonanMap[selectedSurat].filePermohonan" target="_blank" class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#0969da] hover:underline">
-                                            <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                                            <span>Surat Srikandi</span>
-                                        </a>
-                                        <template x-if="permohonanMap[selectedSurat].fileKak">
-                                            <a :href="permohonanMap[selectedSurat].fileKak" target="_blank" class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#0969da] hover:underline">
-                                                <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                                                <span>Kerangka Acuan</span>
-                                            </a>
+                                        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                            Lampiran Fisik (<span x-text="(permohonanMap[selectedSurat].dokumenLampiran || []).length"></span> Berkas):
+                                        </span>
+                                        <template x-if="(permohonanMap[selectedSurat].dokumenLampiran || []).length > 0">
+                                            <div class="flex flex-col gap-1.5">
+                                                <template x-for="(doc, docIdx) in permohonanMap[selectedSurat].dokumenLampiran" :key="doc.path || docIdx">
+                                                    <a :href="doc.url" target="_blank" :title="doc.label || doc.name"
+                                                       class="inline-flex items-center justify-between gap-2 text-[11px] font-semibold text-[#0969da] hover:underline bg-slate-50 hover:bg-blue-50/70 px-2 py-1 rounded-md border border-slate-200/70 transition-colors">
+                                                        <span class="inline-flex items-center gap-1.5 min-w-0">
+                                                            <svg class="size-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                                            <span class="truncate" x-text="doc.label || doc.name"></span>
+                                                        </span>
+                                                        <span class="shrink-0 text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-white border border-slate-200 text-slate-600"
+                                                              x-text="(doc.type || 'FILE') + (doc.size ? ' • ' + doc.size : '')"></span>
+                                                    </a>
+                                                </template>
+                                            </div>
                                         </template>
-                                        <template x-if="permohonanMap[selectedSurat].fileSpek">
-                                            <a :href="permohonanMap[selectedSurat].fileSpek" target="_blank" class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#0969da] hover:underline">
-                                                <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-                                                <span>Spek Teknis</span>
-                                            </a>
+                                        <template x-if="(permohonanMap[selectedSurat].dokumenLampiran || []).length === 0">
+                                            <span class="text-[11px] text-slate-400 italic">Tidak ada lampiran fisik terunggah.</span>
                                         </template>
                                     </div>
                                 </div>

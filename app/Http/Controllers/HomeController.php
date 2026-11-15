@@ -207,6 +207,8 @@ class HomeController extends Controller
         // 4. Modul Bagian Perencanaan & Pagu DIPA MAK
         if ($user->hasAnyPermission(['anggaran.mak_view', 'anggaran.mak_manage', 'anggaran.mak_alokasi', 'anggaran.mak_lock', 'permohonan.split_mak'])) {
             $data['active_modules'][] = 'perencanaan';
+            $canAlokasiPerencanaan = $user->hasAnyPermission(['anggaran.mak_alokasi', 'permohonan.split_mak']);
+
             $antreanMakBase = PermohonanPengadaan::whereIn('status_permohonan', [
                 PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN,
                 PermohonanPengadaan::STATUS_MENUNGGU_ACC_WADIR_PPK,
@@ -214,7 +216,12 @@ class HomeController extends Controller
                 'pending_anggaran',
             ])
                 ->where(function ($q) {
-                    $q->whereNull('kode_mak')->orWhere('kode_mak', '');
+                    $q->whereIn('status_permohonan', [
+                        PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN,
+                        'pending_anggaran',
+                    ])
+                        ->orWhereNull('kode_mak')
+                        ->orWhere('kode_mak', '');
                 })
                 ->whereDoesntHave('verifikasiParalel', function ($q) {
                     $q->where('role_verifikator', VerifikasiParalel::ROLE_PERENCANAAN)
@@ -230,14 +237,16 @@ class HomeController extends Controller
                 'pagu_teralokasi' => (float) AnggaranMAK::sum(DB::raw('pagu_anggaran - sisa_pagu_mak')),
                 'sisa_pagu_dipa' => $sisaPaguDipa,
                 'sisa_pagu_dipa_compact' => $this->formatCompactRupiah($sisaPaguDipa),
-                'menunggu_mak' => (clone $antreanMakBase)->count(),
+                'menunggu_mak' => $canAlokasiPerencanaan ? (clone $antreanMakBase)->count() : 0,
                 'mak_locked' => AnggaranMAK::where('is_locked', true)->count(),
             ]);
-            $data['antrean_mak'] = (clone $antreanMakBase)
-                ->with(['unit', 'user'])
-                ->latest('tanggal_pengajuan')
-                ->take(8)
-                ->get();
+            $data['antrean_mak'] = $canAlokasiPerencanaan
+                ? (clone $antreanMakBase)
+                    ->with(['unit', 'user'])
+                    ->latest('tanggal_pengajuan')
+                    ->take(8)
+                    ->get()
+                : collect();
             $data['daftar_mak'] = AnggaranMAK::latest('updated_at')->take(10)->get();
         }
 
@@ -351,6 +360,10 @@ class HomeController extends Controller
                 ->whereIn('status_memo', ['diajukan', 'menunggu'])
                 ->whereHas('pembayaran', function ($q) use ($user) {
                     $q->whereNotIn('status_pembayaran', ['ditolak', 'perlu_revisi', 'lunas'])
+                        ->whereHas('memoBayar', function ($mq) {
+                            $mq->where('role_approver', 'wadir_2')
+                                ->where('status_memo', 'disetujui');
+                        })
                         ->whereHas('paket', function ($pq) use ($user) {
                             $pq->where('id_user_ppk', $user->id_user)
                                 ->where('jalur_routing', '!=', PaketPengadaan::ROUTING_LANGSUNG);
@@ -392,6 +405,12 @@ class HomeController extends Controller
         // 7. Modul Koordinator PPBJ (Paket, Pemecahan, SPK, Pengajuan Pembayaran)
         if ($user->hasAnyPermission(['paket.create', 'paket.view_all', 'permohonan.split_jenis', 'spk.create', 'pembayaran.pengajuan', 'pembayaran.spp_terbitkan'])) {
             $data['active_modules'][] = 'ppbj';
+            $canCreatePaket = $user->hasPermission('paket.create');
+            $canManagePaket = $user->hasAnyPermission(['paket.create', 'paket.view_all']);
+            $canCreateSpk = $user->hasPermission('spk.create');
+            $canPengajuanBayar = $user->hasPermission('pembayaran.pengajuan');
+            $canTerbitSpp = $user->hasPermission('pembayaran.spp_terbitkan');
+
             $data['stats'] = array_merge($data['stats'], [
                 'total_paket' => PaketPengadaan::count(),
                 'paket_proses' => PaketPengadaan::where('status_paket', '!=', 'selesai')->count(),
@@ -402,26 +421,74 @@ class HomeController extends Controller
                 'belum_spk' => PaketPengadaan::where('jalur_routing', '!=', PaketPengadaan::ROUTING_LANGSUNG)
                     ->whereDoesntHave('kontrakSpk')
                     ->count(),
-                'usulan_siap_paket' => PermohonanPengadaan::whereIn('status_permohonan', ['disetujui', 'diproses_ppbj'])
-                    ->whereDoesntHave('paketPengadaan')
-                    ->count(),
-                'bast_siap_bayar_count' => PenerimaanBarang::where('status_fisik', 'terima')
-                    ->whereDoesntHave('paket.pembayaran')
-                    ->count(),
+                'usulan_siap_paket' => $canCreatePaket
+                    ? PermohonanPengadaan::whereIn('status_permohonan', ['disetujui', 'diproses_ppbj'])
+                        ->whereDoesntHave('paketPengadaan')
+                        ->count()
+                    : 0,
+                'bast_siap_bayar_count' => $canPengajuanBayar
+                    ? PenerimaanBarang::where('status_fisik', 'terima')
+                        ->whereDoesntHave('paket.pembayaran')
+                        ->count()
+                    : 0,
             ]);
 
-            $data['bast_siap_bayar'] = PenerimaanBarang::with(['paket.vendor', 'paket.permohonan.unit', 'fotoDokumentasi'])
-                ->where('status_fisik', 'terima')
-                ->whereDoesntHave('paket.pembayaran')
-                ->latest('tanggal_penerimaan')
-                ->take(5)
-                ->get();
-            $data['siap_paket'] = PermohonanPengadaan::with('unit')
-                ->whereIn('status_permohonan', ['disetujui', 'diproses_ppbj'])
-                ->whereDoesntHave('paketPengadaan')
-                ->latest('tanggal_pengajuan')
-                ->take(5)
-                ->get();
+            $data['bast_siap_bayar'] = $canPengajuanBayar
+                ? PenerimaanBarang::with(['paket.vendor', 'paket.permohonan.unit', 'fotoDokumentasi'])
+                    ->where('status_fisik', 'terima')
+                    ->whereDoesntHave('paket.pembayaran')
+                    ->latest('tanggal_penerimaan')
+                    ->take(5)
+                    ->get()
+                : collect();
+            $data['siap_paket'] = $canCreatePaket
+                ? PermohonanPengadaan::with('unit')
+                    ->whereIn('status_permohonan', ['disetujui', 'diproses_ppbj'])
+                    ->whereDoesntHave('paketPengadaan')
+                    ->latest('tanggal_pengajuan')
+                    ->take(5)
+                    ->get()
+                : collect();
+            $data['ppbj_upload_kontrak'] = $canCreateSpk
+                ? PaketPengadaan::with(['permohonan.unit', 'vendor'])
+                    ->where('status_paket', PaketPengadaan::STATUS_SIAP_UPLOAD_DOKUMEN_PPBJ)
+                    ->whereDoesntHave('kontrakSpk')
+                    ->latest('updated_at')
+                    ->take(5)
+                    ->get()
+                : collect();
+            $data['ppbj_paket_revisi'] = $canManagePaket
+                ? PaketPengadaan::with(['permohonan.unit', 'ppUser', 'ppkUser'])
+                    ->where('status_paket', 'perlu_perbaikan')
+                    ->latest('updated_at')
+                    ->take(5)
+                    ->get()
+                : collect();
+            $data['ppbj_belanja_langsung'] = $canManagePaket
+                ? PaketPengadaan::with(['permohonan.unit'])
+                    ->where('jalur_routing', PaketPengadaan::ROUTING_LANGSUNG)
+                    ->where('status_paket', 'terdaftar')
+                    ->where(function ($q) {
+                        $q->whereNull('nomor_kwitansi_belanja')->orWhere('nomor_kwitansi_belanja', '');
+                    })
+                    ->latest('tanggal_registrasi_paket')
+                    ->take(5)
+                    ->get()
+                : collect();
+            $data['ppbj_siap_spp'] = $canTerbitSpp
+                ? Pembayaran::with(['paket.vendor', 'paket.permohonan.unit'])
+                    ->where('status_pembayaran', 'memo_disetujui')
+                    ->latest('updated_at')
+                    ->take(5)
+                    ->get()
+                : collect();
+            $data['ppbj_bayar_revisi'] = $canPengajuanBayar
+                ? Pembayaran::with(['paket.vendor', 'memoBayar'])
+                    ->whereIn('status_pembayaran', ['ditolak', 'perlu_revisi'])
+                    ->latest('updated_at')
+                    ->take(5)
+                    ->get()
+                : collect();
             $data['ppbj_recent_paket'] = PaketPengadaan::with(['permohonan.unit', 'vendor', 'ppkUser', 'ppUser'])
                 ->latest('tanggal_registrasi_paket')
                 ->take(10)
@@ -483,7 +550,7 @@ class HomeController extends Controller
             $data['stats'] = array_merge($data['stats'], [
                 'total_paket_pp' => PaketPengadaan::where($ppScope)->count(),
                 'paket_negosiasi' => PaketPengadaan::where($ppScope)
-                    ->whereIn('status_paket', ['terdaftar', 'reviu_dokumen', 'perlu_perbaikan'])
+                    ->whereIn('status_paket', ['terdaftar', 'reviu_dokumen', 'menunggu_reviu_pp', 'perlu_perbaikan'])
                     ->count(),
                 'paket_spk' => PaketPengadaan::where($ppScope)
                     ->whereIn('status_paket', [
@@ -504,6 +571,7 @@ class HomeController extends Controller
                 ->whereIn('status_paket', [
                     'terdaftar',
                     'reviu_dokumen',
+                    'menunggu_reviu_pp',
                     'perlu_perbaikan',
                     PaketPengadaan::STATUS_DISETUJUI_PPK_SIAP_BELANJA_PP,
                 ])
@@ -615,15 +683,15 @@ class HomeController extends Controller
 
             $data['stats'] = array_merge($data['stats'], [
                 'reminder_masuk' => $unreadReminders->count() ?: Reminder::whereIn('tipe_reminder', ['tembusan_spk', 'pembayaran', 'pengingat'])->count(),
-                'paket_masuk_ppbj' => Pembayaran::where('status_pembayaran', 'perintah_bayar')->count(),
+                'paket_masuk_ppbj' => Pembayaran::whereIn('status_pembayaran', ['perintah_bayar', 'spp_terbit'])->count(),
                 'transaksi_lunas' => TransaksiPencairan::count(),
                 'total_dana_cair' => $totalDanaCair,
                 'total_dana_cair_compact' => $this->formatCompactRupiah($totalDanaCair),
                 'spp_siap_verifikasi' => Pembayaran::where('status_pembayaran', 'menunggu_memo')->count(),
-                'sp2d_siap_cair' => Pembayaran::where('status_pembayaran', 'perintah_bayar')->count(),
+                'sp2d_siap_cair' => Pembayaran::whereIn('status_pembayaran', ['perintah_bayar', 'spp_terbit'])->count(),
             ]);
             $data['antrean_tagihan'] = Pembayaran::with(['paket.kontrakSpk.vendor', 'paket.kontrak.vendor', 'paket.vendor', 'pengaju.unit', 'memoBayar'])
-                ->where('status_pembayaran', 'perintah_bayar')
+                ->whereIn('status_pembayaran', ['perintah_bayar', 'spp_terbit'])
                 ->latest('tanggal_perintah_bayar')
                 ->take(5)
                 ->get();

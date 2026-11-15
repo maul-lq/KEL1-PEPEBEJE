@@ -70,7 +70,7 @@
                     :badge="$statusLabel"
                     badgeClass="bg-[#fff5df] text-[#99660d]"
                     :href="$detailPpRoute"
-                    buttonLabel="Buka"
+                    :buttonLabel="$user->hasPermission('reviu.pp') ? 'Buka' : 'Pantau'"
                 />
             @empty
                 <x-figma-empty

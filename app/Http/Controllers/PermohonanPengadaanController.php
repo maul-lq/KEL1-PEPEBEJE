@@ -15,6 +15,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 
 /**
@@ -160,31 +161,8 @@ class PermohonanPengadaanController extends Controller
             'file_spesifikasi_teknis' => ['nullable', DokumenUploadRule::pdfOnly()],
         ]);
 
-        $dokumenLampiranList = [];
-
         // 1. Simpan berkas dari input multiple dokumen_lampiran[] (maksimal 5 berkas)
-        if ($request->hasFile('dokumen_lampiran')) {
-            foreach ($request->file('dokumen_lampiran') as $idx => $file) {
-                if ($file && $file->isValid()) {
-                    $originalName = $file->getClientOriginalName();
-                    $ext = strtoupper($file->getClientOriginalExtension());
-                    $sizeBytes = $file->getSize();
-                    $sizeFormatted = ($sizeBytes > 1048576)
-                        ? number_format($sizeBytes / 1048576, 1).' MB'
-                        : number_format($sizeBytes / 1024, 0).' KB';
-                    $path = $file->store('lampiran_permohonan', 'public');
-
-                    $dokumenLampiranList[] = [
-                        'name' => $originalName,
-                        'path' => $path,
-                        'url' => asset('storage/'.$path),
-                        'type' => $ext,
-                        'size' => $sizeFormatted,
-                        'label' => $originalName,
-                    ];
-                }
-            }
-        }
+        $dokumenLampiranList = $this->buildDokumenLampiranEntries($request);
 
         // 2. Simpan berkas dari input spesifik individual (jika ada)
         $filePermohonanPath = $request->hasFile('file_surat_permohonan')
@@ -330,6 +308,8 @@ class PermohonanPengadaanController extends Controller
             'anggaran_diajukan' => ['required', 'numeric', 'min:1'],
             'keterangan_revisi' => ['nullable', 'string'],
             'file_kak' => ['nullable', DokumenUploadRule::pdfOnly()],
+            'dokumen_lampiran' => ['nullable', 'array', 'max:5'],
+            'dokumen_lampiran.*' => ['nullable', 'file', 'max:15360', 'mimes:pdf,doc,docx,xls,xlsx,png,jpg,jpeg'],
         ]);
 
         $induk = PermohonanPengadaan::findOrFail($validated['nomor_surat_lama']);
@@ -344,9 +324,24 @@ class PermohonanPengadaanController extends Controller
             }
         }
 
+        $uploadedLampiran = $this->buildDokumenLampiranEntries($request);
+        $hasNewLampiran = count($uploadedLampiran) > 0;
+
         $fileKakPath = $request->hasFile('file_kak')
             ? $request->file('file_kak')->store('kak', 'public')
-            : $induk->file_kak;
+            : ($hasNewLampiran ? null : $induk->file_kak);
+
+        $finalDokumenLampiran = $hasNewLampiran
+            ? $uploadedLampiran
+            : $induk->dokumen_lampiran;
+
+        $finalFilePermohonan = $hasNewLampiran
+            ? $uploadedLampiran[0]['path']
+            : ($induk->file_permohonan ?? 'permohonan/dummy.pdf');
+
+        $finalFileSpesifikasiTeknis = $hasNewLampiran
+            ? null
+            : $induk->file_spesifikasi_teknis;
 
         $nominalBaru = (float) $validated['anggaran_diajukan'];
         $nominalLama = (float) ($induk->anggaran_diajukan ?? $induk->estimasi_total_pagu ?? 0);
@@ -389,7 +384,22 @@ class PermohonanPengadaanController extends Controller
             // ==========================================
             // KASUS 1: In-Place Update pada Surat Sama
             // ==========================================
-            DB::transaction(function () use ($induk, $validated, $nominalBaru, $fileKakPath, $revisiKe, $alokasiLama, $targetStatus) {
+            $oldLampiranPaths = $hasNewLampiran && is_array($induk->dokumen_lampiran)
+                ? collect($induk->dokumen_lampiran)->pluck('path')->filter()->all()
+                : [];
+
+            DB::transaction(function () use (
+                $induk,
+                $validated,
+                $nominalBaru,
+                $fileKakPath,
+                $finalDokumenLampiran,
+                $finalFilePermohonan,
+                $finalFileSpesifikasiTeknis,
+                $revisiKe,
+                $alokasiLama,
+                $targetStatus
+            ) {
                 if ($alokasiLama) {
                     $alokasiLama->update(['nominal_alokasi' => $nominalBaru]);
                 }
@@ -400,7 +410,10 @@ class PermohonanPengadaanController extends Controller
                     'tujuan_pengadaan_ringkas' => $validated['tujuan_pengadaan_ringkas'] ?? $induk->tujuan_pengadaan_ringkas ?? $validated['perihal'],
                     'anggaran_diajukan' => $nominalBaru,
                     'estimasi_total_pagu' => $nominalBaru,
+                    'file_permohonan' => $finalFilePermohonan,
                     'file_kak' => $fileKakPath,
+                    'file_spesifikasi_teknis' => $finalFileSpesifikasiTeknis,
+                    'dokumen_lampiran' => $finalDokumenLampiran,
                     'status_permohonan' => $targetStatus,
                     'status' => $targetStatus,
                     'revisi_ke' => $revisiKe,
@@ -408,6 +421,12 @@ class PermohonanPengadaanController extends Controller
                     'alasan_revisi' => $validated['keterangan_revisi'] ?? 'Perbaikan dokumen KAK dan spesifikasi',
                 ]);
             });
+
+            foreach ($oldLampiranPaths as $oldPath) {
+                if (Storage::disk('public')->exists($oldPath)) {
+                    Storage::disk('public')->delete($oldPath);
+                }
+            }
 
             $activePermohonan = $induk;
         } else {
@@ -428,6 +447,8 @@ class PermohonanPengadaanController extends Controller
                     'file_permohonan' => $induk->file_permohonan ?? 'permohonan/dummy.pdf',
                     'file_surat_permohonan' => $induk->file_surat_permohonan ?? $induk->file_permohonan ?? 'permohonan/dummy.pdf',
                     'file_kak' => $fileKakPath,
+                    'file_spesifikasi_teknis' => $finalFileSpesifikasiTeknis,
+                    'dokumen_lampiran' => $finalDokumenLampiran,
                     'status_permohonan' => $targetStatus,
                     'status' => $targetStatus,
                     'revisi_ke' => $revisiKe,
@@ -693,5 +714,44 @@ class PermohonanPengadaanController extends Controller
                 );
             }
         }
+    }
+
+    /**
+     * Menyimpan berkas multi-upload dokumen_lampiran[] dan membangun array metadata lampiran.
+     *
+     * @return array<int, array{name: string, path: string, url: string, type: string, size: string, label: string}>
+     */
+    private function buildDokumenLampiranEntries(Request $request): array
+    {
+        $entries = [];
+
+        if (! $request->hasFile('dokumen_lampiran')) {
+            return $entries;
+        }
+
+        foreach ($request->file('dokumen_lampiran') as $file) {
+            if (! $file || ! $file->isValid()) {
+                continue;
+            }
+
+            $originalName = $file->getClientOriginalName();
+            $ext = strtoupper($file->getClientOriginalExtension());
+            $sizeBytes = $file->getSize();
+            $sizeFormatted = ($sizeBytes > 1048576)
+                ? number_format($sizeBytes / 1048576, 1).' MB'
+                : number_format($sizeBytes / 1024, 0).' KB';
+            $path = $file->store('lampiran_permohonan', 'public');
+
+            $entries[] = [
+                'name' => $originalName,
+                'path' => $path,
+                'url' => asset('storage/'.$path),
+                'type' => $ext,
+                'size' => $sizeFormatted,
+                'label' => $originalName,
+            ];
+        }
+
+        return $entries;
     }
 }

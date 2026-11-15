@@ -1080,7 +1080,7 @@
                     </div>
                     <span class="font-bold text-[15px] text-black">Taruh file disini</span>
                     <span class="font-normal text-[8px] sm:text-[10px] text-[#657a7c]">Atau klik untuk memilih file</span>
-                    <input type="file" id="input-file-revisi" name="file_kak" accept=".pdf" multiple class="hidden" @change="onRevisiFilesChange($event)">
+                    <input type="file" id="input-file-revisi" name="dokumen_lampiran[]" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" multiple class="hidden" @change="onRevisiFilesChange($event)">
                 </div>
             </div>
 

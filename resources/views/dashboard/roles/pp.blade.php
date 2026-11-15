@@ -1,7 +1,9 @@
 {{-- resources/views/dashboard/roles/pp.blade.php --}}
 {{-- Modul RBAC: Pejabat Pengadaan (pp - Nilai 50jt s.d 200jt) --}}
 @php
-    $ppRoute = $user->hasAnyPermission(['reviu.pp', 'kontrak.view', 'kontrak.view_all'])
+    $canReviuPp = $user->hasPermission('reviu.pp');
+    $canCreateSpk = $user->hasPermission('spk.create');
+    $ppRoute = $user->hasAnyPermission(['reviu.pp', 'spk.create', 'kontrak.view', 'kontrak.view_all'])
         ? route('kontrak.index', ['tab' => 'reviu'])
         : null;
 @endphp
@@ -59,6 +61,9 @@
                     $catatan = $pktPp->catatan_verifikasi_pp
                         ? 'Catatan: ' . \Illuminate\Support\Str::limit($pktPp->catatan_verifikasi_pp, 50)
                         : ($isSiapBelanja ? 'Disetujui PPK • Siap eksekusi belanja' : 'Menunggu reviu dokumen');
+                    $ppActionHref = $isSiapBelanja
+                        ? ($canCreateSpk ? route('kontrak.index', ['tab' => 'reviu']) : null)
+                        : ($canReviuPp ? route('kontrak.index', ['tab' => 'reviu']) : null);
                 @endphp
                 <x-figma-action-card
                     :index="$loop->index"
@@ -68,7 +73,7 @@
                     :submeta="$catatan"
                     :badge="$isSiapBelanja ? 'Siap Belanja' : 'Perlu Reviu'"
                     :badgeClass="$isSiapBelanja ? 'bg-emerald-100 text-emerald-800' : 'bg-[#fff5df] text-[#99660d]'"
-                    :href="$ppRoute"
+                    :href="$ppActionHref"
                     :buttonLabel="$isSiapBelanja ? 'Eksekusi Belanja' : 'Buka'"
                 />
             @empty
