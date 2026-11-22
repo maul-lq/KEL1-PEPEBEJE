@@ -1,7 +1,25 @@
+{{--
+  Informasi File
+
+  Penulis   : DendyRafi, Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : View Blade ini kami susun untuk halaman mandiri formulir pengajuan surat permohonan
+              pengadaan baru berbasis Srikandi beserta unggah seret-dan-lepas KAK/surat dan pratinjau
+              nominal anggaran (`permohonanCreatePage`).
+--}}
 @extends('layouts.app')
 
 @section('title', 'Ajukan Permohonan Pengadaan Baru - SIM-PBJ PNJ')
 
+{{--
+  Komentar Deskriptif: Seksi Konten Pengajuan Usulan Baru (`permohonan.create`).
+
+  Tujuan: Kami memvalidasi kelengkapan naskah dinas Srikandi serta unggahan berkas pendukung dan
+          mengirimkannya ke rute `permohonan.store` lewat `multipart/form-data`.
+  Parameter (Data dari PermohonanPengadaanController::create): `$units` (Collection<Unit>).
+  Nilai kembali: Halaman HTML form pengajuan baru dengan inisialisasi `permohonanCreatePage`.
+  Contoh pemanggilan: `return view('permohonan.create', compact('units'));`
+--}}
 @section('content')
 <div class="min-h-screen bg-[#F5F7FC] p-4 sm:p-6 lg:p-8" x-data="permohonanCreatePage" data-initial-nominal="{{ old('anggaran_diajukan', '') }}">
     <div class="mx-auto max-w-5xl space-y-6">

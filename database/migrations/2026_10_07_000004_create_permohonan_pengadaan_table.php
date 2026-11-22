@@ -1,13 +1,39 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : Migrasi ini susun untuk membuat tabel `permohonan_pengadaan` sebagai tabel
+ *             transaksi utama usulan surat pengadaan dari jurusan/unit kerja PNJ.
+ */
+
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Kelas migrasi anonim pembuat tabel `permohonan_pengadaan`.
+ *
+ * Tujuan: membangun skema surat permohonan pengadaan berbasis primary key `nomor_surat`,
+ * lengkap dengan relasi self-referencing untuk pemecahan (split) dan revisi surat.
+ *
+ * Contoh pemanggilan:
+ * `php artisan migrate --path=database/migrations/2026_10_07_000004_create_permohonan_pengadaan_table.php`
+ */
 return new class extends Migration
 {
     /**
-     * Run the migrations.
+     * Menjalankan migrasi pembuatan tabel `permohonan_pengadaan` dan self-FK pendukungnya.
+     *
+     * Tujuan: memisahkan blok `Schema::table` kedua untuk foreign key ke tabel yang sama
+     * agar PostgreSQL mengevaluasi referensi diri setelah tabel selesai dibuat.
+     *
+     * @return void
+     *
+     * Contoh pemanggilan:
+     * `$migration->up();`
      */
     public function up(): void
     {
@@ -16,8 +42,8 @@ return new class extends Migration
             $table->string('judul_pengadaan', 255);
             $table->text('tujuan_pengadaan_ringkas');
             $table->string('file_permohonan', 255);
-            $table->string('status_permohonan', 50)->default('diajukan'); // diajukan, reviu_paralel, pending_anggaran, disetujui, ditolak, diproses_ppbj, selesai
-            $table->string('status_anggaran', 50)->default('pending'); // pending, hold, disetujui, ditolak
+            $table->string('status_permohonan', 50)->default('diajukan'); // Status siklus awal usulan hingga disetujui atau digantikan revisi.
+            $table->string('status_anggaran', 50)->default('pending');
             $table->integer('revisi_ke')->default(0);
             $table->decimal('estimasi_total_pagu', 15, 2)->nullable();
             $table->timestamp('tanggal_pengajuan')->useCurrent();
@@ -49,6 +75,7 @@ return new class extends Migration
                 ->cascadeOnUpdate();
         });
 
+        // daftarkan self-referencing foreign key secara terpisah setelah tabel terbuat agar migrasi aman di berbagai engine DB.
         Schema::table('permohonan_pengadaan', function (Blueprint $table) {
             $table->foreign('nomor_surat_induk_split')
                 ->references('nomor_surat')
@@ -65,7 +92,14 @@ return new class extends Migration
     }
 
     /**
-     * Reverse the migrations.
+     * Membalikkan migrasi dengan menghapus tabel `permohonan_pengadaan`.
+     *
+     * Tujuan: menghapus tabel permohonan pengadaan beserta constraint-nya saat rollback.
+     *
+     * @return void
+     *
+     * Contoh pemanggilan:
+     * `$migration->down();`
      */
     public function down(): void
     {

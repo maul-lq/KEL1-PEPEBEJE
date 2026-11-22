@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : menulis model Reminder ini untuk menyimpan jadwal pengingat jatuh tempo dan pengingat berkala kontrak/pembayaran beserta relasi induk-kemunculannya.
+ */
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -8,12 +16,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Model Pengingat / Alarm Sistem (Reminder)
+ * Model Jadwal & Master Pengingat (Reminder)
  *
- * Merepresentasikan jadwal pengingat otomatis maupun pengingat berkala dalam ekosistem SIM-PBJ:
- * - Pengingat jadwal pengiriman barang (sekali jalan maupun berkala bulanan/tahunan sesuai sifat kontrak).
- * - Pengingat H-2 batas waktu pengiriman/termin dan H-2 / Hari-H jatuh tempo pembayaran tagihan.
- * - Histori pemicu notifikasi instan pada siklus pengadaan.
+ * memodelkan baik jadwal pemicu aktif (`is_active = true`, `parent_reminder_id = null`)
+ * maupun rekaman riwayat kemunculannya (`occurrences`) serta notifikasi instan di siklus PBJ.
+ *
+ * Parameter konstruktor: `$attributes` (opsional, diwarisi dari Eloquent Model).
+ * Nilai kembali         : Instance model Eloquent yang terhubung ke tabel `reminder` dengan primary key `id_reminder`.
+ *
+ * Contoh pemanggilan:
+ * `$jadwal = Reminder::whereNull('parent_reminder_id')->where('is_active', true)->get();`
  */
 class Reminder extends Model
 {
@@ -54,7 +66,7 @@ class Reminder extends Model
     public const TIPE_JATUH_TEMPO_PEMBAYARAN = 'jatuh_tempo_pembayaran';
 
     /**
-     * Tipe reminder yang diproses oleh mesin penjadwal otomatis (reminder berkala / jatuh tempo).
+     * Daftar tipe reminder terjadwal yang dieksekusi oleh ReminderSchedulerService agar notifikasi instan tidak ikut diproses ulang.
      *
      * @var array<int, string>
      */
@@ -86,9 +98,12 @@ class Reminder extends Model
     ];
 
     /**
-     * Konfigurasi type casting untuk boolean, JSON permissions, angka, dan timestamp.
+     * mengonversi jadwal pemicu ke Carbon, status berkala/aktif ke boolean, serta target_permissions ke array JSON.
      *
-     * @return array<string, string>
+     * @return array<string, string> mengembalikan peta tipe cast atribut model.
+     *
+     * Contoh pemanggilan:
+     * `// Dipanggil otomatis oleh Eloquent saat mengakses $reminder->waktu_trigger atau $reminder->target_permissions.`
      */
     protected function casts(): array
     {
@@ -103,7 +118,12 @@ class Reminder extends Model
     }
 
     /**
-     * Accessor untuk atribut target_role demi kompatibilitas pengujian lama.
+     * menyediakan fallback `target_role` agar test atau consumer lama yang masih membaca atribut ini tidak menerima null.
+     *
+     * @return string|null mengembalikan nilai kolom lama bila ada, atau 'keuangan' sebagai fallback default.
+     *
+     * Contoh pemanggilan:
+     * `$role = $reminder->target_role;`
      */
     public function getTargetRoleAttribute(): ?string
     {
@@ -111,7 +131,12 @@ class Reminder extends Model
     }
 
     /**
-     * Label frekuensi pengingat yang mudah dipahami pada halaman jadwal pengingat.
+     * menerjemahkan interval bulan dan flag `is_recurring` menjadi label frekuensi berbahasa Indonesia di halaman notifikasi.
+     *
+     * @return string mengembalikan deskripsi frekuensi pengingat (sekali jalan, bulanan, atau tahunan).
+     *
+     * Contoh pemanggilan:
+     * `$frekuensi = $reminder->frekuensi_label;`
      */
     public function getFrekuensiLabelAttribute(): string
     {
@@ -127,7 +152,12 @@ class Reminder extends Model
     }
 
     /**
-     * Label jenis pengingat pada daftar jadwal pengingat.
+     * memetakan konstanta `tipe_reminder` menjadi label kategori yang ramah pengguna pada tabel jadwal pengingat.
+     *
+     * @return string mengembalikan label kategori jadwal pengingat.
+     *
+     * Contoh pemanggilan:
+     * `$kategori = $reminder->kategori_jadwal_label;`
      */
     public function getKategoriJadwalLabelAttribute(): string
     {
@@ -141,7 +171,12 @@ class Reminder extends Model
     }
 
     /**
-     * Relasi many-to-one ke Paket Pengadaan yang terkait dengan jadwal alarm.
+     * menghubungkan reminder ke paket pengadaan terkait (opsional bila pengingat bukan terikat paket).
+     *
+     * @return BelongsTo mengembalikan relasi BelongsTo ke model PaketPengadaan.
+     *
+     * Contoh pemanggilan:
+     * `$paket = $reminder->paket;`
      */
     public function paket(): BelongsTo
     {
@@ -149,7 +184,12 @@ class Reminder extends Model
     }
 
     /**
-     * Relasi many-to-one ke Pembayaran jika pengingat terkait jatuh tempo tagihan.
+     * menghubungkan reminder jatuh tempo ke berkas pembayaran tagihan terkait.
+     *
+     * @return BelongsTo mengembalikan relasi BelongsTo ke model Pembayaran.
+     *
+     * Contoh pemanggilan:
+     * `$tagihan = $reminder->pembayaran;`
      */
     public function pembayaran(): BelongsTo
     {
@@ -157,7 +197,12 @@ class Reminder extends Model
     }
 
     /**
-     * Relasi ke jadwal induk apabila record ini merupakan kemunculan (occurrence) hasil pemicu berkala.
+     * menghubungkan record kemunculan notifikasi (occurrence) kembali ke jadwal master induknya.
+     *
+     * @return BelongsTo mengembalikan relasi BelongsTo ke model Reminder induk.
+     *
+     * Contoh pemanggilan:
+     * `$induk = $occurrence->parent;`
      */
     public function parent(): BelongsTo
     {
@@ -165,7 +210,12 @@ class Reminder extends Model
     }
 
     /**
-     * Relasi one-to-many ke seluruh riwayat kemunculan notifikasi dari jadwal ini.
+     * mengambil seluruh riwayat kemunculan notifikasi yang dibangkitkan dari satu jadwal master berkala.
+     *
+     * @return HasMany mengembalikan relasi HasMany ke model Reminder anak.
+     *
+     * Contoh pemanggilan:
+     * `$riwayatTrigger = $schedule->occurrences;`
      */
     public function occurrences(): HasMany
     {
@@ -173,7 +223,12 @@ class Reminder extends Model
     }
 
     /**
-     * Relasi one-to-many ke daftar notifikasi user yang dibangkitkan dari reminder ini.
+     * menghubungkan master reminder ke seluruh notifikasi personal penerima di tabel `notifikasi_user`.
+     *
+     * @return HasMany mengembalikan relasi HasMany ke model NotifikasiUser.
+     *
+     * Contoh pemanggilan:
+     * `$penerimaList = $reminder->notifikasiUser;`
      */
     public function notifikasiUser(): HasMany
     {

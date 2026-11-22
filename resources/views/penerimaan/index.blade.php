@@ -1,7 +1,26 @@
+{{--
+  Informasi File
+
+  Penulis   : Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : View Blade ini rancang untuk halaman Penerimaan & Serah Terima Barang (Unit
+              Perlengkapan & BMN) memuat KPI aset barang/modal, formulir inspeksi fisik dengan
+              klasifikasi belanja & multi-foto dokumentasi, daftar BAST, dan lightbox pratinjau foto.
+--}}
 @extends('layouts.app')
 
 @section('title', 'Penerimaan & Serah Terima Barang - Unit Perlengkapan PNJ')
 
+{{--
+  Komentar Deskriptif: Seksi Konten Pemeriksaan Fisik & Penerbitan BAST (`penerimaan.index`).
+
+  Tujuan: mengikat komponen `lightboxViewer` di level halaman dan memisahkan pilihan paket
+          siap periksa antara jalur Kontrak (>50jt) serta Belanja Langsung (<=50jt).
+  Parameter (Data dari PenerimaanBarangController::index):
+    - `$bastList` (LengthAwarePaginator<PenerimaanBarang>), `$kontrakList` (Collection).
+  Nilai kembali: Halaman HTML pemeriksaan barang, penerbitan BAST HMAC, dan galeri dokumentasi.
+  Contoh pemanggilan: `return view('penerimaan.index', compact(...));`
+--}}
 @section('content')
 <div x-data="lightboxViewer" class="space-y-6">
 

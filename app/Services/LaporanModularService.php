@@ -1,5 +1,15 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : Layanan ini rancang untuk menyusun laporan dan riwayat pengadaan secara modular
+ *             berbasis permission RBAC tanpa bergantung pada string role hardcoded, serta menyediakan
+ *             ekspor CSV RAW dan payload terstruktur untuk generator PDF (DomPDF).
+ */
+
 namespace App\Services;
 
 use App\Models\AnggaranMAK;
@@ -19,11 +29,13 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 /**
- * Layanan Komposisi Laporan & Riwayat Modular Berbasis RBAC Permissions.
+ * Menyusun laporan dan riwayat pengadaan modular berbasis izin RBAC pengguna.
  *
- * Membangun daftar seksi laporan secara kumulatif berdasarkan izin aktif pada peran pengguna
- * tanpa mengandalkan pengecekan string role hardcoded, sekaligus menyediakan ekspor CSV RAW
- * dan data terstruktur untuk generator PDF (DomPDF).
+ * Tujuan: merancang kelas ini untuk menghimpun modul laporan yang diizinkan bagi pengguna
+ * secara kumulatif, membangun ringkasan lintas modul, serta memproduksi data ekspor CSV/PDF.
+ *
+ * Contoh pemanggilan:
+ * `$service = app(LaporanModularService::class); $payload = $service->buildModularPayload($user, $request->all());`
  */
 class LaporanModularService
 {
@@ -47,13 +59,19 @@ class LaporanModularService
 
     /**
      * Menentukan daftar key modul laporan yang aktif sesuai izin RBAC pengguna saat ini.
-     * Mendukung role tunggal maupun role gabungan (misal modul X + modul Y).
      *
-     * @return array<int, string>
+     * Tujuan: menyusun daftar modul secara kumulatif berdasarkan permission aktif agar
+     * pengguna dengan peran gabungan otomatis mendapatkan semua modul laporan yang relevan.
+     *
+     * @param  User  $user  Entitas pengguna yang sedang mengakses laporan.
+     * @return array<int, string> Daftar key modul terurut sesuai MODULE_ORDER.
+     *
+     * Contoh pemanggilan:
+     * `$keys = $this->resolveActiveModuleKeys($user);`
      */
     public function resolveActiveModuleKeys(User $user): array
     {
-        $user->loadMissing(['unit', 'roleEntity.permissions']);
+        $user->loadMissing(['unit', 'roleEntity.permissions']); // memuat relasi peran dan izin lebih awal agar pengecekan RBAC tidak memicu query N+1.
 
         $active = [];
 
@@ -65,6 +83,7 @@ class LaporanModularService
             $active[] = 'rekapitulasi_dipa';
         }
 
+        // mengecualikan pemegang view_all agar modul unit sendiri tidak tumpang tindih dengan verifikasi usulan global.
         if ($user->hasAnyPermission(['permohonan.create', 'permohonan.view_own', 'permohonan.revisi']) && ! $user->hasPermission('permohonan.view_all')) {
             $active[] = 'permohonan_sendiri';
         }
@@ -102,6 +121,15 @@ class LaporanModularService
 
     /**
      * Memeriksa apakah user hanya berhak melihat data pembayarannya sendiri (isolasi PPK murni).
+     *
+     * Tujuan: membatasi cakupan data pembayaran agar PPK yang tidak memiliki izin pencairan
+     * global hanya dapat meninjau paket yang memang ditugaskan kepadanya.
+     *
+     * @param  User  $user  Entitas pengguna terautentikasi.
+     * @return bool Bernilai true bila user harus diisolasi pada paket PPK miliknya sendiri.
+     *
+     * Contoh pemanggilan:
+     * `$isolated = $this->isStrictPpkPembayaranScope($user);`
      */
     public function isStrictPpkPembayaranScope(User $user): bool
     {
@@ -116,10 +144,17 @@ class LaporanModularService
     }
 
     /**
-     * Membangun daftar Riwayat Aktivitas (Tab 1) menggunakan gabungan query (union scope)
+     * Membangun daftar Riwayat Aktivitas menggunakan gabungan query (union scope)
      * seluruh izin RBAC aktif pengguna.
      *
-     * @return array<int, array<string, mixed>>
+     * Tujuan: menghimpun log audit sesuai irisan izin pengguna lalu melengkapinya dengan
+     * entitas fallback agar lini masa aktivitas tetap informatif meski log lama belum lengkap.
+     *
+     * @param  User  $user  Pengguna yang meminta daftar riwayat aktivitas.
+     * @return array<int, array<string, mixed>> Maksimal 80 item riwayat terurut terbaru ke terlama.
+     *
+     * Contoh pemanggilan:
+     * `$riwayat = $service->buildRiwayat($user);`
      */
     public function buildRiwayat(User $user): array
     {
@@ -128,6 +163,7 @@ class LaporanModularService
         $auditQuery = AuditLog::with('user')->latest('waktu_log');
         $hasGlobalAudit = $user->hasPermission('audit_log.view');
 
+        // Jika pengguna bukan auditor global, batasi kueri audit pada entitas miliknya dan modul izin aktifnya.
         if (! $hasGlobalAudit) {
             $ownPermohonanNomor = PermohonanPengadaan::where('id_user', $user->id_user)->pluck('nomor_surat');
             $ownPaketNomor = PaketPengadaan::whereIn('nomor_surat', $ownPermohonanNomor)->pluck('nomor_paket');
@@ -228,8 +264,15 @@ class LaporanModularService
     /**
      * Membangun payload lengkap Tab Laporan (komposisi seluruh modul aktif, filter adaptif, dan view gabungan).
      *
-     * @param  array<string, mixed>  $rawFilters
-     * @return array<string, mixed>
+     * Tujuan: menormalisasi parameter filter mentah dari permintaan HTTP, merakit data setiap
+     * modul aktif, lalu memilih tampilan aktif termasuk mode gabungan apabila modul lebih dari satu.
+     *
+     * @param  User  $user  Pengguna yang meminta halaman laporan modular.
+     * @param  array<string, mixed>  $rawFilters  Parameter filter mentah dari query string HTTP.
+     * @return array<string, mixed> Struktur lengkap tab, modul aktif, tampilan aktif, dan filter terpakai.
+     *
+     * Contoh pemanggilan:
+     * `$payload = $service->buildModularPayload($user, $request->query());`
      */
     public function buildModularPayload(User $user, array $rawFilters): array
     {
@@ -237,6 +280,7 @@ class LaporanModularService
         $hasMultiple = count($activeKeys) >= 2;
         $requestedModule = (string) ($rawFilters['module'] ?? '');
 
+        // prioritaskan tab 'semua' saat modul aktif > 1 agar pengguna langsung melihat ringkasan lintas peran.
         $selectedModule = $hasMultiple ? 'semua' : ($activeKeys[0] ?? 'kosong');
         if ($requestedModule === 'semua' && $hasMultiple) {
             $selectedModule = 'semua';
@@ -310,14 +354,22 @@ class LaporanModularService
     /**
      * Mengambil seksi-seksi modul yang siap diekspor ke PDF atau CSV dengan validasi RBAC ketat.
      *
-     * @param  array<string, mixed>  $rawFilters
-     * @return array<string, mixed>
+     * Tujuan: memastikan permintaan unduh modul tertentu tidak bisa membypass hak akses RBAC
+     * dengan memblokir kode HTTP 403 bila modul di luar izin pengguna.
+     *
+     * @param  User  $user  Pengguna yang meminta ekspor laporan.
+     * @param  array<string, mixed>  $rawFilters  Filter dan modul target yang diminta.
+     * @return array<string, mixed> Data terstruktur siap render oleh PDF maupun CSV.
+     *
+     * Contoh pemanggilan:
+     * `$export = $service->resolveExportData($user, $request->all());`
      */
     public function resolveExportData(User $user, array $rawFilters): array
     {
         $requestedModule = trim((string) ($rawFilters['module'] ?? ''));
         $activeKeys = $this->resolveActiveModuleKeys($user);
 
+        // tolak ekspor modul di luar izin aktif dengan 403 guna mencegah kebocoran data lintas bagian.
         if ($requestedModule !== '' && $requestedModule !== 'semua' && ! in_array($requestedModule, $activeKeys, true)) {
             abort(403, 'Akses Ditolak: Anda tidak memiliki hak akses untuk mengunduh laporan modul tersebut.');
         }
@@ -348,8 +400,15 @@ class LaporanModularService
     /**
      * Menghasilkan konten file CSV RAW (UTF-8 BOM, delimiter koma RFC-4180, angka murni numerik).
      *
-     * @param  array<string, mixed>  $rawFilters
-     * @return array{filename: string, content: string}
+     * Tujuan: menulis stream CSV secara in-memory dengan BOM UTF-8 supaya karakter maupun
+     * kolom nominal di Microsoft Excel terbaca rapi tanpa merusak tipe angka mentah.
+     *
+     * @param  User  $user  Pengguna pengunduh file CSV.
+     * @param  array<string, mixed>  $rawFilters  Filter laporan yang sedang aktif.
+     * @return array{filename: string, content: string} Nama file unik berstempel waktu dan isi CSV mentah.
+     *
+     * Contoh pemanggilan:
+     * `$csv = $service->buildCsvDownload($user, $request->query());`
      */
     public function buildCsvDownload(User $user, array $rawFilters): array
     {
@@ -358,7 +417,7 @@ class LaporanModularService
         $filters = $export['filters_applied'];
 
         $handle = fopen('php://temp', 'r+');
-        fwrite($handle, "\xEF\xBB\xBF");
+        fwrite($handle, "\xEF\xBB\xBF"); // sisipkan UTF-8 BOM agar Excel Windows otomatis mengenali encoding UTF-8.
 
         fputcsv($handle, ['POLITEKNIK NEGERI JAKARTA - SIM-PBJ']);
         fputcsv($handle, ['DATA LAPORAN (CSV)']);
@@ -407,11 +466,18 @@ class LaporanModularService
     }
 
     /**
-     * Membangun descriptor tab ringkas untuk switcher header Ringkasan & Tabel di frontend.
+     * Membangun descriptor tab ringkas untuk switcher header Ringkasan dan Tabel di frontend.
      *
-     * @param  array<string, array<string, mixed>>  $modules
-     * @param  array<string, mixed>|null  $semuaView
-     * @return array<int, array<string, mixed>>
+     * Tujuan: menyediakan daftar tab terstandar beserta konfigurasi filter masing-masing agar
+     * komponen Alpine di frontend bisa mengganti kontrol filter secara dinamis.
+     *
+     * @param  array<string, array<string, mixed>>  $modules  Peta data modul aktif terindeks key modul.
+     * @param  bool  $hasMultiple  Penanda apakah tab gabungan harus ditambahkan di posisi awal.
+     * @param  array<string, mixed>|null  $semuaView  Payload ringkasan gabungan jika modul aktif >= 2.
+     * @return array<int, array<string, mixed>> Daftar descriptor tab siap serialisasi JSON.
+     *
+     * Contoh pemanggilan:
+     * `$tabs = $this->buildTabDescriptors($modules, $hasMultiple, $semuaView);`
      */
     private function buildTabDescriptors(array $modules, bool $hasMultiple, ?array $semuaView): array
     {
@@ -438,10 +504,17 @@ class LaporanModularService
     }
 
     /**
-     * Membangun tampilan ringkasan terpadu saat tab 'Semua Modul' dipilih (untuk Role Gabungan X + Y).
+     * Membangun tampilan ringkasan terpadu saat tab 'Semua Modul' dipilih (untuk Role Gabungan).
      *
-     * @param  array<string, array<string, mixed>>  $modules
-     * @return array<string, mixed>
+     * Tujuan: menggabungkan KPI utama tiap modul dan 15 baris teratas masing-masing ke satu
+     * tabel ikhtisar supaya pimpinan atau pemegang multi-peran tidak perlu berpindah tab satu per satu.
+     *
+     * @param  array<string, array<string, mixed>>  $modules  Kumpulan payload modul yang aktif.
+     * @param  User  $user  Pengguna pemilik sesi laporan.
+     * @return array<string, mixed> Payload tampilan terpadu untuk tab 'semua'.
+     *
+     * Contoh pemanggilan:
+     * `$semua = $this->buildSemuaModulSummary($modules, $user);`
      */
     private function buildSemuaModulSummary(array $modules, User $user): array
     {
@@ -468,12 +541,14 @@ class LaporanModularService
             if ($mod['filters']['bulan']) {
                 $usesBulan = true;
             }
+            // menaikkan mode filter unit ke 'all' jika salah satu modul mendukung pilihan seluruh unit.
             if ($mod['filters']['unit'] === 'all') {
                 $unitMode = 'all';
             } elseif ($mod['filters']['unit'] === 'locked_own' && $unitMode === 'none') {
                 $unitMode = 'locked_own';
             }
 
+            // batasi 15 baris per modul pada mode gabungan agar payload tabel ikhtisar tetap ringan.
             foreach (array_slice($mod['rows'], 0, 15) as $r) {
                 $combinedRows[] = [
                     'no' => count($combinedRows) + 1,
@@ -516,8 +591,16 @@ class LaporanModularService
     /**
      * Dispatcher pembangunan data untuk satu key modul laporan.
      *
-     * @param  array<string, mixed>  $filters
-     * @return array<string, mixed>
+     * Tujuan: memetakan key modul ke builder khusus masing-masing dan mengembalikan payload
+     * kosong bila key tidak dikenali agar controller tidak pernah menerima null.
+     *
+     * @param  string  $key  Identifier modul laporan target.
+     * @param  User  $user  Pengguna pemilik sesi untuk pembatasan isolasi data.
+     * @param  array<string, mixed>  $filters  Filter ternormalisasi (tahun, bulan, unit, status, role_filter, q).
+     * @return array<string, mixed> Payload KPI, tabel UI, serta kolom/baris ekspor CSV.
+     *
+     * Contoh pemanggilan:
+     * `$moduleData = $this->buildSingleModule('anggaran_mak', $user, $filters);`
      */
     private function buildSingleModule(string $key, User $user, array $filters): array
     {
@@ -539,8 +622,14 @@ class LaporanModularService
     /**
      * Modul 1: Rekapitulasi DIPA & Distribusi Unit (`laporan.rekapitulasi`).
      *
-     * @param  array<string, mixed>  $filters
-     * @return array<string, mixed>
+     * Tujuan: mengagregasi total pagu anggaran, estimasi usulan, kontrak, realisasi pencairan,
+     * serta pangsa usulan per jurusan/unit kerja di PNJ.
+     *
+     * @param  array<string, mixed>  $filters  Filter laporan (tahun, bulan, unit, q).
+     * @return array<string, mixed> Payload KPI dan tabel distribusi per unit kerja.
+     *
+     * Contoh pemanggilan:
+     * `$dipa = $this->buildModulRekapitulasiDipa($filters);`
      */
     private function buildModulRekapitulasiDipa(array $filters): array
     {
@@ -553,6 +642,7 @@ class LaporanModularService
             ->when($tahun, fn (Builder $q) => $q->where('tahun_anggaran', $tahun))
             ->sum('pagu_anggaran');
 
+        // kecualikan permohonan berstatus digantikan_oleh_revisi agar total usulan tidak terhitung ganda.
         $permohonans = PermohonanPengadaan::query()
             ->where('status_permohonan', '!=', 'digantikan_oleh_revisi')
             ->when($tahun, fn (Builder $q) => $q->whereYear('tanggal_pengajuan', $tahun))
@@ -653,8 +743,15 @@ class LaporanModularService
     /**
      * Modul 2: Permohonan Unit Sendiri (`permohonan.create` / `permohonan.view_own` tanpa `view_all`).
      *
-     * @param  array<string, mixed>  $filters
-     * @return array<string, mixed>
+     * Tujuan: menyajikan rekapitulasi usulan pengadaan, kontrak, dan serapan anggaran khusus
+     * milik pengusul pada unit kerja terkait.
+     *
+     * @param  User  $user  Pengusul yang sedang melihat laporan unitnya.
+     * @param  array<string, mixed>  $filters  Filter tahun, bulan, status usulan, dan kata kunci.
+     * @return array<string, mixed> Payload KPI dan daftar permohonan milik pengguna.
+     *
+     * Contoh pemanggilan:
+     * `$own = $this->buildModulPermohonanSendiri($user, $filters);`
      */
     private function buildModulPermohonanSendiri(User $user, array $filters): array
     {
@@ -759,8 +856,14 @@ class LaporanModularService
     /**
      * Modul 3: Verifikasi & Telaah Usulan (`verifikasi.bidang_2_view`, `verifikasi.wadir_2_*`, `permohonan.view_all`).
      *
-     * @param  array<string, mixed>  $filters
-     * @return array<string, mixed>
+     * Tujuan: merangkum antrean telaah administrasi, reviu paralel, dan status kelulusan usulan
+     * dari seluruh jurusan/unit kerja bagi verifikator dan pimpinan.
+     *
+     * @param  array<string, mixed>  $filters  Filter tahun, bulan, unit, status berkas, dan pencarian.
+     * @return array<string, mixed> Payload KPI verifikasi dan tabel berkas usulan masuk.
+     *
+     * Contoh pemanggilan:
+     * `$verif = $this->buildModulVerifikasiUsulan($filters);`
      */
     private function buildModulVerifikasiUsulan(array $filters): array
     {
@@ -857,10 +960,16 @@ class LaporanModularService
     }
 
     /**
-     * Modul 4: Anggaran & MAK DIPA (`anggaran.mak_*`, `permohonan.split_mak`).
+     * Modul 4: Anggaran dan MAK DIPA (`anggaran.mak_*`, `permohonan.split_mak`).
      *
-     * @param  array<string, mixed>  $filters
-     * @return array<string, mixed>
+     * Tujuan: menghimpun daftar rekening MAK beserta pagu, alokasi, sisa saldo, status kunci,
+     * dan antrean usulan yang belum memperoleh kode MAK.
+     *
+     * @param  array<string, mixed>  $filters  Filter tahun, status kunci rekening, dan kata kunci.
+     * @return array<string, mixed> Payload KPI anggaran dan tabel daftar MAK DIPA.
+     *
+     * Contoh pemanggilan:
+     * `$mak = $this->buildModulAnggaranMak($filters);`
      */
     private function buildModulAnggaranMak(array $filters): array
     {
@@ -962,10 +1071,16 @@ class LaporanModularService
     }
 
     /**
-     * Modul 5: Paket & Kontrak Pengadaan PPBJ (`paket.create`, `paket.view_all`, `spk.create`, `lihat_pp`, dll).
+     * Modul 5: Paket dan Kontrak Pengadaan PPBJ (`paket.create`, `paket.view_all`, `spk.create`, `lihat_pp`).
      *
-     * @param  array<string, mixed>  $filters
-     * @return array<string, mixed>
+     * Tujuan: menyusun statistik distribusi jalur pengadaan (belanja langsung, PP, PPK),
+     * nilai kontrak aktif, dan daftar paket pengadaan sesuai filter.
+     *
+     * @param  array<string, mixed>  $filters  Filter tahun, bulan, unit, status paket, dan kata kunci.
+     * @return array<string, mixed> Payload KPI PPBJ dan tabel paket pengadaan.
+     *
+     * Contoh pemanggilan:
+     * `$ppbj = $this->buildModulPengadaanPpbj($filters);`
      */
     private function buildModulPengadaanPpbj(array $filters): array
     {
@@ -1067,8 +1182,15 @@ class LaporanModularService
     /**
      * Modul 6: Penugasan Pejabat Pengadaan (`reviu.pp`).
      *
-     * @param  array<string, mixed>  $filters
-     * @return array<string, mixed>
+     * Tujuan: menyajikan daftar paket bernilai 50-200 juta atau yang ditugaskan langsung ke
+     * akun Pejabat Pengadaan beserta progres reviu, negosiasi, dan nilai kontraknya.
+     *
+     * @param  User  $user  Akun Pejabat Pengadaan yang mengakses laporan.
+     * @param  array<string, mixed>  $filters  Filter tahun, bulan, unit, status paket, dan kata kunci.
+     * @return array<string, mixed> Payload KPI PP dan tabel paket pengadaan langsung.
+     *
+     * Contoh pemanggilan:
+     * `$pp = $this->buildModulPenugasanPp($user, $filters);`
      */
     private function buildModulPenugasanPp(User $user, array $filters): array
     {
@@ -1170,10 +1292,17 @@ class LaporanModularService
     }
 
     /**
-     * Modul 7: Komitmen & Paket PPK (`reviu.ppk`).
+     * Modul 7: Komitmen dan Paket PPK (`reviu.ppk`).
      *
-     * @param  array<string, mixed>  $filters
-     * @return array<string, mixed>
+     * Tujuan: mengisolasi paket pengadaan berdasarkan `id_user_ppk` pemilik sesi serta
+     * menghitung antrean persetujuan awal, memo bayar tertunda, dan realisasi pencairan.
+     *
+     * @param  User  $user  Akun PPK pemilik sesi.
+     * @param  array<string, mixed>  $filters  Filter tahun, bulan, unit, status paket, dan pencarian.
+     * @return array<string, mixed> Payload KPI komitmen PPK dan tabel paket penugasan.
+     *
+     * Contoh pemanggilan:
+     * `$ppk = $this->buildModulKomitmenPpk($user, $filters);`
      */
     private function buildModulKomitmenPpk(User $user, array $filters): array
     {
@@ -1278,10 +1407,16 @@ class LaporanModularService
     }
 
     /**
-     * Modul 8: Penerimaan Barang & BAST BMN (`penerimaan.view`, `penerimaan.bast_create`, `penerimaan.bast_sign`).
+     * Modul 8: Penerimaan Barang dan BAST BMN (`penerimaan.view`, `penerimaan.bast_create`, `penerimaan.bast_sign`).
      *
-     * @param  array<string, mixed>  $filters
-     * @return array<string, mixed>
+     * Tujuan: merangkum berkas kontrak dan belanja langsung yang masuk tahap pemeriksaan
+     * fisik, klasifikasi belanja barang/modal, serta total nilai aset serah terima.
+     *
+     * @param  array<string, mixed>  $filters  Filter tahun, bulan, unit, kategori/status fisik, dan pencarian.
+     * @return array<string, mixed> Payload KPI penerimaan BMN dan tabel daftar BAST.
+     *
+     * Contoh pemanggilan:
+     * `$bmn = $this->buildModulPenerimaanBmn($filters);`
      */
     private function buildModulPenerimaanBmn(array $filters): array
     {
@@ -1405,11 +1540,17 @@ class LaporanModularService
     }
 
     /**
-     * Modul 9: Pembayaran & Pencairan SP2D (`pembayaran.*`).
-     * Menerapkan isolasi paket PPK bila pengguna hanya memegang `pembayaran.memo_ppk`.
+     * Modul 9: Pembayaran dan Pencairan SP2D (`pembayaran.*`).
      *
-     * @param  array<string, mixed>  $filters
-     * @return array<string, mixed>
+     * Tujuan: menghimpun tagihan, status SPP/SP2D, dan nominal transfer dengan menerapkan
+     * isolasi paket PPK bila pengguna hanya memegang izin `pembayaran.memo_ppk`.
+     *
+     * @param  User  $user  Pengguna yang meminta laporan pembayaran.
+     * @param  array<string, mixed>  $filters  Filter tahun, bulan, unit, status pembayaran, dan kata kunci.
+     * @return array<string, mixed> Payload KPI pembayaran dan tabel transaksi tagihan/pencairan.
+     *
+     * Contoh pemanggilan:
+     * `$bayar = $this->buildModulPembayaranSp2d($user, $filters);`
      */
     private function buildModulPembayaranSp2d(User $user, array $filters): array
     {
@@ -1516,10 +1657,16 @@ class LaporanModularService
     }
 
     /**
-     * Modul 10: Administrasi Pengguna & RBAC (`admin.approval_registrasi`, `admin.user_manage`, `admin.role_manage`).
+     * Modul 10: Administrasi Pengguna dan RBAC (`admin.approval_registrasi`, `admin.user_manage`, `admin.role_manage`).
      *
-     * @param  array<string, mixed>  $filters
-     * @return array<string, mixed>
+     * Tujuan: menyediakan rekapitulasi akun pengguna PNJ, status verifikasi pendaftaran,
+     * serta distribusi peran aktif bagi administrator sistem.
+     *
+     * @param  array<string, mixed>  $filters  Filter unit, status akun, filter peran, dan kata kunci.
+     * @return array<string, mixed> Payload KPI administrasi RBAC dan tabel daftar akun pengguna.
+     *
+     * Contoh pemanggilan:
+     * `$admin = $this->buildModulAdministrasiRbac($filters);`
      */
     private function buildModulAdministrasiRbac(array $filters): array
     {
@@ -1627,9 +1774,15 @@ class LaporanModularService
     }
 
     /**
-     * Payload kosong yang aman apabila pengguna belum memiliki satu pun permission laporan aktif.
+     * Membangun payload kosong yang aman saat pengguna belum memiliki modul laporan aktif.
      *
-     * @return array<string, mixed>
+     * Tujuan: mengembalikan struktur kunci yang konsisten dengan modul reguler agar view
+     * Blade maupun skrip Alpine tidak gagal membaca properti saat daftar izin laporan kosong.
+     *
+     * @return array<string, mixed> Struktur payload kosong dengan pesan keterangan standar.
+     *
+     * Contoh pemanggilan:
+     * `$empty = $this->buildEmptyModulePayload();`
      */
     private function buildEmptyModulePayload(): array
     {
@@ -1655,8 +1808,22 @@ class LaporanModularService
         ];
     }
 
+    /**
+     * Menerapkan filter status permohonan pada kueri laporan usulan.
+     *
+     * Tujuan: menyatukan nilai status revisi (`revisi` dan `perlu_revisi`) agar pilihan
+     * filter UI tetap ringkas namun mencakup variasi status historis di database.
+     *
+     * @param  Builder  $query  Instance Eloquent Builder target.
+     * @param  string  $status  Nilai status permohonan dari filter pengguna.
+     * @return void
+     *
+     * Contoh pemanggilan:
+     * `$this->applyPermohonanStatusFilter($query, $status);`
+     */
     private function applyPermohonanStatusFilter(Builder $query, string $status): void
     {
+        // gabungkan dua konstanta status revisi lama dan baru agar berkas pasca-migrasi tetap terjaring filter.
         if ($status === 'revisi') {
             $query->whereIn('status_permohonan', ['revisi', 'perlu_revisi']);
 
@@ -1666,7 +1833,15 @@ class LaporanModularService
     }
 
     /**
-     * @return array<int, array{value: string, label: string}>
+     * Menyediakan daftar opsi filter status usulan permohonan untuk dropdown frontend.
+     *
+     * Tujuan: memisahkan daftar opsi terpusat agar modul unit sendiri dan modul verifikasi
+     * menampilkan label status yang seragam.
+     *
+     * @return array<int, array{value: string, label: string}> Daftar pasangan nilai dan label opsi.
+     *
+     * Contoh pemanggilan:
+     * `$options = $this->permohonanStatusOptions();`
      */
     private function permohonanStatusOptions(): array
     {
@@ -1684,7 +1859,14 @@ class LaporanModularService
     }
 
     /**
-     * @return array<int, array{value: string, label: string}>
+     * Menyediakan daftar opsi filter status paket pengadaan untuk dropdown frontend.
+     *
+     * Tujuan: menyeragamkan opsi status paket pada modul PPBJ, Pejabat Pengadaan, dan PPK.
+     *
+     * @return array<int, array{value: string, label: string}> Daftar opsi status paket pengadaan.
+     *
+     * Contoh pemanggilan:
+     * `$options = $this->paketStatusOptions();`
      */
     private function paketStatusOptions(): array
     {
@@ -1700,7 +1882,17 @@ class LaporanModularService
     }
 
     /**
-     * @param  array<string, mixed>  $row
+     * Memeriksa kecocokan satu baris tabel laporan terhadap kata kunci pencarian.
+     *
+     * Tujuan: menyaring kolom-kolom teks utama secara case-insensitive agar pencarian bebas
+     * menjangkau nomor surat, judul pengadaan, maupun kode unit tanpa kueri SQL tambahan.
+     *
+     * @param  array<string, mixed>  $row  Representasi satu baris data tabel laporan.
+     * @param  string  $search  Kata kunci pencarian dari pengguna.
+     * @return bool Bernilai true bila kata kunci kosong atau ditemukan pada kolom terindeks.
+     *
+     * Contoh pemanggilan:
+     * `if (! $this->matchesSearch($row, $search)) { continue; }`
      */
     private function matchesSearch(array $row, string $search): bool
     {
@@ -1717,15 +1909,37 @@ class LaporanModularService
         return false;
     }
 
+    /**
+     * Menormalisasi nilai moneter menjadi angka murni bertipe int atau float untuk ekspor CSV.
+     *
+     * Tujuan: menghilangkan angka desimal `.00` pada nominal bulat agar spreadsheet dapat
+     * langsung mengolah kolom nominal dengan fungsi SUM tanpa pembersihan format teks.
+     *
+     * @param  mixed  $value  Nilai nominal mentah dari database atau hasil agregasi.
+     * @return int|float Nilai numerik bersih berpresisi maksimal 2 angka di belakang koma.
+     *
+     * Contoh pemanggilan:
+     * `$cleanNumber = $this->rawNumeric($item->estimasi_total_pagu);`
+     */
     private function rawNumeric(mixed $value): int|float
     {
         $floatVal = (float) ($value ?? 0);
 
+        // kembalikan tipe integer bila nilai tidak memiliki pecahan desimal agar output CSV lebih bersih.
         return floor($floatVal) === $floatVal ? (int) $floatVal : round($floatVal, 2);
     }
 
     /**
-     * @param  array<string, string>  $filters
+     * Merangkai ringkasan teks filter aktif untuk dicetak di header file ekspor CSV maupun PDF.
+     *
+     * Tujuan: memastikan setiap dokumen unduhan mencantumkan konteks filter persis seperti
+     * yang diterapkan saat ekspor agar hasil audit atau pelaporan tidak ambigu.
+     *
+     * @param  array<string, string>  $filters  Daftar nilai filter aktif hasil normalisasi.
+     * @return string Kalimat ringkasan filter dipisahkan karakter pipa (`|`).
+     *
+     * Contoh pemanggilan:
+     * `$summary = $this->formatFilterSummaryText($payload['filters_applied']);`
      */
     private function formatFilterSummaryText(array $filters): string
     {
@@ -1757,9 +1971,18 @@ class LaporanModularService
     }
 
     /**
-     * @param  Collection<string, PermohonanPengadaan>  $permohonanLookup
-     * @param  Collection<string, PaketPengadaan>  $paketLookup
-     * @return array<string, mixed>
+     * Mengubah satu baris record AuditLog menjadi item riwayat yang siap ditampilkan di UI.
+     *
+     * Tujuan: memetakan jenis entitas log ke judul pengadaan, unit kerja, warna lencana status,
+     * dan tautan navigasi cepat menggunakan koleksi lookup in-memory agar terhindar dari kueri N+1.
+     *
+     * @param  AuditLog  $log  Entitas log audit yang akan diformat.
+     * @param  Collection<string, PermohonanPengadaan>  $permohonanLookup  Peta permohonan terindeks nomor surat.
+     * @param  Collection<string, PaketPengadaan>  $paketLookup  Peta paket terindeks nomor paket.
+     * @return array<string, mixed> Struktur item riwayat terstandar untuk tab Riwayat Aktivitas.
+     *
+     * Contoh pemanggilan:
+     * `$item = $this->formatAuditLogItem($log, $permohonanLookup, $paketLookup);`
      */
     private function formatAuditLogItem(AuditLog $log, Collection $permohonanLookup, Collection $paketLookup): array
     {
@@ -1836,11 +2059,19 @@ class LaporanModularService
     /**
      * Melengkapi entitas fallback secara kumulatif apabila jejak AuditLog belum terisi untuk izin aktif.
      *
-     * @param  array<int, array<string, mixed>>  $riwayatList
-     * @return array<int, array<string, mixed>>
+     * Tujuan: menambahkan entri ringkas dari tabel transaksi utama jika nomor referensinya belum
+     * ada di `$riwayatList`, sehingga data historis atau hasil seeder tetap terlihat di riwayat pengguna.
+     *
+     * @param  User  $user  Pengguna yang meminta daftar riwayat aktivitas.
+     * @param  array<int, array<string, mixed>>  $riwayatList  Daftar riwayat hasil pembacaan tabel AuditLog.
+     * @return array<int, array<string, mixed>> Daftar riwayat setelah dilengkapi entitas fallback yang belum tercatat.
+     *
+     * Contoh pemanggilan:
+     * `$riwayatList = $this->appendFallbackRiwayat($user, $riwayatList);`
      */
     private function appendFallbackRiwayat(User $user, array $riwayatList): array
     {
+        // indeks nomor surat/paket yang sudah muncul dari AuditLog agar fallback tidak memunculkan duplikat.
         $seen = collect($riwayatList)->pluck('nomor_surat')->filter()->flip()->all();
 
         if ($user->hasAnyPermission(['permohonan.create', 'permohonan.view_own']) && ! $user->hasPermission('permohonan.view_all')) {
@@ -1988,6 +2219,18 @@ class LaporanModularService
         return $riwayatList;
     }
 
+    /**
+     * Mengelompokkan kode aksi audit log mentah menjadi label kategori aktivitas yang ramah dibaca.
+     *
+     * Tujuan: mengekstrak kata kunci dari nama aksi uppercase guna memudahkan penyaringan
+     * jenis aktivitas (Pengajuan, Persetujuan, Penolakan, Anggaran, dll.) pada tab Riwayat.
+     *
+     * @param  string  $jenisAksi  Kode aksi yang tersimpan pada kolom `jenis_aksi` di tabel audit_log.
+     * @return string Label kategori aktivitas terstandar.
+     *
+     * Contoh pemanggilan:
+     * `$kategori = $this->resolveJenisAktivitas($log->jenis_aksi);`
+     */
     private function resolveJenisAktivitas(string $jenisAksi): string
     {
         $upper = strtoupper($jenisAksi);

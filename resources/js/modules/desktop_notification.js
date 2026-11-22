@@ -1,10 +1,22 @@
 /**
- * Modul Manajemen Notifikasi In-App & Browser SIM-PBJ Politeknik Negeri Jakarta
+ * Informasi File
  *
- * Mengelola polling berkala untuk alert toast di dalam aplikasi, sinkronisasi lencana header,
- * perizinan notifikasi browser, serta pendaftaran Service Worker.
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+ * Ringkasan : Modul ini bangun untuk mengelola notifikasi real-time di dalam aplikasi dan
+ *             browser (toast antarmuka, polling berkala API notifikasi, kursor ID persisten di
+ *             localStorage, serta pendaftaran Service Worker PWA `/sw.js`).
  */
 
+/**
+ * Mengelola polling notifikasi latar belakang, antrean toast in-app, dan notifikasi native OS.
+ *
+ * Tujuan: memisahkan kursor ID notifikasi per akun di `localStorage` dan memberi throttle
+ * minimal 5 detik per permintaan agar tab browser ganda maupun fokus ulang tidak membanjiri server.
+ * Parameter: Tidak menerima argumen (identitas akun dibaca dari `this.$el.dataset.userId`).
+ * Nilai kembali: Objek state dan method pengelola notifikasi real-time untuk Alpine.js.
+ * Contoh pemanggilan: `<div x-data="desktopNotificationManager()" data-user-id="{{ Auth::id() }}">`
+ */
 export function desktopNotificationManager() {
     return {
         userId: 'guest',
@@ -13,6 +25,15 @@ export function desktopNotificationManager() {
         inAppToasts: [],
         seenToastIds: new Set(),
 
+        /**
+         * Memeriksa izin notifikasi browser, mendaftarkan Service Worker, dan menyalakan poller.
+         *
+         * Tujuan: hanya menampilkan banner permintaan izin sekali per pengguna jika pengguna
+         * belum memilih dan belum menekan tombol tutup permanen.
+         * Parameter: Tidak menerima argumen.
+         * Nilai kembali: Tidak mengembalikan nilai.
+         * Contoh pemanggilan: Dipanggil otomatis saat komponen dimuat oleh Alpine.
+         */
         init() {
             this.userId = this.$el?.dataset?.userId || 'guest';
 
@@ -33,6 +54,15 @@ export function desktopNotificationManager() {
             this.startPolling();
         },
 
+        /**
+         * Meminta izin notifikasi native browser kepada pengguna dan mengirim notifikasi uji bila disetujui.
+         *
+         * Tujuan: menyebarkan CustomEvent `simpbj-permission-changed` agar komponen tombol status
+         * izin di halaman profil atau header langsung tersinkron tanpa reload.
+         * Parameter: Tidak menerima argumen.
+         * Nilai kembali: Tidak mengembalikan nilai.
+         * Contoh pemanggilan: `@click="requestPermission()"`
+         */
         requestPermission() {
             if (typeof Notification === 'undefined') {
                 return;
@@ -53,12 +83,31 @@ export function desktopNotificationManager() {
             });
         },
 
+        /**
+         * Menyimpan status penutupan banner izin notifikasi per user ke `localStorage`.
+         *
+         * Tujuan: menghormati pilihan pengguna yang menolak banner agar tidak terus muncul di
+         * setiap perpindahan halaman.
+         * Parameter: Tidak menerima argumen.
+         * Nilai kembali: Tidak mengembalikan nilai.
+         * Contoh pemanggilan: `@click="dismissBanner()"`
+         */
         dismissBanner() {
             localStorage.setItem(`simpbj_os_notif_dismissed_${this.userId}`, 'true');
             this.showBanner = false;
         },
 
+        /**
+         * Menambahkan item notifikasi baru ke tumpukan toast di sudut layar secara unik (deduplikasi).
+         *
+         * Tujuan: membatasi maksimal 4 toast aktif sekaligus dan menghapusnya otomatis setelah 9
+         * detik agar tidak menutupi area aksi utama aplikasi.
+         * Parameter: `{Object} item` - Objek notifikasi dari API `/api/notifikasi-terbaru`.
+         * Nilai kembali: Tidak mengembalikan nilai.
+         * Contoh pemanggilan: `this.pushToast(item);`
+         */
         pushToast(item) {
+            // cek seenToastIds untuk menjamin notifikasi dengan ID yang sama tidak muncul dua kali.
             if (!item || !item.id || this.seenToastIds.has(item.id)) {
                 return;
             }
@@ -84,10 +133,27 @@ export function desktopNotificationManager() {
             }, 9000);
         },
 
+        /**
+         * Menghapus satu toast dari daftar tampilan berdasarkan ID notifikasi.
+         *
+         * Tujuan: membiarkan pengguna menutup toast lebih cepat atau membersihkannya lewat timer.
+         * Parameter: `{number|string} toastId` - ID unik notifikasi toast yang ditutup.
+         * Nilai kembali: Tidak mengembalikan nilai.
+         * Contoh pemanggilan: `@click="dismissToast(toast.id)"`
+         */
         dismissToast(toastId) {
             this.inAppToasts = this.inAppToasts.filter((t) => t.id !== toastId);
         },
 
+        /**
+         * Memulai polling periodik 20 detik sekali beserta sinkronisasi saat tab kembali aktif.
+         *
+         * Tujuan: menyimpan penanda poller global per `userId` untuk mencegah interval ganda saat
+         * komponen terinisialisasi ulang, serta mematikan timer otomatis bila server merespons HTTP 401.
+         * Parameter: Tidak menerima argumen.
+         * Nilai kembali: Tidak mengembalikan nilai.
+         * Contoh pemanggilan: `this.startPolling();`
+         */
         startPolling() {
             if (window.__simpbjNotifPollerStartedForUser === this.userId) {
                 return;
@@ -103,6 +169,7 @@ export function desktopNotificationManager() {
 
             const checkNewAlerts = () => {
                 const now = Date.now();
+                // pasang jeda minimum 5 detik supaya trigger berdekatan dari visibilitychange tidak memukul API dua kali.
                 if (now - lastCheckAt < 5000) {
                     return;
                 }
@@ -119,6 +186,7 @@ export function desktopNotificationManager() {
                     headers: { Accept: 'application/json' },
                 })
                     .then((res) => {
+                        // Jika sesi berakhir (401), hentikan interval agar tidak terus mengirim request gagal.
                         if (res.status === 401) {
                             if (window.__simpbjNotifPollerTimer) {
                                 clearInterval(window.__simpbjNotifPollerTimer);
@@ -132,6 +200,7 @@ export function desktopNotificationManager() {
                             return;
                         }
 
+                        // Pada kunjungan perdana tanpa kursor, simpan latest_id tanpa membanjiri layar dengan notifikasi lama.
                         if (!hasCursor) {
                             const initialCursor = Number(payload.latest_id || 0);
                             localStorage.setItem(cursorKey, String(initialCursor));
@@ -169,6 +238,15 @@ export function desktopNotificationManager() {
             });
         },
 
+        /**
+         * Menampilkan notifikasi desktop OS melalui Service Worker atau fallback API Notification.
+         *
+         * Tujuan: memprioritaskan `registration.showNotification` agar notifikasi mendukung
+         * klik navigasi di background lewat `sw.js`, dengan fallback objek `Notification` standar.
+         * Parameter: `{string} title`, `{string} body`, `{string} url`.
+         * Nilai kembali: Tidak mengembalikan nilai.
+         * Contoh pemanggilan: `this.showNativeAlert('Judul', 'Isi pesan', '/notifikasi');`
+         */
         showNativeAlert(title, body, url) {
             if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
                 return;
@@ -202,11 +280,29 @@ export function desktopNotificationManager() {
     };
 }
 
+/**
+ * Menyediakan kontrol UI sederhana untuk menampilkan dan memicu izin notifikasi browser.
+ *
+ * Tujuan: menjembatani tombol pengaktifan notifikasi di halaman notifikasi/profil dengan
+ * komponen manajer utama lewat event global `simpbj-request-browser-permission`.
+ * Parameter: Tidak menerima argumen.
+ * Nilai kembali: Objek state `supported`, `permission`, dan method `activate()` untuk Alpine.js.
+ * Contoh pemanggilan: `<div x-data="browserNotificationControl()">`
+ */
 export function browserNotificationControl() {
     return {
         supported: typeof Notification !== 'undefined',
         permission: typeof Notification !== 'undefined' ? Notification.permission : 'unsupported',
 
+        /**
+         * Mendengarkan pembaruan status izin notifikasi agar label tombol UI ikut berubah seketika.
+         *
+         * Tujuan: menjaga konsistensi status izin di seluruh komponen terpasang saat pengguna
+         * mengizinkan atau menolak prompt browser.
+         * Parameter: Tidak menerima argumen.
+         * Nilai kembali: Tidak mengembalikan nilai.
+         * Contoh pemanggilan: Dijalankan otomatis saat inisialisasi Alpine.
+         */
         init() {
             window.addEventListener('simpbj-permission-changed', (e) => {
                 if (e.detail?.permission) {
@@ -215,6 +311,14 @@ export function browserNotificationControl() {
             });
         },
 
+        /**
+         * Mengirim sinyal global guna meminta prompt perizinan notifikasi dari manajer utama.
+         *
+         * Tujuan: mengabaikan aksi secara aman jika peramban tidak mendukung Notification API.
+         * Parameter: Tidak menerima argumen.
+         * Nilai kembali: Tidak mengembalikan nilai.
+         * Contoh pemanggilan: `@click="activate()"`
+         */
         activate() {
             if (!this.supported) {
                 return;

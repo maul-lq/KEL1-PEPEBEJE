@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : menulis controller AuthController ini untuk menangani tampilan login/registrasi, pendaftaran akun menunggu persetujuan admin, login multi-identitas dengan rate limiter, logout, dan stub pemulihan kata sandi.
+ */
+
 namespace App\Http\Controllers;
 
 use App\Models\Role;
@@ -18,17 +26,24 @@ use Illuminate\View\View;
 /**
  * Controller Autentikasi & Registrasi Pengguna (AuthController)
  *
- * Mengimplementasikan:
- * - FR 1.1: Formulir multi-identitas login (Username, NIP 18-digit, atau Email dinas PNJ).
- * - FR 1.2: Verifikasi kredensial aman & pembatasan frekuensi percobaan (Rate Limiting anti brute-force).
- * - FR 1.3: Pengalihan pengguna secara otomatis ke tampilan dashboard sesuai perannya.
- * - FR 2.1: Batasan unik institusi (hanya diizinkan 1 akun Pejabat Pengadaan / PP aktif).
+ * memisahkan logika autentikasi lokal dari Google OAuth agar alur multi-identitas (username/NIP/email),
+ * proteksi brute-force RateLimiter, serta verifikasi status registrasi tertata dalam satu controller.
+ *
+ * Parameter konstruktor: Tidak ada.
+ * Nilai kembali         : Instance controller yang dipetakan ke rute tamu (`/login`, `/register`, dll.) dan `/logout`.
+ *
+ * Contoh pemanggilan:
+ * `Route::post('/login', [AuthController::class, 'login']);`
  */
 class AuthController extends Controller
 {
     /**
-     * Menampilkan formulir halaman login institusi.
-     * Menggunakan template Blade antarmuka resmi SIM-PBJ.
+     * merender halaman formulir login resmi SIM-PBJ untuk pengunjung yang belum terautentikasi.
+     *
+     * @return View mengembalikan tampilan Blade `auth.login`.
+     *
+     * Contoh pemanggilan:
+     * `GET /login`
      */
     public function showLoginForm(): View
     {
@@ -36,24 +51,32 @@ class AuthController extends Controller
     }
 
     /**
-     * Menampilkan formulir registrasi akun pegawai baru.
-     * Mengambil daftar master unit/jurusan kampus PNJ untuk opsi pilihan unit kerja.
+     * menampilkan formulir pendaftaran pegawai baru beserta daftar master unit kerja PNJ untuk dropdown pilihan unit.
+     *
+     * @return View mengembalikan tampilan Blade `auth.register` dengan variabel `$units`.
+     *
+     * Contoh pemanggilan:
+     * `GET /register`
      */
     public function showRegistrationForm(): View
     {
-        // Mengambil semua data unit kerja kampus untuk pilihan dropdown registrasi
         $units = Unit::all();
 
         return view('auth.register', compact('units'));
     }
 
     /**
-     * Memproses penyimpanan akun pengguna baru dari formulir pendaftaran.
-     * Menerapkan validasi keunikan NIP, email, username, dan batasan 1 akun PP aktif.
+     * memvalidasi dan menyimpan pendaftaran akun baru dalam status menunggu persetujuan Admin tanpa mengizinkan pendaftar memilih perannya sendiri.
+     *
+     * @param  Request  $request  menerima input formulir registrasi (termasuk dukungan alias field `name`, `phone`, `unit_kerja`).
+     * @return RedirectResponse mengarahkan pengguna ke halaman login dengan pesan bahwa akun menunggu verifikasi Admin.
+     *
+     * Contoh pemanggilan:
+     * `POST /register`
      */
     public function register(Request $request): RedirectResponse
     {
-        // 1. Normalisasi nama alias field dari formulir pendaftaran
+        // menormalkan alias field form/test terdahulu ke nama kolom resmi sebelum validasi dijalankan.
         if ($request->filled('name') && ! $request->filled('nama')) {
             $request->merge(['nama' => $request->name]);
         }
@@ -69,7 +92,6 @@ class AuthController extends Controller
             }
         }
 
-        // 2. Validasi seluruh data input pendaftaran (tanpa pemilihan role oleh pendaftar, sesuai Opsi A)
         $validated = $request->validate([
             'nip' => ['required', 'string', 'max:30', 'unique:users,nip'],
             'username' => ['required', 'string', 'max:50', 'unique:users,username'],
@@ -81,16 +103,13 @@ class AuthController extends Controller
             'no_hp' => ['required', 'string', 'max:20'],
         ]);
 
-        // 3. Status awal pendaftaran: Tidak aktif dan menunggu persetujuan Administrator
-        // Role definitif akan dipilihkan dan ditetapkan 100% oleh Admin saat tombol Setujui (ACC) ditekan
+        // mengunci akun baru agar tidak aktif sampai Administrator memverifikasi dan menetapkan role definitif saat ACC.
         $validated['id_role'] = Role::where('nama_role', User::ROLE_USER)->value('id');
         $validated['status_aktif'] = false;
         $validated['status_registrasi'] = User::STATUS_REGISTRASI_MENUNGGU;
 
-        // 4. Simpan data user baru ke database
         $newUser = User::create($validated);
 
-        // 5. Berikan notifikasi alarm ke Administrator bahwa ada pendaftar akun baru yang menunggu verifikasi
         try {
             app(PengadaanNotificationService::class)->kirimKePeran(
                 'admin',
@@ -99,10 +118,10 @@ class AuthController extends Controller
                 'verifikasi'
             );
         } catch (\Throwable $e) {
+            // menelan kegagalan notifikasi agar proses registrasi pendaftar tidak ikut gagal bila mailer sedang bermasalah.
             Log::warning("Gagal mengirim notifikasi pendaftar baru ke admin: {$e->getMessage()}");
         }
 
-        // Berikan pesan sukses dan alihkan pengguna ke formulir login
         return redirect()->route('login')->with(
             'success',
             'Pendaftaran akun berhasil diajukan! Akun Anda menunggu verifikasi dan persetujuan Administrator sebelum dapat digunakan.'
@@ -110,22 +129,25 @@ class AuthController extends Controller
     }
 
     /**
-     * Menangani proses login pengguna ke dalam sistem.
-     * Mendukung multi-identitas dan rate limiting 5 kali percobaan per menit.
+     * memverifikasi kredensial multi-identitas (username, email, atau NIP), memeriksa status persetujuan akun, dan mencegah brute-force dengan RateLimiter.
+     *
+     * @param  Request  $request  membaca input `login`, `password`, dan flag `remember`.
+     * @return RedirectResponse mengarahkan pengguna ke halaman tujuan/dashboard bila lolos, atau kembali dengan pesan error spesifik.
+     *
+     * Contoh pemanggilan:
+     * `POST /login`
      */
     public function login(Request $request): RedirectResponse
     {
-        // 1. Validasi input formulir login
         $credentials = $request->validate([
             'login' => ['required', 'string'],
             'password' => ['required', 'string'],
         ]);
 
         $loginInput = $credentials['login'];
-        // Kunci unik untuk throttle pembatasan percobaan login berdasarkan input dan alamat IP
+        // menggabungkan loginInput + IP sebagai kunci throttle agar satu IP tidak bisa menebak sandi satu akun maupun banyak akun berulang kali.
         $throttleKey = Str::transliterate(Str::lower($loginInput).'|'.$request->ip());
 
-        // 2. FR 1.2: Proteksi brute-force (maksimal 5 kali kegagalan per menit)
         if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
             $seconds = RateLimiter::availableIn($throttleKey);
 
@@ -134,15 +156,13 @@ class AuthController extends Controller
             ])->onlyInput('login');
         }
 
-        // 3. Pencarian identitas pengguna di database (Username, Email, atau NIP)
         $user = User::where('username', $loginInput)
             ->orWhere('email', $loginInput)
             ->orWhere('nip', $loginInput)
             ->first();
 
-        // 4. Verifikasi kecocokan hash password
         if ($user && Hash::check($credentials['password'], $user->password)) {
-            // Periksa status verifikasi persetujuan (approval) oleh Administrator
+            // memvalidasi status registrasi dan keaktifan sebelum membuat sesi agar akun tertunda/tertolak tidak bisa masuk.
             if ($user->status_registrasi === User::STATUS_REGISTRASI_MENUNGGU) {
                 return back()->withErrors([
                     'login' => 'Pendaftaran akun Anda sedang menunggu verifikasi dan persetujuan dari Administrator.',
@@ -157,23 +177,19 @@ class AuthController extends Controller
                 ])->onlyInput('login');
             }
 
-            // Periksa apakah akun dinonaktifkan
             if (! $user->status_aktif) {
                 return back()->withErrors([
                     'login' => 'Akun Anda sedang dinonaktifkan oleh Administrator.',
                 ])->onlyInput('login');
             }
 
-            // Bersihkan hitungan percobaan gagal rate limiter karena login berhasil
             RateLimiter::clear($throttleKey);
 
-            // Buat sesi login resmi Laravel
             Auth::login($user, $request->filled('remember'));
+            // meregenerasi ID sesi untuk menangkal Session Fixation serta mencatat timestamp awal timer idle timeout 15 menit.
             $request->session()->regenerate();
-            // Catat waktu aktivitas awal untuk kalkulasi inactivity timeout 15 menit
             $request->session()->put('last_activity', time());
 
-            // 5. FR 1.3: Mengalihkan pengguna ke dashboard sesuai peran masing-masing
             $user->loadMissing('roleEntity');
             $roleLabel = $user->roleEntity?->label ?? 'Pengguna';
 
@@ -183,7 +199,7 @@ class AuthController extends Controller
             );
         }
 
-        // 6. Jika kredensial salah, catat 1 kali hit kegagalan ke rate limiter (berlaku 60 detik)
+        // menambahkan hit kegagalan berdurasi 60 detik hanya jika password/identitas tidak cocok.
         RateLimiter::hit($throttleKey, 60);
 
         return back()->withErrors([
@@ -192,7 +208,13 @@ class AuthController extends Controller
     }
 
     /**
-     * Memproses keluar (logout) pengguna dari sistem dan menghancurkan sesi aktif.
+     * mengakhiri sesi pengguna yang sedang login, membatalkan seluruh data sesi, dan meregenerasi CSRF token.
+     *
+     * @param  Request  $request  menerima request logout dari link GET maupun form POST.
+     * @return RedirectResponse mengarahkan kembali ke halaman login dengan pesan konfirmasi keluar.
+     *
+     * Contoh pemanggilan:
+     * `POST /logout`
      */
     public function logout(Request $request): RedirectResponse
     {
@@ -204,12 +226,15 @@ class AuthController extends Controller
     }
 
     /**
-     * Menampilkan formulir permohonan pemulihan kata sandi (Lupa Password).
-     * Disiapkan untuk integrasi frontend lanjutan.
+     * menampilkan formulir lupa kata sandi apabila view tersedia, atau mengalihkan kembali ke login dengan panduan kontak Administrator.
+     *
+     * @return View|RedirectResponse mengembalikan view `auth.forgot-password` bila tersedia atau redirect aman ke login.
+     *
+     * Contoh pemanggilan:
+     * `GET /forgot-password`
      */
     public function showForgotPasswordForm(): View|RedirectResponse
     {
-        // Jika view auth.forgot-password belum dibuat tim frontend, alihkan kembali ke halaman login
         if (view()->exists('auth.forgot-password')) {
             return view('auth.forgot-password');
         }
@@ -218,7 +243,13 @@ class AuthController extends Controller
     }
 
     /**
-     * Mengirimkan surel berisi tautan pengaturan ulang kata sandi.
+     * memvalidasi email pemulihan kata sandi dan mengembalikan pesan status netral agar tidak membocorkan daftar email terdaftar.
+     *
+     * @param  Request  $request  memvalidasi field `email` yang dikirim pemohon reset kata sandi.
+     * @return RedirectResponse mengembalikan redirect kembali dengan pesan status informatif netral.
+     *
+     * Contoh pemanggilan:
+     * `POST /forgot-password`
      */
     public function sendResetLinkEmail(Request $request): RedirectResponse
     {
@@ -230,7 +261,13 @@ class AuthController extends Controller
     }
 
     /**
-     * Menampilkan formulir penetapan kata sandi baru berdasarkan token verifikasi.
+     * menampilkan formulir penetapan kata sandi baru berdasarkan token pemulihan apabila templat Blade-nya tersedia.
+     *
+     * @param  string  $token  meneruskan token reset kata sandi dari parameter rute ke view.
+     * @return View|RedirectResponse mengembalikan view `auth.reset-password` atau redirect aman ke halaman login.
+     *
+     * Contoh pemanggilan:
+     * `GET /reset-password/{token}`
      */
     public function showResetPasswordForm(string $token): View|RedirectResponse
     {
@@ -242,7 +279,13 @@ class AuthController extends Controller
     }
 
     /**
-     * Memproses pembaruan kata sandi akun pengguna dari formulir reset.
+     * memvalidasi permintaan pembaruan kata sandi melalui token reset dan mengarahkan kembali ke halaman login.
+     *
+     * @param  Request  $request  memvalidasi `token`, `email`, serta `password` terkonfirmasi minimal 6 karakter.
+     * @return RedirectResponse mengembalikan redirect ke login dengan pesan sukses.
+     *
+     * Contoh pemanggilan:
+     * `POST /reset-password`
      */
     public function resetPassword(Request $request): RedirectResponse
     {

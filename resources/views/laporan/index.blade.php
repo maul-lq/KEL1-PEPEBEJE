@@ -1,7 +1,27 @@
+{{--
+  Informasi File
+
+  Penulis   : Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : View Blade ini rancang sebagai antarmuka SPA Riwayat Aktivitas dan Laporan
+              Keuangan modular berbasis RBAC lengkap dengan switcher sub-modul, filter adaptif,
+              paginasi klien, serta ekspor PDF dan CSV simultan.
+--}}
 @extends('layouts.app')
 
 @section('title', 'Riwayat dan Laporan - SIM-PBJ Politeknik Negeri Jakarta')
 
+{{--
+  Komentar Deskriptif: Seksi Konten Halaman Riwayat dan Laporan Terpadu (`laporan.index`).
+
+  Tujuan: membungkus konfigurasi SSR awal dari `LaporanModularService` ke `data-config` untuk
+          diambil komponen Alpine `laporanApp` agar pengguna multi-peran dapat berpindah sub-modul
+          dan memfilter laporan tanpa pemuatan ulang halaman penuh.
+  Parameter (Data dari LaporanController):
+    - `$activeTab`, `$riwayatList`, `$modularPayload`, `$canDownload`, `$userUnitCode`, `$tahun`, `$bulan`, `$kodeUnit`.
+  Nilai kembali: Halaman HTML SPA interaktif riwayat audit dan rekap laporan modular RBAC.
+  Contoh pemanggilan: `return view('laporan.index', compact(...));`
+--}}
 @section('content')
 @php
     $laporanConfig = [

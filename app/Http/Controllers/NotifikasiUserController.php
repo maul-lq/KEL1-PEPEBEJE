@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : menulis controller NotifikasiUserController ini untuk mengelola feed kotak masuk notifikasi personal, tab jadwal pengingat berkala, penandaan baca/dismiss, serta endpoint JSON polling real-time.
+ */
+
 namespace App\Http\Controllers;
 
 use App\Models\NotifikasiUser;
@@ -14,22 +22,40 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 
 /**
- * Controller Feed Notifikasi Personal & Jadwal Pengingat Pengguna (Modul 9)
+ * Controller Feed Notifikasi & Jadwal Pengingat (NotifikasiUserController)
  *
- * Mengelola feed notifikasi dan peringatan aktif yang ditujukan kepada setiap pengguna:
- * - Menampilkan daftar notifikasi (dapat disaring berdasarkan status baca/tindakan/pengingat).
- * - Menampilkan jadwal pengingat berkala dan jatuh tempo yang sedang berjalan (hanya-baca).
- * - Menandai notifikasi telah dibaca (satuan atau tandai semua) serta mengabaikan notifikasi.
- * - Menyediakan endpoint polling real-time untuk alert in-app dan notifikasi peramban.
+ * memisahkan penyajian kotak masuk notifikasi per pengguna dari jadwal pengingat aktif (tab `jadwal`)
+ * dan menyediakan API polling ringan `/api/notifikasi-terbaru` untuk pembaruan lonceng serta toast OS Desktop.
+ *
+ * Parameter konstruktor: `$notificationService` (opsional, disuntikkan melalui DI Laravel).
+ * Nilai kembali         : Instance controller yang melayani grup rute `notifikasi.*`.
+ *
+ * Contoh pemanggilan:
+ * `Route::get('/notifikasi', [NotifikasiUserController::class, 'notifikasiIndex'])->name('notifikasi.index');`
  */
 class NotifikasiUserController extends Controller
 {
+    /**
+     * menyuntikkan PengadaanNotificationService secara opsional agar pengujian atau pemanggilan tanpa container tetap aman.
+     *
+     * @param  PengadaanNotificationService|null  $notificationService  menerima layanan orkestrasi notifikasi pengadaan.
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `$controller = app(NotifikasiUserController::class);`
+     */
     public function __construct(
         public ?PengadaanNotificationService $notificationService = null
     ) {}
 
     /**
-     * Menampilkan antarmuka daftar feed Notifikasi dan Jadwal Pengingat (Reminder).
+     * menampilkan halaman daftar notifikasi atau jadwal reminder aktif dengan filter tab, kata kunci, kategori, dan rentang waktu.
+     *
+     * @param  Request  $request  membaca query `tab`, `q`, `jenis`, dan `periode` untuk menyaring daftar notifikasi/jadwal.
+     * @return View mengembalikan view `notifikasi.index` lengkap dengan hitungan badge tiap tab.
+     *
+     * Contoh pemanggilan:
+     * `GET /notifikasi?tab=belum_dibaca&jenis=pembayaran`
      */
     public function notifikasiIndex(Request $request): View
     {
@@ -83,6 +109,7 @@ class NotifikasiUserController extends Controller
                 ->paginate(10)
                 ->withQueryString();
 
+            // mengembalikan paginator kosong berstruktur valid (`1 = 0`) agar komponen Blade notifikasi tidak perlu memeriksa null pada metadata paginasi.
             $notifikasiList = NotifikasiUser::where('id_user', $user->id_user)->whereRaw('1 = 0')->paginate(10);
 
             return view('notifikasi.index', compact('notifikasiList', 'jadwalList', 'tabCounts', 'currentTab'));
@@ -193,17 +220,34 @@ class NotifikasiUserController extends Controller
         return view('notifikasi.index', compact('notifikasiList', 'jadwalList', 'tabCounts', 'currentTab'));
     }
 
+    /**
+     * menyediakan metode alias `index` yang meneruskan langsung ke `notifikasiIndex`.
+     *
+     * @param  Request  $request  meneruskan objek request beserta query filter ke `notifikasiIndex`.
+     * @return View mengembalikan view `notifikasi.index`.
+     *
+     * Contoh pemanggilan:
+     * `$controller->index($request);`
+     */
     public function index(Request $request): View
     {
         return $this->notifikasiIndex($request);
     }
 
     /**
-     * Menandai satu notifikasi tertentu telah dibaca oleh pengguna.
+     * menandai satu notifikasi milik pengguna aktif sebagai sudah dibaca beserta stempel waktunya.
+     *
+     * @param  Request  $request  menerima request POST dari tombol 'Tandai Dibaca'.
+     * @param  int  $id  menyaring berdasarkan `id` sekaligus `id_user` agar pengguna tidak bisa menandai notifikasi milik orang lain.
+     * @return RedirectResponse mengembalikan redirect kembali dengan pesan sukses.
+     *
+     * Contoh pemanggilan:
+     * `POST /notifikasi/{id}/read`
      */
     public function markAsReadWeb(Request $request, int $id): RedirectResponse
     {
         $user = Auth::user();
+        // selalu mengunci query ke id_user pengguna login supaya penandaan ID acak tidak memengaruhi kotak masuk user lain (anti IDOR).
         $notif = NotifikasiUser::where('id', $id)->where('id_user', $user->id_user)->firstOrFail();
         $notif->is_read = true;
         $notif->waktu_dibaca = now();
@@ -212,13 +256,29 @@ class NotifikasiUserController extends Controller
         return back()->with('success', 'Notifikasi berhasil ditandai sebagai dibaca.');
     }
 
+    /**
+     * menyediakan metode alias `markAsRead` yang meneruskan ke `markAsReadWeb`.
+     *
+     * @param  Request  $request  meneruskan objek request HTTP.
+     * @param  int  $id  meneruskan ID notifikasi pengguna.
+     * @return RedirectResponse mengembalikan redirect kembali.
+     *
+     * Contoh pemanggilan:
+     * `$controller->markAsRead($request, 12);`
+     */
     public function markAsRead(Request $request, int $id): RedirectResponse
     {
         return $this->markAsReadWeb($request, $id);
     }
 
     /**
-     * Menandai seluruh notifikasi yang belum dibaca milik pengguna aktif sebagai telah dibaca.
+     * menandai seluruh notifikasi belum terbaca milik pengguna aktif sebagai telah dibaca dalam satu query massal.
+     *
+     * @param  Request  $request  menerima request POST dari tombol 'Tandai Semua Dibaca'.
+     * @return RedirectResponse mengembalikan redirect kembali dengan pesan konfirmasi.
+     *
+     * Contoh pemanggilan:
+     * `POST /notifikasi/mark-all-read`
      */
     public function markAllReadWeb(Request $request): RedirectResponse
     {
@@ -233,13 +293,29 @@ class NotifikasiUserController extends Controller
         return back()->with('success', 'Semua notifikasi berhasil ditandai sebagai telah dibaca.');
     }
 
+    /**
+     * menyediakan metode alias `markAllRead` yang meneruskan ke `markAllReadWeb`.
+     *
+     * @param  Request  $request  meneruskan objek request HTTP.
+     * @return RedirectResponse mengembalikan redirect kembali.
+     *
+     * Contoh pemanggilan:
+     * `$controller->markAllRead($request);`
+     */
     public function markAllRead(Request $request): RedirectResponse
     {
         return $this->markAllReadWeb($request);
     }
 
     /**
-     * Mengabaikan (dismiss) notifikasi dari feed.
+     * menyembunyikan (dismiss) notifikasi tertentu dari toast/pop-up sekaligus menandainya telah dibaca oleh pemiliknya.
+     *
+     * @param  Request  $request  menerima request POST dari aksi tutup notifikasi.
+     * @param  int  $id  mencari record `NotifikasiUser` milik pengguna aktif.
+     * @return RedirectResponse mengembalikan redirect kembali meski record sudah tidak ada agar aksi tetap idempoten.
+     *
+     * Contoh pemanggilan:
+     * `POST /notifikasi/{id}/dismiss`
      */
     public function dismissNotificationWeb(Request $request, int $id): RedirectResponse
     {
@@ -255,13 +331,29 @@ class NotifikasiUserController extends Controller
         return back()->with('success', 'Pemberitahuan telah ditandai.');
     }
 
+    /**
+     * menyediakan metode alias `dismiss` yang meneruskan ke `dismissNotificationWeb`.
+     *
+     * @param  Request  $request  meneruskan objek request HTTP.
+     * @param  int  $id  meneruskan ID notifikasi pengguna.
+     * @return RedirectResponse mengembalikan redirect kembali.
+     *
+     * Contoh pemanggilan:
+     * `$controller->dismiss($request, 12);`
+     */
     public function dismiss(Request $request, int $id): RedirectResponse
     {
         return $this->dismissNotificationWeb($request, $id);
     }
 
     /**
-     * Mengembalikan daftar notifikasi terbaru untuk alert in-app, pembaruan lonceng header, dan notifikasi peramban.
+     * melayani polling JSON notifikasi terbaru bagi skrip JS header dan Service Worker tanpa me-refresh seluruh halaman.
+     *
+     * @param  Request  $request  membaca query `since_id` untuk hanya mengambil notifikasi baru yang belum pernah dilihat peramban.
+     * @return JsonResponse mengembalikan `latest_id`, `unread_count`, item baru (`data`), dan 8 notifikasi terbaru (`recent`), atau 401 jika sesi berakhir.
+     *
+     * Contoh pemanggilan:
+     * `GET /api/notifikasi-terbaru?since_id=45`
      */
     public function notifikasiTerbaru(Request $request): JsonResponse
     {
@@ -279,6 +371,7 @@ class NotifikasiUserController extends Controller
         $sinceId = $request->filled('since_id') ? (int) $request->query('since_id') : 0;
 
         $newItems = collect();
+        // hanya mengisi 'data' saat klien mengirim since_id > 0 agar muat halaman awal tidak memicu toast/notifikasi OS berulang untuk riwayat lama.
         if ($sinceId > 0) {
             $newItems = (clone $baseQuery)
                 ->where('is_read', false)
@@ -306,9 +399,13 @@ class NotifikasiUserController extends Controller
     }
 
     /**
-     * Menyusun query jadwal reminder pengadaan/pembayaran sesuai cakupan hak akses RBAC pengguna.
+     * menyusun query jadwal reminder induk (`parent_reminder_id IS NULL`) yang disaring sesuai cakupan izin RBAC pengguna aktif.
      *
-     * @return Builder<Reminder>
+     * @param  User  $user  memeriksa izin operasional lintas paket versus pengguna yang terisolasi pada paket penugasannya saja.
+     * @return Builder<Reminder> mengembalikan query builder Reminder siap difilter dan dipaginasi.
+     *
+     * Contoh pemanggilan:
+     * `$jadwalQuery = $this->buildJadwalQueryForUser($user);`
      */
     protected function buildJadwalQueryForUser(User $user): Builder
     {
@@ -334,6 +431,7 @@ class NotifikasiUserController extends Controller
             return $query;
         }
 
+        // membatasi pemegang akses sempit (PPK/PP/Pemohon) agar hanya melihat jadwal pengingat dari paket yang terkait langsung dengannya.
         return $query->whereHas('paket', function ($pq) use ($user): void {
             $pq->where('id_user_ppk', $user->id_user)
                 ->orWhere('id_user_pp', $user->id_user)

@@ -1,3 +1,26 @@
+{{--
+  Informasi File
+
+  Penulis   : Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : Komponen Blade ini bangun untuk merender progress stepper 8 siklus PBJ PNJ
+              dalam tiga mode tampilan (horizontal, vertical timeline, dan compact bar).
+--}}
+{{--
+  Komentar Deskriptif: Komponen Blade Stepper 8 Siklus Pengadaan (`<x-stepper-8-siklus>`).
+
+  Tujuan: memetakan tahap aktif 1..8 serta status penolakan/penahanan ke visual lingkaran
+          tahapan, garis penghubung horizontal/vertikal, maupun indikator bar ringkas di tabel.
+  Parameter (@props):
+    - `currentStep` (int, default 1): Nomor tahap aktif antara 1 sampai 8.
+    - `status` (string, default 'diajukan'): Status mentah berkas untuk warna indikator ditolak/hold.
+    - `mode` (string, default 'horizontal'): Mode tata letak ('horizontal' | 'vertical' | 'compact').
+    - `interactive` (bool, default false): Penanda opsional interaktivitas komponen.
+    - `stepsData` (array, default []): Catatan dan stempel waktu per nomor tahap untuk mode vertikal.
+  Nilai kembali: Fragmen HTML Blade komponen stepper terikat gaya CSS `.stepper-progress-step-*`.
+  Contoh pemanggilan:
+    `<x-stepper-8-siklus :currentStep="3" :status="$permohonan->status_permohonan" mode="vertical" />`
+--}}
 @props([
     'currentStep' => 1,
     'status' => 'diajukan',

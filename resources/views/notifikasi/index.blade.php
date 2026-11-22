@@ -1,7 +1,26 @@
+{{--
+  Informasi File
+
+  Penulis   : DendyRafi, Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : View Blade ini kami buat untuk halaman pusat Notifikasi dan Pengingat, mencakup
+              kontrol status izin notifikasi peramban (`browserNotificationControl`), filter jenis
+              dan periode notifikasi, serta daftar jadwal pengingat kontrak/termin.
+--}}
 @extends('layouts.app')
 
 @section('title', 'Notifikasi dan Pengingat - SIM-PBJ Politeknik Negeri Jakarta')
 
+{{--
+  Komentar Deskriptif: Seksi Konten Pusat Notifikasi dan Pengingat (`notifikasi.index`).
+
+  Tujuan: Kami menyatukan riwayat alert yang belum dibaca, aksi tandai baca massal atau dismiss,
+          serta tab khusus jadwal pengingat aktif agar pengguna tidak melewatkan tenggat pengadaan.
+  Parameter (Data dari NotifikasiUserController):
+    - `$notifikasiList`, `$tabCounts`, `$currentTab`, `$jadwalList` (opsional sesuai tab aktif).
+  Nilai kembali: Halaman HTML daftar notifikasi dan jadwal pengingat terfilter.
+  Contoh pemanggilan: `return view('notifikasi.index', compact(...));`
+--}}
 @section('content')
 <div class="w-full space-y-5 font-sans">
 

@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : menulis model KontrakSPK ini untuk merepresentasikan satu dokumen perikatan terpilih (> Rp50 juta) beserta sinkronisasi otomatis jadwal pengingat pengiriman.
+ */
+
 namespace App\Models;
 
 use App\Services\PengadaanRoutingService;
@@ -11,14 +19,16 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasOneThrough;
 
 /**
- * Model Kontrak SPK (Dokumen Perikatan Terpilih: Surat Pesanan / SPK / Surat Kontrak)
+ * Model Dokumen Perikatan Kontrak/SPK (KontrakSPK)
  *
- * Merepresentasikan dokumen tunggal legalitas perikatan pengadaan barang/jasa (> Rp 50.000.000)
- * antara institusi dan rekanan (vendor). Untuk setiap paket > Rp 50 Juta hanya diunggah salah satu:
- * - surat_pesanan atau spk (umumnya E-Katalog / Inaproc)
- * - surat_kontrak atau spk (umumnya Non-Tender / Tender pihak ketiga)
- * Catatan: Paket <= Rp 50 Juta (Belanja Langsung) menggunakan Kwitansi tanpa Kontrak/SPK.
- * Penguncian & pembukaan kunci MAK murni menjadi wewenang Perencanaan (tidak dikunci otomatis saat SPK terbit).
+ * memodelkan satu dokumen legalitas perikatan per paket > Rp50 juta (`spk`, `surat_pesanan`, atau `surat_kontrak`)
+ * dan mengaitkan event `saved` ke PengadaanRoutingService tanpa mengunci MAK secara otomatis karena penguncian MAK adalah hak eksklusif Perencanaan.
+ *
+ * Parameter konstruktor: `$attributes` (opsional, diwarisi dari Eloquent Model).
+ * Nilai kembali         : Instance model Eloquent dengan primary key string `nomor_spk` pada tabel `kontrak_spk`.
+ *
+ * Contoh pemanggilan:
+ * `$kontrak = KontrakSPK::forUser($user)->with('paket.vendor')->get();`
  */
 class KontrakSPK extends Model
 {
@@ -97,9 +107,12 @@ class KontrakSPK extends Model
     ];
 
     /**
-     * Konversi tipe data otomatis (casting) untuk kolom tanggal dan nominal.
+     * mengonversi seluruh tanggal kontrak ke tipe date dan nilai kontrak ke desimal 2 digit untuk perhitungan pembayaran.
      *
-     * @return array<string, string>
+     * @return array<string, string> mengembalikan peta tipe cast atribut model.
+     *
+     * Contoh pemanggilan:
+     * `// Dipanggil otomatis oleh Eloquent saat mengakses $kontrak->tanggal_spk atau $kontrak->nilai_kontrak.`
      */
     protected function casts(): array
     {
@@ -113,8 +126,12 @@ class KontrakSPK extends Model
     }
 
     /**
-     * Pendaftaran hook event model Eloquent.
-     * Menjalankan sinkronisasi jadwal reminder otomatis saat rekaman Kontrak SPK disimpan.
+     * menyinkronkan jadwal pengingat pengiriman secara otomatis setiap kali Kontrak/SPK diterbitkan, atau menonaktifkannya saat kontrak selesai/batal.
+     *
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `// Terpicu otomatis oleh Eloquent pada event saved setelah KontrakSPK::create() atau $spk->save().`
      */
     protected static function booted(): void
     {
@@ -128,9 +145,12 @@ class KontrakSPK extends Model
     }
 
     /**
-     * Relasi many-to-one ke Paket Pengadaan yang memayungi kontrak ini.
+     * menghubungkan kontrak ke paket pengadaan induknya.
      *
-     * @return BelongsTo Relasi ke model PaketPengadaan
+     * @return BelongsTo mengembalikan relasi BelongsTo ke model PaketPengadaan.
+     *
+     * Contoh pemanggilan:
+     * `$paket = $kontrak->paket;`
      */
     public function paket(): BelongsTo
     {
@@ -138,9 +158,12 @@ class KontrakSPK extends Model
     }
 
     /**
-     * Relasi many-to-one ke User (PPK atau PP pembuat/penerbit dokumen SPK).
+     * menghubungkan kontrak ke akun pengguna yang menerbitkan/mengunggah dokumen perikatan.
      *
-     * @return BelongsTo Relasi ke model User
+     * @return BelongsTo mengembalikan relasi BelongsTo ke model User.
+     *
+     * Contoh pemanggilan:
+     * `$penerbit = $kontrak->user;`
      */
     public function user(): BelongsTo
     {
@@ -148,9 +171,12 @@ class KontrakSPK extends Model
     }
 
     /**
-     * Relasi one-to-one ke rekaman Penerimaan Barang / BAST (berdasarkan kesamaan nomor_paket).
+     * menghubungkan kontrak ke catatan penerimaan barang / BAST melalui kunci bersama `nomor_paket`.
      *
-     * @return HasOne Relasi ke model PenerimaanBarang
+     * @return HasOne mengembalikan relasi HasOne ke model PenerimaanBarang.
+     *
+     * Contoh pemanggilan:
+     * `$bast = $kontrak->penerimaan;`
      */
     public function penerimaan(): HasOne
     {
@@ -158,9 +184,12 @@ class KontrakSPK extends Model
     }
 
     /**
-     * Relasi has-one-through ke model Vendor melalui PaketPengadaan.
+     * menyediakan relasi HasOneThrough menuju vendor melalui paket pengadaan agar query eager loading `with('vendor')` langsung tersedia.
      *
-     * @return HasOneThrough Relasi ke model Vendor
+     * @return HasOneThrough mengembalikan relasi HasOneThrough ke model Vendor.
+     *
+     * Contoh pemanggilan:
+     * `$kontrakList = KontrakSPK::with('vendor')->get();`
      */
     public function vendor(): HasOneThrough
     {
@@ -175,11 +204,14 @@ class KontrakSPK extends Model
     }
 
     /**
-     * Scope query untuk membatasi akses Kontrak SPK sesuai hak akses peran pengguna (NFR RBAC PPK).
+     * membatasi daftar Kontrak/SPK mengikuti aturan isolasi paket pada `PaketPengadaan::scopeForUser`.
      *
-     * @param  Builder  $query  Query builder Eloquent
-     * @param  User  $user  Objek pengguna aktif
-     * @return Builder Query terisolasi
+     * @param  Builder  $query  menerima query builder Eloquent KontrakSPK.
+     * @param  User  $user  meneruskan objek pengguna aktif untuk penyaringan relasi paket.
+     * @return Builder mengembalikan query yang sudah terisolasi sesuai peran/RBAC pengguna.
+     *
+     * Contoh pemanggilan:
+     * `$kontrakSaya = KontrakSPK::forUser($user)->latest()->get();`
      */
     public function scopeForUser($query, User $user)
     {
@@ -189,7 +221,12 @@ class KontrakSPK extends Model
     }
 
     /**
-     * Accessor alias nomor_kontrak_spk untuk nomor_spk.
+     * menyediakan accessor alias `nomor_kontrak_spk` agar penamaan lama tetap kompatibel dengan `nomor_spk`.
+     *
+     * @return string|null mengembalikan nomor SPK/kontrak atau null.
+     *
+     * Contoh pemanggilan:
+     * `$no = $kontrak->nomor_kontrak_spk;`
      */
     public function getNomorKontrakSpkAttribute(): ?string
     {
@@ -197,7 +234,12 @@ class KontrakSPK extends Model
     }
 
     /**
-     * Accessor alias kode_paket untuk nomor_paket.
+     * menyediakan accessor alias `kode_paket` yang mengacu ke `nomor_paket`.
+     *
+     * @return string|null mengembalikan kode/nomor paket pengadaan atau null.
+     *
+     * Contoh pemanggilan:
+     * `$kode = $kontrak->kode_paket;`
      */
     public function getKodePaketAttribute(): ?string
     {
@@ -205,7 +247,12 @@ class KontrakSPK extends Model
     }
 
     /**
-     * Accessor alias status_kontrak untuk status_spk.
+     * menyediakan accessor alias `status_kontrak` yang mengacu ke `status_spk`.
+     *
+     * @return string|null mengembalikan status dokumen kontrak atau null.
+     *
+     * Contoh pemanggilan:
+     * `$status = $kontrak->status_kontrak;`
      */
     public function getStatusKontrakAttribute(): ?string
     {
@@ -213,9 +260,12 @@ class KontrakSPK extends Model
     }
 
     /**
-     * Mengambil model Vendor rekanan penyedia melalui relasi Paket Pengadaan.
+     * mengambil objek Vendor rekanan langsung dari relasi paket agar pemanggilan `$kontrak->vendor` tetap bekerja sebagai properti.
      *
-     * @return Vendor|null Objek vendor rekanan
+     * @return Vendor|null mengembalikan instance Vendor atau null bila rekanan belum ditetapkan.
+     *
+     * Contoh pemanggilan:
+     * `$namaVendor = $kontrak->vendor?->nama_vendor;`
      */
     public function getVendorAttribute(): ?Vendor
     {

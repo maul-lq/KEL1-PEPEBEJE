@@ -1,4 +1,22 @@
-/* Sembunyikan ikon mata / tombol isi otomatis bawaan browser pada kolom password */
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0) - lihat file LICENSE di root repositori.
+ * Ringkasan : Stylesheet ini saya susun untuk menonaktifkan tombol reveal dan autofill bawaan
+ *             browser pada input kata sandi di halaman profil agar ikon kustom aplikasi tidak ganda.
+ */
+
+/**
+ * Penindihan Ikon Bawaan Browser pada Input Password.
+ *
+ * Tujuan: Saya menyembunyikan pseudo-element bawaan Edge/Chrome pada field password sehingga
+ * hanya tombol toggle lihat-kata-sandi kustom milik SIM-PBJ yang tampil rapi.
+ * Parameter: Selector pseudo-element `::-ms-reveal`, `::-ms-clear`, dan `::-webkit-*`.
+ * Nilai kembali: Menghilangkan rendering ikon bawaan browser dan interaksi kliknya.
+ * Contoh pemanggilan: `<input type="password" class="...">`
+ */
+/* Saya gunakan !important agar gaya bawaan user-agent Edge dan Chromium tertimpa konsisten */
 input::-ms-reveal,
 input::-ms-clear {
     display: none !important;

@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : menulis controller PaketPengadaanController ini untuk mengelola registrasi paket PPBJ, auto-routing 3 jalur nominal, sinkronisasi saldo MAK saat ubah HPS, Belanja Langsung <=50jt, split jenis, dan mutasi PPK.
+ */
+
 namespace App\Http\Controllers;
 
 use App\Models\AlokasiMAK;
@@ -20,24 +28,40 @@ use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 /**
- * Controller Manajemen Paket Pengadaan Barang/Jasa (Modul 4)
+ * Controller Manajemen Paket Pengadaan (PaketPengadaanController)
  *
- * Mengelola siklus paket pengadaan di Bagian PPBJ:
- * - Registrasi paket baru & penentuan Metode Pengadaan (Belanja Langsung, Non-Tender / E-Katalog, Tender SPSE).
- * - Auto-routing 3 jalur nominal:
- *   * <= Rp 50 Juta   => Belanja Langsung (PPBJ eksekusi Kwitansi -> BAST Perlengkapan)
- *   * 50 - 200 Juta   => Verifikasi PP (Review & Negosiasi) -> ACC Dokumen PPK -> Belanja PP -> Kontrak SPK
- *   * > 200 Juta      => Tender SPSE -> ACC Dokumen PPK -> Eksekusi PPK -> Kontrak Surat Perjanjian
- * - Mutasi (reassign) akun PPK & pemecahan jenis pengadaan (Split Jenis).
+ * memusatkan orkestrasi fase registrasi hingga penugasan paket pengadaan di controller ini,
+ * termasuk sinkronisasi selisih HPS terhadap `sisa_pagu_mak` dan penegakan Policy isolasi berkas PPK.
+ *
+ * Parameter konstruktor: `PengadaanNotificationService $notificationService` — layanan pengirim notifikasi penugasan/mutasi paket.
+ * Nilai kembali         : Instance controller yang melayani grup rute `/paket-pengadaan/*`.
+ *
+ * Contoh pemanggilan:
+ * `Route::post('/paket-pengadaan', [PaketPengadaanController::class, 'storePaket'])->middleware('role:ppbj');`
  */
 class PaketPengadaanController extends Controller
 {
+    /**
+     * menyuntikkan layanan notifikasi pengadaan agar pendaftaran paket, revisi, dan mutasi PPK otomatis memberi tahu aktor terkait.
+     *
+     * @param  PengadaanNotificationService  $notificationService  mengikat service notifikasi melalui property promotion.
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `$controller = app(PaketPengadaanController::class);`
+     */
     public function __construct(
         public PengadaanNotificationService $notificationService
     ) {}
 
     /**
-     * Menampilkan daftar paket pengadaan, filter, dan data permohonan yang siap dipaketkan.
+     * menampilkan daftar paket pengadaan terisolasi sesuai peran, daftar permohonan siap dipaketkan, serta paket yang dikembalikan untuk perbaikan.
+     *
+     * @param  Request  $request  membaca query pencarian `q`/`search` serta filter `status`, `jalur_routing`, dan `jenis_pengadaan`.
+     * @return View mengembalikan tampilan Blade `paket.index`.
+     *
+     * Contoh pemanggilan:
+     * `GET /paket-pengadaan?jalur_routing=pp_50jt_sd_200jt`
      */
     public function paketIndex(Request $request): View
     {
@@ -109,13 +133,28 @@ class PaketPengadaanController extends Controller
         return view('paket.index', compact('paketList', 'ppkUsers', 'riwayatPenugasan', 'permohonanDisetujui', 'vendors', 'paketPerluPerbaikan'));
     }
 
+    /**
+     * menyediakan metode alias `index` yang meneruskan langsung ke `paketIndex`.
+     *
+     * @param  Request  $request  meneruskan objek request beserta query filter.
+     * @return View mengembalikan tampilan Blade `paket.index`.
+     *
+     * Contoh pemanggilan:
+     * `$controller->index($request);`
+     */
     public function index(Request $request): View
     {
         return $this->paketIndex($request);
     }
 
     /**
-     * Memproses pemecahan (split) berkas permohonan berdasarkan jenis pengadaan oleh PPBJ (FR 7.2).
+     * memecah satu surat permohonan disetujui menjadi surat anak baru berdasarkan jenis pengadaan sambil mengurangi pagu surat induknya.
+     *
+     * @param  Request  $request  memvalidasi `nomor_surat_induk`, nomor surat baru unik, judul, jenis pengadaan split, pagu pecahan, dan alasan pemecahan.
+     * @return RedirectResponse mengarahkan kembali ke `paket.index` setelah surat pecahan dan log audit tersimpan.
+     *
+     * Contoh pemanggilan:
+     * `POST /paket-pengadaan/split-jenis`
      */
     public function splitJenisPpbj(Request $request): RedirectResponse
     {
@@ -181,7 +220,12 @@ class PaketPengadaanController extends Controller
     }
 
     /**
-     * Menampilkan form pendaftaran paket pengadaan baru.
+     * menyiapkan halaman pembuatan paket baru dengan menyinkronkan usulan yang sudah ACC penuh serta memuat daftar PPK, PP, dan vendor.
+     *
+     * @return View mengembalikan tampilan Blade `paket.create`.
+     *
+     * Contoh pemanggilan:
+     * `GET /paket-pengadaan/create`
      */
     public function paketCreate(): View
     {
@@ -207,13 +251,27 @@ class PaketPengadaanController extends Controller
         return view('paket.create', compact('permohonanDisetujui', 'ppkUsers', 'ppUsers', 'vendors'));
     }
 
+    /**
+     * menyediakan metode alias `create` yang meneruskan langsung ke `paketCreate`.
+     *
+     * @return View mengembalikan tampilan Blade `paket.create`.
+     *
+     * Contoh pemanggilan:
+     * `$controller->create();`
+     */
     public function create(): View
     {
         return $this->paketCreate();
     }
 
     /**
-     * Memproses penyimpanan paket pengadaan baru dan auto-routing nominal.
+     * menyimpan paket pengadaan baru, menyinkronkan selisih nilai HPS ke saldo MAK, dan menetapkan jalur routing serta pejabat penanggung jawab.
+     *
+     * @param  Request  $request  memvalidasi kode paket unik, permohonan asal, jenis/metode pengadaan, nilai HPS > 0, serta penugasan PP/PPK opsional.
+     * @return RedirectResponse mengarahkan ke `paket.index` jika berhasil, atau kembali dengan error bila saldo MAK tidak cukup untuk kenaikan HPS.
+     *
+     * Contoh pemanggilan:
+     * `POST /paket-pengadaan`
      */
     public function storePaket(Request $request): RedirectResponse
     {
@@ -357,13 +415,28 @@ class PaketPengadaanController extends Controller
         );
     }
 
+    /**
+     * menyediakan metode alias `store` yang meneruskan langsung ke `storePaket`.
+     *
+     * @param  Request  $request  meneruskan payload pendaftaran paket baru.
+     * @return RedirectResponse mengembalikan hasil redirect dari `storePaket`.
+     *
+     * Contoh pemanggilan:
+     * `$controller->store($request);`
+     */
     public function store(Request $request): RedirectResponse
     {
         return $this->storePaket($request);
     }
 
     /**
-     * Mengeksekusi Belanja Langsung untuk paket <= Rp 50 Juta oleh PPBJ (Kwitansi tanpa Kontrak/SPK).
+     * mencatat pelaksanaan Belanja Langsung (<= Rp50 juta) dengan kwitansi dan rekanan inline tanpa menerbitkan Kontrak/SPK.
+     *
+     * @param  Request  $request  memvalidasi nomor paket jalur langsung, nomor/berkas kwitansi, nama/legalitas vendor opsional, dan jadwal pengiriman.
+     * @return RedirectResponse mengarahkan ke `paket.index` setelah reminder pengiriman ke Perlengkapan & Keuangan dibangkitkan.
+     *
+     * Contoh pemanggilan:
+     * `POST /paket-pengadaan/belanja-langsung`
      */
     public function storeBelanjaLangsungWeb(Request $request): RedirectResponse
     {
@@ -456,13 +529,28 @@ class PaketPengadaanController extends Controller
         );
     }
 
+    /**
+     * menyediakan metode alias `belanjaLangsung` yang meneruskan langsung ke `storeBelanjaLangsungWeb`.
+     *
+     * @param  Request  $request  meneruskan payload eksekusi Belanja Langsung.
+     * @return RedirectResponse mengembalikan hasil redirect dari `storeBelanjaLangsungWeb`.
+     *
+     * Contoh pemanggilan:
+     * `$controller->belanjaLangsung($request);`
+     */
     public function belanjaLangsung(Request $request): RedirectResponse
     {
         return $this->storeBelanjaLangsungWeb($request);
     }
 
     /**
-     * Memproses alih tugas (reassign) paket ke PPK lain oleh PPBJ.
+     * mengalihkan penugasan PPK pada suatu paket ke akun PPK aktif lain, mencatat jejak audit `REASSIGN_PPK`, dan memberi tahu PPK pengganti.
+     *
+     * @param  Request  $request  memvalidasi kode paket, ID user PPK tujuan (wajib berrole `ppk`), dan alasan pengalihan tugas.
+     * @return RedirectResponse mengarahkan kembali ke `paket.index` dengan konfirmasi pengalihan PPK.
+     *
+     * Contoh pemanggilan:
+     * `POST /paket-pengadaan/reassign-ppk`
      */
     public function reassignPpkWeb(Request $request): RedirectResponse
     {
@@ -505,13 +593,28 @@ class PaketPengadaanController extends Controller
         );
     }
 
+    /**
+     * menyediakan metode alias `reassignPpk` yang meneruskan langsung ke `reassignPpkWeb`.
+     *
+     * @param  Request  $request  meneruskan payload mutasi PPK.
+     * @return RedirectResponse mengembalikan hasil redirect dari `reassignPpkWeb`.
+     *
+     * Contoh pemanggilan:
+     * `$controller->reassignPpk($request);`
+     */
     public function reassignPpk(Request $request): RedirectResponse
     {
         return $this->reassignPpkWeb($request);
     }
 
     /**
-     * Menampilkan form revisi dokumen pengadaan oleh PPBJ (BPMN N18).
+     * menampilkan formulir revisi dokumen pengadaan oleh PPBJ untuk paket yang dikembalikan oleh PP atau PPK.
+     *
+     * @param  string  $id  mencari paket berdasarkan `nomor_paket` beserta catatan reviu dan daftar PPK/PP/vendor.
+     * @return View mengembalikan tampilan Blade `paket.edit` (atau 403 bila pengguna bukan admin/PPBJ).
+     *
+     * Contoh pemanggilan:
+     * `GET /paket-pengadaan/{id}/edit`
      */
     public function paketEdit(string $id): View
     {
@@ -537,13 +640,29 @@ class PaketPengadaanController extends Controller
         return view('paket.edit', compact('paket', 'ppkUsers', 'ppUsers', 'vendors'));
     }
 
+    /**
+     * menyediakan metode alias `edit` yang meneruskan langsung ke `paketEdit`.
+     *
+     * @param  string  $id  meneruskan nomor paket pengadaan yang akan disunting.
+     * @return View mengembalikan tampilan Blade `paket.edit`.
+     *
+     * Contoh pemanggilan:
+     * `$controller->edit($nomorPaket);`
+     */
     public function edit(string $id): View
     {
         return $this->paketEdit($id);
     }
 
     /**
-     * Memproses pembaruan dokumen pengadaan oleh PPBJ setelah perbaikan (BPMN N18 -> N22 -> N25 -> N28).
+     * memperbarui dokumen paket hasil perbaikan PPBJ, menyelaraskan selisih HPS terhadap saldo MAK, dan mengembalikan status paket ke alur reviu PP/PPK.
+     *
+     * @param  Request  $request  memvalidasi pembaruan nama, metode, HPS > 0, vendor, dan penugasan pejabat pelaksana.
+     * @param  string  $id  mencari paket yang diperbarui berdasarkan `nomor_paket`.
+     * @return RedirectResponse mengarahkan ke `paket.index` setelah perubahan, log audit, dan notifikasi penugasan dikirim.
+     *
+     * Contoh pemanggilan:
+     * `PUT /paket-pengadaan/{id}`
      */
     public function paketUpdate(Request $request, string $id): RedirectResponse
     {
@@ -655,13 +774,30 @@ class PaketPengadaanController extends Controller
         );
     }
 
+    /**
+     * menyediakan metode alias `update` yang meneruskan langsung ke `paketUpdate`.
+     *
+     * @param  Request  $request  meneruskan payload pembaruan paket.
+     * @param  string  $id  meneruskan nomor paket yang diperbarui.
+     * @return RedirectResponse mengembalikan hasil redirect dari `paketUpdate`.
+     *
+     * Contoh pemanggilan:
+     * `$controller->update($request, $nomorPaket);`
+     */
     public function update(Request $request, string $id): RedirectResponse
     {
         return $this->paketUpdate($request, $id);
     }
 
     /**
-     * Menampilkan detail siklus paket pengadaan.
+     * menampilkan rincian lengkap siklus paket pengadaan setelah memverifikasi izin lihat melalui `PaketPengadaanPolicy::view`.
+     *
+     * @param  Request  $request  menerima request detail paket dari pengguna aktif.
+     * @param  string  $id  memuat paket beserta seluruh relasi riwayat PPK, kontrak, BAST, pembayaran, dan reviu.
+     * @return View mengembalikan tampilan Blade `paket.show` atau menggagalkan dengan 403 bila Policy menolak.
+     *
+     * Contoh pemanggilan:
+     * `GET /paket-pengadaan/{id}`
      */
     public function paketShow(Request $request, string $id): View
     {
@@ -692,13 +828,28 @@ class PaketPengadaanController extends Controller
         return view('paket.show', compact('paket', 'ppkUsers'));
     }
 
+    /**
+     * menyediakan metode alias `show` yang meneruskan langsung ke `paketShow`.
+     *
+     * @param  Request  $request  meneruskan objek request detail paket.
+     * @param  string  $id  meneruskan nomor paket pengadaan.
+     * @return View mengembalikan tampilan Blade `paket.show`.
+     *
+     * Contoh pemanggilan:
+     * `$controller->show($request, $nomorPaket);`
+     */
     public function show(Request $request, string $id): View
     {
         return $this->paketShow($request, $id);
     }
 
     /**
-     * Menampilkan form pemecahan jenis pengadaan (standalone page).
+     * menampilkan halaman mandiri pemecahan permohonan berdasarkan jenis pengadaan bagi PPBJ.
+     *
+     * @return View mengembalikan tampilan Blade `paket.split_jenis` berisi daftar permohonan disetujui.
+     *
+     * Contoh pemanggilan:
+     * `GET /paket-pengadaan/split-jenis`
      */
     public function splitJenisCreate(): View
     {
@@ -708,7 +859,13 @@ class PaketPengadaanController extends Controller
     }
 
     /**
-     * Menampilkan form alih tugas PPK (standalone page).
+     * menampilkan halaman mandiri pengalihan penugasan PPK dengan menyaring paket sesuai cakupan akses pengguna.
+     *
+     * @param  Request  $request  menerima request halaman alih tugas PPK.
+     * @return View mengembalikan tampilan Blade `paket.reassign` berisi paket terotorisasi dan daftar PPK aktif.
+     *
+     * Contoh pemanggilan:
+     * `GET /paket-pengadaan/reassign-ppk`
      */
     public function reassignPpkCreate(Request $request): View
     {
@@ -724,7 +881,12 @@ class PaketPengadaanController extends Controller
     }
 
     /**
-     * Memeriksa dan menyelaraskan status permohonan yang telah disetujui paralel lengkap.
+     * menyelaraskan status permohonan yang sudah memiliki MAK serta persetujuan Wadir 2 dan PPK agar otomatis muncul di antrean PPBJ.
+     *
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `$this->syncAllPermohonanDisetujuiParalel();`
      */
     public function syncAllPermohonanDisetujuiParalel(): void
     {

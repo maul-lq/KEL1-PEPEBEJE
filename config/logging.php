@@ -1,10 +1,29 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : memperbarui berkas konfigurasi logging bawaan Laravel ini untuk mengatur channel pencatatan error aplikasi, peringatan email, dan rotasi file log.
+ */
+
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
 use Monolog\Processor\PsrLogMessageProcessor;
 
+/**
+ * Konfigurasi Channel Logging Monolog (config/logging.php)
+ *
+ * mendefinisikan channel log bawaan ('stack' -> 'single'/'daily') beserta level pencatatan
+ * agar kegagalan pengiriman email notifikasi maupun scheduler reminder tercatat rapi di storage/logs.
+ *
+ * Parameter    : Tidak ada (membaca variabel env()).
+ * Nilai kembali: array<string, mixed> — peta channel Monolog, level log, dan pengaturan rotasi.
+ * Contoh pemanggilan:
+ * `Log::warning('Pemrosesan otomatis reminder berkala gagal')`
+ */
 return [
 
     /*
@@ -12,9 +31,8 @@ return [
     | Default Log Channel
     |--------------------------------------------------------------------------
     |
-    | This option defines the default log channel that is utilized to write
-    | messages to your logs. The value provided here should match one of
-    | the channels present in the list of "channels" configured below.
+    | memakai channel 'stack' sebagai default agar beberapa target log
+    | (misalnya berkas harian dan stderr) bisa digabung tanpa mengubah kode.
     |
     */
 
@@ -25,9 +43,8 @@ return [
     | Deprecations Log Channel
     |--------------------------------------------------------------------------
     |
-    | This option controls the log channel that should be used to log warnings
-    | regarding deprecated PHP and library features. This allows you to get
-    | your application ready for upcoming major versions of dependencies.
+    | mengarahkan log deprecation ke channel terpisah (default 'null')
+    | agar log operasional tidak penuh oleh peringatan minor PHP/paket.
     |
     */
 
@@ -41,12 +58,8 @@ return [
     | Log Channels
     |--------------------------------------------------------------------------
     |
-    | Here you may configure the log channels for your application. Laravel
-    | utilizes the Monolog PHP logging library, which includes a variety
-    | of powerful log handlers and formatters that you're free to use.
-    |
-    | Available drivers: "single", "daily", "monthly", "slack", "syslog",
-    |                    "errorlog", "monolog", "custom", "stack"
+    | mempertahankan seluruh driver Monolog standar Laravel dengan opsi
+    | replace_placeholders aktif agar parameter konteks log terformat bersih.
     |
     */
 
@@ -55,6 +68,7 @@ return [
         'stack' => [
             'driver' => 'stack',
             'channels' => explode(',', (string) env('LOG_STACK', 'single')),
+            // membiarkan ignore_exceptions false agar kesalahan fatal pada driver log tetap terlihat saat debugging.
             'ignore_exceptions' => false,
         ],
 

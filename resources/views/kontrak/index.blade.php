@@ -1,7 +1,27 @@
+{{--
+  Informasi File
+
+  Penulis   : Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : View Blade ini buat untuk halaman terpadu Reviu Dokumen dan Kontrak SPK yang
+              menggabungkan tab reviu Pejabat Pengadaan/PPK, tab penerbitan kontrak SPK PPBJ,
+              serta daftar kontrak/eksekusi belanja langsung sesuai izin RBAC aktif.
+--}}
 @extends('layouts.app')
 
 @section('title', 'Reviu Dokumen & Kontrak Pengadaan - SIM-PBJ PNJ')
 
+{{--
+  Komentar Deskriptif: Seksi Konten Halaman Reviu Dokumen & Kontrak SPK (`kontrak.index`).
+
+  Tujuan: menurunkan daftar tab yang diperbolehkan serta memetakan paket siap SPK menjadi
+          JSON `kontrakConfig` untuk komponen Alpine `kontrakManager` agar prefill HPS dan vendor
+          berlangsung instan tanpa script inline di Blade.
+  Parameter (Data dari KontrakSPKController):
+    - `$paketReviu`, `$paketReviuAksi`, `$paketSiapSpk`, `$paketList`, `$kontrakList`.
+  Nilai kembali: Halaman HTML terpadu modul reviu teknis PP/PPK dan kontrak perikatan.
+  Contoh pemanggilan: `return view('kontrak.index', compact(...));`
+--}}
 @section('content')
 @php
     $authUser = Auth::user();
@@ -16,6 +36,7 @@
     $canTabSpk = $canCreateSpk;
     $canTabDaftar = true;
 
+    // prioritaskan tab reviu saat PP/PPK membuka halaman, atau tab SPK bagi PPBJ tanpa hak reviu.
     $defaultTab = 'daftar';
     if ($canReviuPp || $canReviuPpk) {
         $defaultTab = 'reviu';

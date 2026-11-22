@@ -1,5 +1,24 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : memperbarui berkas konfigurasi aplikasi bawaan Laravel ini agar pengaturan identitas, zona waktu, lokal, dan enkripsi SIM-PBJ terdokumentasi jelas.
+ */
+
+/**
+ * Konfigurasi Inti Aplikasi (config/app.php)
+ *
+ * mengembalikan array konfigurasi utama Laravel yang mengatur nama aplikasi, mode debug, URL dasar,
+ * zona waktu, bahasa antarmuka, kunci enkripsi AES-256, serta mode pemeliharaan.
+ *
+ * Parameter    : Tidak ada (membaca variabel lingkungan melalui helper env()).
+ * Nilai kembali: array<string, mixed> — peta konfigurasi inti yang dibaca oleh ConfigRepository Laravel.
+ * Contoh pemanggilan:
+ * `config('app.name')` atau `config('app.key')`
+ */
 return [
 
     /*
@@ -7,9 +26,8 @@ return [
     | Application Name
     |--------------------------------------------------------------------------
     |
-    | This value is the name of your application, which will be used when the
-    | framework needs to place the application's name in a notification or
-    | other UI elements where an application name needs to be displayed.
+    | menggunakan nilai ini sebagai nama resmi aplikasi (SIM-PBJ) yang
+    | ditampilkan pada judul halaman, templat notifikasi email, dan header PDF.
     |
     */
 
@@ -20,9 +38,8 @@ return [
     | Application Environment
     |--------------------------------------------------------------------------
     |
-    | This value determines the "environment" your application is currently
-    | running in. This may determine how you prefer to configure various
-    | services the application utilizes. Set this in your ".env" file.
+    | menaruh penanda lingkungan runtime di sini agar perilaku logging,
+    | debug, dan kebijakan cookie menyesuaikan nilai APP_ENV di berkas .env.
     |
     */
 
@@ -33,9 +50,8 @@ return [
     | Application Debug Mode
     |--------------------------------------------------------------------------
     |
-    | When your application is in debug mode, detailed error messages with
-    | stack traces will be shown on every error that occurs within your
-    | application. If disabled, a simple generic error page is shown.
+    | mengaktifkan mode debug hanya di lokal via APP_DEBUG karena pada
+    | produksi stack trace mentah berisiko membocorkan kredensial dan skema DB.
     |
     */
 
@@ -46,9 +62,8 @@ return [
     | Application URL
     |--------------------------------------------------------------------------
     |
-    | This URL is used by the console to properly generate URLs when using
-    | the Artisan command line tool. You should set this to the root of
-    | the application so that it's available within Artisan commands.
+    | menetapkan URL root aplikasi supaya generator tautan di Artisan CLI,
+    | email reminder, dan deep-link notifikasi menghasilkan host yang benar.
     |
     */
 
@@ -59,9 +74,8 @@ return [
     | Application Timezone
     |--------------------------------------------------------------------------
     |
-    | Here you may specify the default timezone for your application, which
-    | will be used by the PHP date and date-time functions. The timezone
-    | is set to "UTC" by default as it is suitable for most use cases.
+    | mempertahankan default UTC pada tingkat konfigurasi dasar Laravel
+    | agar penyimpanan stempel waktu di PostgreSQL tetap netral zona waktu.
     |
     */
 
@@ -72,9 +86,8 @@ return [
     | Application Locale Configuration
     |--------------------------------------------------------------------------
     |
-    | The application locale determines the default locale that will be used
-    | by Laravel's translation / localization methods. This option can be
-    | set to any locale for which you plan to have translation strings.
+    | mengatur lokal utama, lokal cadangan, dan lokal Faker agar pesan
+    | validasi serta data tiruan uji mengikuti pengaturan bahasa di .env.
     |
     */
 
@@ -89,9 +102,8 @@ return [
     | Encryption Key
     |--------------------------------------------------------------------------
     |
-    | This key is utilized by Laravel's encryption services and should be set
-    | to a random, 32 character string to ensure that all encrypted values
-    | are secure. You should do this prior to deploying the application.
+    | mengandalkan cipher AES-256-CBC dan APP_KEY bukan hanya untuk enkripsi
+    | cookie/sesi, tetapi juga sebagai secret key penandatanganan HMAC BAST.
     |
     */
 
@@ -99,6 +111,7 @@ return [
 
     'key' => env('APP_KEY'),
 
+    // memecah APP_PREVIOUS_KEYS dan menyaring entri kosong supaya rotasi kunci aplikasi tidak gagal membaca token lama.
     'previous_keys' => [
         ...array_filter(
             explode(',', (string) env('APP_PREVIOUS_KEYS', ''))
@@ -110,11 +123,8 @@ return [
     | Maintenance Mode Driver
     |--------------------------------------------------------------------------
     |
-    | These configuration options determine the driver used to determine and
-    | manage Laravel's "maintenance mode" status. The "cache" driver will
-    | allow maintenance mode to be controlled across multiple machines.
-    |
-    | Supported drivers: "file", "cache", "array"
+    | mempertahankan driver file/database untuk mengelola status maintenance
+    | mode ketika aplikasi menjalani migrasi skema atau pemeliharaan terjadwal.
     |
     */
 

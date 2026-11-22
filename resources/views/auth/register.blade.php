@@ -1,3 +1,21 @@
+{{--
+  Informasi File
+
+  Penulis   : DendyRafi, Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : View Blade ini kami buat untuk formulir pendaftaran akun pegawai baru PNJ yang
+              merekam NIP, username, nama, email resmi, kode unit/jurusan, jabatan, nomor HP,
+              dan konfirmasi kata sandi sebelum diverifikasi Administrator.
+--}}
+{{--
+  Komentar Deskriptif: Halaman Pendaftaran Akun Baru SIM-PBJ (`auth.register`).
+
+  Tujuan: Kami mengumpulkan seluruh atribut kepegawaian wajib dan mewajibkan konfirmasi sandi dengan
+          toggle lihat-sandi terpisah (`registerForm`) agar pendaftar bebas salah ketik sebelum menunggu ACC.
+  Parameter (Session & Error Validation): Daftar error validasi field dan input `old(...)`.
+  Nilai kembali: Dokumen HTML lengkap halaman pendaftaran mandiri pegawai baru PNJ.
+  Contoh pemanggilan: `return view('auth.register');`
+--}}
 <!DOCTYPE html>
 <html lang="id">
 <head>

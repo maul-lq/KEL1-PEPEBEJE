@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : menulis berkas bootstrap aplikasi ini untuk menyatukan pendaftaran rute, tumpukan middleware keamanan, dan penanganan eksepsi global Laravel.
+ */
+
 use App\Http\Middleware\CheckRole;
 use App\Http\Middleware\SessionTimeout;
 use App\Http\Middleware\TriggerDueReminders;
@@ -9,51 +17,69 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Exceptions\PostTooLargeException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
- * Konfigurasi Bootstrapping Aplikasi Laravel 11 / 12
+ * Konfigurasi Bootstrapping Aplikasi SIM-PBJ
  *
- * Mengatur rute, registrasi middleware global & alias, serta penanganan eksepsi API/Web.
+ * membangun blok konfigurasi ini untuk menginisialisasi kernel HTTP/CLI Laravel,
+ * mendaftarkan middleware wajib di grup web, serta mencegah error mentah saat unggahan melebihi batas server.
+ *
+ * Parameter   : basePath = direktori root proyek (dirname(__DIR__)).
+ * Nilai kembali: Application — instance aplikasi Laravel yang siap menangani request HTTP maupun Artisan CLI.
+ * Contoh pemanggilan:
+ * `$app = require_once __DIR__.'/../bootstrap/app.php';`
  */
 return Application::configure(basePath: dirname(__DIR__))
-    // 1. Pendaftaran Berkas Routing Aplikasi
+    // mendaftarkan rute web, perintah konsol, dan endpoint health-check dari satu titik agar mudah diaudit.
     ->withRouting(
-        web: __DIR__.'/../routes/web.php',       // Seluruh rute web dan API pengadaan
-        commands: __DIR__.'/../routes/console.php', // Perintah baris perintah (Artisan CLI)
-        health: '/up',                          // Endpoint pengecekan kesehatan server aplikasi
+        web: __DIR__.'/../routes/web.php',
+        commands: __DIR__.'/../routes/console.php',
+        health: '/up',
     )
-    // 2. Konfigurasi dan Pendaftaran Middleware
+    // menyuntikkan pengaman idle timeout dan pemicu reminder berkala ke seluruh request grup 'web'.
     ->withMiddleware(function (Middleware $middleware): void {
-        // Menerapkan middleware batas ketidakaktifan 15 menit & pemeriksa pengingat berkala pada grup 'web'
+        // menaruh kedua middleware ini di akhir grup 'web' supaya sesi autentikasi sudah dimuat lebih dulu.
         $middleware->appendToGroup('web', SessionTimeout::class);
         $middleware->appendToGroup('web', TriggerDueReminders::class);
 
-        // Mendaftarkan alias middleware agar dapat dipanggil langsung di file routes
+        // menyediakan alias singkat agar definisi rute di web.php tetap ringkas dan konsisten dengan matriks RBAC.
         $middleware->alias([
-            'role' => CheckRole::class,                  // Otorisasi 9 peran sistem (RBAC)
-            'session.timeout' => SessionTimeout::class, // Deteksi idle pengguna 15 menit
+            'role' => CheckRole::class,
+            'session.timeout' => SessionTimeout::class,
         ]);
     })
-    // 3. Penanganan Eksepsi dan Format Respons Error
+    // menyeragamkan respons error agar klien JSON menerima JSON aman, sementara akses browser biasa (termasuk URL /api/*) merender halaman error HTML.
     ->withExceptions(function (Exceptions $exceptions): void {
-        // Memastikan request ke prefix 'api/*' selalu merender respons error dalam format JSON
+        // membatasi respons JSON hanya untuk klien yang memang meminta JSON agar pengaksesan endpoint melalui browser tetap menampilkan antarmuka error HTML.
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
+            fn (Request $request) => $request->expectsJson(),
         );
 
-        // Menangani unggahan yang melebihi batas POST server secara anggun (graceful handling)
+        // menyamarkan nama kelas model Eloquent pada respons JSON 404 agar struktur internal aplikasi tidak bocor ke klien API.
+        $exceptions->render(function (NotFoundHttpException $e, Request $request) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Halaman atau data yang diminta tidak ditemukan.',
+                ], 404);
+            }
+
+            return null;
+        });
+
+        // mencegat PostTooLargeException karena PHP/Laravel melemparnya sebelum validasi form berjalan; tanpa ini user hanya melihat error 413 polos.
         $exceptions->render(function (PostTooLargeException $e, Request $request) {
             $pesan = 'Ukuran berkas yang diunggah melebihi batas maksimal server. Pastikan setiap berkas tidak melebihi 10 MB dan total unggahan berada dalam batas yang diizinkan (NFR 11).';
 
-            if ($request->is('api/*') || $request->expectsJson()) {
+            if ($request->expectsJson()) {
                 return response()->json([
                     'status' => 'error',
                     'message' => $pesan,
                 ], 413);
             }
 
-            // Jika session middleware belum sempat berjalan (karena ValidatePostSize berjalan di level global terluar),
-            // inisialisasi dan simpan session agar flash message tidak hilang saat redirect
+            // menginisialisasi driver sesi secara manual karena ValidatePostSize berjalan di lapisan middleware terluar sebelum StartSession sempat aktif.
             if (! $request->hasSession()) {
                 try {
                     $session = app('session')->driver();
@@ -61,7 +87,7 @@ return Application::configure(basePath: dirname(__DIR__))
                     $session->start();
                     $request->setLaravelSession($session);
                 } catch (Throwable) {
-                    // Abaikan jika session driver tidak tersedia
+                    // abaikan kegagalan inisialisasi sesi darurat agar aplikasi tetap mengembalikan redirect error ketimbang fatal 500.
                 }
             }
 
@@ -69,6 +95,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 'file_upload' => $pesan,
             ])->with('error', $pesan);
 
+            // memaksa penyimpanan sesi secara eksplisit karena middleware StartSession tidak membungkus fase render eksepsi global ini.
             if ($request->hasSession()) {
                 $request->session()->save();
             }

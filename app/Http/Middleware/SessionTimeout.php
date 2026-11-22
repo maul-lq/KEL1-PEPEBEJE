@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : menulis middleware SessionTimeout ini untuk menegakkan batas ketidakaktifan sesi pengguna (default 15 menit) demi mencegah penyalahgunaan akun yang ditinggal login.
+ */
+
 namespace App\Http\Middleware;
 
 use Closure;
@@ -8,64 +16,62 @@ use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Middleware SessionTimeout
+ * Middleware Batas Waktu Ketidakaktifan Sesi (SessionTimeout)
  *
- * Mengimplementasikan NFR Keamanan Sesi (Inactivity Timeout 15 Menit).
- * Berfungsi untuk melacak waktu interaksi terakhir pengguna. Jika pengguna tidak melakukan
- * aktivitas apa pun selama lebih dari batas waktu yang ditentukan (default 15 menit),
- * sesi login akan dihancurkan secara otomatis demi mencegah pembajakan sesi di stasiun kerja.
+ * memasang middleware ini di grup 'web' agar setiap sesi terautentikasi yang diam melebihi `session.lifetime`
+ * otomatis di-logout dan di-invalidate, sambil mengecualikan endpoint polling latar notifikasi.
+ *
+ * Parameter konstruktor: Tidak ada.
+ * Nilai kembali         : Instance middleware yang diproses oleh pipeline HTTP web.
+ *
+ * Contoh pemanggilan:
+ * `$middleware->appendToGroup('web', SessionTimeout::class);`
  */
 class SessionTimeout
 {
     /**
-     * Memeriksa durasi ketidakaktifan (idle) pengguna pada setiap request.
+     * memeriksa selisih waktu sejak interaksi terakhir pengguna dan menghancurkan sesi bila melampaui batas idle.
      *
-     * @param  Closure(Request): (Response)  $next  Callback pipeline request berikutnya
+     * @param  Request  $request  memeriksa sesi aktif dan URL path request agar polling latar tidak mereset timer idle.
+     * @param  Closure(Request): (Response)  $next  melanjutkan eksekusi request apabila sesi belum melewati batas timeout.
+     * @return Response mengembalikan respons lanjutan, atau JSON 401 / redirect login jika sesi telah kedaluwarsa.
+     *
+     * Contoh pemanggilan:
+     * `$middleware->handle($request, $next);`
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // 1. Pemeriksaan hanya dilakukan jika pengguna sedang berada dalam kondisi login
         if (Auth::check()) {
-            // Mengambil timestamp waktu aktivitas terakhir yang tersimpan di session
             $lastActivity = $request->session()->get('last_activity');
-
-            // Menghitung batas waktu timeout dalam detik berdasarkan konfigurasi session.lifetime (default 15 menit = 900 detik)
+            // mengonversi session.lifetime (menit) ke detik dengan default aman 15 menit jika konfigurasi belum diisi.
             $timeoutSeconds = (int) config('session.lifetime', 15) * 60;
 
-            // 2. Jika sudah pernah ada aktivitas dan selisih waktu sekarang dengan aktivitas terakhir melampaui batas timeout
             if ($lastActivity && (time() - $lastActivity) > $timeoutSeconds) {
-                // Logout pengguna dari sistem Laravel
                 Auth::logout();
-
-                // Batalkan seluruh data session lama
+                // meng-invalidate sesi dan meregenerasi CSRF token sekaligus supaya cookie sesi lama tidak bisa dipakai ulang.
                 $request->session()->invalidate();
-
-                // Perbarui CSRF token untuk mencegah serangan CSRF
                 $request->session()->regenerateToken();
 
                 $timeoutMessage = 'Sesi Anda telah berakhir karena tidak ada aktivitas selama 15 menit. Silakan login kembali.';
 
-                // Jika permintaan datang dari client API / fetch JSON
-                if ($request->expectsJson() || $request->is('api/*')) {
+                if ($request->expectsJson()) {
                     return response()->json([
                         'status' => 'error',
                         'message' => $timeoutMessage,
                     ], 401);
                 }
 
-                // Jika permintaan dari peramban web biasa, arahkan ke login dengan pesan error flash
                 return redirect()->route('login')->withErrors([
                     'login' => $timeoutMessage,
                 ]);
             }
 
-            // 3. Perbarui timestamp 'last_activity' kecuali pada background polling notifikasi otomatis
+            // mengecualikan endpoint polling notifikasi agar skrip latar belakang tidak memperpanjang masa aktif sesi pengguna yang sedang idle.
             if (! $request->is('api/notifikasi-terbaru')) {
                 $request->session()->put('last_activity', time());
             }
         }
 
-        // 4. Lanjutkan request ke tahapan atau controller berikutnya
         return $next($request);
     }
 }

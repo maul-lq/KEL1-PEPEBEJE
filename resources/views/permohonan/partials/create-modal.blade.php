@@ -1,4 +1,21 @@
-<!-- OVERLAY BACKDROP & MODAL DIALOG CONTAINER -->
+{{--
+  Informasi File
+
+  Penulis   : DendyRafi, Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : Partial Blade ini kami susun untuk modal pengajuan permohonan baru cepat pada
+              halaman daftar, dilengkapi formatter nominal Rupiah dan komponen unggah multi-berkas
+              (`permohonanCreateModalUpload`) berbatas 5 berkas / 15 MB.
+--}}
+{{--
+  Komentar Deskriptif: Partial Dialog Modal Buat Permohonan Baru (`permohonan.partials.create-modal`).
+
+  Tujuan: Kami memungkinkan unit pengusul mendaftarkan surat usulan baru tanpa meninggalkan halaman
+          tracking daftar melalui dialog modal terintegrasi CSRF dan pratinjau multi-file.
+  Parameter (Inherited Alpine Scope): `showCreateModal` dari scope induk halaman `permohonan.index`.
+  Nilai kembali: Fragmen HTML overlay modal formulir `POST {{ route('permohonan.store') }}`.
+  Contoh pemanggilan: `@include('permohonan.partials.create-modal')`
+--}}
 <div x-show="showCreateModal" 
      x-transition:enter="transition ease-out duration-300"
      x-transition:enter-start="opacity-0"

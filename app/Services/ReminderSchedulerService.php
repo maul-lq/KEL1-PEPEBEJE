@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : menulis service ReminderSchedulerService ini untuk memproses jadwal reminder jatuh tempo secara atomik dengan cache lock, mengirim notifikasi/email RBAC, dan memajukan siklus pengingat berkala.
+ */
+
 namespace App\Services;
 
 use App\Models\KontrakSPK;
@@ -15,12 +23,16 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Mesin Pemroses Reminder Berkala & Jatuh Tempo (ReminderSchedulerService)
+ * Mesin Penjadwal & Pemroses Reminder Berkala (ReminderSchedulerService)
  *
- * Memproses seluruh jadwal pengingat otomatis yang telah memasuki waktu pemicu (`waktu_trigger <= now()`),
- * membangkitkan kemunculan notifikasi personal + email untuk setiap penerima berbasis RBAC,
- * memajukan jadwal berkala (`termin_bulanan` setiap 1 bulan / `kontrak_tahunan` setiap 12 bulan),
- * dan menonaktifkan jadwal secara otomatis saat paket atau tagihan sudah selesai/lunas.
+ * membangun service ini untuk menjembatani pemicuan cron CLI maupun request web terautentikasi,
+ * memastikan setiap jadwal jatuh tempo diproses sekali saja via lock terdistribusi, dan otomatis berhenti saat paket/tagihan tuntas.
+ *
+ * Parameter konstruktor: Tidak ada.
+ * Nilai kembali         : Instance layanan penjadwal reminder.
+ *
+ * Contoh pemanggilan:
+ * `$summary = app(ReminderSchedulerService::class)->processDueReminders();`
  */
 class ReminderSchedulerService
 {
@@ -29,7 +41,12 @@ class ReminderSchedulerService
     public const LOCK_KEY = 'simpbj_reminder_scheduler_lock';
 
     /**
-     * Eksekusi cepat terjadwal untuk dipanggil dari request web terautentikasi dengan jeda cache.
+     * menjalankan pemrosesan reminder dari request web dengan jeda throttle 2 menit agar beban kueri tetap ringan.
+     *
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `app(ReminderSchedulerService::class)->runIfDueCached();`
      */
     public function runIfDueCached(): void
     {
@@ -37,6 +54,7 @@ class ReminderSchedulerService
             return;
         }
 
+        // memeriksa keberadaan tabel/kolom terlebih dahulu supaya perintah migrasi awal atau boot sebelum migrate tidak melempar error SQL.
         if (! Schema::hasTable('reminder') || ! Schema::hasColumn('reminder', 'is_active')) {
             return;
         }
@@ -46,12 +64,18 @@ class ReminderSchedulerService
         try {
             $this->processDueReminders();
         } catch (\Throwable $exception) {
+            // menelan exception scheduler di jalur HTTP web sebagai warning log supaya gangguan penjadwal tidak memblokir pengguna membuka halaman.
             Log::warning('Pemrosesan otomatis reminder berkala gagal: '.$exception->getMessage());
         }
     }
 
     /**
-     * Memastikan seluruh kontrak/tagihan aktif memiliki jadwal pengingat lengkap.
+     * melengkapi jadwal reminder yang belum tercatat untuk kontrak aktif maupun tagihan pembayaran belum lunas.
+     *
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `$scheduler->syncMissingSchedules();`
      */
     public function syncMissingSchedules(): void
     {
@@ -84,9 +108,12 @@ class ReminderSchedulerService
     }
 
     /**
-     * Memproses seluruh jadwal reminder yang telah jatuh tempo (`waktu_trigger <= now()`).
+     * mengeksekusi seluruh jadwal induk aktif yang sudah memasuki waktu pemicu dan mengembalikan statistik hasil eksekusi.
      *
-     * @return array{processed: int, dispatched_notifications: int, deactivated: int}
+     * @return array{processed: int, dispatched_notifications: int, deactivated: int} mengembalikan jumlah jadwal diproses, notifikasi dikirim, dan jadwal yang dinonaktifkan.
+     *
+     * Contoh pemanggilan:
+     * `$summary = app(ReminderSchedulerService::class)->processDueReminders();`
      */
     public function processDueReminders(): array
     {
@@ -96,6 +123,7 @@ class ReminderSchedulerService
             'deactivated' => 0,
         ];
 
+        // memakai cache lock 30 detik untuk mencegah race condition ketika dua request/worker memicu scheduler pada detik yang sama.
         $lock = Cache::lock(self::LOCK_KEY, 30);
         if (! $lock->get()) {
             return $summary;
@@ -106,6 +134,7 @@ class ReminderSchedulerService
 
             $now = Carbon::now();
 
+            // hanya mengambil jadwal induk (parent_reminder_id IS NULL) agar record riwayat occurrence tidak pernah dianggap jadwal baru.
             $dueSchedules = Reminder::query()
                 ->with(['paket.permohonan', 'paket.penerimaanBarang', 'pembayaran.transaksiPencairan'])
                 ->whereNull('parent_reminder_id')
@@ -128,6 +157,7 @@ class ReminderSchedulerService
 
                 $recipients = $this->resolveRecipientsForSchedule($schedule);
                 if ($recipients->isNotEmpty()) {
+                    // mencetak record occurrence terpisah (is_active=false) supaya riwayat tiap siklus berkala tercatat tanpa merusak jadwal induknya.
                     $occurrence = Reminder::create([
                         'nomor_paket' => $schedule->nomor_paket,
                         'nomor_pembayaran' => $schedule->nomor_pembayaran,
@@ -157,10 +187,12 @@ class ReminderSchedulerService
                 $schedule->last_triggered_at = $now;
 
                 if ($schedule->is_recurring && (int) $schedule->interval_bulan > 0) {
+                    // memakai addMonthsNoOverflow agar tanggal 31 (mis. Januari) tidak meloncat melewati Februari ke Maret.
                     $nextTrigger = $schedule->waktu_trigger
                         ? $schedule->waktu_trigger->copy()->addMonthsNoOverflow((int) $schedule->interval_bulan)
                         : $now->copy()->addMonthsNoOverflow((int) $schedule->interval_bulan);
 
+                    // memajukan siklus sampai melampaui $now jika server lama mati, sehingga scheduler tidak meledak mengirim banyak tunggakan siklus sekaligus.
                     while ($nextTrigger->lte($now)) {
                         $nextTrigger->addMonthsNoOverflow((int) $schedule->interval_bulan);
                     }
@@ -175,6 +207,7 @@ class ReminderSchedulerService
                 $schedule->save();
             }
         } finally {
+            // memastikan lock selalu dilepas di blok finally meski salah satu pengiriman notifikasi melempar error.
             $lock->release();
         }
 
@@ -182,7 +215,13 @@ class ReminderSchedulerService
     }
 
     /**
-     * Memeriksa apakah jadwal pengingat harus dihentikan karena paket/pembayaran telah selesai.
+     * mengevaluasi apakah suatu jadwal pengingat sudah tidak relevan lagi karena paket/pembayaran selesai atau barang sudah diterima lengkap.
+     *
+     * @param  Reminder  $schedule  memeriksa relasi paket, pembayaran, transaksi pencairan, dan BAST pada jadwal ini.
+     * @return bool mengembalikan true bila jadwal harus dinonaktifkan dan dilewati.
+     *
+     * Contoh pemanggilan:
+     * `$stop = $this->shouldDeactivateSchedule($schedule);`
      */
     protected function shouldDeactivateSchedule(Reminder $schedule): bool
     {
@@ -207,6 +246,7 @@ class ReminderSchedulerService
             return false;
         }
 
+        // menghentikan pengingat pengiriman sekali jalan begitu barang tercatat diterima lengkap oleh Perlengkapan, namun mempertahankan pengingat kontrak berkala.
         if (
             ! $schedule->is_recurring
             && in_array($schedule->tipe_reminder, [Reminder::TIPE_PENGIRIMAN, Reminder::TIPE_H_MINUS_2_TERMIN], true)
@@ -221,9 +261,13 @@ class ReminderSchedulerService
     }
 
     /**
-     * Menentukan penerima notifikasi untuk suatu jadwal pengingat berbasis RBAC & penugasan paket.
+     * mengumpulkan daftar pengguna aktif penerima pengingat berdasarkan izin RBAC serta isolasi penugasan PPK/PP pada paket.
      *
-     * @return Collection<int, User>
+     * @param  Reminder  $schedule  membaca `target_permissions` serta relasi paket/pembayaran untuk menyaring penerima sah.
+     * @return Collection<int, User> mengembalikan koleksi unik model User aktif yang berhak menerima notifikasi.
+     *
+     * Contoh pemanggilan:
+     * `$recipients = $this->resolveRecipientsForSchedule($schedule);`
      */
     protected function resolveRecipientsForSchedule(Reminder $schedule): Collection
     {
@@ -258,7 +302,6 @@ class ReminderSchedulerService
             })
             ->get();
 
-        // Filter khusus pemegang izin terisolasi paket (`reviu.ppk` / `reviu.pp`): hanya jika ditugaskan ke paket ini
         $paket = $schedule->paket;
         $assignedIds = array_filter([
             $paket?->id_user_ppk,
@@ -267,6 +310,7 @@ class ReminderSchedulerService
             $schedule->pembayaran?->id_user_pengaju,
         ]);
 
+        // menegakkan isolasi NFR 4 akun PPK di sini: pengguna berizin 'paket.view_assigned' tanpa izin lintas paket hanya menerima pengingat untuk paket miliknya.
         $filtered = $roleMatchedUsers->filter(function (User $u) use ($paket, $assignedIds): bool {
             if (! $paket) {
                 return true;
@@ -287,7 +331,7 @@ class ReminderSchedulerService
             return true;
         });
 
-        // Tambahkan secara eksplisit PPK/PP pengawal paket jika ada dan aktif
+        // menambahkan pejabat pelaksana spesifik paket secara eksplisit agar PPK/PP/PPBJ tetap terinfokan meski matriks izin role-nya baru disesuaikan.
         if ($assignedIds !== []) {
             $assignedUsers = User::query()
                 ->where('status_aktif', true)
@@ -301,7 +345,13 @@ class ReminderSchedulerService
     }
 
     /**
-     * Menyusun pesan pengingat pada setiap kemunculan siklus berkala.
+     * menyusun teks pesan alert dan menambahkan stempel tanggal siklus apabila jadwal bersifat berkala.
+     *
+     * @param  Reminder  $schedule  membaca `pesan_alert`, `is_recurring`, dan `waktu_trigger` dari jadwal induk.
+     * @return string mengembalikan teks pesan siap tampil di notifikasi web dan email.
+     *
+     * Contoh pemanggilan:
+     * `$pesan = $this->buildCycleMessage($schedule);`
      */
     protected function buildCycleMessage(Reminder $schedule): string
     {
@@ -315,10 +365,13 @@ class ReminderSchedulerService
     }
 
     /**
-     * Memetakan daftar permission ke slug `nama_role` pada tabel `roles` saat permission spesifik belum terhubung ke role.
+     * memetakan daftar permission ke slug peran standar sebagai cadangan jika seeding permission belum lengkap.
      *
-     * @param  array<int, string>  $permissions
-     * @return array<int, string>
+     * @param  array<int, string>  $permissions  menerima daftar slug permission sasaran jadwal.
+     * @return array<int, string> mengembalikan daftar unik slug `nama_role` yang beririsan dengan permission tersebut.
+     *
+     * Contoh pemanggilan:
+     * `$roles = $this->mapPermissionsToFallbackRoles(['spk.create']);`
      */
     protected function mapPermissionsToFallbackRoles(array $permissions): array
     {

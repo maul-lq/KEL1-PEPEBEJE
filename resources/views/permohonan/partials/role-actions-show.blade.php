@@ -1,9 +1,23 @@
-{{-- resources/views/permohonan/partials/role-actions-show.blade.php
-     Panel Aksi Dinamis Berbasis Hak Akses RBAC & Permissions.
-     Mendukung 2 mode penggunaan:
-     1) Mode Alpine (di permohonan/index.blade.php) -> memanfaatkan selectedItem secara reaktif
-     2) Mode Server (di permohonan/show.blade.php)  -> menggunakan parameter $nomorSurat, $pagu, $statusLabel --}}
+{{--
+  Informasi File
+
+  Penulis   : DendyRafi, Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : Partial Blade ini kami susun untuk merender panel formulir aksi dinamis sesuai izin
+              RBAC pada mode fullscreen Alpine (`permohonan/index`) maupun mode server (`permohonan/show`).
+--}}
+{{--
+  Komentar Deskriptif: Partial Panel Formulir Aksi Dinamis Verifikator (`permohonan.partials.role-actions-show`).
+
+  Tujuan: Kami menukar binding input tersembunyi `nomor_surat` secara otomatis antara binding
+          reaktif Alpine (`:value="selectedItem..."`) dan nilai statis server (`$nomorSurat`) agar
+          satu template formulir melayani halaman indeks maupun detail tanpa duplikasi kode.
+  Parameter Opsional: `$nomorSurat` (string), `$pagu` (float|string), `$statusLabel` (string).
+  Nilai kembali: Formulir tindakan sesuai izin peran (Bidang II, Wadir II, Perencanaan, PPK, atau tautan modul).
+  Contoh pemanggilan: `@include('permohonan.partials.role-actions-show', ['nomorSurat' => $permohonan->nomor_surat, 'pagu' => $permohonan->estimasi_total_pagu])`
+--}}
 @php
+    // bedakan mode Alpine vs mode server lewat keberadaan $nomorSurat agar partial ini aman dipakai di dua halaman berbeda.
     $u = auth()->user();
     $inAlpine   = !isset($nomorSurat);
     $nomorField = $inAlpine

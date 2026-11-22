@@ -1,7 +1,25 @@
+{{--
+  Informasi File
+
+  Penulis   : Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : View Blade ini rancang untuk halaman perbaikan dokumen paket pengadaan oleh
+              PPBJ setelah menerima catatan pengembalian dari Pejabat Pengadaan atau PPK.
+--}}
 @extends('layouts.app')
 
 @section('title', 'Perbaikan Dokumen Pengadaan - ' . $paket->nomor_paket)
 
+{{--
+  Komentar Deskriptif: Seksi Konten Penyusunan Ulang Dokumen Paket (`paket.edit`).
+
+  Tujuan: menampilkan catatan revisi reviewer terbaru di bagian atas form dan mengirimkan
+          konfigurasi `paketEditConfig` agar kalkulasi selisih HPS terhadap sisa pagu MAK tervalidasi.
+  Parameter (Data dari PaketPengadaanController::edit):
+    - `$paket` (PaketPengadaan): Paket berstatus perlu perbaikan beserta relasi reviu dan permohonan.
+  Nilai kembali: Halaman HTML penyuntingan paket yang dikendalikan komponen `paketEdit`.
+  Contoh pemanggilan: `return view('paket.edit', compact('paket'));`
+--}}
 @section('content')
 @php
     $lastReviu = $paket->reviuDokumen->where('status_reviu', 'perlu_perbaikan')->last() ?? $paket->reviuDokumen->last();

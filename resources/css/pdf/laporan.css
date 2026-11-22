@@ -1,3 +1,21 @@
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0) - lihat file LICENSE di root repositori.
+ * Ringkasan : Stylesheet ini saya rancang khusus untuk merender dokumen laporan resmi PDF SIM-PBJ
+ *             oleh mesin DomPDF dalam orientasi A4 lanskap dengan header berulang, kartu KPI, dan stempel pengesahan.
+ */
+
+/**
+ * Konfigurasi Halaman Cetak PDF A4 Lanskap dan Footer Nomor Halaman.
+ *
+ * Tujuan: Saya menetapkan margin halaman A4 landscape beserta counter halaman DomPDF di footer
+ * agar tabel laporan multi-kolom tercetak rapi tanpa terpotong horizontal.
+ * Parameter: Aturan `@page`, `@bottom-left`, `@bottom-right`.
+ * Nilai kembali: Mengatur geometri halaman PDF serta metadata teks tepi bawah tiap halaman.
+ * Contoh pemanggilan: `<link rel="stylesheet" href="{{ public_path('...') }}">` atau inline di `laporan.pdf`.
+ */
 @page {
     size: A4 landscape;
     margin: 14mm 12mm 16mm 12mm;
@@ -21,6 +39,7 @@
 }
 
 body {
+    /* Saya memilih DejaVu Sans karena menjadi satu-satunya family bawaan DomPDF yang mendukung simbol UTF-8 lengkap */
     font-family: "DejaVu Sans", sans-serif;
     font-size: 8.5pt;
     color: #1e293b;
@@ -110,11 +129,21 @@ body {
     color: #0f172a;
 }
 
+/**
+ * Gaya Blok Seksi Laporan, Grid Kartu KPI, dan Tabel Data Cetak PDF.
+ *
+ * Tujuan: Saya mengatur pembungkus `page-break-inside: avoid` dan `display: table-header-group`
+ * agar kepala tabel otomatis terulang di halaman baru dan baris data tidak terbelah di tengah halaman.
+ * Parameter: Kelas `.section-block`, `.kpi-grid`, `.data-table`, `.pill`, dan `.sign-box`.
+ * Nilai kembali: Menetapkan tata letak tabel DomPDF berbasis HTML table-layout yang stabil.
+ * Contoh pemanggilan: `<table class="data-table">...</table>`
+ */
 .section-block {
     margin-bottom: 18px;
 }
 
 .section-head-wrap {
+    /* Saya cegah judul seksi terpisah sendirian di bawah halaman tanpa isi kartu/tabelnya */
     page-break-inside: avoid;
 }
 

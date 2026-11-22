@@ -1,5 +1,15 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : Controller ini rancang untuk menangani alur verifikasi berantai dan persetujuan
+ *             paralel usulan pengadaan pada Staf Bidang II, Bagian Perencanaan (MAK DIPA & split
+ *             MAK), Wakil Direktur II, serta persetujuan awal oleh akun PPK terpilih.
+ */
+
 namespace App\Http\Controllers;
 
 use App\Models\AlokasiMAK;
@@ -16,32 +26,53 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 /**
- * Controller Verifikasi Berantai & Penetapan MAK (Modul 2 & 3)
+ * Mengelola tahapan verifikasi berantai awal dan penetapan pos anggaran MAK pada usulan pengadaan.
  *
- * Mengelola tahapan verifikasi berantai awal sesuai alur BPMN Kampus:
- * 1. Staf Bidang 2: Memeriksa kelengkapan berkas usulan dan menerbitkan Memo Cek MAK ke Perencanaan.
- * 2. Bagian Perencanaan: Mengelola MAK DIPA, alokasi/pemecahan MAK, penunjukan akun PPK (1 dari 4),
- *    serta menerbitkan Memo Ketersediaan MAK ke Wadir 2 & PPK.
- * 3. Wadir 2 & PPK: Memberikan persetujuan berpasangan (Dual Approval). Berkas diteruskan ke PPBJ
- *    hanya setelah kedua belah pihak menyetujui.
+ * Tujuan: menyatukan titik kendali Staf Bidang II, Bagian Perencanaan (alokasi/kunci/pecah
+ * MAK serta penunjukan PPK), Wakil Direktur II, dan PPK awal hingga berkas layak dikirim ke PPBJ.
+ *
+ * Contoh pemanggilan:
+ * `$response = app(VerifikasiParalelController::class)->verifikasiBidang2($request);`
  */
 class VerifikasiParalelController extends Controller
 {
+    /**
+     * Menyuntikkan layanan notifikasi pengadaan untuk setiap transisi tahap verifikasi.
+     *
+     * Tujuan: menaruh dependensi di konstruktor agar penerbitan memo Bidang II, Perencanaan,
+     * maupun keputusan Wadir II dan PPK dapat langsung memicu notifikasi pengguna terkait.
+     *
+     * @param  PengadaanNotificationService  $notificationService  Layanan pengirim notifikasi PBJ.
+     * @return void
+     *
+     * Contoh pemanggilan:
+     * `new VerifikasiParalelController(app(PengadaanNotificationService::class));`
+     */
     public function __construct(
         public PengadaanNotificationService $notificationService
     ) {}
 
     /**
-     * Menampilkan daftar permohonan masuk ke Staf Bidang 2.
+     * Menampilkan daftar permohonan masuk beserta filter pencarian pada halaman Staf Bidang 2.
+     *
+     * Tujuan: menyaring berkas yang tidak digantikan oleh revisi serta menerapkan pencarian
+     * case-insensitive (`ilike` PostgreSQL) pada nomor surat, judul, dan perihal pengadaan.
+     *
+     * @param  Request  $request  Permintaan HTTP berisi kata kunci atau filter status permohonan.
+     * @return View Halaman `verifikasi.bidang_2` dengan koleksi `$permohonanMasuk`.
+     *
+     * Contoh pemanggilan:
+     * `Route::get('/verifikasi/bidang-2', [VerifikasiParalelController::class, 'verifikasiBidang2']);`
      */
     public function verifikasiBidang2(Request $request): View
     {
         $query = PermohonanPengadaan::with(['unit', 'user', 'verifikasiParalel', 'paketPengadaan.penerimaanBarang.fotoDokumentasi'])
-            ->where('status_permohonan', '!=', 'digantikan_oleh_revisi');
+            ->where('status_permohonan', '!=', 'digantikan_oleh_revisi'); // kecualikan surat lama yang telah digantikan revisi agar Staf Bidang II tidak menelaah duplikat.
 
         if ($request->filled('keyword')) {
             $keyword = $request->keyword;
             $query->where(function ($q) use ($keyword) {
+                // pakai operator ilike agar pencarian tetap case-insensitive di PostgreSQL.
                 $q->where('nomor_surat', 'ilike', "%{$keyword}%")
                     ->orWhere('judul_pengadaan', 'ilike', "%{$keyword}%")
                     ->orWhere('perihal', 'ilike', "%{$keyword}%");
@@ -59,6 +90,15 @@ class VerifikasiParalelController extends Controller
 
     /**
      * Memproses pemeriksaan berkas Staf Bidang 2 dan menerbitkan Memo Cek MAK ke Bagian Perencanaan.
+     *
+     * Tujuan: memvalidasi nomor dan berkas memo cek MAK lalu menggerakkan status usulan ke
+     * `cek_mak_perencanaan` agar Bagian Perencanaan dapat memverifikasi ketersediaan anggaran.
+     *
+     * @param  Request  $request  Data memo cek MAK dari formulir Staf Bidang II.
+     * @return RedirectResponse Redirect kembali ke halaman verifikasi Bidang II dengan status sukses.
+     *
+     * Contoh pemanggilan:
+     * `Route::post('/verifikasi/bidang-2/teruskan', [VerifikasiParalelController::class, 'teruskanStaffB2']);`
      */
     public function teruskanStaffB2(Request $request): RedirectResponse
     {
@@ -134,6 +174,14 @@ class VerifikasiParalelController extends Controller
 
     /**
      * Menampilkan antrean keputusan persetujuan kegiatan Wakil Direktur II (ACC Kegiatan / Tolak).
+     *
+     * Tujuan: mengumpulkan usulan yang sedang berada dalam tahap awal hingga reviu paralel
+     * beserta relasi PPK awal dan riwayat verifikasi paralelnya untuk diputuskan Wadir II.
+     *
+     * @return View Halaman `verifikasi.wadir_2` dengan variabel `$permohonanAntrean`.
+     *
+     * Contoh pemanggilan:
+     * `Route::get('/verifikasi/wadir-2', [VerifikasiParalelController::class, 'verifikasiWadir2']);`
      */
     public function verifikasiWadir2(): View
     {
@@ -153,6 +201,15 @@ class VerifikasiParalelController extends Controller
 
     /**
      * Memproses keputusan Wadir 2 (ACC Kegiatan / Tolak / Revisi).
+     *
+     * Tujuan: memastikan alasan wajib diisi saat Wadir II menolak atau meminta revisi, lalu
+     * mengevaluasi kecukupan dual-approval bersama PPK sebelum menaikkan status ke PPBJ.
+     *
+     * @param  Request  $request  Payload keputusan Wadir II, catatan alasan, dan memo opsional.
+     * @return RedirectResponse Redirect kembali ke antrean verifikasi Wadir II.
+     *
+     * Contoh pemanggilan:
+     * `Route::post('/verifikasi/wadir-2/keputusan', [VerifikasiParalelController::class, 'keputusanWadir2']);`
      */
     public function keputusanWadir2(Request $request): RedirectResponse
     {
@@ -301,6 +358,14 @@ class VerifikasiParalelController extends Controller
 
     /**
      * Menampilkan antrean persetujuan awal usulan pengadaan bagi akun PPK terpilih (Isolasi 4 Akun PPK).
+     *
+     * Tujuan: memfilter daftar usulan hanya berdasarkan `id_user_ppk_awal` akun yang login
+     * sehingga tiap PPK fokus meninjau usulan yang memang ditugaskan oleh Bagian Perencanaan.
+     *
+     * @return View Halaman `verifikasi.ppk` berisi daftar `$permohonanAntrean`.
+     *
+     * Contoh pemanggilan:
+     * `Route::get('/verifikasi/ppk', [VerifikasiParalelController::class, 'verifikasiPpk']);`
      */
     public function verifikasiPpk(): View
     {
@@ -320,6 +385,15 @@ class VerifikasiParalelController extends Controller
 
     /**
      * Memproses persetujuan awal usulan oleh PPK yang dipilih Perencanaan.
+     *
+     * Tujuan: menegakkan isolasi 4 akun PPK lewat pengecekan 403 bila akun lain mencoba
+     * memutuskan berkas tersebut, serta mengecek dual-approval dengan Wadir II.
+     *
+     * @param  Request  $request  Payload keputusan PPK (`disetujui`/`ditolak`), alasan, dan memo.
+     * @return RedirectResponse Redirect kembali ke halaman verifikasi PPK.
+     *
+     * Contoh pemanggilan:
+     * `Route::post('/verifikasi/ppk/keputusan', [VerifikasiParalelController::class, 'keputusanPpkAwal']);`
      */
     public function keputusanPpkAwal(Request $request): RedirectResponse
     {
@@ -337,7 +411,7 @@ class VerifikasiParalelController extends Controller
 
         $permohonan = PermohonanPengadaan::findOrFail($validated['nomor_surat']);
 
-        // Penegakan isolasi ketat 4 akun PPK pada persetujuan awal
+        // tegakkan isolasi 4 akun PPK: PPK yang tidak ditugaskan sebagai id_user_ppk_awal ditolak dengan 403.
         if ((int) $permohonan->id_user_ppk_awal !== (int) $user->id_user) {
             abort(403, 'Akses Ditolak: Anda tidak berhak memproses persetujuan awal untuk usulan yang ditugaskan ke akun PPK lain.');
         }
@@ -443,10 +517,18 @@ class VerifikasiParalelController extends Controller
 
     /**
      * Menampilkan antrean permohonan dan daftar MAK pada antarmuka Bagian Perencanaan.
+     *
+     * Tujuan: memisahkan antrean berkas yang belum ber-MAK dari daftar berkas yang sudah
+     * memiliki alokasi MAK agar staf Perencanaan mudah melacak usulan baru maupun hasil pecahan.
+     *
+     * @return View Halaman `verifikasi.perencanaan` beserta antrean, daftar MAK, dan akun PPK aktif.
+     *
+     * Contoh pemanggilan:
+     * `Route::get('/verifikasi/perencanaan', [VerifikasiParalelController::class, 'verifikasiPerencanaan']);`
      */
     public function verifikasiPerencanaan(): View
     {
-        // 1. Antrean usulan yang menunggu penetapan alokasi MAK DIPA
+        // pisahkan antrean usulan yang belum memperoleh alokasi MAK atau masih dalam tahap pemeriksaan anggaran.
         $permohonanAntrean = PermohonanPengadaan::with(['unit', 'user', 'ppkAwal', 'verifikasiParalel.user', 'anggaranMak'])
             ->whereNotIn('status_permohonan', [
                 PermohonanPengadaan::STATUS_DITOLAK,
@@ -467,7 +549,7 @@ class VerifikasiParalelController extends Controller
             ->latest('tanggal_pengajuan')
             ->get();
 
-        // 2. Daftar usulan yang telah memiliki MAK DIPA
+        // Daftar kedua khususkan bagi usulan yang sudah memiliki kode MAK untuk keperluan audit/monitoring.
         $permohonanSudahMak = PermohonanPengadaan::with(['unit', 'user', 'anggaranMak', 'ppkAwal', 'verifikasiParalel.user'])
             ->whereNotNull('kode_mak')
             ->where('kode_mak', '!=', '')
@@ -485,7 +567,16 @@ class VerifikasiParalelController extends Controller
     }
 
     /**
-     * Mendaftarkan rekening MAK DIPA baru melalui antarmuka web oleh Bagian Perencanaan (FR 6.1).
+     * Mendaftarkan rekening MAK DIPA baru melalui antarmuka web oleh Bagian Perencanaan.
+     *
+     * Tujuan: memvalidasi keunikan `kode_mak`, menyamakan saldo awal `sisa_pagu_mak` dengan
+     * pagu anggaran, serta mencatat jejak pembuatan rekening pada AuditLog.
+     *
+     * @param  Request  $request  Input formulir penambahan pos anggaran MAK baru.
+     * @return RedirectResponse Redirect ke halaman perencanaan dengan notifikasi berhasil.
+     *
+     * Contoh pemanggilan:
+     * `Route::post('/verifikasi/perencanaan/mak', [VerifikasiParalelController::class, 'storeMakPerencanaan']);`
      */
     public function storeMakPerencanaan(Request $request): RedirectResponse
     {
@@ -498,6 +589,7 @@ class VerifikasiParalelController extends Controller
             'catatan_mak' => ['nullable', 'string'],
         ]);
 
+        // samakan sisa pagu awal dengan pagu anggaran agar saldo siap dialokasikan secara bertahap.
         $validated['sisa_pagu_mak'] = $validated['pagu_anggaran'];
         $validated['tanggal_penetapan'] = now();
         $validated['is_locked'] = false;
@@ -521,6 +613,15 @@ class VerifikasiParalelController extends Controller
 
     /**
      * Mengunci rekening MAK secara eksklusif oleh Bagian Perencanaan via antarmuka web.
+     *
+     * Tujuan: menandai rekening MAK sebagai terkunci agar tidak ada alokasi baru selama
+     * proses revisi DIPA atau penutupan anggaran berlangsung.
+     *
+     * @param  AnggaranMAK  $anggaran_mak  Model rekening MAK target penguncian.
+     * @return RedirectResponse Redirect kembali ke halaman perencanaan dengan pesan sukses.
+     *
+     * Contoh pemanggilan:
+     * `Route::post('/verifikasi/perencanaan/mak/{anggaran_mak}/lock', [VerifikasiParalelController::class, 'lockMakWeb']);`
      */
     public function lockMakWeb(AnggaranMAK $anggaran_mak): RedirectResponse
     {
@@ -542,6 +643,15 @@ class VerifikasiParalelController extends Controller
 
     /**
      * Membuka kunci rekening MAK secara eksklusif oleh Bagian Perencanaan via antarmuka web.
+     *
+     * Tujuan: mengembalikan status rekening MAK agar dapat kembali menerima alokasi usulan
+     * pengadaan beserta pencatatan log audit.
+     *
+     * @param  AnggaranMAK  $anggaran_mak  Model rekening MAK yang hendak dibuka kuncinya.
+     * @return RedirectResponse Redirect ke halaman verifikasi Perencanaan.
+     *
+     * Contoh pemanggilan:
+     * `Route::post('/verifikasi/perencanaan/mak/{anggaran_mak}/unlock', [VerifikasiParalelController::class, 'unlockMakWeb']);`
      */
     public function unlockMakWeb(AnggaranMAK $anggaran_mak): RedirectResponse
     {
@@ -563,6 +673,15 @@ class VerifikasiParalelController extends Controller
 
     /**
      * Memproses pemeriksaan ketersediaan MAK, pemilihan 1 dari 4 akun PPK, dan pengiriman Memo Ketersediaan MAK.
+     *
+     * Tujuan: memastikan pengalokasian anggaran tidak melebihi sisa pagu rekening yang aktif
+     * atau membypass rekening terkunci, atau menangguhkan usulan bila anggaran belum tersedia.
+     *
+     * @param  Request  $request  Payload keputusan anggaran, kode MAK, nominal alokasi, dan akun PPK awal.
+     * @return RedirectResponse Redirect kembali ke halaman perencanaan dengan status keputusan.
+     *
+     * Contoh pemanggilan:
+     * `Route::post('/verifikasi/perencanaan/alokasi', [VerifikasiParalelController::class, 'alokasiMakPerencanaan']);`
      */
     public function alokasiMakPerencanaan(Request $request): RedirectResponse
     {
@@ -809,7 +928,16 @@ class VerifikasiParalelController extends Controller
     }
 
     /**
-     * Memproses pemecahan (split) permohonan pengadaan berdasarkan pos anggaran MAK (FR 6.3).
+     * Memproses pemecahan (split) permohonan pengadaan berdasarkan pos anggaran MAK.
+     *
+     * Tujuan: memfasilitasi pemecahan satu surat induk menjadi minimal dua surat pecahan per MAK
+     * maupun mode pecahan satuan sembari menjaga total alokasi tidak melebihi pagu usulan induk.
+     *
+     * @param  Request  $request  Data surat induk, alasan pemecahan, dan rincian item pecahan MAK.
+     * @return RedirectResponse Redirect ke halaman perencanaan atau kembali dengan pesan validasi.
+     *
+     * Contoh pemanggilan:
+     * `Route::post('/verifikasi/perencanaan/split-mak', [VerifikasiParalelController::class, 'splitMakPerencanaan']);`
      */
     public function splitMakPerencanaan(Request $request): RedirectResponse
     {
@@ -830,6 +958,7 @@ class VerifikasiParalelController extends Controller
             $induk = PermohonanPengadaan::findOrFail($validated['nomor_surat_induk']);
             $totalSplit = array_sum(array_column($validated['items'], 'estimasi_pagu_pecahan'));
 
+            // cegah pemecahan yang memekarkan total nilai pagu di atas usulan induk aslinya.
             if ($totalSplit > (float) ($induk->estimasi_total_pagu ?? $induk->anggaran_diajukan)) {
                 return back()->with('error', 'Total alokasi pecahan melebihi anggaran usulan induk.')->withInput();
             }

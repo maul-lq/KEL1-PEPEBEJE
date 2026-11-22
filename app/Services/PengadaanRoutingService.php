@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : menulis service PengadaanRoutingService ini untuk menetapkan jalur pengadaan otomatis berbasis nilai HPS/pagu dan menyinkronkan jadwal reminder kontrak maupun pembayaran secara idempoten.
+ */
+
 namespace App\Services;
 
 use App\Models\KontrakSPK;
@@ -10,33 +18,55 @@ use App\Models\Reminder;
 use Carbon\Carbon;
 
 /**
- * Service Penentuan Jalur Pengadaan & Sinkronisasi Jadwal Pengingat (PengadaanRoutingService)
+ * Service Penentuan Jalur & Penjadwalan Reminder (PengadaanRoutingService)
  *
- * Mengelola routing paket berdasarkan nominal dan membangkitkan jadwal reminder berkala
- * maupun reminder jatuh tempo untuk Kontrak/SPK, Belanja Langsung, dan Pembayaran.
+ * memusatkan logika auto-routing batas nominal (<=50jt, >50-200jt, >200jt) serta pembentukan
+ * jadwal pengingat H-2/Hari-H dan kontrak berkala di service ini agar controller dan model hook tidak menduplikasi jadwal.
+ *
+ * Parameter konstruktor: Tidak ada (seluruh utilitas bersifat statis).
+ * Nilai kembali         : Kumpulan metode statis mutasi routing dan sinkronisasi tabel reminder.
+ *
+ * Contoh pemanggilan:
+ * `PengadaanRoutingService::assignJalur($paket);`
  */
 class PengadaanRoutingService
 {
     /**
-     * Menentukan jalur pengadaan secara otomatis pada model PaketPengadaan berdasarkan nilai HPS/pagu (FR 8.0).
+     * menentukan jalur pengadaan paket otomatis berdasarkan batas nilai HPS atau alokasi pagu paket.
+     *
+     * @param  PaketPengadaan  $paket  membaca nilai HPS/alokasi paket lalu mengisi `jalur_routing` dan membersihkan `nomor_memo_ppbj` jika jalur PPK.
+     * @return void Tidak mengembalikan nilai (memutasi atribut model $paket secara langsung).
+     *
+     * Contoh pemanggilan:
+     * `PengadaanRoutingService::assignJalur($paket);`
      */
     public static function assignJalur(PaketPengadaan $paket): void
     {
+        // memprioritaskan nilai_hps terbaru lalu jatuh ke alokasi_pagu_paket agar routing tetap konsisten bila salah satu bernilai 0.
         $nominal = (float) ($paket->nilai_hps ?: $paket->alokasi_pagu_paket);
         $paket->jalur_routing = PaketPengadaan::tentukanRouting($nominal);
 
+        // mengosongkan nomor memo PPBJ pada jalur >200jt karena proses penawaran/lelang dikawal langsung oleh PPK tanpa memo pengadaan PPBJ.
         if ($paket->jalur_routing === PaketPengadaan::ROUTING_PPK) {
             $paket->nomor_memo_ppbj = null;
         }
     }
 
     /**
-     * Membangkitkan pemberitahuan awal & jadwal pengingat pengiriman untuk Belanja Langsung <= Rp 50 Juta.
+     * menerbitkan notifikasi selesai Belanja Langsung (<=50jt) dan membuat jadwal pengingat pengiriman jika tanggal target tersedia.
+     *
+     * @param  PaketPengadaan  $paket  memakai nomor paket, nama paket, dan nomor kwitansi untuk membentuk alert pengingat.
+     * @param  string|null  $jadwalPengiriman  mengonversi tanggal target kedatangan barang menjadi jadwal Hari-H dan H-2 (opsional).
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `PengadaanRoutingService::generateBelanjaLangsungReminder($paket, '2026-11-30');`
      */
     public static function generateBelanjaLangsungReminder(PaketPengadaan $paket, ?string $jadwalPengiriman = null): void
     {
         $nominal = (float) ($paket->nominal_harga_akhir ?: $paket->nilai_hps ?: $paket->alokasi_pagu_paket);
 
+        // memakai firstOrCreate pada master reminder agar pemanggilan ulang tidak membanjiri pengguna dengan alert kwitansi ganda.
         $reminderBelanja = Reminder::firstOrCreate(
             [
                 'nomor_paket' => $paket->nomor_paket,
@@ -90,6 +120,7 @@ class PengadaanRoutingService
                 ]
             );
 
+            // menambahkan jadwal H-2 terpisah agar unit Perlengkapan dan pengawal paket punya jeda persiapan gudang sebelum barang tiba.
             self::upsertSchedule(
                 [
                     'nomor_paket' => $paket->nomor_paket,
@@ -110,11 +141,19 @@ class PengadaanRoutingService
     }
 
     /**
-     * Sinkronisasi jadwal reminder pengiriman & pengingat berkala berdasarkan Kontrak/SPK.
+     * menyinkronkan jadwal reminder pengiriman (sekali jalan maupun berkala bulanan/tahunan) serta H-2 dari dokumen Kontrak/SPK.
+     *
+     * @param  KontrakSPK  $spk  membaca status, sifat kontrak, dan tanggal target pengiriman dari entitas kontrak ini.
+     * @param  PaketPengadaan|null  $paket  mengizinkan passing paket secara eksplisit untuk menghindari query relasi tambahan bila sudah dimuat.
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `PengadaanRoutingService::syncKontrakSchedules($kontrakSpk);`
      */
     public static function syncKontrakSchedules(KontrakSPK $spk, ?PaketPengadaan $paket = null): void
     {
         $paket = $paket ?? $spk->paket;
+        // melewati pembuatan jadwal jika paket sudah final/batal atau SPK masih draft agar pengingat tidak memicu alarm palsu.
         if (! $paket || in_array($paket->status_paket, ['selesai', 'batal'], true)) {
             return;
         }
@@ -129,6 +168,7 @@ class PengadaanRoutingService
         }
 
         $jadwalCarbon = Carbon::parse($jadwal);
+        // memetakan sifat kontrak ke interval bulan agar kontrak rutin otomatis memperpanjang jadwal pengingatnya setelah jatuh tempo.
         $intervalBulan = match ($spk->sifat_kontrak) {
             'termin_bulanan' => 1,
             'kontrak_tahunan' => 12,
@@ -177,7 +217,13 @@ class PengadaanRoutingService
     }
 
     /**
-     * Sinkronisasi jadwal reminder H-2 dan Hari-H jatuh tempo pembayaran tagihan.
+     * menyinkronkan jadwal pengingat H-2 dan Hari-H jatuh tempo pembayaran tagihan, atau menonaktifkannya jika tagihan sudah lunas/ditolak.
+     *
+     * @param  Pembayaran  $pembayaran  memeriksa status pembayaran dan tanggal `jatuh_tempo` untuk membuat atau mematikan jadwal terkait.
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `PengadaanRoutingService::syncPembayaranSchedules($pembayaran);`
      */
     public static function syncPembayaranSchedules(Pembayaran $pembayaran): void
     {
@@ -234,7 +280,14 @@ class PengadaanRoutingService
     }
 
     /**
-     * Menonaktifkan jadwal reminder yang terkait dengan suatu paket pengadaan.
+     * menonaktifkan jadwal pengingat aktif milik paket tertentu ketika BAST diterima atau paket resmi ditutup.
+     *
+     * @param  string  $nomorPaket  mencari jadwal induk aktif berdasarkan kode/nomor paket ini.
+     * @param  bool  $onlyNonRecurringDelivery  memakai flag ini agar BAST pertama hanya mematikan pengingat pengiriman sekali jalan tanpa memutus kontrak berkala.
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `PengadaanRoutingService::deactivateForPaket($paket->nomor_paket, true);`
      */
     public static function deactivateForPaket(string $nomorPaket, bool $onlyNonRecurringDelivery = false): void
     {
@@ -243,6 +296,7 @@ class PengadaanRoutingService
             ->whereNull('parent_reminder_id')
             ->where('is_active', true);
 
+        // menjaga jadwal berkala (termin_bulanan / kontrak_tahunan) tetap hidup setelah BAST pertama agar siklus bulan berikutnya tetap teringat.
         if ($onlyNonRecurringDelivery) {
             $query->where('is_recurring', false)
                 ->whereIn('tipe_reminder', [Reminder::TIPE_PENGIRIMAN, Reminder::TIPE_H_MINUS_2_TERMIN]);
@@ -252,7 +306,13 @@ class PengadaanRoutingService
     }
 
     /**
-     * Menonaktifkan seluruh jadwal pengingat jatuh tempo pada tagihan pembayaran tertentu.
+     * mematikan seluruh jadwal jatuh tempo aktif milik nomor pembayaran tertentu saat lunas atau ditolak.
+     *
+     * @param  string  $nomorPembayaran  menargetkan jadwal induk terkait tagihan pembayaran ini.
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `PengadaanRoutingService::deactivateForPembayaran($pembayaran->nomor_pembayaran);`
      */
     public static function deactivateForPembayaran(string $nomorPembayaran): void
     {
@@ -264,7 +324,14 @@ class PengadaanRoutingService
     }
 
     /**
-     * Membangkitkan pengingat jadwal pengadaan kontrak/SPK secara idempoten (FR 12.0).
+     * menyediakan entry point kompatibilitas untuk membangkitkan pengingat jadwal SPK paket secara idempoten.
+     *
+     * @param  PaketPengadaan  $paket  memakai paket sebagai konteks jika SPK belum dilewatkan langsung.
+     * @param  KontrakSPK|null  $spk  memprioritaskan objek kontrak SPK yang diberikan atau mengambil relasi kontrakSpk paket.
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `PengadaanRoutingService::generateReminders($paket, $kontrak);`
      */
     public static function generateReminders(PaketPengadaan $paket, ?KontrakSPK $spk = null): void
     {
@@ -275,10 +342,14 @@ class PengadaanRoutingService
     }
 
     /**
-     * Membuat atau menyinkronkan jadwal pengingat tanpa mereset jadwal yang sudah berjalan.
+     * membuat atau memperbarui jadwal pengingat induk tanpa menimpa tanggal trigger jadwal berkala yang sudah pernah berjalan.
      *
-     * @param  array<string, mixed>  $attributes
-     * @param  array<string, mixed>  $values
+     * @param  array<string, mixed>  $attributes  menggunakan kombinasi atribut ini sebagai kunci keunikan jadwal induk.
+     * @param  array<string, mixed>  $values  mengisi waktu trigger, flag berkala, permission sasaran, serta pesan alert.
+     * @return Reminder mengembalikan instance master jadwal Reminder yang dibuat atau diperbarui.
+     *
+     * Contoh pemanggilan:
+     * `self::upsertSchedule(['nomor_paket' => $no, 'tipe_reminder' => 'pengiriman', 'parent_reminder_id' => null], $values);`
      */
     protected static function upsertSchedule(array $attributes, array $values): Reminder
     {
@@ -292,6 +363,7 @@ class PengadaanRoutingService
         $existing->is_recurring = $values['is_recurring'] ?? $existing->is_recurring;
         $existing->target_permissions = $values['target_permissions'] ?? $existing->target_permissions;
 
+        // hanya mengizinkan pembaruan waktu_trigger apabila jadwal belum pernah terpicu agar siklus berkala yang sedang berjalan tidak mundur kembali ke tanggal awal kontrak.
         if ($existing->last_triggered_at === null) {
             $existing->waktu_trigger = $values['waktu_trigger'];
             $existing->judul_alert = $values['judul_alert'];

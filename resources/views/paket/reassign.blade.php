@@ -1,7 +1,26 @@
+{{--
+  Informasi File
+
+  Penulis   : Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : View Blade ini susun sebagai halaman mandiri formulir pengalihan penugasan
+              Pejabat Pembuat Komitmen (PPK) dari satu paket ke akun PPK aktif pengganti.
+--}}
 @extends('layouts.app')
 
 @section('title', 'Alih Tugas Penugasan PPK - SIM-PBJ PNJ')
 
+{{--
+  Komentar Deskriptif: Seksi Konten Alih Tugas Penugasan PPK (`paket.reassign`).
+
+  Tujuan: mewajibkan pemilihan paket, pemilihan akun PPK aktif pengganti, serta pengisian
+          alasan perubahan tertulis agar perpindahan tanggung jawab kontrak tercatat jelas di AuditLog.
+  Parameter (Data dari Controller):
+    - `$paketList` (Collection<PaketPengadaan>): Daftar paket aktif beserta nama PPK saat ini.
+    - `$ppkUsers` (Collection<User>): Daftar akun berperan `ppk` dengan status aktif.
+  Nilai kembali: Halaman HTML formulir POST ke rute `paket.reassign-ppk`.
+  Contoh pemanggilan: `return view('paket.reassign', compact('paketList', 'ppkUsers'));`
+--}}
 @section('content')
 <div class="max-w-2xl mx-auto space-y-6">
     <div class="rounded-2xl bg-white p-6 md:p-8 shadow-sm border border-slate-200/80">

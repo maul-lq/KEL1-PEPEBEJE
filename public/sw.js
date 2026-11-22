@@ -1,21 +1,56 @@
 /**
- * Service Worker Notifikasi SIM-PBJ Politeknik Negeri Jakarta (sw.js)
+ * Informasi File
  *
- * Menangani penerimaan push event dari server dan mengaktifkan notifikasi pop-up
- * native pada tingkat sistem operasi (Windows Action Center, macOS Notification, Linux Desktop).
- * Mendukung aksi klik untuk memfokuskan jendela peramban atau membuka rute terkait.
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+ * Ringkasan : menulis Service Worker ini untuk menerima Web Push event dan memicu notifikasi native OS Desktop bagi pengguna SIM-PBJ PNJ.
  */
 
+/**
+ * Handler Event 'install' Service Worker
+ *
+ * memakai handler ini agar pembaruan Service Worker langsung siap mengambil alih tanpa menunggu seluruh tab ditutup.
+ *
+ * @param {ExtendableEvent} event - Event siklus instalasi Service Worker dari peramban.
+ * @returns {void} Tidak mengembalikan nilai; memanggil self.skipWaiting().
+ *
+ * Contoh pemanggilan:
+ * `// Dipicu otomatis oleh browser saat navigator.serviceWorker.register('/sw.js') dijalankan.`
+ */
 self.addEventListener('install', function (event) {
+    // langsung melompati fase waiting agar perbaikan handler notifikasi langsung aktif di sesi pengguna.
     self.skipWaiting();
 });
 
+/**
+ * Handler Event 'activate' Service Worker
+ *
+ * mengklaim seluruh klien/tab terbuka segera setelah aktivasi agar notifikasi langsung bekerja pada kunjungan pertama.
+ *
+ * @param {ExtendableEvent} event - Event aktivasi Service Worker dari peramban.
+ * @returns {void} Tidak mengembalikan nilai; menunggu clients.claim() selesai via waitUntil.
+ *
+ * Contoh pemanggilan:
+ * `// Dipicu otomatis oleh browser tepat setelah Service Worker berstatus activated.`
+ */
 self.addEventListener('activate', function (event) {
+    // mengikat seluruh tab yang sudah terbuka sebelum registrasi selesai supaya pesan notifikasi tidak terlewat.
     event.waitUntil(self.clients.claim());
 });
 
-// 1. Menangani event Push dari Web Push Service
+/**
+ * Handler Event 'push' untuk Notifikasi Latar Belakang
+ *
+ * mem-parsing payload JSON/teks dari push server dan merender pop-up notifikasi sistem operasi dengan tautan modul tujuan.
+ *
+ * @param {PushEvent} event - Event push yang membawa data payload notifikasi dari server.
+ * @returns {void} Tidak mengembalikan nilai; menampilkan notifikasi via showNotification().
+ *
+ * Contoh pemanggilan:
+ * `// Dipicu otomatis oleh Push API browser saat server mengirim web push ke subscription aktif.`
+ */
 self.addEventListener('push', function (event) {
+    // menyiapkan payload fallback agar notifikasi tetap informatif meski server mengirim body kosong.
     let payload = {
         title: 'SIM-PBJ Politeknik Negeri Jakarta',
         body: 'Pemberitahuan pengadaan barang dan jasa baru.',
@@ -29,6 +64,7 @@ self.addEventListener('push', function (event) {
             const json = event.data.json();
             payload = Object.assign(payload, json);
         } catch (e) {
+            // jatuh ke teks mentah saat payload bukan JSON valid supaya pesan penting tidak hilang diam-diam.
             payload.body = event.data.text();
         }
     }
@@ -41,6 +77,7 @@ self.addEventListener('push', function (event) {
             url: payload.url || '/notifikasi',
         },
         vibrate: [200, 100, 200],
+        // menyertakan timestamp unik pada tag agar beberapa alert pengadaan yang datang beruntun tidak saling menimpa.
         tag: 'simpbj-notification-' + Date.now(),
         renotify: true,
     };
@@ -50,11 +87,22 @@ self.addEventListener('push', function (event) {
     );
 });
 
-// 2. Menangani aksi klik pada notifikasi OS oleh pengguna
+/**
+ * Handler Event 'notificationclick' untuk Navigasi Langsung
+ *
+ * mengarahkan pengguna ke halaman modul terkait saat notifikasi OS diklik, dengan memprioritaskan tab SIM-PBJ yang sudah terbuka.
+ *
+ * @param {NotificationEvent} event - Event klik pada notifikasi sistem operasi.
+ * @returns {void} Tidak mengembalikan nilai; memfokuskan atau membuka jendela baru via waitUntil.
+ *
+ * Contoh pemanggilan:
+ * `// Dipicu otomatis ketika pengguna mengklik pop-up notifikasi SIM-PBJ di desktop/OS.`
+ */
 self.addEventListener('notificationclick', function (event) {
     event.notification.close();
 
     const rawUrl = event.notification.data?.url || '/notifikasi';
+    // menormalkan URL relatif terhadap origin aktif agar navigasi lintas sub-rute selalu valid dan aman dari open redirect.
     const resolvedUrl = new URL(rawUrl, self.location.origin).href;
 
     event.waitUntil(
@@ -65,6 +113,7 @@ self.addEventListener('notificationclick', function (event) {
                     if ('navigate' in client) {
                         client.navigate(resolvedUrl);
                     }
+                    // memakai ulang tab yang sudah terbuka alih-alih membuka tab baru agar ruang kerja pengguna tetap rapi.
                     return client.focus();
                 }
             }

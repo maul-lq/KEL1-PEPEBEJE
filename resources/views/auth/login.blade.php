@@ -1,3 +1,21 @@
+{{--
+  Informasi File
+
+  Penulis   : DendyRafi, Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : View Blade ini kami susun untuk halaman autentikasi masuk SIM-PBJ yang mendukung
+              input email/NIP/username, toggle visibilitas sandi (`loginForm`), umpan balik
+              status registrasi, serta tombol masuk melalui SSO Google.
+--}}
+{{--
+  Komentar Deskriptif: Halaman Autentikasi Masuk Pengguna SIM-PBJ (`auth.login`).
+
+  Tujuan: Kami menyediakan antarmuka masuk tunggal yang menerima username, NIP, maupun email PNJ
+          sekaligus menautkan alur Google OAuth untuk akun yang sudah terhubung dan disetujui admin.
+  Parameter (Flash Session Opsional): `error`, `status`, `success`, dan validasi input lama `old('login')`.
+  Nilai kembali: Dokumen HTML lengkap halaman login mandiri tanpa layout navigasi terautentikasi.
+  Contoh pemanggilan: `return view('auth.login');`
+--}}
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -243,174 +261,6 @@
                 </main>
             </div>
 
-            <!-- Panel Akses Cepat untuk Pengujian Manual -->
-            <section class="rounded-[10px] border border-slate-200 bg-white/95 p-6 shadow-md backdrop-blur-sm">
-                <h3 class="mb-4 text-xl font-bold text-slate-800">
-                    Daftar Akun Uji Coba
-                </h3>
-
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-sm border-collapse border border-slate-200">
-                        <thead class="bg-slate-100 text-slate-700">
-                            <tr>
-                                <th class="border border-slate-200 p-2 text-center">No</th>
-                                <th class="border border-slate-200 p-2">Peran (Role)</th>
-                                <th class="border border-slate-200 p-2">Nama Pejabat / Pengguna</th>
-                                <th class="border border-slate-200 p-2">Unit Kerja</th>
-                                <th class="border border-slate-200 p-2">Username</th>
-                                <th class="border border-slate-200 p-2">Password Default</th>
-                                <th class="border border-slate-200 p-2 text-center">Aksi Cepat</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-200">
-                            <!-- Akun Admin System -->
-                            <tr class="bg-blue-50/50">
-                                <td class="border border-slate-200 p-2 text-center">0</td>
-                                <td class="border border-slate-200 p-2 font-semibold">Administrator System</td>
-                                <td class="border border-slate-200 p-2">Super Administrator SIM-PBJ</td>
-                                <td class="border border-slate-200 p-2">Administrator</td>
-                                <td class="border border-slate-200 p-2"><code>admin</code></td>
-                                <td class="border border-slate-200 p-2"><code>password123</code></td>
-                                <td class="border border-slate-200 p-2 text-center">
-                                    <button type="button" class="btn-autofill-login rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 transition-colors" data-username="admin" data-password="password123">Gunakan Akun Ini</button>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="border border-slate-200 p-2 text-center">1</td>
-                                <td class="border border-slate-200 p-2 font-semibold">Pemohon (User)</td>
-                                <td class="border border-slate-200 p-2">Dr. Ir. Maulana Pengaju, M.T.</td>
-                                <td class="border border-slate-200 p-2">Jurusan TIK</td>
-                                <td class="border border-slate-200 p-2"><code>user_pengaju</code></td>
-                                <td class="border border-slate-200 p-2"><code>password123</code></td>
-                                <td class="border border-slate-200 p-2 text-center">
-                                    <button type="button" class="btn-autofill-login rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 transition-colors" data-username="user_pengaju" data-password="password123">Gunakan Akun Ini</button>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="border border-slate-200 p-2 text-center">2</td>
-                                <td class="border border-slate-200 p-2 font-semibold">Staf Bidang 2</td>
-                                <td class="border border-slate-200 p-2">Ahmad Staff Bidang 2, S.E.</td>
-                                <td class="border border-slate-200 p-2">Bidang II</td>
-                                <td class="border border-slate-200 p-2"><code>staff_b2</code></td>
-                                <td class="border border-slate-200 p-2"><code>password123</code></td>
-                                <td class="border border-slate-200 p-2 text-center">
-                                    <button type="button" class="btn-autofill-login rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 transition-colors" data-username="staff_b2" data-password="password123">Gunakan Akun Ini</button>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="border border-slate-200 p-2 text-center">3</td>
-                                <td class="border border-slate-200 p-2 font-semibold">Wadir II (Persetujuan Pimpinan)</td>
-                                <td class="border border-slate-200 p-2">Prof. Dr. Ir. Wadir Dua, M.Sc.</td>
-                                <td class="border border-slate-200 p-2">Bidang II (Umum &amp; Keuangan)</td>
-                                <td class="border border-slate-200 p-2"><code>wadir2</code></td>
-                                <td class="border border-slate-200 p-2"><code>password123</code></td>
-                                <td class="border border-slate-200 p-2 text-center">
-                                    <button type="button" class="btn-autofill-login rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 transition-colors" data-username="wadir2" data-password="password123">Gunakan Akun Ini</button>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="border border-slate-200 p-2 text-center">4</td>
-                                <td class="border border-slate-200 p-2 font-semibold">Perencanaan</td>
-                                <td class="border border-slate-200 p-2">Budi Perencanaan, S.Kom.</td>
-                                <td class="border border-slate-200 p-2">Subbagian Perencanaan &amp; Anggaran</td>
-                                <td class="border border-slate-200 p-2"><code>perencanaan</code></td>
-                                <td class="border border-slate-200 p-2"><code>password123</code></td>
-                                <td class="border border-slate-200 p-2 text-center">
-                                    <button type="button" class="btn-autofill-login rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 transition-colors" data-username="perencanaan" data-password="password123">Gunakan Akun Ini</button>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="border border-slate-200 p-2 text-center">5</td>
-                                <td class="border border-slate-200 p-2 font-semibold">Unit Pengadaan</td>
-                                <td class="border border-slate-200 p-2">Citra Koordinator PPBJ, M.M.</td>
-                                <td class="border border-slate-200 p-2">Unit Pengadaan</td>
-                                <td class="border border-slate-200 p-2"><code>ppbj</code></td>
-                                <td class="border border-slate-200 p-2"><code>password123</code></td>
-                                <td class="border border-slate-200 p-2 text-center">
-                                    <button type="button" class="btn-autofill-login rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 transition-colors" data-username="ppbj" data-password="password123">Gunakan Akun Ini</button>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="border border-slate-200 p-2 text-center">6</td>
-                                <td class="border border-slate-200 p-2 font-semibold">Pejabat Pengadaan</td>
-                                <td class="border border-slate-200 p-2">Dedi Pejabat Pengadaan, S.T.</td>
-                                <td class="border border-slate-200 p-2">Pejabat Pengadaan (&le; 200 Juta)</td>
-                                <td class="border border-slate-200 p-2"><code>pp_user</code></td>
-                                <td class="border border-slate-200 p-2"><code>password123</code></td>
-                                <td class="border border-slate-200 p-2 text-center">
-                                    <button type="button" class="btn-autofill-login rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 transition-colors" data-username="pp_user" data-password="password123">Gunakan Akun Ini</button>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="border border-slate-200 p-2 text-center">7</td>
-                                <td class="border border-slate-200 p-2 font-semibold">PPK I (Sarana)</td>
-                                <td class="border border-slate-200 p-2">Eko PPK Bidang Sarana, M.T.</td>
-                                <td class="border border-slate-200 p-2">PPK I (> 200 Juta)</td>
-                                <td class="border border-slate-200 p-2"><code>ppk_1</code></td>
-                                <td class="border border-slate-200 p-2"><code>password123</code></td>
-                                <td class="border border-slate-200 p-2 text-center">
-                                    <button type="button" class="btn-autofill-login rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 transition-colors" data-username="ppk_1" data-password="password123">Gunakan Akun Ini</button>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="border border-slate-200 p-2 text-center">8</td>
-                                <td class="border border-slate-200 p-2 font-semibold">PPK 2 (Laboratorium)</td>
-                                <td class="border border-slate-200 p-2">Fajar PPK Bidang Laboratorium, M.Kom.</td>
-                                <td class="border border-slate-200 p-2">PPK II (> 200 Juta)</td>
-                                <td class="border border-slate-200 p-2"><code>ppk_2</code></td>
-                                <td class="border border-slate-200 p-2"><code>password123</code></td>
-                                <td class="border border-slate-200 p-2 text-center">
-                                    <button type="button" class="btn-autofill-login rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 transition-colors" data-username="ppk_2" data-password="password123">Gunakan Akun Ini</button>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="border border-slate-200 p-2 text-center">9</td>
-                                <td class="border border-slate-200 p-2 font-semibold">PPK 3 (Konstruksi)</td>
-                                <td class="border border-slate-200 p-2">Gita PPK Bidang Konstruksi, S.T.</td>
-                                <td class="border border-slate-200 p-2">PPK III (> 200 Juta)</td>
-                                <td class="border border-slate-200 p-2"><code>ppk_3</code></td>
-                                <td class="border border-slate-200 p-2"><code>password123</code></td>
-                                <td class="border border-slate-200 p-2 text-center">
-                                    <button type="button" class="btn-autofill-login rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 transition-colors" data-username="ppk_3" data-password="password123">Gunakan Akun Ini</button>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="border border-slate-200 p-2 text-center">10</td>
-                                <td class="border border-slate-200 p-2 font-semibold">PPK 4 (Jasa)</td>
-                                <td class="border border-slate-200 p-2">Hendra PPK Bidang Jasa Lainnya, S.E.</td>
-                                <td class="border border-slate-200 p-2">PPK IV (> 200 Juta)</td>
-                                <td class="border border-slate-200 p-2"><code>ppk_4</code></td>
-                                <td class="border border-slate-200 p-2"><code>password123</code></td>
-                                <td class="border border-slate-200 p-2 text-center">
-                                    <button type="button" class="btn-autofill-login rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 transition-colors" data-username="ppk_4" data-password="password123">Gunakan Akun Ini</button>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="border border-slate-200 p-2 text-center">11</td>
-                                <td class="border border-slate-200 p-2 font-semibold">Perlengkapan (Serah Terima)</td>
-                                <td class="border border-slate-200 p-2">Indra Staff Perlengkapan, A.Md.</td>
-                                <td class="border border-slate-200 p-2">Unit Perlengkapan</td>
-                                <td class="border border-slate-200 p-2"><code>perlengkapan</code></td>
-                                <td class="border border-slate-200 p-2"><code>password123</code></td>
-                                <td class="border border-slate-200 p-2 text-center">
-                                    <button type="button" class="btn-autofill-login rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 transition-colors" data-username="perlengkapan" data-password="password123">Gunakan Akun Ini</button>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="border border-slate-200 p-2 text-center">12</td>
-                                <td class="border border-slate-200 p-2 font-semibold">Keuangan (Pencairan Dana)</td>
-                                <td class="border border-slate-200 p-2">Joko Bendahara Keuangan, S.Ak.</td>
-                                <td class="border border-slate-200 p-2">Unit Keuangan & Pencairan</td>
-                                <td class="border border-slate-200 p-2"><code>keuangan</code></td>
-                                <td class="border border-slate-200 p-2"><code>password123</code></td>
-                                <td class="border border-slate-200 p-2 text-center">
-                                    <button type="button" class="btn-autofill-login rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 transition-colors" data-username="keuangan" data-password="password123">Gunakan Akun Ini</button>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </section>
         </div>
     </div>
 </body>

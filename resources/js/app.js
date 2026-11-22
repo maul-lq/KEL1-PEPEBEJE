@@ -1,8 +1,11 @@
 /**
- * Entrypoint Skrip Frontend Utama SIM-PBJ Politeknik Negeri Jakarta (app.js)
+ * Informasi File
  *
- * Mengimpor seluruh modul fitur dari resources/js/modules/ berdasarkan domain,
- * mendaftarkannya ke Alpine.js dan objek window, serta mengikat event global halaman.
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+ * Ringkasan : Entrypoint JavaScript utama aplikasi SIM-PBJ yang susun untuk mengimpor seluruh
+ *             modul komponen Alpine.js, mengekspos pabriknya ke objek global `window`, mendaftarkannya
+ *             pada event `alpine:init`, dan menjalankan listener DOM global saat halaman siap.
  */
 
 import { browserNotificationControl, desktopNotificationManager } from './modules/desktop_notification.js';
@@ -54,6 +57,15 @@ import {
     pembayaranRejectRow,
 } from './modules/pembayaran.js';
 
+/**
+ * Peta registrasi komponen Alpine.js lintas halaman SIM-PBJ.
+ *
+ * Tujuan: memusatkan seluruh factory komponen agar dapat diekspos serempak baik lewat
+ * properti global `window` maupun `Alpine.data()` tanpa duplikasi registrasi di setiap Blade view.
+ * Parameter: Berisi pasangan nama komponen dan fungsi pabriknya.
+ * Nilai kembali: Objek peta factory siap iterasi untuk registrasi global dan Alpine.
+ * Contoh pemanggilan: `Alpine.data('trackingManager', alpineComponents.trackingManager);`
+ */
 const alpineComponents = {
     desktopNotificationManager,
     browserNotificationControl,
@@ -96,10 +108,20 @@ const alpineComponents = {
     pembayaranRejectRow,
 };
 
+// tempelkan tiap factory ke window supaya atribut x-data="namaKomponen()" selalu teresolusi sebelum maupun sesudah alpine:init.
 Object.entries(alpineComponents).forEach(([name, factory]) => {
     window[name] = factory;
 });
 
+/**
+ * Pendaftaran komponen ke registri resmi Alpine saat kerangka Alpine menginisialisasi dirinya.
+ *
+ * Tujuan: memastikan komponen tersedia melalui `Alpine.data` sehingga kompatibel dengan
+ * ekspresi x-data berbasis registri maupun pemanggilan fungsi langsung.
+ * Parameter: Callback event `alpine:init`.
+ * Nilai kembali: Tidak mengembalikan nilai.
+ * Contoh pemanggilan: Dipicu otomatis oleh pustaka Alpine.js saat startup.
+ */
 document.addEventListener('alpine:init', () => {
     if (window.Alpine) {
         Object.entries(alpineComponents).forEach(([name, factory]) => {
@@ -108,6 +130,15 @@ document.addEventListener('alpine:init', () => {
     }
 });
 
+/**
+ * Inisialisasi pengikat event DOM global setelah struktur dokumen HTML selesai dimuat.
+ *
+ * Tujuan: menjalankan delegasi tombol global, autofill demo login, dan pemilih SPP cair
+ * tepat setelah DOM tersedia tanpa memerlukan inline `<script>` di file Blade.
+ * Parameter: Callback event `DOMContentLoaded`.
+ * Nilai kembali: Tidak mengembalikan nilai.
+ * Contoh pemanggilan: Dipicu otomatis oleh browser sesudah parsing HTML selesai.
+ */
 document.addEventListener('DOMContentLoaded', () => {
     initGlobalDomHandlers();
     initLoginAutofill();

@@ -1,3 +1,28 @@
+{{--
+  Informasi File
+
+  Penulis   : Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : Komponen Blade ini susun untuk dialog modal reusable berbasis Alpine (`modalDialog`)
+              dengan backdrop blur, animasi transisi, jebakan fokus keyboard a11y, dan slot header/footer.
+--}}
+{{--
+  Komentar Deskriptif: Komponen Dialog Modal Reusable (`<x-modal>`).
+
+  Tujuan: menyediakan pembungkus modal terpusat yang mendukung pembukaan/penutupan lewat
+          event global `open-modal`/`close-modal`, lebar responsif, serta navigasi keyboard Tab/Escape.
+  Parameter (@props & Slots):
+    - `id` (string, wajib): ID DOM unik sasaran event `open-modal` / `close-modal`.
+    - `title` (string|null), `subtitle` (string|null): Judul dan subjudul header standar.
+    - `maxWidth` (string, default 'lg'): Kunci ukuran lebar maksimum modal ('sm'..'5xl', '596', 'full').
+    - `show` (bool, default false): State buka awal modal.
+    - `focusable` (bool, default true): Mengaktifkan focus-trap keyboard di dalam dialog.
+    - `borderTop` (string|null): Kelas border aksen atas opsional.
+    - Slot `$header`, `$slot` (body), dan `$footer`.
+  Nilai kembali: Elemen HTML dialog modal aksesibel yang dikontrol `modalDialog`.
+  Contoh pemanggilan:
+    `<x-modal id="modal-detail" title="Detail Berkas" maxWidth="2xl">...</x-modal>`
+--}}
 @props([
     'id',
     'title' => null,

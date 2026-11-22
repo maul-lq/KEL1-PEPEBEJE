@@ -1,7 +1,26 @@
+{{--
+  Informasi File
+
+  Penulis   : Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : View Blade ini buat untuk halaman daftar Manajemen Paket Pengadaan dan Penugasan
+              PPK mencakup 4 KPI jalur pengadaan, bilah filter paket, tabel paket, serta modal
+              pecah jenis pengadaan dan alih tugas PPK.
+--}}
 @extends('layouts.app')
 
 @section('title', 'Manajemen Paket Pengadaan & Penugasan PPK - SIM-PBJ PNJ')
 
+{{--
+  Komentar Deskriptif: Seksi Konten Daftar Paket Pengadaan & Aksi Penugasan (`paket.index`).
+
+  Tujuan: mengelompokkan tombol aksi manajerial sesuai izin RBAC (`permohonan.split_jenis`,
+          `paket.reassign_ppk`, `paket.create`) dan menampilkan distribusi paket menurut ambang HPS.
+  Parameter (Data dari PaketPengadaanController::index):
+    - `$paketList` (LengthAwarePaginator<PaketPengadaan>), `$stats` (array).
+  Nilai kembali: Halaman HTML daftar paket pengadaan beserta dialog modal terkait.
+  Contoh pemanggilan: `return view('paket.index', compact('paketList', 'stats', ...));`
+--}}
 @section('content')
 <div x-data="paketIndexPage" class="space-y-6">
 

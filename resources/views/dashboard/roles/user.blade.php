@@ -1,5 +1,21 @@
-{{-- resources/views/dashboard/roles/user.blade.php --}}
-{{-- Modul RBAC: Pemohon / Unit Pengusul Pengadaan (permohonan_user - Figma Node 484:3385) --}}
+{{--
+  Informasi File
+
+  Penulis   : Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : Sub-view dasbor ini susun untuk modul Pemohon / Unit Pengusul Pengadaan
+              memuat KPI pengajuan aktif/revisi/selesai/notifikasi, daftar usulan yang perlu revisi,
+              serta tabel aktivitas terbaru pengajuan milik unit pengusul.
+--}}
+{{--
+  Komentar Deskriptif: Panel Workspace Dasbor Pemohon / Unit Pengusul (`dashboard.roles.user`).
+
+  Tujuan: menyorot usulan berstatus `ditolak` atau `perlu_revisi` di panel kiri bersama catatan
+          penolakannya agar unit pengusul cepat memperbaiki berkas tanpa mencari manual di daftar.
+  Parameter: `$user` (User), `$stats` (array), `$roleData` (array).
+  Nilai kembali: Fragmen HTML dasbor pengusul unit kerja sesuai desain workspace Figma.
+  Contoh pemanggilan: `@includeIf('dashboard.roles.user', [...])`
+--}}
 @php
     $permohonanRoute = $user->hasAnyPermission(['permohonan.view_own', 'permohonan.create']) ? route('permohonan.index') : null;
     $revisiRoute = $user->hasAnyPermission(['permohonan.view_own', 'permohonan.revisi']) ? route('permohonan.index', ['status' => 'revisi']) : $permohonanRoute;

@@ -1,5 +1,15 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : Controller ini bangun untuk mengelola siklus pengajuan permohonan pengadaan
+ *             unit kerja, mencakup daftar riwayat, detail pelacakan, pengajuan baru, revisi surat,
+ *             pembatalan, serta sinkronisasi kelulusan verifikasi paralel menuju PPBJ.
+ */
+
 namespace App\Http\Controllers;
 
 use App\Models\AlokasiMAK;
@@ -19,25 +29,61 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 
 /**
- * Controller Permohonan Pengadaan (PermohonanPengadaanController)
+ * Mengelola siklus pengajuan usulan surat permohonan pengadaan barang dan jasa oleh unit kerja.
  *
- * Mengelola siklus pengajuan usulan surat permohonan pengadaan barang/jasa oleh unit kerja (User).
- * Mencakup pendaftaran usulan baru, revisi pasca penolakan, pelacakan status, dan pembatalan usulan.
+ * Tujuan: menyatukan alur CRUD permohonan, revisi pasca penolakan tanpa pemotongan pagu MAK ganda,
+ * serta evaluasi kelulusan paralel Bidang II, Perencanaan, Wadir II, dan PPK dalam controller ini.
+ *
+ * Contoh pemanggilan:
+ * `$response = app(PermohonanPengadaanController::class)->index($request);`
  */
 class PermohonanPengadaanController extends Controller
 {
+    /**
+     * Menginisialisasi dependensi layanan notifikasi pengadaan ke dalam controller.
+     *
+     * Tujuan: menyuntikkan layanan notifikasi lewat konstruktor agar setiap transisi
+     * status pengajuan dan revisi otomatis memberi kabar ke verifikator terkait.
+     *
+     * @param  PengadaanNotificationService  $notificationService  Layanan pengirim notifikasi alur PBJ.
+     * @return void
+     *
+     * Contoh pemanggilan:
+     * `new PermohonanPengadaanController(app(PengadaanNotificationService::class));`
+     */
     public function __construct(
         protected PengadaanNotificationService $notificationService
     ) {}
 
     /**
-     * Menampilkan riwayat usulan permohonan milik user login beserta jejak penolakan.
+     * Menampilkan daftar riwayat usulan permohonan sesuai cakupan hak akses pengguna.
+     *
+     * Tujuan: menyediakan titik masuk rute resource standar yang mendelegasikan prosesnya
+     * ke `permohonanIndex` agar kompatibel dengan penamaan rute lama maupun baru.
+     *
+     * @param  Request  $request  Permintaan HTTP berisi parameter pencarian atau pilihan berkas aktif.
+     * @return View Tampilan halaman daftar permohonan pengadaan.
+     *
+     * Contoh pemanggilan:
+     * `Route::get('/permohonan', [PermohonanPengadaanController::class, 'index']);`
      */
     public function index(Request $request): View
     {
         return $this->permohonanIndex($request);
     }
 
+    /**
+     * Memuat koleksi permohonan pengadaan beserta relasi tracking dan isolasi unit kerja.
+     *
+     * Tujuan: menyaring usulan agar pengusul tanpa izin `permohonan.view_all` hanya dapat
+     * melihat berkas miliknya sendiri serta menyembunyikan surat induk yang sudah digantikan revisi.
+     *
+     * @param  Request  $request  Permintaan HTTP dari pengguna terautentikasi.
+     * @return View Halaman indeks permohonan dengan daftar berkas dan rincian tracking.
+     *
+     * Contoh pemanggilan:
+     * `$view = $this->permohonanIndex($request);`
+     */
     public function permohonanIndex(Request $request): View
     {
         $user = Auth::user();
@@ -53,9 +99,9 @@ class PermohonanPengadaanController extends Controller
             'paketPengadaan.pembayaran.transaksiPencairan',
             'paketPengadaan.reminders',
         ])
-            ->where('status_permohonan', '!=', 'digantikan_oleh_revisi');
+            ->where('status_permohonan', '!=', 'digantikan_oleh_revisi'); // sembunyikan arsip induk revisi supaya tidak tampil ganda di daftar aktif.
 
-        // Jika user yang login hanya memiliki izin melihat usulan sendiri (tanpa view_all), filter berdasarkan ID user
+        // batasi query berdasarkan ID pengusul bila user hanya memegang permohonan.view_own agar data unit lain terisolasi.
         if ($user && ! $user->hasPermission('permohonan.view_all') && $user->hasPermission('permohonan.view_own')) {
             $query->where('id_user', $user->id_user);
         } elseif ($user && ! $user->hasPermission('permohonan.view_all') && ! $user->hasPermission('permohonan.delete')) {
@@ -88,13 +134,33 @@ class PermohonanPengadaanController extends Controller
     }
 
     /**
-     * Menampilkan detail tracking & informasi permohonan pengadaan.
+     * Menampilkan halaman detail dan tracking siklus permohonan pengadaan berdasarkan nomor surat.
+     *
+     * Tujuan: menyediakan metode `show` standar yang meneruskan pemanggilan ke `permohonanShow`.
+     *
+     * @param  string  $id  Nomor surat permohonan pengadaan yang ingin ditinjau.
+     * @return View Halaman detail permohonan pengadaan.
+     *
+     * Contoh pemanggilan:
+     * `Route::get('/permohonan/{id}', [PermohonanPengadaanController::class, 'show']);`
      */
     public function show(string $id): View
     {
         return $this->permohonanShow($id);
     }
 
+    /**
+     * Mengambil data lengkap satu permohonan pengadaan beserta daftar MAK dan akun PPK aktif.
+     *
+     * Tujuan: memuat seluruh relasi verifikasi hingga pembayaran agar satu halaman detail dapat
+     * menampilkan progres 8 siklus PBJ sekaligus aksi sesuai peran pengguna.
+     *
+     * @param  string  $id  Nomor surat permohonan target.
+     * @return View Halaman detail permohonan (`permohonan.show`).
+     *
+     * Contoh pemanggilan:
+     * `$view = $this->permohonanShow('001/PNJ/2026');`
+     */
     public function permohonanShow(string $id): View
     {
         $permohonan = PermohonanPengadaan::with([
@@ -115,12 +181,30 @@ class PermohonanPengadaanController extends Controller
 
     /**
      * Menampilkan formulir pendaftaran usulan permohonan pengadaan baru berbasis Srikandi.
+     *
+     * Tujuan: menyediakan endpoint `create` standar yang memanggil `permohonanCreate`.
+     *
+     * @return View Halaman formulir pengajuan permohonan baru.
+     *
+     * Contoh pemanggilan:
+     * `Route::get('/permohonan/create', [PermohonanPengadaanController::class, 'create']);`
      */
     public function create(): View
     {
         return $this->permohonanCreate();
     }
 
+    /**
+     * Memvalidasi izin pembuatan permohonan dan menyiapkan daftar unit kerja pada formulir.
+     *
+     * Tujuan: menolak akses dengan 403 bila pengguna tidak memiliki izin `permohonan.create`
+     * agar hanya pengusul berwenang yang dapat membuka formulir pengajuan.
+     *
+     * @return View Halaman `permohonan.create` dengan variabel `$units`.
+     *
+     * Contoh pemanggilan:
+     * `$view = $this->permohonanCreate();`
+     */
     public function permohonanCreate(): View
     {
         if (! Auth::user()?->hasPermission('permohonan.create')) {
@@ -134,12 +218,32 @@ class PermohonanPengadaanController extends Controller
 
     /**
      * Memproses pengajuan usulan permohonan baru ke Bidang 2 (Alur Persetujuan Awal Berantai).
+     *
+     * Tujuan: menyediakan metode `store` resource yang meneruskan request ke `storePermohonan`.
+     *
+     * @param  Request  $request  Payload formulir surat permohonan dan berkas lampiran.
+     * @return RedirectResponse Pengalihan halaman setelah penyimpanan berhasil atau gagal.
+     *
+     * Contoh pemanggilan:
+     * `Route::post('/permohonan', [PermohonanPengadaanController::class, 'store']);`
      */
     public function store(Request $request): RedirectResponse
     {
         return $this->storePermohonan($request);
     }
 
+    /**
+     * Memvalidasi dan menyimpan usulan permohonan pengadaan baru beserta berkas KAK dan lampiran.
+     *
+     * Tujuan: mewajibkan izin `permohonan.create`, memastikan nomor surat unik, menyimpan
+     * dokumen KAK PDF dan lampiran pendukung, lalu mengirim notifikasi ke Staf Bidang II.
+     *
+     * @param  Request  $request  Permintaan POST pengajuan usulan baru.
+     * @return RedirectResponse Redirect ke halaman daftar permohonan dengan flash status.
+     *
+     * Contoh pemanggilan:
+     * `$response = $this->storePermohonan($request);`
+     */
     public function storePermohonan(Request $request): RedirectResponse
     {
         $user = Auth::user();
@@ -285,14 +389,34 @@ class PermohonanPengadaanController extends Controller
     }
 
     /**
-     * Memproses pengajuan revisi surat usulan permohonan yang sebelumnya ditolak/perlu revisi secara in-place (Opsi A).
-     * Mendukung pembaruan in-place maupun pewarisan ke nomor surat baru tanpa pemotongan ganda saldo pagu MAK.
+     * Memproses pengajuan revisi surat usulan permohonan yang sebelumnya ditolak atau perlu perbaikan.
+     *
+     * Tujuan: menyediakan alias `revisi` yang memanggil `revisiPermohonan` untuk mendukung
+     * pembaruan in-place maupun penerbitan nomor surat revisi baru tanpa memotong pagu MAK dua kali.
+     *
+     * @param  Request  $request  Data perubahan usulan dan dokumen revisi.
+     * @return RedirectResponse Redirect ke halaman indeks permohonan setelah revisi disimpan.
+     *
+     * Contoh pemanggilan:
+     * `Route::post('/permohonan/revisi', [PermohonanPengadaanController::class, 'revisi']);`
      */
     public function revisi(Request $request): RedirectResponse
     {
         return $this->revisiPermohonan($request);
     }
 
+    /**
+     * Menjalankan logika revisi in-place atau migrasi nomor surat baru sambil mewarisi persetujuan aman.
+     *
+     * Tujuan: menjaga agar alokasi MAK yang sudah terpotong di Perencanaan serta persetujuan PPK
+     * atau Wadir II yang belum menolak tetap terawat tanpa pemotongan saldo pagu MAK ganda.
+     *
+     * @param  Request  $request  Permintaan HTTP berisi nomor surat lama, perubahan field, dan unggahan baru.
+     * @return RedirectResponse Redirect menuju daftar permohonan dengan nomor revisi terbaru.
+     *
+     * Contoh pemanggilan:
+     * `$response = $this->revisiPermohonan($request);`
+     */
     public function revisiPermohonan(Request $request): RedirectResponse
     {
         $user = Auth::user();
@@ -616,16 +740,38 @@ class PermohonanPengadaanController extends Controller
     }
 
     /**
-     * Membatalkan dan menghapus usulan permohonan pengadaan status draft/diajukan/ditolak.
+     * Membatalkan dan menghapus usulan permohonan pengadaan melalui endpoint resource standar.
+     *
+     * Tujuan: mendelegasikan aksi hapus ke `destroyPermohonan` agar penanganan nomor surat
+     * yang mengandung karakter slash ter-encode tetap konsisten.
+     *
+     * @param  string  $id  Nomor surat permohonan (bisa dalam bentuk raw maupun URL-encoded).
+     * @return RedirectResponse Redirect ke daftar permohonan setelah penghapusan.
+     *
+     * Contoh pemanggilan:
+     * `Route::delete('/permohonan/{id}', [PermohonanPengadaanController::class, 'destroy']);`
      */
     public function destroy(string $id): RedirectResponse
     {
         return $this->destroyPermohonan($id);
     }
 
+    /**
+     * Memvalidasi kepemilikan atau izin hapus lalu menjalankan cascade delete permohonan dalam transaksi DB.
+     *
+     * Tujuan: memastikan pengusul hanya bisa membatalkan usulannya sendiri saat statusnya masih
+     * draft, diajukan, atau ditolak agar berkas yang sudah masuk paket tidak hilang sepihak.
+     *
+     * @param  string  $id  Nomor surat permohonan target penghapusan.
+     * @return RedirectResponse Redirect ke halaman indeks permohonan dengan status penghapusan.
+     *
+     * Contoh pemanggilan:
+     * `$response = $this->destroyPermohonan($nomorSurat);`
+     */
     public function destroyPermohonan(string $id): RedirectResponse
     {
         $user = Auth::user();
+        // cek variasi urldecode karena nomor surat dinas sering memuat tanda garis miring (/).
         $permohonan = PermohonanPengadaan::where('nomor_surat', $id)
             ->orWhere('nomor_surat', urldecode($id))
             ->orWhere('nomor_surat', rawurldecode($id))
@@ -638,6 +784,7 @@ class PermohonanPengadaanController extends Controller
                 abort(403, 'Akses Ditolak: Anda hanya dapat membatalkan permohonan milik sendiri.');
             }
 
+            // kunci pembatalan mandiri bila berkas sudah diverifikasi atau diproses paket agar integritas audit terjaga.
             if (! in_array($permohonan->status_permohonan, ['draft', 'diajukan', 'ditolak'], true)) {
                 return redirect()->route('permohonan.index')->with('error', 'Permohonan yang telah diverifikasi atau diproses paket tidak dapat dibatalkan.');
             }
@@ -663,9 +810,15 @@ class PermohonanPengadaanController extends Controller
     }
 
     /**
-     * Sinkronisasi otomatis status seluruh usulan yang telah disetujui penuh secara paralel
-     * (MAK teralokasi di Perencanaan, Wadir 2 menyetujui, dan PPK menyetujui)
-     * agar otomatis berstatus 'disetujui' dan siap diproses oleh PPBJ.
+     * Melakukan sinkronisasi otomatis status usulan yang telah lolos seluruh syarat verifikasi paralel.
+     *
+     * Tujuan: mengevaluasi pola AND-join (MAK Perencanaan tersedia + ACC Wadir 2 + ACC PPK)
+     * agar usulan yang sudah memenuhi tiga syarat tersebut langsung naik ke status `disetujui`.
+     *
+     * @return void
+     *
+     * Contoh pemanggilan:
+     * `app(PermohonanPengadaanController::class)->syncAllPermohonanDisetujuiParalel();`
      */
     public function syncAllPermohonanDisetujuiParalel(): void
     {
@@ -691,7 +844,7 @@ class PermohonanPengadaanController extends Controller
                 ->where('status_keputusan', 'disetujui')
                 ->isNotEmpty();
 
-            // Evaluasi kelulusan paralel (AND-join): Perencanaan (MAK) + Wadir 2 (ACC) + PPK (ACC)
+            // evaluasi kelulusan paralel (AND-join): Perencanaan (MAK) + Wadir 2 (ACC) + PPK (ACC) wajib terpenuhi bersama.
             $ppkAcc = $p->verifikasiParalel
                 ->where('role_verifikator', VerifikasiParalel::ROLE_PPK)
                 ->where('status_keputusan', 'disetujui')
@@ -717,9 +870,16 @@ class PermohonanPengadaanController extends Controller
     }
 
     /**
-     * Menyimpan berkas multi-upload dokumen_lampiran[] dan membangun array metadata lampiran.
+     * Menyimpan berkas multi-upload `dokumen_lampiran[]` dan membangun array metadata lampiran.
      *
-     * @return array<int, array{name: string, path: string, url: string, type: string, size: string, label: string}>
+     * Tujuan: memisahkan penyimpanan fisik multi-file lampiran ke folder publik agar data JSON
+     * lampiran permohonan menyimpan nama asli, path penyimpanan, tipe MIME, dan ukuran seragam.
+     *
+     * @param  Request  $request  Permintaan HTTP yang membawa array file `dokumen_lampiran`.
+     * @return array<int, array{name: string, path: string, url: string, type: string, size: string, label: string}> Daftar metadata lampiran tersimpan.
+     *
+     * Contoh pemanggilan:
+     * `$lampiran = $this->buildDokumenLampiranEntries($request);`
      */
     private function buildDokumenLampiranEntries(Request $request): array
     {

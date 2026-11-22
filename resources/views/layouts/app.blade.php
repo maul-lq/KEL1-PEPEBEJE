@@ -1,3 +1,22 @@
+{{--
+  Informasi File
+
+  Penulis   : DendyRafi, Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : Layout utama aplikasi ini kami rancang untuk kerangka global SIM-PBJ meliputi
+              sidebar navigasi dinamis berbasis RBAC (`appShell`), top banner notifikasi dan profil
+              (`headerNotificationBar`), toast real-time (`desktopNotificationManager`), serta
+              modal pratinjau dokumen PDF global.
+--}}
+{{--
+  Komentar Deskriptif: Template Layout Induk Aplikasi SIM-PBJ (`layouts.app`).
+
+  Tujuan: Kami memusatkan kerangka navigasi vertikal responsif yang menyaring menu sesuai izin RBAC
+          pengguna login, memuat aset Vite dan Alpine.js, serta menampilkan pesan flash dan toast.
+  Parameter (Blade Sections): `@yield('title')`, `@yield('content')`.
+  Nilai kembali: Dokumen HTML5 lengkap dengan slot konten halaman anak di bagian utama.
+  Contoh pemanggilan: `@extends('layouts.app')`
+--}}
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -397,7 +416,7 @@
         <!-- Garis Pembatas Bawah -->
         <div class="mx-1 my-1 h-px bg-white/15 w-full"></div>
     
-        <!-- 15. PROFIL SAYA (All Roles) -->
+        <!-- 15. PROFIL (All Roles) -->
         @php $aProf = request()->routeIs('profile.*'); @endphp
         <div class="w-full">
             <a href="{{ route('profile.index') }}" 
@@ -660,7 +679,7 @@
                     <!-- Garis Pembatas Horizontal (Figma Line 27 - 751:7839) -->
                     <div class="my-[18px] h-px w-full bg-[#CCCCCC]"></div>
 
-                    <!-- Menu Aksi: Profil Saya & Logout (Figma 751:7840 & 751:7845) -->
+                    <!-- Menu Aksi: Profil & Logout (Figma 751:7840 & 751:7845) -->
                     <div class="space-y-2">
                         <a href="{{ route('profile.index') }}"
                            class="flex items-center gap-[26px] rounded-lg px-[14px] py-2.5 text-[16px] font-normal text-black hover:bg-slate-50 transition-colors">

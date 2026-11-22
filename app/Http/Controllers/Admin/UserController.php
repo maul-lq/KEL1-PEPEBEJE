@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : menulis controller Admin\UserController ini untuk mengelola CRUD akun pengguna sivitas PNJ oleh Administrator beserta penjagaan batas 1 akun PP aktif dan larangan hapus akun sendiri.
+ */
+
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
@@ -16,47 +24,50 @@ use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 /**
- * Controller Manajemen Pengguna Administrator (Admin UserController)
+ * Controller Manajemen Pengguna (Admin\UserController)
  *
- * Bertanggung jawab melayani fungsionalitas CRUD Pengguna (User Management) untuk role Admin:
- * - Menampilkan daftar seluruh pengguna sivitas PNJ dengan filter peran, unit kerja, status akun, dan pencarian multi-kolom.
- * - Membuat akun pengguna baru secara langsung dengan penetapan role definitif dan unit kerja.
- * - Memperbarui profil, kredensial, role, atau unit kerja pengguna.
- * - Menghapus akun pengguna dari sistem dengan proteksi pencegahan hapus akun sendiri (self-deletion guard).
- * - Menegakkan aturan institusi FR 2.1 (maksimal 1 akun Pejabat Pengadaan / PP aktif).
+ * memusatkan seluruh operasi administrasi akun (daftar terfilter, tambah user langsung aktif, edit profil/role,
+ * dan hapus akun) di resource controller ini di bawah izin `admin.user_manage`.
+ *
+ * Parameter konstruktor: Tidak ada.
+ * Nilai kembali         : Instance resource controller yang didaftarkan melalui `Route::resource('users', ...)`.
+ *
+ * Contoh pemanggilan:
+ * `Route::resource('users', AdminUserController::class)->middleware('role:admin.user_manage');`
  */
 class UserController extends Controller
 {
     /**
-     * Menampilkan daftar pengguna dengan paginasi, statistik akun, dan pemfilteran terintegrasi.
+     * menampilkan daftar akun pengguna terpaginasi beserta filter peran, unit, status akun, pencarian multi-kolom, dan kartu statistik.
+     *
+     * @param  Request  $request  membaca query filter (`role`, `id_role`, `kode_unit`, `status_aktif`, `status_registrasi`, `search`).
+     * @return View|JsonResponse mengembalikan view `admin.users` atau payload JSON daftar pengguna dan statistik.
+     *
+     * Contoh pemanggilan:
+     * `GET /admin/users?role=ppk&status_aktif=1`
      */
     public function index(Request $request): View|JsonResponse
     {
         $query = User::with(['unit', 'roleEntity']);
 
-        // Filter berdasarkan peran pengguna
         if ($request->filled('role')) {
             $query->withRole($request->role);
         } elseif ($request->filled('id_role')) {
             $query->where('id_role', $request->id_role);
         }
 
-        // Filter berdasarkan unit kerja
         if ($request->filled('kode_unit')) {
             $query->where('kode_unit', $request->kode_unit);
         }
 
-        // Filter status aktif (1 = aktif, 0 = nonaktif)
         if ($request->filled('status_aktif')) {
             $query->where('status_aktif', filter_var($request->status_aktif, FILTER_VALIDATE_BOOLEAN));
         }
 
-        // Filter status verifikasi registrasi
         if ($request->filled('status_registrasi')) {
             $query->where('status_registrasi', $request->status_registrasi);
         }
 
-        // Pencarian multi-kolom
         if ($request->filled('search')) {
             $search = trim($request->search);
             $query->where(function ($q) use ($search) {
@@ -70,11 +81,9 @@ class UserController extends Controller
 
         $users = $query->orderBy('nama')->paginate(15)->withQueryString();
 
-        // Data pendukung untuk dropdown filter & modal CRUD
         $availableRoles = Role::orderBy('nama_role')->get();
         $availableUnits = Unit::orderBy('nama_unit')->get();
 
-        // Statistik ringkas untuk kartu indikator
         $stats = [
             'total_users' => User::count(),
             'active_users' => User::where('status_aktif', true)->count(),
@@ -98,13 +107,19 @@ class UserController extends Controller
     }
 
     /**
-     * Membuat akun pengguna baru dalam sistem secara langsung oleh Administrator.
+     * membuat akun pengguna baru secara langsung dari panel Admin dengan menetapkan `id_role` dan memvalidasi keunikan akun PP aktif.
      *
-     * @throws ValidationException Jika melanggar aturan batasan tunggal akun PP aktif (FR 2.1)
+     * @param  Request  $request  memvalidasi NIP, username, email, kata sandi, peran, unit kerja, dan status aktif.
+     * @return RedirectResponse|JsonResponse mengembalikan redirect ke indeks pengguna atau JSON status 201 Created.
+     *
+     * @throws ValidationException Jika mencoba mengaktifkan lebih dari satu akun Pejabat Pengadaan (PP).
+     *
+     * Contoh pemanggilan:
+     * `POST /admin/users`
      */
     public function store(Request $request): RedirectResponse|JsonResponse
     {
-        // Auto-fill username dari prefix email jika tidak dikirimkan eksplisit
+        // menurunkan username otomatis dari prefix email jika admin mengosongkan kolom username pada modal cepat.
         if (! $request->filled('username') && $request->filled('email')) {
             $request->merge([
                 'username' => explode('@', $request->email)[0],
@@ -126,7 +141,7 @@ class UserController extends Controller
             'kode_unit' => ['nullable', 'string', 'exists:units,kode_unit'],
         ]);
 
-        // Default status aktif bernilai true jika dibuat langsung oleh Admin
+        // mengaktifkan akun secara default saat dibuat langsung oleh Admin kecuali Admin menonaktifkannya secara eksplisit.
         $validated['status_aktif'] = $request->has('status_aktif') ? (bool) $request->status_aktif : true;
 
         if (empty($validated['status_registrasi'])) {
@@ -135,7 +150,6 @@ class UserController extends Controller
                 : User::STATUS_REGISTRASI_MENUNGGU;
         }
 
-        // Resolusi peran tunggal melalui relasi roles (id_role)
         $roleRecord = ! empty($validated['id_role'])
             ? Role::findOrFail($validated['id_role'])
             : Role::where('nama_role', $validated['role'])->firstOrFail();
@@ -143,7 +157,7 @@ class UserController extends Controller
         $validated['id_role'] = $roleRecord->id;
         unset($validated['role']);
 
-        // Penegakan Aturan Bisnis FR 2.1: Batasan 1 user = 1 akun Pejabat Pengadaan (PP) aktif
+        // menegakkan aturan FR 2.1 bahwa institusi hanya mengizinkan tepat 1 akun Pejabat Pengadaan (PP) berstatus aktif.
         if ($roleRecord->nama_role === User::ROLE_PP && $validated['status_aktif']) {
             $existingPP = User::withRole(User::ROLE_PP)->where('status_aktif', true)->exists();
             if ($existingPP) {
@@ -153,12 +167,10 @@ class UserController extends Controller
             }
         }
 
-        // Pengisian nama alias jika kosong
         $validated['name'] = $validated['nama'];
 
         $user = User::create($validated);
 
-        // Catat jejak audit jika class AuditLog tersedia
         if (class_exists(AuditLog::class) && Auth::check()) {
             AuditLog::catat(
                 Auth::id(),
@@ -185,7 +197,14 @@ class UserController extends Controller
     }
 
     /**
-     * Menampilkan detail profil dan akun pengguna tertentu.
+     * menampilkan rincian profil dan relasi unit/peran milik satu pengguna tertentu.
+     *
+     * @param  Request  $request  memeriksa apakah klien membutuhkan respons JSON atau view Blade.
+     * @param  User  $user  menerima instance User target via route model binding.
+     * @return View|JsonResponse mengembalikan view `admin.users_show` atau JSON detail user.
+     *
+     * Contoh pemanggilan:
+     * `GET /admin/users/{user}`
      */
     public function show(Request $request, User $user): View|JsonResponse
     {
@@ -202,9 +221,16 @@ class UserController extends Controller
     }
 
     /**
-     * Memperbarui informasi profil, peran, atau status akun pengguna.
+     * memperbarui data akun, mutasi peran, atau status keaktifan pengguna dengan tetap menjaga keunikan 1 akun PP aktif.
      *
-     * @throws ValidationException Jika pembaruan melanggar batas 1 PP aktif institusi (FR 2.1)
+     * @param  Request  $request  memvalidasi atribut unik dengan mengecualikan ID user yang sedang disunting.
+     * @param  User  $user  menerima model User sasaran pembaruan.
+     * @return RedirectResponse|JsonResponse mengembalikan redirect sukses atau JSON data user terbarui.
+     *
+     * @throws ValidationException Jika pembaruan peran/status melanggar batas 1 akun PP aktif.
+     *
+     * Contoh pemanggilan:
+     * `PUT /admin/users/{user}`
      */
     public function update(Request $request, User $user): RedirectResponse|JsonResponse
     {
@@ -225,7 +251,6 @@ class UserController extends Controller
 
         $validated['status_aktif'] = $request->has('status_aktif') ? (bool) $request->status_aktif : (bool) $user->status_aktif;
 
-        // Resolusi peran tunggal melalui relasi roles (id_role)
         $roleRecord = ! empty($validated['id_role'])
             ? Role::findOrFail($validated['id_role'])
             : Role::where('nama_role', $validated['role'])->firstOrFail();
@@ -233,7 +258,6 @@ class UserController extends Controller
         $validated['id_role'] = $roleRecord->id;
         unset($validated['role']);
 
-        // Penegakan Aturan Bisnis FR 2.1: Batasan 1 user = 1 akun PP aktif
         if ($roleRecord->nama_role === User::ROLE_PP && $validated['status_aktif']) {
             $existingPP = User::withRole(User::ROLE_PP)
                 ->where('status_aktif', true)
@@ -246,7 +270,7 @@ class UserController extends Controller
             }
         }
 
-        // Hapus password dari array jika dikosongkan agar hash password lama tidak tertimpa
+        // menghapus key password saat kolom dikosongkan agar admin bisa mengedit data profil tanpa mereset kata sandi pengguna.
         if (empty($validated['password'])) {
             unset($validated['password']);
         }
@@ -281,13 +305,18 @@ class UserController extends Controller
     }
 
     /**
-     * Menghapus akun pengguna dari sistem.
+     * menghapus akun pengguna dari sistem dengan mencegah Administrator menghapus akunnya sendiri yang sedang aktif login.
      *
-     * Dilengkapi proteksi pencegahan hapus akun sendiri (self-deletion guard).
+     * @param  Request  $request  mengevaluasi format respons HTML redirect atau JSON 422 bila guard self-deletion terpicu.
+     * @param  User  $user  menerima model User yang akan dihapus.
+     * @return RedirectResponse|JsonResponse mengembalikan redirect ke indeks pengguna atau JSON hasil penghapusan.
+     *
+     * Contoh pemanggilan:
+     * `DELETE /admin/users/{user}`
      */
     public function destroy(Request $request, User $user): RedirectResponse|JsonResponse
     {
-        // Proteksi: Admin tidak boleh menghapus akun yang sedang login
+        // memblokir penghapusan diri sendiri (422 / flash error) agar sistem tidak pernah kehilangan seluruh akun admin yang aktif login.
         if ($user->id_user === Auth::id()) {
             $errorMsg = 'Aksi ditolak: Anda tidak dapat menghapus akun Anda sendiri.';
             if ($request->expectsJson() || $request->is('api/*')) {

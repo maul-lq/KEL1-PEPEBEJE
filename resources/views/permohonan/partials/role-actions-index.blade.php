@@ -1,8 +1,21 @@
-{{-- resources/views/permohonan/partials/role-actions-index.blade.php
-     Banner aksi cepat di bagian bawah panel detail ringkas (mode split pada permohonan/index.blade.php).
-     Berbasis Hak Akses RBAC & Permissions:
-     - Role verifikator berform (Wadir 2, Staf Bidang 2, Perencanaan, PPK) -> tombol membuka mode fullscreen.
-     - Role modul pengadaan lain (PPBJ, PP, Perlengkapan, Keuangan)       -> tombol langsung ke halaman modulnya. --}}
+{{--
+  Informasi File
+
+  Penulis   : DendyRafi, Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : Partial Blade ini kami rancang untuk menampilkan banner aksi cepat berbasis izin RBAC
+              di bagian bawah panel detail ringkas pada halaman `permohonan/index.blade.php`.
+--}}
+{{--
+  Komentar Deskriptif: Partial Banner Aksi Cepat Peran di Indeks Permohonan (`permohonan.partials.role-actions-index`).
+
+  Tujuan: Kami mengarahkan verifikator awal (Bidang II, Wadir II, Perencanaan, PPK) langsung ke mode
+          fullscreen detail form verifikasi, sedangkan aktor tahap lanjut (PPBJ, PP, Perlengkapan, Keuangan)
+          diarahkan langsung ke rute modul kerjanya masing-masing.
+  Parameter: Menggunakan konteks `auth()->user()` untuk mengevaluasi izin fitur RBAC aktif.
+  Nilai kembali: Kartu banner CTA kontekstual apabila peran memiliki izin tindak lanjut.
+  Contoh pemanggilan: `@include('permohonan.partials.role-actions-index')`
+--}}
 @php
     $u = auth()->user();
 

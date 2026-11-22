@@ -1,13 +1,33 @@
+{{--
+  Informasi File
+
+  Penulis   : DendyRafi, Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : View utama dasbor ini kami susun untuk menampilkan banner sambutan pengguna dan
+              merender sub-tampilan workspace secara kumulatif berdasarkan `active_modules` RBAC.
+--}}
 @extends('layouts.app')
 
 @section('title', 'Dashboard Utama - SIM-PBJ Politeknik Negeri Jakarta')
 
+{{--
+  Komentar Deskriptif: Seksi Konten Utama Dasbor Kumulatif RBAC (`@section('content')`).
+
+  Tujuan: Kami memetakan daftar modul aktif dari controller ke sub-view peran di `dashboard.roles.*`
+          serta menghindari duplikasi tampilan bila `ppbj` dan `monitoring_pp` sama-sama aktif.
+  Parameter (Data dari HomeController):
+    - `$user` (User|null): Entitas user login; `$roleData` (array): Data transaksi dan `active_modules`.
+    - `$stats`, `$recentPermohonan`, `$recentPaket`, `$notifications`, `$units`.
+  Nilai kembali: Halaman HTML dasbor terpadu sesuai kombinasi izin peran akun.
+  Contoh pemanggilan: `return view('dashboard.index', compact(...));`
+--}}
 @section('content')
 @php
     $authUser = $user ?? Auth::user();
     $activeModules = $roleData['active_modules'] ?? [];
     $hasPpbjModule = in_array('ppbj', $activeModules, true);
 
+    // Peta module key RBAC ke nama file sub-view pada folder dashboard/roles/.
     $moduleViewMap = [
         'admin' => 'admin',
         'permohonan_user' => 'user',

@@ -1,3 +1,22 @@
+{{--
+  Informasi File
+
+  Penulis   : Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : View Blade ini susun sebagai template cetak dokumen PDF laporan resmi SIM-PBJ
+              yang dirender oleh DomPDF memakai `resources/css/pdf/laporan.css` untuk satu maupun
+              banyak seksi modul aktif.
+--}}
+{{--
+  Komentar Deskriptif: Template Render PDF Laporan Resmi SIM-PBJ (`laporan.pdf`).
+
+  Tujuan: merender kop institusi PNJ, kotak metadata pencetak beserta filter aktif, grid
+          kartu KPI 3-kolom, serta tabel rincian data setiap seksi modul yang diizinkan oleh RBAC.
+  Parameter (Data dari LaporanController::unduhPdf):
+    - `$sections`, `$selectedModule`, `$user`, `$generatedAt`, `$roleLabel`, `$filterSummaryText`, `$activeModuleLabels`.
+  Nilai kembali: Dokumen HTML cetak mandiri berorientasi lanskap untuk konversi DomPDF.
+  Contoh pemanggilan: `Pdf::loadView('laporan.pdf', $data)->setPaper('a4', 'landscape');`
+--}}
 <!DOCTYPE html>
 <html lang="id">
 <head>

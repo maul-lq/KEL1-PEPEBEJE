@@ -1,5 +1,20 @@
-{{-- resources/views/dashboard/roles/monitoring_pp.blade.php --}}
-{{-- Modul RBAC: Monitoring Aktivitas Pejabat Pengadaan Standalone (pp.monitoring_aktivitas / lihat_pp) --}}
+{{--
+  Informasi File
+
+  Penulis   : Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : Sub-view dasbor ini rancang khusus bagi pengguna pemegang izin pemantauan
+              Pejabat Pengadaan standalone (`pp.monitoring_aktivitas` / `lihat_pp`) tanpa modul penuh PPBJ.
+--}}
+{{--
+  Komentar Deskriptif: Panel Workspace Dasbor Pemantauan PP (`dashboard.roles.monitoring_pp`).
+
+  Tujuan: menampilkan status paket jalur Rp 50–200 juta serta riwayat audit aktivitas Pejabat
+          Pengadaan secara terpisah apabila akun bukan Koordinator PPBJ penuh.
+  Parameter: `$user` (User), `$stats` (array), `$roleData` (array).
+  Nilai kembali: Fragmen HTML grid KPI dan tabel aktivitas pengawasan Pejabat Pengadaan.
+  Contoh pemanggilan: `@includeIf('dashboard.roles.monitoring_pp', [...])`
+--}}
 @php
     $monitorRoute = route('monitor-pp.index');
     $detailPpRoute = $user->hasAnyPermission(['reviu.pp', 'kontrak.view', 'kontrak.view_all'])

@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : menulis model NotifikasiUser ini untuk menyimpan kotak masuk notifikasi personal pengguna beserta resolusi label badge, teks referensi, dan tautan aksi berbasis RBAC.
+ */
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -7,12 +15,16 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Model Notifikasi Pengguna (Notifikasi User)
+ * Model Notifikasi Personal Pengguna (NotifikasiUser)
  *
- * Merepresentasikan pesan pemberitahuan yang dikirimkan secara personal kepada pengguna
- * sebagai tindak lanjut atas alarm pengingat sistem (Reminder), tembusan pengadaan,
- * maupun tugas verifikasi baru. Melacak status apakah notifikasi telah dibaca (is_read),
- * ditutup/diabaikan (is_dismissed), dan kapan waktu dibacanya.
+ * memisahkan model penerima (`notifikasi_user`) dari jadwal pemicunya (`reminder`)
+ * sehingga satu alarm sistem dapat ditandai terbaca (`is_read`) atau ditutup (`is_dismissed`) secara independen oleh tiap pengguna.
+ *
+ * Parameter konstruktor: `$attributes` (opsional, diwarisi dari Eloquent Model).
+ * Nilai kembali         : Instance model Eloquent yang terhubung ke tabel `notifikasi_user`.
+ *
+ * Contoh pemanggilan:
+ * `$payload = $notifikasiUser->toApiPayload();`
  */
 class NotifikasiUser extends Model
 {
@@ -39,9 +51,12 @@ class NotifikasiUser extends Model
     ];
 
     /**
-     * Konfigurasi type casting untuk boolean dan timestamp.
+     * mengonversi status baca/tutup ke boolean serta waktu baca ke objek Carbon agar konsisten dengan payload JSON.
      *
-     * @return array<string, string>
+     * @return array<string, string> mengembalikan peta tipe cast atribut model.
+     *
+     * Contoh pemanggilan:
+     * `// Dipanggil otomatis oleh Eloquent saat mengakses $notif->is_read atau $notif->waktu_dibaca.`
      */
     protected function casts(): array
     {
@@ -53,7 +68,12 @@ class NotifikasiUser extends Model
     }
 
     /**
-     * Relasi many-to-one ke User penerima notifikasi.
+     * menghubungkan notifikasi personal ini ke akun pengguna penerimanya.
+     *
+     * @return BelongsTo mengembalikan relasi BelongsTo ke model User.
+     *
+     * Contoh pemanggilan:
+     * `$penerima = $notifikasi->user;`
      */
     public function user(): BelongsTo
     {
@@ -61,7 +81,12 @@ class NotifikasiUser extends Model
     }
 
     /**
-     * Relasi many-to-one ke master Reminder yang memicu notifikasi ini.
+     * menghubungkan notifikasi personal ke master Reminder yang menyimpan judul, isi alert, dan tipe pengingatnya.
+     *
+     * @return BelongsTo mengembalikan relasi BelongsTo ke model Reminder.
+     *
+     * Contoh pemanggilan:
+     * `$master = $notifikasi->reminder;`
      */
     public function reminder(): BelongsTo
     {
@@ -69,7 +94,12 @@ class NotifikasiUser extends Model
     }
 
     /**
-     * Accessor judul notifikasi dari master reminder.
+     * mengambil judul alert dari relasi reminder beserta teks fallback agar tampilan pop-over tidak pernah kosong.
+     *
+     * @return string mengembalikan judul notifikasi.
+     *
+     * Contoh pemanggilan:
+     * `$judul = $notifikasi->judul;`
      */
     public function getJudulAttribute(): string
     {
@@ -77,7 +107,12 @@ class NotifikasiUser extends Model
     }
 
     /**
-     * Accessor pesan alert dari master reminder.
+     * mengambil isi pesan alert dari relasi reminder beserta pesan fallback default.
+     *
+     * @return string mengembalikan teks instruksi notifikasi.
+     *
+     * Contoh pemanggilan:
+     * `$isi = $notifikasi->pesan;`
      */
     public function getPesanAttribute(): string
     {
@@ -85,7 +120,12 @@ class NotifikasiUser extends Model
     }
 
     /**
-     * Accessor label jenis notifikasi untuk badge UI.
+     * mengklasifikasikan jenis badge kategori notifikasi berdasarkan tipe reminder dan kata kunci judul/pesan.
+     *
+     * @return string mengembalikan label badge kategori seperti 'Verifikasi', 'Pembayaran', atau 'Pengingat Berkala'.
+     *
+     * Contoh pemanggilan:
+     * `$badge = $notifikasi->jenis_badge;`
      */
     public function getJenisBadgeAttribute(): string
     {
@@ -99,6 +139,7 @@ class NotifikasiUser extends Model
         ) {
             return $this->reminder?->is_recurring || $this->reminder?->parent_reminder_id ? 'Pengingat Berkala' : 'Pengiriman';
         }
+        // menaruh deteksi 'revisi' lebih awal daripada 'verifikasi' karena notifikasi penolakan/revisi butuh perhatian mendesak dari pengaju.
         if (str_contains($judul, 'revisi') || str_contains($pesan, 'revisi')) {
             return 'Pengingat';
         }
@@ -127,7 +168,12 @@ class NotifikasiUser extends Model
     }
 
     /**
-     * Accessor teks referensi berkas dinas.
+     * menyusun teks referensi berkas dinas dari relasi paket, nomor pembayaran, atau pola nomor surat di pesan.
+     *
+     * @return string mengembalikan teks referensi singkat untuk ditampilkan di kartu notifikasi dan email.
+     *
+     * Contoh pemanggilan:
+     * `$ref = $notifikasi->referensi_teks;`
      */
     public function getReferensiTeksAttribute(): string
     {
@@ -143,6 +189,7 @@ class NotifikasiUser extends Model
             return $this->reminder->nomor_pembayaran.' · Tagihan Pembayaran Pengadaan';
         }
 
+        // mengekstrak nomor surat dinas via regex saat notifikasi dibuat sebelum paket terbentuk (reminder.nomor_paket masih null).
         if (preg_match('/\b\d{3}\/[A-Z0-9\.]+\/[A-Z0-9]+\/\d{4}\b/', $this->pesan.' '.$this->judul, $matches)) {
             return $matches[0].' · Permohonan Pengadaan Terkait';
         }
@@ -151,9 +198,12 @@ class NotifikasiUser extends Model
     }
 
     /**
-     * Menentukan label tombol dan rute tujuan berdasarkan jenis notifikasi serta hak akses RBAC pengguna.
+     * menentukan label tombol dan URL tujuan deep-link notifikasi sesuai izin RBAC aktif penerima agar pengguna tidak diarahkan ke halaman 403.
      *
-     * @return array{label: string, url: string}
+     * @return array{label: string, url: string} mengembalikan pasangan label tombol dan rute URL yang aman diakses oleh penerima.
+     *
+     * Contoh pemanggilan:
+     * `$target = $notifikasi->resolveActionTarget();`
      */
     public function resolveActionTarget(): array
     {
@@ -170,7 +220,7 @@ class NotifikasiUser extends Model
         }
 
         if (str_contains($judul, 'revisi') && $user?->hasAnyPermission(['permohonan.revisi', 'permohonan.create', 'permohonan.view_own'])) {
-            return ['label' => 'Buka revisi saya ↗', 'url' => route('permohonan.index')];
+            return ['label' => 'Buka revisi ↗', 'url' => route('permohonan.index')];
         }
 
         if (
@@ -215,6 +265,7 @@ class NotifikasiUser extends Model
         }
 
         if (in_array($tipe, ['spk', 'tembusan_spk', 'belanja_langsung_kwitansi'], true) || $badge === 'Dokumen Kontrak') {
+            // membedakan pemegang izin Perlengkapan/Keuangan murni dari pemegang izin SPK agar tembusan SPK langsung mengarah ke antrean modul masing-masing.
             if ($user?->hasAnyPermission(['penerimaan.bast_create', 'penerimaan.view']) && ! $user?->hasAnyPermission(['spk.create', 'reviu.pp', 'reviu.ppk'])) {
                 return ['label' => 'Persiapkan Pemeriksaan ↗', 'url' => route('penerimaan.index')];
             }
@@ -264,7 +315,12 @@ class NotifikasiUser extends Model
     }
 
     /**
-     * Accessor label tombol aksi.
+     * menyingkat pengambilan label tombol aksi notifikasi melalui properti dinamis `action_label`.
+     *
+     * @return string mengembalikan teks label tombol aksi untuk UI/email.
+     *
+     * Contoh pemanggilan:
+     * `$label = $notifikasi->action_label;`
      */
     public function getActionLabelAttribute(): string
     {
@@ -272,7 +328,12 @@ class NotifikasiUser extends Model
     }
 
     /**
-     * Accessor URL rute tujuan saat tombol aksi diklik.
+     * menyingkat pengambilan URL tujuan notifikasi melalui properti dinamis `action_url`.
+     *
+     * @return string mengembalikan URL rute tujuan aksi notifikasi.
+     *
+     * Contoh pemanggilan:
+     * `$url = $notifikasi->action_url;`
      */
     public function getActionUrlAttribute(): string
     {
@@ -280,7 +341,12 @@ class NotifikasiUser extends Model
     }
 
     /**
-     * Alias kompatibilitas apabila ada pemanggil lama yang mengakses `$notif->link`.
+     * mempertahankan accessor `link` sebagai alias kompatibilitas dari `action_url` bagi pemanggil lama.
+     *
+     * @return string mengembalikan URL rute tujuan aksi notifikasi.
+     *
+     * Contoh pemanggilan:
+     * `$href = $notifikasi->link;`
      */
     public function getLinkAttribute(): string
     {
@@ -288,9 +354,12 @@ class NotifikasiUser extends Model
     }
 
     /**
-     * Serialisasi payload lengkap untuk API polling notifikasi & toast in-app.
+     * memformat data notifikasi beserta target aksinya ke bentuk array JSON yang dikonsumsi endpoint polling dan toast desktop.
      *
-     * @return array<string, mixed>
+     * @return array<string, mixed> mengembalikan struktur payload JSON standar untuk frontend Alpine.js dan Web Notification.
+     *
+     * Contoh pemanggilan:
+     * `$items = $notifs->map(fn (NotifikasiUser $n) => $n->toApiPayload());`
      */
     public function toApiPayload(): array
     {

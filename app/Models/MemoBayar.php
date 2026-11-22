@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : menulis model MemoBayar ini untuk mencatat persetujuan memo pembayaran berjenjang oleh Wadir 2 (Level 1) dan PPK (Level 2) beserta berkas fisik memonya.
+ */
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -7,12 +15,16 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Model Memo Bayar (Persetujuan Memo Pembayaran Berjenjang)
+ * Model Memo Persetujuan Pembayaran (MemoBayar)
  *
- * Merepresentasikan tahapan persetujuan/verifikasi berjenjang pembayaran tagihan pengadaan
- * (misalnya Level 1 oleh PPK, Level 2 oleh Pejabat Keuangan / Wadir).
- * Menyimpan catatan verifikasi, status persetujuan (draft, diajukan, disetujui, ditolak),
- * dan stempel waktu persetujuan (tanggal_acc).
+ * memodelkan setiap memo persetujuan pembayaran beserta nomor memo dan file fisik dokumennya
+ * agar penolakan oleh Wadir 2 atau PPK dan seluruh bukti memo sah selalu terlihat jelas di antrean PPBJ dan pengaju.
+ *
+ * Parameter konstruktor: `$attributes` (opsional, diwarisi dari Eloquent Model).
+ * Nilai kembali         : Instance model Eloquent yang terhubung ke tabel `memo_bayar`.
+ *
+ * Contoh pemanggilan:
+ * `MemoBayar::where('nomor_pembayaran', $noBayar)->where('role_approver', MemoBayar::ROLE_WADIR_2)->first();`
  */
 class MemoBayar extends Model
 {
@@ -56,9 +68,12 @@ class MemoBayar extends Model
     ];
 
     /**
-     * Atribut yang harus dikonversi ke tipe data tanggal.
+     * mengonversi kolom `tanggal_acc` ke objek Carbon agar waktu persetujuan memo mudah diformat di PDF dan antarmuka tabel.
      *
-     * @return array<string, string>
+     * @return array<string, string> mengembalikan peta tipe cast atribut model.
+     *
+     * Contoh pemanggilan:
+     * `// Dipanggil otomatis oleh Eloquent saat mengakses $memo->tanggal_acc.`
      */
     protected function casts(): array
     {
@@ -68,9 +83,12 @@ class MemoBayar extends Model
     }
 
     /**
-     * Relasi many-to-one ke User penyetujui (approver) memo pembayaran.
+     * menghubungkan memo bayar ke akun pejabat (Wadir 2 atau PPK) yang menandatangani persetujuan memo.
      *
-     * @return BelongsTo Relasi ke model User
+     * @return BelongsTo mengembalikan relasi BelongsTo ke model User.
+     *
+     * Contoh pemanggilan:
+     * `$approver = $memo->user;`
      */
     public function user(): BelongsTo
     {
@@ -78,9 +96,12 @@ class MemoBayar extends Model
     }
 
     /**
-     * Relasi many-to-one ke induk transaksi Pembayaran.
+     * menghubungkan memo ini ke berkas pengajuan pembayaran induknya.
      *
-     * @return BelongsTo Relasi ke model Pembayaran
+     * @return BelongsTo mengembalikan relasi BelongsTo ke model Pembayaran.
+     *
+     * Contoh pemanggilan:
+     * `$tagihan = $memo->pembayaran;`
      */
     public function pembayaran(): BelongsTo
     {

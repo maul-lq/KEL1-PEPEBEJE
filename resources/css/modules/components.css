@@ -1,4 +1,21 @@
-/* Garis tepi aksen kartu aksi berdasar urutan */
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0) - lihat file LICENSE di root repositori.
+ * Ringkasan : Stylesheet ini saya buat untuk menata warna aksen kartu aksi berurutan dan lebar
+ *             garis progres pada komponen stepper 8 siklus pengadaan SIM-PBJ.
+ */
+
+/**
+ * Aturan Warna Aksen Kartu Aksi Dasbor.
+ *
+ * Tujuan: Saya membedakan garis tepi kiri setiap kartu aksi berdasarkan indeks urutannya agar
+ * alur prioritas tindakan pengguna lebih cepat dikenali secara visual.
+ * Parameter: Kelas utilitas `.action-card-accent-0` sampai `.action-card-accent-2`.
+ * Nilai kembali: Menetapkan properti `border-left-color` masing-masing palet warna.
+ * Contoh pemanggilan: `<div class="action-card-accent-0">`
+ */
 .action-card-accent-0 {
     border-left-color: #ffd900;
 }
@@ -11,12 +28,21 @@
     border-left-color: #fc3dff;
 }
 
-/* Panjang garis progres 8 tahap pengadaan */
+/**
+ * Aturan Lebar Garis Progres Stepper 8 Siklus Pengadaan.
+ *
+ * Tujuan: Saya menghitung persentase lebar bar progres tiap tahap dengan kelipatan 1/7 dari
+ * 100% dikurangi 35px offset lingkaran node agar garis berhenti tepat di tengah ikon tahap aktif.
+ * Parameter: Kelas `.stepper-progress-step-1` hingga `.stepper-progress-step-8`.
+ * Nilai kembali: Mengatur lebar horizontal pengisi garis progres stepper.
+ * Contoh pemanggilan: `<div class="stepper-progress-step-4">`
+ */
 .stepper-progress-step-1 {
     width: 0px;
 }
 
 .stepper-progress-step-2 {
+    /* 1/7 lebar lintasan antar 8 node dikurangi setengah lebar lingkaran node (35px) */
     width: calc(14.2857142857% - 35px);
 }
 

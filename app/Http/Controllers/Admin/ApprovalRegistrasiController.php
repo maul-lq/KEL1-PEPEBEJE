@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : menulis controller ApprovalRegistrasiController ini untuk menangani antrean persetujuan pendaftar akun baru oleh Administrator, penetapan peran tunggal, serta penolakan disertai alasan.
+ */
+
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
@@ -15,35 +23,41 @@ use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 /**
- * Controller Verifikasi & Persetujuan Registrasi Pengguna Baru (ApprovalRegistrasiController)
+ * Controller Persetujuan Registrasi Akun (ApprovalRegistrasiController)
  *
- * Bertanggung jawab melayani wewenang Administrator:
- * - Meninjau daftar pendaftar akun baru yang berstatus 'menunggu_persetujuan'.
- * - Menyetujui (ACC) akun pengguna sekaligus memilihkan & menetapkan Role yang sesuai bagi pengguna tersebut.
- * - Menolak pendaftaran akun pengguna dengan catatan alasan penolakan wajib.
- * - Menegakkan aturan institusi FR 2.1 (maksimal 1 akun Pejabat Pengadaan / PP aktif).
+ * memisahkan pengelolaan antrean pendaftaran akun baru di controller ini agar Administrator
+ * dapat menetapkan peran secara definitif saat ACC dan menegakkan batas maksimal 1 akun PP aktif.
+ *
+ * Parameter konstruktor: Tidak ada.
+ * Nilai kembali         : Instance controller yang dipanggil oleh router grup `admin.persetujuan-registrasi.*`.
+ *
+ * Contoh pemanggilan:
+ * `Route::post('/persetujuan-registrasi/{user}/acc', [ApprovalRegistrasiController::class, 'acc']);`
  */
 class ApprovalRegistrasiController extends Controller
 {
     /**
-     * Menampilkan antrean pendaftar akun yang menunggu persetujuan Admin beserta riwayat keputusan.
+     * menampilkan daftar pendaftar yang masih menunggu persetujuan admin, riwayat keputusan sebelumnya, serta daftar role tersedia.
+     *
+     * @param  Request  $request  membaca header request untuk menentukan format keluaran View Blade atau JSON API.
+     * @return View|JsonResponse mengembalikan view `admin.approval_registrasi` atau JSON daftar antrean, riwayat, dan role.
+     *
+     * Contoh pemanggilan:
+     * `GET /admin/persetujuan-registrasi`
      */
     public function index(Request $request): View|JsonResponse
     {
-        // 1. Ambil pendaftar yang sedang menunggu verifikasi/persetujuan
         $pendingUsers = User::with('unit')
             ->where('status_registrasi', User::STATUS_REGISTRASI_MENUNGGU)
             ->latest()
             ->paginate(15);
 
-        // 2. Ambil riwayat pendaftaran yang telah diproses (Disetujui / Ditolak)
         $historyUsers = User::with(['unit', 'adminApproval', 'roleEntity'])
             ->whereIn('status_registrasi', [User::STATUS_REGISTRASI_DISETUJUI, User::STATUS_REGISTRASI_DITOLAK])
             ->latest('tanggal_approval')
             ->take(20)
             ->get();
 
-        // 3. Ambil daftar seluruh role aktif untuk dropdown penugasan role oleh Admin
         $availableRoles = Role::orderBy('nama_role')->get();
 
         if ($request->expectsJson() || $request->is('api/*')) {
@@ -61,18 +75,27 @@ class ApprovalRegistrasiController extends Controller
     }
 
     /**
-     * Menyetujui (ACC) pendaftaran akun pengguna baru dan menetapkan peran (role) yang dipilihkan Admin.
+     * menyetujui pendaftaran akun baru, menetapkan `id_role` pilihan admin, mencatat audit log, dan mengirim notifikasi ke pemilik akun.
+     *
+     * @param  Request  $request  memvalidasi `id_role` atau slug `role` yang dipilih Administrator.
+     * @param  User  $user  menerima model pendaftar yang akan diaktifkan melalui route model binding.
+     * @return RedirectResponse|JsonResponse mengembalikan redirect dengan flash sukses atau JSON data akun yang telah disetujui.
+     *
+     * @throws ValidationException Jika admin belum memilih peran atau mencoba mengaktifkan akun Pejabat Pengadaan (PP) kedua.
+     *
+     * Contoh pemanggilan:
+     * `POST /admin/persetujuan-registrasi/{user}/acc`
      */
     public function acc(Request $request, User $user): RedirectResponse|JsonResponse
     {
         $admin = Auth::user();
 
-        // 1. Validasi masukan role yang dipilihkan Admin
         $validated = $request->validate([
             'id_role' => ['nullable', 'exists:roles,id'],
             'role' => ['nullable', 'string', 'exists:roles,nama_role'],
         ]);
 
+        // mewajibkan minimal salah satu parameter role terisi supaya akun yang di-ACC tidak dibiarkan memakai role default tanpa keputusan admin.
         if (empty($validated['id_role']) && empty($validated['role'])) {
             throw ValidationException::withMessages([
                 'role' => 'Administrator wajib memilihkan peran (role) untuk pengguna yang disetujui.',
@@ -83,7 +106,7 @@ class ApprovalRegistrasiController extends Controller
             ? Role::findOrFail($validated['id_role'])
             : Role::where('nama_role', $validated['role'])->firstOrFail();
 
-        // 2. Penegakan Aturan FR 2.1: Batasan ketat maksimal 1 akun Pejabat Pengadaan (PP) aktif
+        // menegakkan aturan institusi FR 2.1 bahwa hanya boleh ada 1 akun Pejabat Pengadaan (PP) aktif di seluruh kampus.
         if ($role->nama_role === User::ROLE_PP) {
             $existingActivePP = User::withRole(User::ROLE_PP)
                 ->where('status_aktif', true)
@@ -97,16 +120,15 @@ class ApprovalRegistrasiController extends Controller
             }
         }
 
-        // 3. Mutakhirkan status pengguna menjadi aktif dan disetujui dengan peran yang ditetapkan
         $user->status_aktif = true;
         $user->status_registrasi = User::STATUS_REGISTRASI_DISETUJUI;
         $user->id_role = $role->id;
         $user->id_admin_approval = $admin?->id_user;
         $user->tanggal_approval = now();
+        // menghapus alasan penolakan lama jika pendaftar sebelumnya pernah ditolak lalu disetujui ulang.
         $user->alasan_penolakan = null;
         $user->save();
 
-        // 4. Catat jejak audit log persetujuan registrasi
         AuditLog::catat(
             $admin?->id_user ?? $user->id_user,
             'REGISTRASI_USER_DISETUJUI',
@@ -117,7 +139,6 @@ class ApprovalRegistrasiController extends Controller
             "Admin menyetujui pendaftaran {$user->nama} ({$user->nip}) dan menetapkan peran {$role->label} ({$role->nama_role})."
         );
 
-        // 5. Memicu notifikasi dan surel resmi ke pengguna yang disetujui
         app(PengadaanNotificationService::class)->kirimKeUser(
             $user,
             'Pendaftaran Akun SIM-PBJ Disetujui',
@@ -139,20 +160,26 @@ class ApprovalRegistrasiController extends Controller
     }
 
     /**
-     * Menolak pendaftaran akun pengguna baru dengan menyertakan catatan alasan penolakan wajib.
+     * menolak pendaftaran akun baru dengan menyimpan alasan wajib, mencatat audit log, dan mengabarkan penolakan ke pendaftar.
+     *
+     * @param  Request  $request  mewajibkan field `alasan_penolakan` maksimal 500 karakter sebagai transparansi penolakan.
+     * @param  User  $user  menerima model User pendaftar yang ditolak.
+     * @return RedirectResponse|JsonResponse mengembalikan redirect dengan flash konfirmasi atau JSON status sukses.
+     *
+     * Contoh pemanggilan:
+     * `POST /admin/persetujuan-registrasi/{user}/tolak`
      */
     public function tolak(Request $request, User $user): RedirectResponse|JsonResponse
     {
         $admin = Auth::user();
 
-        // 1. Validasi catatan alasan penolakan
         $validated = $request->validate([
             'alasan_penolakan' => ['required', 'string', 'max:500'],
         ], [
             'alasan_penolakan.required' => 'Catatan alasan penolakan pendaftaran wajib diisi oleh Administrator.',
         ]);
 
-        // 2. Mutakhirkan status pendaftaran menjadi ditolak
+        // memastikan status_aktif bernilai false agar akun tertolak tidak bisa menembus login maupun middleware CheckRole.
         $user->status_aktif = false;
         $user->status_registrasi = User::STATUS_REGISTRASI_DITOLAK;
         $user->alasan_penolakan = $validated['alasan_penolakan'];
@@ -160,7 +187,6 @@ class ApprovalRegistrasiController extends Controller
         $user->tanggal_approval = now();
         $user->save();
 
-        // 3. Catat jejak audit log penolakan registrasi
         AuditLog::catat(
             $admin?->id_user ?? $user->id_user,
             'REGISTRASI_USER_DITOLAK',
@@ -171,7 +197,6 @@ class ApprovalRegistrasiController extends Controller
             "Admin menolak pendaftaran {$user->nama} ({$user->nip}). Alasan: {$validated['alasan_penolakan']}"
         );
 
-        // 4. Memicu notifikasi dan surel resmi penolakan ke pengguna
         app(PengadaanNotificationService::class)->kirimKeUser(
             $user,
             'Pendaftaran Akun SIM-PBJ Ditolak',

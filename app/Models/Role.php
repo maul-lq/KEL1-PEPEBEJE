@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : menulis model Role ini untuk mengelola peran sistem dan peran dinamis kustom beserta relasi matriks permission RBAC-nya.
+ */
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -8,10 +16,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Model Role (Peran Pengguna Dinamis)
+ * Model Peran Pengguna RBAC (Role)
  *
- * Mengelola peran pengguna dalam sistem SIM-PBJ, mencakup 9 peran institusi bawaan
- * (is_system = true) serta peran kustom baru yang dapat dibuat oleh Administrator.
+ * memodelkan peran pengguna di tabel `roles` dengan penanda `is_system` untuk melindungi peran inti bawaan
+ * dari penghapusan tidak sengaja, sekaligus menyediakan pengecekan dan sinkronisasi permission secara dinamis.
+ *
+ * Parameter konstruktor: `$attributes` (opsional, diwarisi dari Eloquent Model).
+ * Nilai kembali         : Instance model Eloquent yang terhubung ke tabel `roles`.
+ *
+ * Contoh pemanggilan:
+ * `$role = Role::with('permissions')->where('nama_role', 'ppbj')->firstOrFail();`
  */
 class Role extends Model
 {
@@ -26,6 +40,14 @@ class Role extends Model
         'is_system',
     ];
 
+    /**
+     * mengonversi kolom `is_system` ke boolean agar proteksi hapus peran bawaan di RoleController bisa dievaluasi secara ketat.
+     *
+     * @return array<string, string> mengembalikan peta tipe cast atribut model.
+     *
+     * Contoh pemanggilan:
+     * `if ($role->is_system) { return back()->with('error', 'Peran sistem tidak boleh dihapus.'); }`
+     */
     protected function casts(): array
     {
         return [
@@ -34,7 +56,12 @@ class Role extends Model
     }
 
     /**
-     * Relasi many-to-many ke master permissions (hak akses fitur).
+     * mendefinisikan relasi many-to-many ke seluruh permission yang dimiliki peran ini melalui tabel `role_permissions`.
+     *
+     * @return BelongsToMany mengembalikan relasi BelongsToMany ke model Permission.
+     *
+     * Contoh pemanggilan:
+     * `$izin = $role->permissions;`
      */
     public function permissions(): BelongsToMany
     {
@@ -47,7 +74,12 @@ class Role extends Model
     }
 
     /**
-     * Relasi one-to-many ke pengguna yang mengemban peran ini.
+     * menghubungkan peran ke seluruh akun pengguna yang memegangnya melalui FK `id_role`.
+     *
+     * @return HasMany mengembalikan relasi HasMany ke model User.
+     *
+     * Contoh pemanggilan:
+     * `$jumlahPemegangRole = $role->users()->count();`
      */
     public function users(): HasMany
     {
@@ -55,16 +87,29 @@ class Role extends Model
     }
 
     /**
-     * Memeriksa apakah role ini memiliki permission tertentu.
+     * memeriksa apakah peran ini memiliki slug permission tertentu pada koleksi permissions yang sudah dimuat.
+     *
+     * @param  string  $permissionSlug  menerima nama slug permission seperti 'spk.create' atau 'laporan.rekapitulasi'.
+     * @return bool mengembalikan true jika permission ditemukan pada peran ini.
+     *
+     * Contoh pemanggilan:
+     * `$bolehCetak = $role->hasPermission('dokumen.unduh_pdf');`
      */
     public function hasPermission(string $permissionSlug): bool
     {
+        // mengecek kedua key ('nama_permission' dan accessor 'slug') agar kompatibel dengan pembacaan koleksi maupun JSON.
         return $this->permissions->contains('nama_permission', $permissionSlug)
             || $this->permissions->contains('slug', $permissionSlug);
     }
 
     /**
-     * Menyinkronkan daftar permission ID ke role ini.
+     * menyinkronkan daftar ID permission yang dicentang admin ke tabel pivot `role_permissions`.
+     *
+     * @param  array<int, int|string>  $permissionIds  menerima daftar ID integer permission yang aktif untuk peran ini.
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `$role->syncPermissions($request->input('permissions', []));`
      */
     public function syncPermissions(array $permissionIds): void
     {

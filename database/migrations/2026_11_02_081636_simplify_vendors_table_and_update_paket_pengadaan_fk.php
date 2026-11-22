@@ -1,14 +1,41 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : Migrasi ini buat untuk menyederhanakan tabel `vendors` menggunakan surrogate
+ *             primary key `id`, membolehkan pengisian data minimal vendor, serta mengaitkan tabel
+ *             `paket_pengadaan` melalui foreign key `id_vendor`.
+ */
+
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Kelas migrasi anonim penyederhana skema `vendors` dan relasi `id_vendor` pada `paket_pengadaan`.
+ *
+ * Tujuan: memisahkan logika DDL PostgreSQL dan SQLite pengujian agar migrasi mengubah primary
+ * key `npwp` menjadi `id` secara mulus tanpa kehilangan penautan paket yang sudah ada.
+ *
+ * Contoh pemanggilan:
+ * `php artisan migrate --path=database/migrations/2026_11_02_081636_simplify_vendors_table_and_update_paket_pengadaan_fk.php`
+ */
 return new class extends Migration
 {
     /**
-     * Run the migrations.
+     * Menjalankan migrasi peralihan primary key `vendors` ke `id` dan penambahan `id_vendor`.
+     *
+     * Tujuan: menyinkronkan data vendor lama (`nama_perusahaan` -> `nama_vendor`) dan
+     * mengisi `id_vendor` pada paket pengadaan sebelum mempermudah kolom opsional lainnya.
+     *
+     * @return void
+     *
+     * Contoh pemanggilan:
+     * `$migration->up();`
      */
     public function up(): void
     {
@@ -102,7 +129,15 @@ return new class extends Migration
     }
 
     /**
-     * Reverse the migrations.
+     * Membalikkan migrasi dengan memulihkan primary key `npwp` pada PostgreSQL.
+     *
+     * Tujuan: membersihkan atau menduplikasi sementara `npwp` yang kosong/ganda memakai hash
+     * sebelum menetapkan ulang `SET NOT NULL` dan constraint primary key agar rollback tidak gagal.
+     *
+     * @return void
+     *
+     * Contoh pemanggilan:
+     * `$migration->down();`
      */
     public function down(): void
     {

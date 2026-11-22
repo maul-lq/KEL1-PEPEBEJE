@@ -1,7 +1,25 @@
+{{--
+  Informasi File
+
+  Penulis   : DendyRafi, Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : View Blade ini kami buat untuk halaman Profil yang memuat kartu biodata pegawai,
+              status tautan Google OAuth, preferensi pengingat email persisten (`profileReminderToggle`),
+              unggah foto profil, modal ganti kata sandi, dan modal hapus akun.
+--}}
 @extends('layouts.app')
 
-@section('title', 'Profil Saya - SIM-PBJ')
+@section('title', 'Profil - SIM-PBJ')
 
+{{--
+  Komentar Deskriptif: Seksi Konten Halaman Profil Pengguna (`profile.index`).
+
+  Tujuan: Kami menyematkan sinyal pembuka modal otomatis via `data-password-modal-open` dan
+          `data-delete-modal-open` agar error validasi modal langsung terlihat sesudah redirect server.
+  Parameter (Data dari ProfileController::index): `$user` (User login beserta relasi unit & role).
+  Nilai kembali: Halaman HTML profil pegawai dan tiga dialog modal pengelolaan akun.
+  Contoh pemanggilan: `return view('profile.index', compact('user'));`
+--}}
 @section('content')
 
 <div x-data="profilePage"

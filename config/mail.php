@@ -1,5 +1,24 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : memperbarui berkas konfigurasi surel bawaan Laravel ini untuk mengatur transport pengiriman email notifikasi pengadaan dan tautan reset kata sandi.
+ */
+
+/**
+ * Konfigurasi Mailer Aplikasi (config/mail.php)
+ *
+ * mendefinisikan mailer bawaan (SMTP atau 'log' untuk lingkungan lokal) serta identitas pengirim global
+ * yang dipakai oleh NotifikasiUserObserver dan fitur lupa kata sandi.
+ *
+ * Parameter    : Tidak ada (membaca kredensial SMTP dari .env).
+ * Nilai kembali: array<string, mixed> — daftar mailer, konfigurasi SMTP, dan alamat pengirim global.
+ * Contoh pemanggilan:
+ * `Mail::to($user)->send(...)` atau `config('mail.from.address')`
+ */
 return [
 
     /*
@@ -7,10 +26,8 @@ return [
     | Default Mailer
     |--------------------------------------------------------------------------
     |
-    | This option controls the default mailer that is used to send all email
-    | messages unless another mailer is explicitly specified when sending
-    | the message. All additional mailers can be configured within the
-    | "mailers" array. Examples of each type of mailer are provided.
+    | menggunakan default 'log' bila MAIL_MAILER tidak disetel agar
+    | pengujian lokal tanpa server SMTP tidak gagal melempar exception koneksi.
     |
     */
 
@@ -21,17 +38,8 @@ return [
     | Mailer Configurations
     |--------------------------------------------------------------------------
     |
-    | Here you may configure all of the mailers used by your application plus
-    | their respective settings. Several examples have been configured for
-    | you and you are free to add your own as your application requires.
-    |
-    | Laravel supports a variety of mail "transport" drivers that can be used
-    | when delivering an email. You may specify which one you're using for
-    | your mailers below. You may also add additional mailers if needed.
-    |
-    | Supported: "smtp", "sendmail", "mailgun", "ses", "ses-v2",
-    |            "postmark", "resend", "log", "array",
-    |            "failover", "roundrobin"
+    | menyediakan profil SMTP dengan validasi URL serta transport cadangan
+    | seperti failover/log agar pengiriman email reminder tetap dapat diandalkan.
     |
     */
 
@@ -40,6 +48,7 @@ return [
         'smtp' => [
             'transport' => 'smtp',
             'scheme' => env('MAIL_SCHEME'),
+            // memvalidasi MAIL_URL dengan filter_var agar nilai kosong atau malformed di .env tidak merusak parsing DSN SMTP.
             'url' => (! empty(env('MAIL_URL')) && filter_var(env('MAIL_URL'), FILTER_VALIDATE_URL)) ? env('MAIL_URL') : null,
             'host' => env('MAIL_HOST', '127.0.0.1'),
             'port' => env('MAIL_PORT', 2525),
@@ -47,6 +56,7 @@ return [
             'username' => env('MAIL_USERNAME'),
             'password' => env('MAIL_PASSWORD'),
             'timeout' => null,
+            // menurunkan domain EHLO dari APP_URL agar server SMTP eksternal tidak menolak handshake karena hostname generik.
             'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
         ],
 
@@ -105,9 +115,8 @@ return [
     | Global "From" Address
     |--------------------------------------------------------------------------
     |
-    | You may wish for all emails sent by your application to be sent from
-    | the same address. Here you may specify a name and address that is
-    | used globally for all emails that are sent by your application.
+    | menetapkan identitas pengirim global di sini agar seluruh notifikasi
+    | SIM-PBJ memiliki alamat dan nama pengirim yang seragam.
     |
     */
 

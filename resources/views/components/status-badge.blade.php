@@ -1,3 +1,26 @@
+{{--
+  Informasi File
+
+  Penulis   : Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : Komponen Blade ini buat untuk menerjemahkan kode status pengadaan dari basis
+              data menjadi lencana status berwarna konsisten (dot pulse, soft/outline/solid).
+--}}
+{{--
+  Komentar Deskriptif: Komponen Lencana Status Transaksi (`<x-status-badge>`).
+
+  Tujuan: memetakan seluruh enum/string status permohonan, paket, kontrak, penerimaan, dan
+          pembayaran ke label bahasa Indonesia baku beserta warna semantiknya.
+  Parameter (@props):
+    - `status` (string, wajib): Kode status mentah transaksi.
+    - `size` (string, default 'md'): Ukuran badge ('xs' | 'sm' | 'md' | 'lg').
+    - `dot` (bool, default true): Menampilkan titik indikator status di kiri teks.
+    - `variant` (string, default 'soft'): Gaya tampilan ('soft' | 'outline' | 'solid').
+    - `text` (string|null): Label kustom menimpa pemetaan default.
+  Nilai kembali: Elemen `<span>` inline-flex lencana status siap pakai.
+  Contoh pemanggilan:
+    `<x-status-badge :status="$permohonan->status_permohonan" size="sm" />`
+--}}
 @props([
     'status',
     'size' => 'md',

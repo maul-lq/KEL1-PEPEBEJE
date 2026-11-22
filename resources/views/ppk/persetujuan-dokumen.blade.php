@@ -1,7 +1,27 @@
+{{--
+  Informasi File
+
+  Penulis   : Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : View Blade ini susun untuk antarmuka persetujuan dokumen pengadaan tahap 4 khusus
+              akun PPK penanggung jawab paket, mencakup antrean putusan setuju/perbaikan serta
+              riwayat keputusan sebelumnya.
+--}}
 @extends('layouts.app')
 
 @section('title', 'Persetujuan Dokumen Pengadaan (PPK) - SIM-PBJ PNJ')
 
+{{--
+  Komentar Deskriptif: Seksi Konten Antrean Persetujuan Dokumen PPK (`ppk.persetujuan-dokumen`).
+
+  Tujuan: menampilkan riwayat catatan Pejabat Pengadaan sebelumnya pada tiap kartu paket agar
+          PPK berwenang dapat memutuskan kelayakan lanjut belanja atau mengembalikan berkas ke PPBJ.
+  Parameter (Data dari KontrakSPKController):
+    - `$paketAntrean` (Collection<PaketPengadaan>): Paket khusus milik PPK login yang siap diputuskan.
+    - `$riwayatDisetujui`, `$riwayatDitolak` (Collection): Riwayat putusan PPK terkait.
+  Nilai kembali: Halaman HTML antrean reviu dokumen teknis oleh PPK terisolasi.
+  Contoh pemanggilan: `return view('ppk.persetujuan-dokumen', compact(...));`
+--}}
 @section('content')
 <div class="mx-auto max-w-[1650px] space-y-6">
 

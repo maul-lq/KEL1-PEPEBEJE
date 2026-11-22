@@ -1,11 +1,31 @@
+{{--
+  Informasi File
+
+  Penulis   : Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : View Blade ini rancang untuk menampilkan detail spesifikasi satu paket pengadaan,
+              progres 8 siklusnya, informasi belanja langsung maupun kontrak, serta riwayat reviu
+              dan dokumen lampiran terkait.
+--}}
 @extends('layouts.app')
 
 @section('title', 'Detail Paket Pengadaan ' . ($paket->kode_paket ?? $paket->nomor_paket) . ' - SIM-PBJ PNJ')
 
+{{--
+  Komentar Deskriptif: Seksi Konten Detail Paket Pengadaan (`paket.show`).
+
+  Tujuan: memetakan seluruh varian `status_paket` ke nomor tahap 1..8 lewat `$stepMap` dan
+          membedakan tombol aksi antara paket Belanja Langsung (<=50jt) dengan paket kontrak SPK/PPK.
+  Parameter (Data dari PaketPengadaanController::show):
+    - `$paket` (PaketPengadaan): Entitas paket beserta relasi permohonan, PPK, PP, vendor, dan reviu.
+  Nilai kembali: Halaman HTML rincian paket lengkap dengan stepper 8 tahap pengadaan.
+  Contoh pemanggilan: `return view('paket.show', compact('paket'));`
+--}}
 @section('content')
 <div class="space-y-6">
 
     @php
+        // petakan status paket yang beragam dari jalur langsung, PP, dan PPK ke langkah 3..8 pada stepper.
         $stepMap = [
             'terdaftar' => 3,
             'reviu_dokumen' => 4,

@@ -1,7 +1,27 @@
+{{--
+  Informasi File
+
+  Penulis   : Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : View Blade ini susun untuk antarmuka manajemen peran RBAC dan matriks izin
+              fitur, termasuk modal tambah peran baru, modal kelola izin terkelompok per modul,
+              serta proteksi penghapusan peran bawaan sistem.
+--}}
 @extends('layouts.app')
 
 @section('title', 'Manajemen Role & Hak Akses - SIM-PBJ PNJ')
 
+{{--
+  Komentar Deskriptif: Seksi Konten Manajemen Peran dan Matriks RBAC (`@section('content')`).
+
+  Tujuan: memfasilitasi perubahan izin fitur secara granular per peran serta pengamanan agar
+          peran `admin` utama maupun peran berstatus proteksi sistem tidak dapat dihapus paksa.
+  Parameter (Data dari Controller):
+    - `$roles` (Collection<Role>): Daftar peran lengkap beserta relasi permissions-nya.
+    - `$permissionsByModule` (Collection<string, Collection<Permission>>): Izin dikelompokkan per modul.
+  Nilai kembali: Halaman HTML daftar peran dan modal editor matriks RBAC.
+  Contoh pemanggilan: `return view('admin.roles', compact('roles', 'permissionsByModule'));`
+--}}
 @section('content')
 <div class="space-y-6" x-data="adminRolesPage">
 

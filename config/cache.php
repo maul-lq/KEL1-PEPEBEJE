@@ -1,7 +1,26 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : memperbarui berkas konfigurasi cache bawaan Laravel ini agar penyimpanan lock penjadwal reminder dan cache aplikasi terdokumentasi jelas.
+ */
+
 use Illuminate\Support\Str;
 
+/**
+ * Konfigurasi Penyimpanan Cache & Lock (config/cache.php)
+ *
+ * mendefinisikan store cache bawaan ('database') yang juga dipakai oleh Cache::lock()
+ * pada ReminderSchedulerService agar pemrosesan pengingat berkala tidak berjalan ganda.
+ *
+ * Parameter    : Tidak ada (membaca fallback dari env()).
+ * Nilai kembali: array<string, mixed> — daftar driver cache, prefix kunci, dan kebijakan deserialisasi.
+ * Contoh pemanggilan:
+ * `Cache::lock('simpbj_reminder_scheduler_lock', 30)` atau `config('cache.default')`
+ */
 return [
 
     /*
@@ -9,9 +28,8 @@ return [
     | Default Cache Store
     |--------------------------------------------------------------------------
     |
-    | This option controls the default cache store that will be used by the
-    | framework. This connection is utilized if another isn't explicitly
-    | specified when running a cache operation inside the application.
+    | mempertahankan default 'database' agar lock dan throttle scheduler
+    | tetap bekerja persisten antar proses PHP tanpa ketergantungan Redis wajib.
     |
     */
 
@@ -22,13 +40,8 @@ return [
     | Cache Stores
     |--------------------------------------------------------------------------
     |
-    | Here you may define all of the cache "stores" for your application as
-    | well as their drivers. You may even define multiple stores for the
-    | same cache driver to group types of items stored in your caches.
-    |
-    | Supported drivers: "array", "database", "file", "memcached",
-    |                    "redis", "dynamodb", "storage", "octane",
-    |                    "session", "failover", "null"
+    | menyediakan pilihan store lengkap bawaan Laravel (database, file,
+    | redis, failover, array) untuk kebutuhan produksi maupun pengujian unit.
     |
     */
 
@@ -112,9 +125,8 @@ return [
     | Cache Key Prefix
     |--------------------------------------------------------------------------
     |
-    | When utilizing the APC, database, memcached, Redis, and DynamoDB cache
-    | stores, there might be other applications using the same cache. For
-    | that reason, you may prefix every cache key to avoid collisions.
+    | memberi prefix berbasis APP_NAME agar kunci cache dan lock aplikasi
+    | tidak bertabrakan jika beberapa proyek berbagi server database/Redis.
     |
     */
 
@@ -125,9 +137,8 @@ return [
     | Serializable Classes
     |--------------------------------------------------------------------------
     |
-    | This value determines the classes that can be unserialized from cache
-    | storage. By default, no PHP classes will be unserialized from your
-    | cache to prevent gadget chain attacks if your APP_KEY is leaked.
+    | membiarkan opsi ini false sebagai pengaman agar objek PHP arbitrer
+    | tidak dapat dideserialisasi dari cache apabila APP_KEY suatu saat bocor.
     |
     */
 

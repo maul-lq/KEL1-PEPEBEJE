@@ -1,5 +1,15 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : Seeder ini buat untuk menyemai seluruh peran sistem resmi, katalog permission
+ *             granular lintas modul SIM-PBJ, pemetaan default role-permission, serta pengaitan
+ *             `id_role` bawaan bagi pengguna yang belum memiliki peran.
+ */
+
 namespace Database\Seeders;
 
 use App\Models\Permission;
@@ -8,18 +18,26 @@ use App\Models\User;
 use Illuminate\Database\Seeder;
 
 /**
- * Seeder Role & Permission (RolePermissionSeeder)
+ * Menyemai master peran sistem (`roles`), izin fitur (`permissions`), dan relasi matriks RBAC.
  *
- * Membenihkan:
- * 1. 9 Role Resmi Institusi (is_system = true).
- * 2. Master Permissions Fitur Granular untuk seluruh siklus pengadaan (FR 1-20 & NFR 1-12).
- * 3. Matriks Relasi Role-Permission Bawaan.
- * 4. Pengaitan id_role pada akun-akun pengguna eksisting.
+ * Tujuan: merancang seeder ini supaya otorisasi SIM-PBJ bersifat data-driven di database,
+ * idempotent saat dijalankan ulang, dan langsung membersihkan permission usang yang sudah dihapus.
+ *
+ * Contoh pemanggilan:
+ * `php artisan db:seed --class=RolePermissionSeeder`
  */
 class RolePermissionSeeder extends Seeder
 {
     /**
-     * Menjalankan pembenihan data role dan permissions.
+     * Mengeksekusi pembenihan role sistem, daftar permission granular, dan sinkronisasi pivot RBAC.
+     *
+     * Tujuan: menyinkronkan izin standar setiap peran sistem dan menambatkan pengguna yatim
+     * tanpa `id_role` ke peran pengusul dasar (`user`) agar akun tetap dapat dievaluasi RBAC.
+     *
+     * @return void
+     *
+     * Contoh pemanggilan:
+     * `$this->call(RolePermissionSeeder::class);`
      */
     public function run(): void
     {
@@ -266,12 +284,10 @@ class RolePermissionSeeder extends Seeder
             }
         }
 
-        // Hapus permission usang yang sudah tidak digunakan lagi
+        // bersihkan slug permission lama yang tidak lagi dipakai agar tabel permissions tetap ringkas.
         Permission::where('nama_permission', 'reminder.manage')->delete();
 
-        // =========================================================================
-        // 4. Penetapan Peran Default bagi Pengguna yang Belum Memiliki id_role
-        // =========================================================================
+        // tautkan pengguna tanpa id_role ke peran user default agar pengecekan permission tidak null.
         if (isset($roleModels[User::ROLE_USER])) {
             User::whereNull('id_role')->update([
                 'id_role' => $roleModels[User::ROLE_USER]->id,

@@ -1,7 +1,26 @@
+{{--
+  Informasi File
+
+  Penulis   : Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : View Blade ini buat untuk halaman Persetujuan Awal Usulan Pengadaan bagi akun
+              PPK yang dipilih Perencanaan (isolasi 4 akun PPK), menampilkan status ketersediaan MAK,
+              keputusan Wadir II, dan form persetujuan/penolakan awal.
+--}}
 @extends('layouts.app')
 
 @section('title', 'Persetujuan Awal Usulan PPK - SIM-PBJ PNJ')
 
+{{--
+  Komentar Deskriptif: Seksi Konten Antrean Persetujuan Awal PPK (`verifikasi.ppk`).
+
+  Tujuan: membatasi tampilan usulan hanya untuk `id_user_ppk_awal` yang cocok dengan akun PPK
+          login dan mewajibkan catatan penolakan via komponen Alpine `verifikasiKeputusanPpk`.
+  Parameter (Data dari VerifikasiParalelController::verifikasiPpk):
+    - `$permohonanAntrean` (Collection<PermohonanPengadaan>): Antrean surat ditugaskan ke PPK login.
+  Nilai kembali: Halaman HTML daftar antrean persetujuan awal PPK dengan form putusan terisolasi.
+  Contoh pemanggilan: `return view('verifikasi.ppk', compact('permohonanAntrean'));`
+--}}
 @section('content')
 <div class="mx-auto max-w-[1650px] space-y-6">
 

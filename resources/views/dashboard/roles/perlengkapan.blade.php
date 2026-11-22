@@ -1,5 +1,20 @@
-{{-- resources/views/dashboard/roles/perlengkapan.blade.php --}}
-{{-- Modul RBAC: Bagian Perlengkapan & Pengelola BMN (perlengkapan) --}}
+{{--
+  Informasi File
+
+  Penulis   : Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : Sub-view dasbor ini buat untuk modul Unit Perlengkapan & Pengelola BMN berisi
+              KPI barang masuk/BAST/rasio aset, jadwal barang datang, dan riwayat bukti serah terima.
+--}}
+{{--
+  Komentar Deskriptif: Panel Workspace Dasbor Unit Perlengkapan & BMN (`dashboard.roles.perlengkapan`).
+
+  Tujuan: menggabungkan jadwal kontrak maupun belanja langsung yang barangnya siap diperiksa
+          fisik agar petugas Perlengkapan segera menerbitkan BAST bertoken digital.
+  Parameter: `$user` (User), `$stats` (array), `$roleData` (array).
+  Nilai kembali: Fragmen HTML 4 KPI penerimaan barang dan dua panel jadwal/riwayat BAST.
+  Contoh pemanggilan: `@includeIf('dashboard.roles.perlengkapan', [...])`
+--}}
 @php
     $canViewPenerimaan = $user->hasAnyPermission(['penerimaan.view', 'penerimaan.bast_create', 'penerimaan.bast_sign']);
     $canActBast = $user->hasAnyPermission(['penerimaan.bast_create', 'penerimaan.bast_sign']);

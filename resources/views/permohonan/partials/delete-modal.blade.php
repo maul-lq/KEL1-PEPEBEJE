@@ -1,4 +1,20 @@
-<!-- OVERLAY BACKDROP & DIALOG KONFIRMASI HAPUS (FRAME 385 FIGMA) -->
+{{--
+  Informasi File
+
+  Penulis   : DendyRafi, Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : Partial Blade ini kami buat untuk modal konfirmasi penghapusan atau pembatalan
+              pengajuan permohonan dengan verifikasi ulang kata sandi pengguna (`permohonanDeleteModal`).
+--}}
+{{--
+  Komentar Deskriptif: Partial Modal Konfirmasi Hapus Pengajuan (`permohonan.partials.delete-modal`).
+
+  Tujuan: Kami mensyaratkan konfirmasi kata sandi pada aksi destruktif pembatalan berkas dan
+          membatasi tampilan bahwa penghapusan hanya sah sebelum persetujuan pihak verifikator.
+  Parameter (Inherited Alpine Scope): `showDeleteModal` dan `selectedItem` dari halaman induk.
+  Nilai kembali: Fragmen HTML dialog modal formulir DELETE ke endpoint `/permohonan/{id}`.
+  Contoh pemanggilan: `@include('permohonan.partials.delete-modal')`
+--}}
 <div x-show="showDeleteModal" 
      x-transition:enter="transition ease-out duration-300"
      x-transition:enter-start="opacity-0"

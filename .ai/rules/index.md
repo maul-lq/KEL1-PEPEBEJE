@@ -11,4 +11,4 @@ Before planning or editing, find the row whose globs match the file's path and r
 | resources/views/permohonan/** | .ai/rules/permohonan.md |
 | resources/** | .ai/rules/resources.md |
 | 1Jorking/**, 1DokumenPendukungMahPBL/**, sql/** | .ai/rules/source-of-truth-revisions.md |
-| app/**, resources/views/**, app/**, routes/**, resources/views/** | .ai/rules/views.md |
+| app/**, bootstrap/app.php, routes/**, resources/views/**, tests/Feature/** | .ai/rules/views.md |

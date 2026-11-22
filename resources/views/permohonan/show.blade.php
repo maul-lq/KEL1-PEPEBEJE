@@ -1,7 +1,26 @@
+{{--
+  Informasi File
+
+  Penulis   : DendyRafi, Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : View Blade ini kami susun untuk menampilkan detail menyeluruh satu permohonan pengadaan,
+              progres 8 siklus vertikal/horizontal, kartu ringkasan unit & pagu, jejak verifikasi
+              paralel, lampiran berkas, dan aksi tindak lanjut berbasis peran.
+--}}
 @extends('layouts.app')
 
 @section('title', 'Detail Permohonan - ' . $permohonan->nomor_surat)
 
+{{--
+  Komentar Deskriptif: Seksi Konten Halaman Detail Permohonan Pengadaan (`permohonan.show`).
+
+  Tujuan: Kami menerjemahkan status permohonan berjalan ke nomor tahap 1..8 lalu menyusun rincian
+          riwayat keputusan paralel, paket turunan, kontrak, BAST, dan pembayaran terkait.
+  Parameter (Data dari PermohonanPengadaanController::show):
+    - `$permohonan` (PermohonanPengadaan), `$makList` (Collection<AnggaranMAK>), `$ppkUsers` (Collection<User>).
+  Nilai kembali: Halaman HTML detail lengkap surat pengadaan beserta aksi verifikasi atau revisi.
+  Contoh pemanggilan: `return view('permohonan.show', compact('permohonan', 'makList', 'ppkUsers'));`
+--}}
 @section('content')
 @php
     $st = strtolower((string) ($permohonan->status_permohonan ?? $permohonan->status ?? 'diajukan'));

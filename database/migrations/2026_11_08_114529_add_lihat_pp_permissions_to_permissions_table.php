@@ -1,14 +1,40 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : Migrasi ini susun untuk menambahkan dua permission pemantauan aktivitas Pejabat
+ *             Pengadaan (`pp.monitoring_aktivitas` dan `lihat_pp`) beserta penautan otomatis ke
+ *             peran `ppbj` dan `admin`.
+ */
+
 use App\Models\Permission;
 use App\Models\Role;
 use Illuminate\Database\Migrations\Migration;
 
+/**
+ * Kelas migrasi anonim penambah permission pemantauan aktivitas Pejabat Pengadaan (PP).
+ *
+ * Tujuan: menyinkronkan hak akses khusus pengawasan kinerja PP tanpa harus menjalankan ulang
+ * seeder penuh pada database produksi yang sudah berjalan.
+ *
+ * Contoh pemanggilan:
+ * `php artisan migrate --path=database/migrations/2026_11_08_114529_add_lihat_pp_permissions_to_permissions_table.php`
+ */
 return new class extends Migration
 {
     /**
-     * Menjalankan migrasi untuk menambahkan hak akses (permission) 'pp.monitoring_aktivitas' dan 'lihat_pp'.
-     * Memungkinkan Koordinator PPBJ dan peran dengan hak akses terkait memonitor seluruh aktivitas PP.
+     * Menjalankan migrasi penambahan permission `pp.monitoring_aktivitas` dan `lihat_pp`.
+     *
+     * Tujuan: memakai `updateOrCreate` dan `syncWithoutDetaching` agar penambahan permission
+     * bersifat idempotent dan langsung aktif pada peran `ppbj` serta `admin`.
+     *
+     * @return void
+     *
+     * Contoh pemanggilan:
+     * `$migration->up();`
      */
     public function up(): void
     {
@@ -36,7 +62,7 @@ return new class extends Migration
             $createdPermissionIds[] = $perm->id;
         }
 
-        // Lampirkan secara otomatis ke role 'ppbj' dan 'admin'
+        // gunakan syncWithoutDetaching agar permission lain yang sudah dikonfigurasi admin tidak ikut terhapus.
         $roles = Role::whereIn('nama_role', ['ppbj', 'admin'])->get();
         foreach ($roles as $role) {
             $role->permissions()->syncWithoutDetaching($createdPermissionIds);
@@ -44,7 +70,15 @@ return new class extends Migration
     }
 
     /**
-     * Membalikkan migrasi (rollback).
+     * Membalikkan migrasi dengan melepas dan menghapus permission pemantauan PP.
+     *
+     * Tujuan: melepaskan relasi pivot sebelum menghapus entri permission agar constraint FK
+     * pada tabel `role_permissions` tetap bersih saat rollback.
+     *
+     * @return void
+     *
+     * Contoh pemanggilan:
+     * `$migration->down();`
      */
     public function down(): void
     {

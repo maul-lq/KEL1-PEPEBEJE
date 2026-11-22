@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : menulis AppServiceProvider ini sebagai pusat bootstrapping komponen aplikasi, khususnya pendaftaran observer pengiriman email otomatis pada model NotifikasiUser.
+ */
+
 namespace App\Providers;
 
 use App\Models\NotifikasiUser;
@@ -9,27 +17,40 @@ use Illuminate\Support\ServiceProvider;
 /**
  * Service Provider Utama Aplikasi (AppServiceProvider)
  *
- * Tempat untuk mendaftarkan dan mem-bootstrap layanan, konfigurasi global,
- * atau macro tambahan pada framework Laravel saat aplikasi pertama kali dimuat.
+ * memakai Service Provider bawaan ini untuk mengikat lifecycle event model dan menyiapkan ekstensi layanan global saat Laravel boot.
+ *
+ * Parameter konstruktor: `$app` (diwarisi dari Illuminate\Support\ServiceProvider).
+ * Nilai kembali         : Instance provider yang didaftarkan di bootstrap/providers.php.
+ *
+ * Contoh pemanggilan:
+ * `// Didaftarkan otomatis pada bootstrap/providers.php`
  */
 class AppServiceProvider extends ServiceProvider
 {
     /**
-     * Mendaftarkan binding layanan ke dalam service container aplikasi.
-     * Dijalankan pada fase registrasi awal framework.
+     * menyediakan metode register ini sebagai tempat mengikat abstraksi atau singleton ke service container sebelum fase boot.
+     *
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `// Dipanggil otomatis oleh Application::registerConfiguredProviders()`
      */
     public function register(): void
     {
-        //
+        // membiarkan register() kosong karena service aplikasi saat ini dapat di-resolve otomatis lewat auto-wiring container.
     }
 
     /**
-     * Melakukan inisialisasi / bootstrapping layanan setelah seluruh provider terdaftar.
-     * Dijalankan sebelum request ditangani oleh routing dan controller.
+     * mendaftarkan observer model setelah seluruh service provider selesai dimuat agar event Eloquent langsung aktif untuk semua request.
+     *
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `// Dipanggil otomatis oleh Laravel tepat sebelum request HTTP atau perintah Artisan dijalankan.`
      */
     public function boot(): void
     {
-        // Daftarkan observer model NotifikasiUser untuk memicu pengiriman email otomatis
+        // memasang observer di level model agar setiap pembuatan NotifikasiUser—baik dari controller maupun scheduler—otomatis mengirim email tanpa kode berulang.
         NotifikasiUser::observe(NotifikasiUserObserver::class);
     }
 }

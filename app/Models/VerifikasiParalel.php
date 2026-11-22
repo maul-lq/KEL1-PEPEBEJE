@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : menulis model VerifikasiParalel ini untuk mencatat reviu, memo fisik, dan keputusan setiap verifikator awal permohonan (Staf Bidang 2, Perencanaan, Wadir 2, dan PPK awal).
+ */
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -7,14 +15,16 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Model Verifikasi Paralel / Berantai Permohonan Pengadaan
+ * Model Catatan Verifikasi Berantai & Paralel (VerifikasiParalel)
  *
- * Merepresentasikan pencatatan telaah dan keputusan persetujuan awal terhadap suatu surat usulan
- * permohonan pengadaan sesuai alur berantai Notulensi PPBJ:
- * 1. staff_bidang_2: Memeriksa kelengkapan berkas awal dari User dan mengirim Memo Cek MAK ke Perencanaan.
- * 2. perencanaan: Memverifikasi/membuat Mata Anggaran Kegiatan (MAK), memilih 1 dari 4 PPK, & mengirim Memo Ketersediaan MAK.
- * 3. wadir_2: Menyetujui kegiatan (ACC kegiatan Bidang 2) atau menolak beserta alasan wajib.
- * 4. ppk: Pejabat Pembuat Komitmen terpilih (id_user_ppk_awal) yang menyetujui usulan awal bersama Wadir 2 sebelum lanjut ke PPBJ.
+ * memakai model ini untuk merekam jejak keputusan setiap aktor verifikator awal beserta nomor memo,
+ * berkas fisik memo, dan catatan alasan penolakan/revisi agar alur berantai menuju PPBJ dapat diaudit.
+ *
+ * Parameter konstruktor: `$attributes` (opsional, diwarisi dari Eloquent Model).
+ * Nilai kembali         : Instance model Eloquent yang terhubung ke tabel `verifikasi_paralel`.
+ *
+ * Contoh pemanggilan:
+ * `VerifikasiParalel::updateOrCreate(['nomor_surat' => $no, 'role_verifikator' => 'wadir_2'], $payload);`
  */
 class VerifikasiParalel extends Model
 {
@@ -60,9 +70,12 @@ class VerifikasiParalel extends Model
     ];
 
     /**
-     * Konfigurasi type casting untuk stempel waktu keputusan.
+     * mengonversi stempel waktu `tanggal_keputusan` ke objek Carbon untuk pengurutan dan tampilan kronologis di modal tracking.
      *
-     * @return array<string, string>
+     * @return array<string, string> mengembalikan peta tipe cast atribut model.
+     *
+     * Contoh pemanggilan:
+     * `// Dipanggil otomatis oleh Eloquent saat mengakses $verifikasi->tanggal_keputusan.`
      */
     protected function casts(): array
     {
@@ -72,9 +85,12 @@ class VerifikasiParalel extends Model
     }
 
     /**
-     * Relasi many-to-one ke User verifikator (Staff Bidang 2, Perencanaan, atau Wadir 2).
+     * menghubungkan catatan verifikasi ke akun pejabat verifikator yang mengambil keputusan.
      *
-     * @return BelongsTo Relasi ke model User
+     * @return BelongsTo mengembalikan relasi BelongsTo ke model User.
+     *
+     * Contoh pemanggilan:
+     * `$verifikator = $verifikasi->user;`
      */
     public function user(): BelongsTo
     {
@@ -82,9 +98,12 @@ class VerifikasiParalel extends Model
     }
 
     /**
-     * Relasi many-to-one ke Permohonan Pengadaan yang sedang ditelaah.
+     * menghubungkan catatan keputusan ini ke surat usulan permohonan pengadaan terkait.
      *
-     * @return BelongsTo Relasi ke model PermohonanPengadaan
+     * @return BelongsTo mengembalikan relasi BelongsTo ke model PermohonanPengadaan.
+     *
+     * Contoh pemanggilan:
+     * `$surat = $verifikasi->permohonan;`
      */
     public function permohonan(): BelongsTo
     {

@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : menulis controller KontrakSPKController ini untuk mengelola review PP, pemantauan PP, persetujuan dokumen pengadaan oleh PPK, serta pengunggahan satu dokumen perikatan terpilih (> Rp50 juta) oleh PPBJ.
+ */
+
 namespace App\Http\Controllers;
 
 use App\Models\AlokasiMAK;
@@ -22,23 +30,40 @@ use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 /**
- * Controller Manajemen Kontrak, Review PP, dan Persetujuan Dokumen PPK (Modul 5)
+ * Controller Kontrak/SPK, Reviu PP, & Persetujuan PPK (KontrakSPKController)
  *
- * Mengelola tahapan:
- * 1. Monitoring aktivitas Pejabat Pengadaan (PP) (BPMN N21, N27, N31).
- * 2. Penelaahan dan verifikasi berkas pengadaan oleh PP.
- * 3. Penerimaan & Persetujuan Dokumen Pengadaan oleh PPK (BPMN N30-N36).
- * 4. Unggah salah satu dokumen perikatan terpilih (Surat Pesanan / SPK / Surat Kontrak) oleh PPBJ.
+ * memusatkan seluruh alur perikatan dan penelaahan dokumen paket > Rp50 juta di controller ini,
+ * dengan pembatasan akses berbasis RBAC murni serta larangan menerbitkan Kontrak/SPK untuk Belanja Langsung <= Rp50 juta.
+ *
+ * Parameter konstruktor: `PengadaanNotificationService $notificationService` — layanan pengirim notifikasi transisi reviu & kontrak.
+ * Nilai kembali         : Instance controller yang melayani `/kontrak-spk`, `/monitor-pp`, dan `/reviu-pengadaan/ppk`.
+ *
+ * Contoh pemanggilan:
+ * `Route::post('/kontrak-spk', [KontrakSPKController::class, 'storeKontrak'])->middleware('role:spk.create');`
  */
 class KontrakSPKController extends Controller
 {
+    /**
+     * menyuntikkan PengadaanNotificationService agar setiap hasil reviu, persetujuan PPK, dan terbitnya SPK langsung mengirim alert ke pihak terkait.
+     *
+     * @param  PengadaanNotificationService  $notificationService  mengikat service notifikasi melalui property promotion.
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `$controller = app(KontrakSPKController::class);`
+     */
     public function __construct(
         public PengadaanNotificationService $notificationService
     ) {}
 
     /**
-     * Menampilkan daftar paket siap SPK (> 50 Juta), antrean review PP/approval PPK,
-     * dan direktori dokumen perikatan berbasis permission RBAC.
+     * menampilkan daftar kontrak terbit, antrean paket > Rp50 juta siap kontrak bagi PPBJ, dan antrean reviu/monitoring untuk PP dan PPK.
+     *
+     * @param  Request  $request  membaca query pencarian `q`/`search` serta filter `status_spk`.
+     * @return View mengembalikan tampilan Blade `kontrak.index` dengan paket siap SPK, daftar kontrak, vendor, dan antrean reviu.
+     *
+     * Contoh pemanggilan:
+     * `GET /kontrak-spk?status_spk=aktif`
      */
     public function kontrakIndex(Request $request): View
     {
@@ -159,7 +184,14 @@ class KontrakSPKController extends Controller
     }
 
     /**
-     * Membatasi query PaketPengadaan pada modul kontrak murni berbasis permission RBAC pengguna.
+     * menerapkan isolasi query PaketPengadaan secara kumulatif dari izin RBAC pengguna agar PPK, PP, dan PPBJ hanya melihat paket sesuai wewenangnya.
+     *
+     * @param  Builder  $query  memodifikasi query builder paket secara langsung di tempat (in-place).
+     * @param  User  $user  memeriksa izin `paket.view_all`, `reviu.ppk`, `reviu.pp`, `canMonitorPp()`, dan `spk.create`.
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `$this->applyKontrakScope($query, $user);`
      */
     protected function applyKontrakScope(Builder $query, User $user): void
     {
@@ -197,13 +229,28 @@ class KontrakSPKController extends Controller
         });
     }
 
+    /**
+     * menyediakan metode alias `index` yang meneruskan langsung ke `kontrakIndex`.
+     *
+     * @param  Request  $request  meneruskan objek request beserta parameter pencarian dan filter.
+     * @return View mengembalikan tampilan Blade `kontrak.index`.
+     *
+     * Contoh pemanggilan:
+     * `$controller->index($request);`
+     */
     public function index(Request $request): View
     {
         return $this->kontrakIndex($request);
     }
 
     /**
-     * Dashboard monitoring aktivitas Pejabat Pengadaan (PP).
+     * menyajikan dashboard pemantauan aktivitas Pejabat Pengadaan (PP) khusus paket jalur Rp50jt-200jt lengkap dengan KPI progresnya.
+     *
+     * @param  Request  $request  membaca filter `keyword` dan `status` paket untuk menyaring tabel pemantauan PP.
+     * @return View mengembalikan tampilan Blade `pp.monitoring`.
+     *
+     * Contoh pemanggilan:
+     * `GET /monitor-pp?status=menunggu_approval_ppk`
      */
     public function monitorPpIndex(Request $request): View
     {
@@ -262,7 +309,13 @@ class KontrakSPKController extends Controller
     }
 
     /**
-     * Memproses upload salah satu dokumen perikatan terpilih (Surat Pesanan / SPK / Surat Kontrak).
+     * mengunggah tepat satu dokumen perikatan (SPK / Surat Pesanan / Surat Kontrak) untuk paket > Rp50 juta, menetapkan vendor, dan mengembalikan selisih efisiensi ke MAK.
+     *
+     * @param  Request  $request  memvalidasi paket sasaran, nama vendor, nilai kontrak akhir, tanggal pelaksanaan, sifat kontrak, dan berkas PDF.
+     * @return RedirectResponse mengarahkan kembali ke `kontrak.index` dengan ringkasan kontrak dan efisiensi anggaran yang dikembalikan ke MAK.
+     *
+     * Contoh pemanggilan:
+     * `POST /kontrak-spk`
      */
     public function storeKontrak(Request $request): RedirectResponse
     {
@@ -290,7 +343,7 @@ class KontrakSPKController extends Controller
 
         $paket = PaketPengadaan::with('permohonan')->where('nomor_paket', $validated['kode_paket'])->firstOrFail();
 
-        // Larang Kontrak/SPK/Surat Pesanan untuk paket <= Rp 50 Juta (Belanja Langsung)
+        // menolak penerbitan Kontrak/SPK pada paket <= Rp50 juta karena jalur Belanja Langsung cukup memakai Kwitansi tanpa kontrak.
         $hpsLama = (float) ($paket->nilai_hps ?: $paket->alokasi_pagu_paket);
         if ($paket->jalur_routing === PaketPengadaan::ROUTING_LANGSUNG || $hpsLama <= 50000000) {
             return back()->withErrors([
@@ -298,7 +351,7 @@ class KontrakSPKController extends Controller
             ])->withInput();
         }
 
-        // Dokumen pengadaan wajib disetujui PPK (BPMN N35: Iya -> N36) sebelum menerbitkan kontrak/SPK
+        // mewajibkan status paket sudah lolos persetujuan PPK sebelum PPBJ menerbitkan dokumen perikatan agar tidak melompati kendali anggaran PPK.
         if (! in_array($paket->status_paket, [
             PaketPengadaan::STATUS_SIAP_UPLOAD_DOKUMEN_PPBJ,
             PaketPengadaan::STATUS_DISETUJUI_PPK_SIAP_BELANJA_PP,
@@ -310,7 +363,7 @@ class KontrakSPKController extends Controller
             ])->withInput();
         }
 
-        // Larang upload lebih dari 1 dokumen perikatan per paket
+        // membatasi maksimal 1 dokumen perikatan per paket sesuai aturan notulensi (tidak boleh ada SPK sekaligus Surat Kontrak untuk satu paket).
         if (KontrakSPK::where('nomor_paket', $paket->nomor_paket)->exists()) {
             return back()->withErrors([
                 'kode_paket' => 'Paket ini sudah memiliki dokumen kontrak. Setiap paket hanya menggunakan satu jenis dokumen kontrak.',
@@ -318,6 +371,7 @@ class KontrakSPKController extends Controller
         }
 
         $nilaiKontrak = (float) $validated['nilai_kontrak'];
+        // menolak nilai kontrak yang melebihi HPS karena pagu MAK tidak boleh terlampaui secara sepihak di tahap perikatan.
         if ($nilaiKontrak > $hpsLama) {
             return back()->withErrors([
                 'nilai_kontrak' => 'Nilai Kontrak Akhir (Rp '.number_format($nilaiKontrak, 0, ',', '.').') tidak boleh melebihi Perkiraan Harga paket (Rp '.number_format($hpsLama, 0, ',', '.').').',
@@ -460,13 +514,28 @@ class KontrakSPKController extends Controller
         );
     }
 
+    /**
+     * menyediakan metode alias `store` yang meneruskan langsung ke `storeKontrak`.
+     *
+     * @param  Request  $request  meneruskan payload pengunggahan dokumen perikatan.
+     * @return RedirectResponse mengembalikan hasil redirect dari `storeKontrak`.
+     *
+     * Contoh pemanggilan:
+     * `$controller->store($request);`
+     */
     public function store(Request $request): RedirectResponse
     {
         return $this->storeKontrak($request);
     }
 
     /**
-     * Memproses penelaahan dokumen oleh PP atau persetujuan dokumen oleh PPK.
+     * memproses hasil reviu dokumen dari PP (`terverifikasi_pp`) atau keputusan final PPK (`disetujui` / `perlu_perbaikan`) sambil menegakkan batas wewenang masing-masing.
+     *
+     * @param  Request  $request  memvalidasi `nomor_paket`, `status_reviu`, dan `catatan_perbaikan` (wajib saat meminta perbaikan).
+     * @return RedirectResponse mengarahkan kembali ke `kontrak.index` dengan status baru paket.
+     *
+     * Contoh pemanggilan:
+     * `POST /kontrak-spk/reviu`
      */
     public function storeReviuWeb(Request $request): RedirectResponse
     {
@@ -603,7 +672,13 @@ class KontrakSPKController extends Controller
     }
 
     /**
-     * Menampilkan antrean penerimaan dan verifikasi dokumen pengadaan oleh PPK (BPMN N30-N36).
+     * menampilkan halaman khusus PPK untuk meninjau dan menyetujui dokumen paket pengadaan yang masuk dari PPBJ/PP.
+     *
+     * @param  Request  $request  memeriksa izin `reviu.ppk` dan mengisolasi daftar paket ke PPK pemilik penugasan.
+     * @return View mengembalikan tampilan Blade `ppk.persetujuan-dokumen` beserta antrean dan riwayat keputusan PPK.
+     *
+     * Contoh pemanggilan:
+     * `GET /reviu-pengadaan/ppk`
      */
     public function persetujuanDokumenPpkIndex(Request $request): View
     {
@@ -652,7 +727,13 @@ class KontrakSPKController extends Controller
     }
 
     /**
-     * Memproses keputusan persetujuan dokumen pengadaan oleh PPK (BPMN N35 & N36).
+     * memproses keputusan PPK (menyetujui dokumen untuk diteruskan ke PPBJ atau menolak disertai alasan wajib untuk disusun ulang).
+     *
+     * @param  Request  $request  memvalidasi `nomor_paket`, `keputusan` (`disetujui`/`ditolak`), dan `catatan_alasan` wajib jika ditolak.
+     * @return RedirectResponse mengarahkan kembali ke halaman persetujuan dokumen PPK dengan pesan status tindak lanjut.
+     *
+     * Contoh pemanggilan:
+     * `POST /reviu-pengadaan/ppk/keputusan`
      */
     public function keputusanDokumenPpk(Request $request): RedirectResponse
     {

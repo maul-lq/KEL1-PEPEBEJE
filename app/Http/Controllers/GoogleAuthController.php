@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : menulis controller GoogleAuthController ini untuk menangani alur login via Google OAuth 2.0 (Socialite) serta penautan/pemutusan akun Google 1:1 pada halaman Profil pengguna.
+ */
+
 namespace App\Http\Controllers;
 
 use App\Models\User;
@@ -11,30 +19,26 @@ use Laravel\Socialite\Facades\Socialite;
 use Throwable;
 
 /**
- * Controller Otentikasi & Penautan Akun Google (GoogleAuthController)
+ * Controller Integrasi Google OAuth 2.0 (GoogleAuthController)
  *
- * Mengelola alur integrasi Google OAuth 2.0 menggunakan Laravel Socialite:
- * 1. Alur Masuk (Login):
- *    - Mengarahkan tamu ke server Google OAuth (/auth/google).
- *    - Menangani callback autentikasi (/auth/google/callback).
- *    - Menegakkan larangan auto-registrasi akun baru: akun Google yang belum pernah ditautkan
- *      ke profil pengguna lokal akan ditolak secara eksplisit dengan pesan edukatif.
- *    - Memeriksa kelayakan status akun (status_registrasi = 'disetujui' dan status_aktif = true).
- *    - Menjalankan session regeneration demi mencegah serangan Session Fixation.
+ * memisahkan alur login tamu dan alur penautan akun profil ke dalam endpoint callback yang berbeda
+ * agar akun Google yang belum pernah ditautkan tidak pernah membuat user baru otomatis (anti auto-provisioning).
  *
- * 2. Alur Penautan Akun di Profil (Account Linking):
- *    - Memungkinkan pengguna terautentikasi menghubungkan akun Google miliknya (/profile/google/link).
- *    - Menangani callback penautan (/profile/google/callback).
- *    - Menegakkan integritas data 1:1: satu akun Google hanya dapat ditautkan ke satu akun lokal SIM-PBJ.
- *    - Menyimpan atribut google_id, google_email, google_avatar, dan tanggal penautan google_linked_at.
- *    - Memungkinkan pengguna memutuskan tautan Google kapan saja (/profile/google/unlink).
+ * Parameter konstruktor: Tidak ada.
+ * Nilai kembali         : Instance controller yang melayani rute `/auth/google/*` dan `/profile/google/*`.
+ *
+ * Contoh pemanggilan:
+ * `Route::get('/auth/google/callback', [GoogleAuthController::class, 'handleGoogleCallback']);`
  */
 class GoogleAuthController extends Controller
 {
     /**
-     * Mengarahkan pengguna (tamu) ke halaman otentikasi Google OAuth untuk alur login.
+     * mengarahkan pengguna tamu ke halaman persetujuan Google OAuth dengan callback khusus alur login.
      *
-     * URL redirect default mengacu pada rute 'auth.google.callback'.
+     * @return RedirectResponse mengembalikan redirect menuju layar Google OAuth atau kembali ke `/login` jika konfigurasi gagal.
+     *
+     * Contoh pemanggilan:
+     * `GET /auth/google`
      */
     public function redirectToGoogle(): RedirectResponse
     {
@@ -55,16 +59,16 @@ class GoogleAuthController extends Controller
     }
 
     /**
-     * Menangani callback otentikasi dari Google untuk alur login pengguna.
+     * memproses callback login Google, memblokir akun Google yang belum ditautkan, memverifikasi persetujuan admin, dan meregenerasi sesi.
      *
-     * Validasi ketat diterapkan di sini:
-     * - Menolak pengguna jika membatalkan perizinan pada Google consent screen.
-     * - Menolak jika akun Google belum pernah ditautkan (TIDAK MEMBUAT AKUN BARU OTOMATIS).
-     * - Memvalidasi status approval registrasi dan status aktif akun pengguna lokal.
+     * @param  Request  $request  memeriksa parameter `error` dari Google consent screen serta mengambil sesi setelah otentikasi.
+     * @return RedirectResponse mengarahkan ke dashboard saat sah, atau kembali ke login dengan pesan penolakan yang jelas.
+     *
+     * Contoh pemanggilan:
+     * `GET /auth/google/callback`
      */
     public function handleGoogleCallback(Request $request): RedirectResponse
     {
-        // 1. Tangani pembatalan izin atau parameter error dari provider Google
         if ($request->has('error')) {
             Log::warning('Pengguna membatalkan atau menolak izin Google OAuth (Login)', [
                 'error' => $request->query('error'),
@@ -76,7 +80,6 @@ class GoogleAuthController extends Controller
             );
         }
 
-        // 2. Ambil data profil dari Google melalui Socialite
         try {
             $googleUser = Socialite::driver('google')
                 ->redirectUrl(route('auth.google.callback'))
@@ -92,13 +95,12 @@ class GoogleAuthController extends Controller
             );
         }
 
-        // 3. Cari pengguna lokal berdasarkan ID unik Google (google_id)
         $googleId = (string) $googleUser->getId();
         $googleEmail = (string) $googleUser->getEmail();
 
         $user = User::where('google_id', $googleId)->first();
 
-        // 4. PENEGAKAN KEAMANAN: Jangan buat akun baru otomatis jika belum ditautkan
+        // melarang auto-registrasi dari Google OAuth karena setiap akun SIM-PBJ harus melalui persetujuan NIP & penetapan role oleh Admin terlebih dahulu.
         if (! $user) {
             Log::notice('Percobaan login Google untuk akun yang belum ditautkan', [
                 'google_id' => $googleId,
@@ -111,7 +113,6 @@ class GoogleAuthController extends Controller
             );
         }
 
-        // 5. Validasi status verifikasi dan status aktif akun pengguna lokal
         if ($user->status_registrasi === User::STATUS_REGISTRASI_MENUNGGU) {
             return redirect()->route('login')->with(
                 'status',
@@ -135,14 +136,13 @@ class GoogleAuthController extends Controller
             );
         }
 
-        // 6. Sinkronkan profil terbaru (email dan avatar) jika tersedia
         $user->update([
             'google_email' => $googleEmail,
             'google_avatar' => $googleUser->getAvatar(),
         ]);
 
-        // 7. Otentikasi dan regenerasi sesi untuk mencegah Session Fixation
         Auth::login($user);
+        // meregenerasi sesi setelah login OAuth untuk mencegah serangan Session Fixation.
         $request->session()->regenerate();
 
         Log::info('Pengguna berhasil masuk melalui Google OAuth', [
@@ -158,9 +158,12 @@ class GoogleAuthController extends Controller
     }
 
     /**
-     * Mengarahkan pengguna terotentikasi ke Google OAuth untuk menautkan akun Google miliknya.
+     * mengarahkan pengguna yang sudah login ke Google OAuth dengan callback penautan profil (`profile.google.callback`).
      *
-     * Menggunakan URI callback penautan khusus 'profile.google.callback'.
+     * @return RedirectResponse mengembalikan redirect ke Google OAuth atau kembali ke halaman profil bila terjadi kesalahan koneksi.
+     *
+     * Contoh pemanggilan:
+     * `GET /profile/google/link`
      */
     public function redirectToGoogleForLinking(): RedirectResponse
     {
@@ -181,18 +184,19 @@ class GoogleAuthController extends Controller
     }
 
     /**
-     * Menangani callback dari Google OAuth untuk proses penautan akun ke profil pengguna lokal.
+     * menyelesaikan callback penautan akun Google di profil sambil menjamin satu Google ID hanya terikat pada satu akun lokal SIM-PBJ.
      *
-     * Validasi:
-     * - Memastikan akun Google belum ditautkan ke akun lokal SIM-PBJ milik pengguna lain.
-     * - Menyimpan identitas Google ke akun pengguna yang sedang aktif login.
+     * @param  Request  $request  memeriksa penolakan izin dan mengambil data profil Google untuk ditautkan ke pengguna aktif.
+     * @return RedirectResponse mengarahkan kembali ke halaman profil dengan pesan sukses atau alasan penolakan duplikasi tautan.
+     *
+     * Contoh pemanggilan:
+     * `GET /profile/google/callback`
      */
     public function handleGoogleLinkingCallback(Request $request): RedirectResponse
     {
         /** @var User $currentUser */
         $currentUser = Auth::user();
 
-        // 1. Periksa jika pengguna membatalkan izin penautan di layar Google
         if ($request->has('error')) {
             Log::warning('Pengguna membatalkan penautan akun Google di halaman profil', [
                 'id_user' => $currentUser->id_user,
@@ -205,7 +209,6 @@ class GoogleAuthController extends Controller
             );
         }
 
-        // 2. Ambil data profil akun Google dari Socialite
         try {
             $googleUser = Socialite::driver('google')
                 ->redirectUrl(route('profile.google.callback'))
@@ -226,7 +229,7 @@ class GoogleAuthController extends Controller
         $googleEmail = (string) $googleUser->getEmail();
         $googleAvatar = $googleUser->getAvatar();
 
-        // 3. Validasi keunikan penautan: pastikan google_id belum dipakai oleh akun lain
+        // menegakkan relasi 1:1 antara akun Google dan akun lokal supaya satu email Google tidak bisa mengambil alih dua akun peran berbeda.
         $isUsedByOther = User::where('google_id', $googleId)
             ->where('id_user', '!=', $currentUser->id_user)
             ->exists();
@@ -244,7 +247,6 @@ class GoogleAuthController extends Controller
             );
         }
 
-        // 4. Simpan identitas Google pada akun pengguna yang sedang login
         $currentUser->update([
             'google_id' => $googleId,
             'google_email' => $googleEmail,
@@ -265,7 +267,13 @@ class GoogleAuthController extends Controller
     }
 
     /**
-     * Memutuskan tautan akun Google dari profil pengguna yang sedang login.
+     * memutus tautan akun Google dari profil pengguna aktif sehingga login hanya bisa memakai kredensial lokal.
+     *
+     * @param  Request  $request  menerima permintaan POST dari tombol putus tautan di halaman profil.
+     * @return RedirectResponse mengarahkan kembali ke halaman profil dengan pesan sukses atau error bila belum tertaut.
+     *
+     * Contoh pemanggilan:
+     * `POST /profile/google/unlink`
      */
     public function unlinkGoogle(Request $request): RedirectResponse
     {

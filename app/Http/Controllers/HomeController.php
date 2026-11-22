@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : DendyRafi, Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : menulis controller HomeController ini sebagai pengatur dashboard operasional multi-modul berbasis RBAC, profil pengguna, pengunduh PDF resmi, serta endpoint health check sistem.
+ */
+
 namespace App\Http\Controllers;
 
 use App\Models\AnggaranMAK;
@@ -30,19 +38,39 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 
 /**
- * Controller Dashboard Utama & Orchestrator Antarmuka (HomeController)
+ * Controller Dashboard & Layanan Profil Utama (HomeController)
  *
- * Mengelola dashboard multi-role, widget statistik eksekutif, profil pengguna,
- * streaming PDF resmi, dan health check sistem.
+ * merancang controller ini agar tampilan dashboard tidak bercabang dengan `switch ($role)`,
+ * melainkan menyusun kartu KPI dan daftar antrean secara kumulatif dari seluruh izin RBAC aktif pengguna.
+ *
+ * Parameter konstruktor: `PengadaanNotificationService $notificationService` — layanan notifikasi terpadu.
+ * Nilai kembali         : Instance controller yang melayani `/dashboard`, `/profil`, `/dokumen-pdf`, dan `/health`.
+ *
+ * Contoh pemanggilan:
+ * `Route::get('/dashboard', [HomeController::class, 'index'])->name('dashboard');`
  */
 class HomeController extends Controller
 {
+    /**
+     * menyuntikkan layanan notifikasi pengadaan agar controller siap mengirim alert bila diperlukan oleh alur terkait.
+     *
+     * @param  PengadaanNotificationService  $notificationService  mengikat service notifikasi melalui property promotion.
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `$home = app(HomeController::class);`
+     */
     public function __construct(
         public PengadaanNotificationService $notificationService
     ) {}
 
     /**
-     * Menampilkan dashboard utama operasional adaptif berbasis modul izin RBAC pengguna.
+     * menyiapkan statistik sistem, daftar permohonan/paket terbaru sesuai cakupan RBAC, notifikasi aktif, dan data modul dashboard.
+     *
+     * @return View mengembalikan tampilan Blade `dashboard.index` lengkap dengan `$roleData` komposisi modul aktif.
+     *
+     * Contoh pemanggilan:
+     * `GET /dashboard`
      */
     public function index(): View
     {
@@ -51,7 +79,7 @@ class HomeController extends Controller
             $user->load(['unit', 'roleEntity.permissions']);
         }
 
-        // Statistik agregat real-time sistem
+        // menghitung agregat ringkas real-time sambil mengecualikan surat lama yang sudah digantikan revisi agar jumlah permohonan tidak mengganda.
         $stats = [
             'total_units' => Unit::count(),
             'total_permohonan' => PermohonanPengadaan::where('status_permohonan', '!=', 'digantikan_oleh_revisi')->count(),
@@ -60,7 +88,7 @@ class HomeController extends Controller
             'total_vendor' => Vendor::count(),
         ];
 
-        // Daftar 5 usulan permohonan terkini (berbasis RBAC permission)
+        // hanya membatasi daftar permohonan ke milik sendiri jika pengguna punya view_own tanpa view_all.
         $permohonanQuery = PermohonanPengadaan::with(['unit', 'user'])
             ->where('status_permohonan', '!=', 'digantikan_oleh_revisi');
         if ($user && $user->hasPermission('permohonan.view_own') && ! $user->hasPermission('permohonan.view_all')) {
@@ -68,14 +96,14 @@ class HomeController extends Controller
         }
         $recentPermohonan = $permohonanQuery->latest('tanggal_pengajuan')->take(5)->get();
 
-        // Daftar 5 paket pengadaan terkini (scopeForUser berbasis RBAC permission)
+        // menerapkan scopeForUser agar akun PPK di dashboard hanya melihat paket penugasannya sendiri.
         $paketQuery = PaketPengadaan::with(['permohonan', 'ppkUser', 'ppUser']);
         if ($user) {
             $paketQuery->forUser($user);
         }
         $recentPaket = $paketQuery->latest('tanggal_registrasi_paket')->take(5)->get();
 
-        // Notifikasi personal pengguna
+        // menyaring notifikasi yang belum ditutup (is_dismissed=false) supaya toast/panel ringkas di dashboard tetap bersih.
         $notifications = $user ? NotifikasiUser::with('reminder.paket')
             ->where('id_user', $user->id_user)
             ->where('is_dismissed', false)
@@ -96,9 +124,13 @@ class HomeController extends Controller
     }
 
     /**
-     * Membangun data dashboard modular berdasarkan daftar izin RBAC pengguna aktif.
+     * menyusun daftar modul dashboard aktif secara kumulatif berdasarkan seluruh izin RBAC pengguna (tanpa switch-case peran).
      *
-     * @return array<string, mixed>
+     * @param  User  $user  memeriksa setiap kelompok permission RBAC milik pengguna untuk mengaktifkan seksi KPI dan antrean terkait.
+     * @return array<string, mixed> mengembalikan `active_modules`, `stats`, dan daftar antrean per modul aktif.
+     *
+     * Contoh pemanggilan:
+     * `$roleData = $this->buildModularDashboardData($user);`
      */
     protected function buildModularDashboardData(User $user): array
     {
@@ -706,7 +738,13 @@ class HomeController extends Controller
     }
 
     /**
-     * Memformat nominal Rupiah secara ringkas agar proporsional di dalam kartu KPI 150px Figma.
+     * meringkas nominal Rupiah ke satuan Miliar/Juta/Ribu agar angka besar tidak meluap dari kartu KPI selebar 150px.
+     *
+     * @param  float  $amount  menerima nominal angka penuh dalam Rupiah.
+     * @return string mengembalikan string Rupiah ringkas seperti 'Rp 1,25 M' atau 'Rp 45 Jt'.
+     *
+     * Contoh pemanggilan:
+     * `$ringkas = $this->formatCompactRupiah(1500000000);`
      */
     protected function formatCompactRupiah(float $amount): string
     {
@@ -728,9 +766,13 @@ class HomeController extends Controller
     }
 
     /**
-     * Mengambil daftar aktivitas pengadaan terbaru yang terkait dengan akun pemohon.
+     * menggabungkan log audit milik pengusul dengan status terkini permohonannya sebagai fallback agar daftar aktivitas di dashboard selalu terisi.
      *
-     * @return Collection<int, array<string, mixed>>
+     * @param  User  $user  menggunakan `id_user` pemohon untuk menyaring permohonan serta jejak audit terkait.
+     * @return Collection<int, array<string, mixed>> mengembalikan maksimal 11 entri aktivitas unik terbaru.
+     *
+     * Contoh pemanggilan:
+     * `$aktivitas = $this->getUserRecentActivities($user);`
      */
     protected function getUserRecentActivities(User $user)
     {
@@ -824,7 +866,15 @@ class HomeController extends Controller
     }
 
     /**
-     * Menyajikan streaming dokumen PDF resmi dengan respon cepat < 3 detik (NFR 12).
+     * menghasilkan aliran biner PDF ringkas secara langsung tanpa render DOM berat agar unduhan dokumen referensi merespons < 3 detik (NFR 12).
+     *
+     * @param  Request  $request  menerima request unduhan dokumen PDF resmi.
+     * @param  string  $jenis  membaca kategori dokumen (misal 'spk', 'bast', atau 'permohonan') untuk judul dokumen.
+     * @param  string  $id  menyematkan nomor referensi dokumen di nama berkas dan isi halaman PDF.
+     * @return Response mengembalikan respons HTTP biner `application/pdf` siap unduh.
+     *
+     * Contoh pemanggilan:
+     * `GET /dokumen-pdf/bast/BAST-001`
      */
     public function unduhDokumenPdf(Request $request, string $jenis, string $id): Response
     {
@@ -833,6 +883,7 @@ class HomeController extends Controller
         $subtitle = "Nomor Dokumen / Referensi: {$id}";
         $meta = 'Politeknik Negeri Jakarta - Diunduh pada '.now()->format('d/m/Y H:i:s');
 
+        // merakit byte stream PDF-1.4 minimal langsung di memori agar endpoint ini bebas overhead render view saat hanya butuh bukti cepat.
         $pdfStream = "%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/MediaBox[0 0 595 842]/Parent 2 0 R/Contents 4 0 R>>endobj\n4 0 obj<</Length 180>>stream\nBT /F1 12 Tf 50 800 Td (".addslashes($title).') Tj /F1 10 Tf 50 780 Td ('.addslashes($subtitle).') Tj /F1 8 Tf 50 760 Td ('.addslashes($meta).") Tj ET\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f\n0000000009 00000 n\n0000000056 00000 n\n0000000111 00000 n\n0000000212 00000 n\ntrailer<</Size 5/Root 1 0 R>>\nstartxref\n430\n%%EOF";
 
         return response($pdfStream, 200, [
@@ -842,7 +893,12 @@ class HomeController extends Controller
     }
 
     /**
-     * Menampilkan halaman profil pengguna aktif.
+     * menampilkan halaman profil pengguna aktif beserta relasi unit kerjanya.
+     *
+     * @return View mengembalikan view `profile.index` dengan data `$user`.
+     *
+     * Contoh pemanggilan:
+     * `GET /profil`
      */
     public function profileIndex(): View
     {
@@ -855,7 +911,13 @@ class HomeController extends Controller
     }
 
     /**
-     * Memproses pembaruan data profil pengguna & pasfoto.
+     * memvalidasi dan menyimpan perubahan profil pengguna aktif termasuk unggah atau penghapusan foto profil di disk publik.
+     *
+     * @param  Request  $request  memvalidasi keunikan email (mengecualikan user aktif) dan format gambar foto profil maksimal 2 MB.
+     * @return RedirectResponse mengembalikan redirect kembali dengan pesan sukses pembaruan profil.
+     *
+     * Contoh pemanggilan:
+     * `PUT /profil`
      */
     public function profileUpdate(Request $request): RedirectResponse
     {
@@ -870,6 +932,7 @@ class HomeController extends Controller
             'foto_profil' => ['nullable', 'image', 'mimes:jpg,png,jpeg,webp,gif', 'max:2048'],
         ]);
 
+        // menghapus berkas foto lama terlebih dahulu baik saat dihapus maupun diganti agar direktori storage/app/public/profil tetap bersih.
         if ($request->has('hapus_foto')) {
             if ($user->foto_profil && Storage::disk('public')->exists($user->foto_profil)) {
                 Storage::disk('public')->delete($user->foto_profil);
@@ -892,7 +955,13 @@ class HomeController extends Controller
     }
 
     /**
-     * Memperbarui preferensi pengiriman pengingat & notifikasi ke email pengguna.
+     * menyimpan preferensi pengguna untuk mengaktifkan atau menjeda pengiriman pengingat melalui email tanpa mematikan notifikasi in-app.
+     *
+     * @param  Request  $request  memvalidasi flag boolean `enabled`.
+     * @return JsonResponse|RedirectResponse mengembalikan JSON untuk toggle AJAX di profil atau redirect kembali untuk submit form standar.
+     *
+     * Contoh pemanggilan:
+     * `POST /profil/reminder-email`
      */
     public function updateReminderEmail(Request $request): JsonResponse|RedirectResponse
     {
@@ -921,7 +990,12 @@ class HomeController extends Controller
     }
 
     /**
-     * Endpoint Pemeriksaan Kesehatan & Ketersediaan Sistem (Uptime >= 99% - NFR 10).
+     * mengecek konektivitas database dan keterbacaan disk public untuk memastikan ketersediaan layanan sesuai NFR Uptime >= 99%.
+     *
+     * @return JsonResponse mengembalikan JSON status kesehatan (`healthy` atau `unhealthy`) beserta status database dan storage.
+     *
+     * Contoh pemanggilan:
+     * `GET /health`
      */
     public function healthCheck(): JsonResponse
     {
@@ -929,6 +1003,7 @@ class HomeController extends Controller
         try {
             DB::connection()->getPdo();
         } catch (\Throwable $e) {
+            // menangkap error koneksi PDO agar endpoint monitoring tetap menerima JSON terstruktur 'unhealthy' alih-alih HTTP 500 mentah.
             $dbStatus = false;
         }
 

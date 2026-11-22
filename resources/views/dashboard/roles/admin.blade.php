@@ -1,5 +1,21 @@
-{{-- resources/views/dashboard/roles/admin.blade.php --}}
-{{-- Modul RBAC: Administrator Sistem (admin - Figma Node 558:3052) --}}
+{{--
+  Informasi File
+
+  Penulis   : Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : Sub-view dasbor ini susun untuk modul Administrator Sistem yang memuat 4 KPI
+              registrasi/pengguna/peran/permohonan, antrean persetujuan cepat ACC/Tolak, log audit
+              atau ringkasan peran, serta modal aksi persetujuan registrasi.
+--}}
+{{--
+  Komentar Deskriptif: Panel Workspace Dasbor Administrator (`dashboard.roles.admin`).
+
+  Tujuan: memeriksa permission `admin.approval_registrasi` dan `audit_log.view` secara mandiri
+          sehingga peran kombinasi tetap hanya melihat widget sesuai izin aktifnya.
+  Parameter: `$user` (User), `$stats` (array), `$roleData` (array).
+  Nilai kembali: Fragmen HTML dasbor Administrator beserta modal ACC/Tolak pendaftar baru.
+  Contoh pemanggilan: `@includeIf('dashboard.roles.admin', [...])`
+--}}
 @php
     $canApproveRegistrasi = $user->hasPermission('admin.approval_registrasi');
     $canViewAudit = $user->hasPermission('audit_log.view');

@@ -1,3 +1,27 @@
+{{--
+  Informasi File
+
+  Penulis   : Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : Komponen Blade ini rancang untuk merender kartu metrik KPI dasbor bergaya Figma
+              dengan dukungan elemen `<a>` interaktif atau `<div>` statis serta mode teks nominal ringkas.
+--}}
+{{--
+  Komentar Deskriptif: Komponen Kartu Metrik KPI Dasbor Figma (`<x-figma-stat-card>`).
+
+  Tujuan: menstandarkan tampilan 4 kartu statistik atas di semua dasbor peran PNJ supaya
+          angka besar maupun nominal rupiah terpotong rapi dengan `truncate` dan tooltip penuh.
+  Parameter (@props):
+    - `title` (string, wajib): Label nama metrik KPI.
+    - `value` (int|string, default 0): Nilai angka atau teks rupiah metrik.
+    - `subtitle` (string, default ''): Keterangan singkat di baris bawah kartu.
+    - `variant` (string, default 'active'): Variasi ikon ('active' | 'action' | 'done' | 'bell').
+    - `href` (string|null): URL tujuan bila kartu bersifat dapat diklik.
+    - `compact` (bool, default false): Mengecilkan ukuran font angka agar nominal rupiah panjang muat.
+    - `fullTitle` (string|null): Teks tooltip HTML penuh apabila `title` atau `value` terpotong.
+  Nilai kembali: Kartu statistik `<a>` atau `<div>` siap pakai dalam grid dasbor.
+  Contoh pemanggilan: `<x-figma-stat-card title="Usulan Aktif" :value="$count" variant="active" :href="route('permohonan.index')" />`
+--}}
 @props([
     'title',
     'value' => 0,
@@ -16,6 +40,7 @@
         'bell' => 'icon-card-bell.svg',
     ];
     $iconFile = $iconMap[$variant] ?? 'icon-card-active.svg';
+    // alihkan tag root menjadi <a> hanya ketika href diisi agar elemen non-link tetap semantik.
     $tag = $href ? 'a' : 'div';
 @endphp
 

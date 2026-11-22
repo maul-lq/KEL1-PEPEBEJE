@@ -1,7 +1,27 @@
+{{--
+  Informasi File
+
+  Penulis   : Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : View Blade ini susun untuk antarmuka tahap 8 Pembayaran & Pencairan SP2D,
+              memuat 4 KPI pembayaran, panel pengajuan tagihan PPBJ berbasis `pembayaranPengajuan`,
+              persetujuan Memo Bayar berjenjang Wadir II/PPK, penerbitan SPP, serta form transfer SP2D Keuangan.
+--}}
 @extends('layouts.app')
 
 @section('title', 'Pembayaran & Pencairan Dana - SIM-PBJ PNJ')
 
+{{--
+  Komentar Deskriptif: Seksi Konten Siklus Pembayaran & Pencairan Dana (`pembayaran.index`).
+
+  Tujuan: menampilkan panel tahapan sesuai hak akses RBAC aktor yang login (`pembayaran.pengajuan`,
+          `pembayaran.memo_ppk`, `pembayaran.memo_wadir2`, `pembayaran.spp_terbitkan`, `pembayaran.pencairan_sp2d`)
+          agar seluruh aktor pembayaran dapat memantau progres tagihan hingga transfer SP2D lunas.
+  Parameter (Data dari PembayaranController::index):
+    - `$pembayaranList`, `$memoMenungguReview`, `$siapCairKeuangan`, `$transaksiList`, `$bastSiapBayar`.
+  Nilai kembali: Halaman HTML lengkap pengelolaan tagihan termin hingga bukti pencairan dana.
+  Contoh pemanggilan: `return view('pembayaran.index', compact(...));`
+--}}
 @section('content')
 <div class="space-y-6">
 

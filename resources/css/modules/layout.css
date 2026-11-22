@@ -1,5 +1,23 @@
-/* Dekorasi gelombang di bagian bawah bilah sisi */
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0) - lihat file LICENSE di root repositori.
+ * Ringkasan : Stylesheet ini saya buat untuk mengatur posisi elemen dekoratif gelombang SVG di
+ *             bagian bawah bilah navigasi samping aplikasi.
+ */
+
+/**
+ * Posisi Ornamen Gelombang Sidebar.
+ *
+ * Tujuan: Saya menarik posisi gelombang keluar sedikit dari batas kontainer bilah sisi dengan
+ * inset negatif agar kurva tampil mulus tanpa terpotong tepi samping.
+ * Parameter: Kelas `.sidebar-wave-outer` dan `.sidebar-wave-inner`.
+ * Nilai kembali: Mengatur offset top, right, bottom, dan left relatif terhadap wadah posisinya.
+ * Contoh pemanggilan: `<svg class="sidebar-wave-outer">`
+ */
 .sidebar-wave-outer {
+    /* Offset negatif mencegah sudut lengkung SVG memunculkan celah kosong di tepi sidebar */
     top: -43.6%;
     right: -15.7%;
     bottom: -14.53%;

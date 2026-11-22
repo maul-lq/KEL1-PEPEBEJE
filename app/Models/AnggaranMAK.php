@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : menulis model AnggaranMAK ini untuk mengelola pagu DIPA, saldo tersisa, serta mekanisme penguncian (lock/unlock) guna menjaga integritas data anggaran.
+ */
+
 namespace App\Models;
 
 use Exception;
@@ -9,13 +17,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Model Anggaran MAK (Mata Anggaran Kegiatan)
+ * Model Master Mata Anggaran Kegiatan (AnggaranMAK)
  *
- * Merepresentasikan data pagu anggaran, sisa dana, dan status penguncian (locking) akun MAK.
- * Model ini menegakkan Non-Functional Requirement (NFR) Integritas Data MAK:
- * Jika anggaran telah dikunci (misalnya saat Kontrak SPK terbit), maka data pokok anggaran
- * (uraian, pagu anggaran, sumber dana, tahun) dilarang keras diubah atau dihapus untuk
- * mencegah manipulasi atau ketidakkonsistenan pembukuan keuangan institusi.
+ * menerapkan penjagaan integritas di level ORM pada model ini agar akun MAK yang berstatus terkunci (`is_locked = true`)
+ * tidak dapat diubah nilai pagu/uraiannya maupun dihapus, kecuali dibuka kuncinya lebih dulu oleh Perencanaan.
+ *
+ * Parameter konstruktor: `$attributes` (opsional, diwarisi dari Eloquent Model).
+ * Nilai kembali         : Instance model Eloquent yang terhubung ke tabel `anggaran_mak` dengan primary key string `kode_mak`.
+ *
+ * Contoh pemanggilan:
+ * `$mak = AnggaranMAK::findOrFail('521211.PNJ.2026');`
  */
 class AnggaranMAK extends Model
 {
@@ -69,18 +80,19 @@ class AnggaranMAK extends Model
     ];
 
     /**
-     * Konfigurasi type casting atribut ke tipe data PHP/Carbon.
+     * mendefinisikan casting desimal keuangan, tahun integer, flag boolean kunci, serta timestamp penetapan/kunci.
      *
-     * @return array<string, string>
+     * @return array<string, string> mengembalikan peta cast tipe data atribut model.
+     *
+     * Contoh pemanggilan:
+     * `// Dipanggil otomatis oleh Eloquent saat membaca $mak->is_locked atau $mak->sisa_pagu_mak.`
      */
     protected function casts(): array
     {
         return [
-            // Format desimal presisi tinggi untuk data keuangan
             'pagu_anggaran' => 'decimal:2',
             'sisa_pagu_mak' => 'decimal:2',
             'tahun_anggaran' => 'integer',
-            // Flag penguncian anggaran boolean
             'is_locked' => 'boolean',
             'tanggal_kunci' => 'datetime',
             'tanggal_penetapan' => 'datetime',
@@ -88,22 +100,24 @@ class AnggaranMAK extends Model
     }
 
     /**
-     * Boot model Eloquent untuk mendaftarkan hook event siklus hidup model.
-     * Menegakkan batasan NFR Integritas Data MAK secara otomatis pada level basis data/ORM.
+     * mendaftarkan hook Eloquent `updating` dan `deleting` agar aturan penguncian MAK tetap ditegakkan dari mana pun model dimodifikasi.
+     *
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `// Dijalankan otomatis oleh Eloquent saat AnggaranMAK pertama kali di-boot.`
      */
     protected static function booted(): void
     {
-        // Hook event updating: cegah manipulasi nilai pagu/uraian jika anggaran sudah terkunci
         static::updating(function (AnggaranMAK $mak) {
+            // memeriksa baik nilai asli maupun nilai baru is_locked agar operasi unlock() sendiri tidak ikut diblokir, namun perubahan pagu/uraian saat terkunci ditolak keras.
             if ($mak->getOriginal('is_locked') && $mak->is_locked) {
-                // Cegah pengubahan data inti anggaran jika sudah terkunci (NFR Integritas Data MAK)
                 if ($mak->isDirty(['uraian_mak', 'pagu_anggaran', 'sumber_dana', 'tahun_anggaran'])) {
                     throw new Exception("Data MAK {$mak->kode_mak} telah dikunci permanen karena SPK telah terbit (NFR Integritas Data MAK)!");
                 }
             }
         });
 
-        // Hook event deleting: tolak penghapusan MAK yang sudah dalam kondisi terkunci
         static::deleting(function (AnggaranMAK $mak) {
             if ($mak->is_locked) {
                 throw new Exception("Data MAK {$mak->kode_mak} tidak dapat dihapus karena telah dikunci permanen (NFR Integritas Data MAK)!");
@@ -112,9 +126,12 @@ class AnggaranMAK extends Model
     }
 
     /**
-     * Memeriksa apakah anggaran MAK saat ini berada dalam status terkunci.
+     * mengecek status penguncian MAK dalam bentuk boolean eksplisit.
      *
-     * @return bool True jika terkunci, false jika masih bebas diubah
+     * @return bool mengembalikan true jika MAK berstatus terkunci, atau false jika terbuka.
+     *
+     * Contoh pemanggilan:
+     * `if ($mak->isLocked()) { abort(403); }`
      */
     public function isLocked(): bool
     {
@@ -122,9 +139,12 @@ class AnggaranMAK extends Model
     }
 
     /**
-     * Mengunci anggaran MAK dan mencatat timestamp penguncian (wewenang eksklusif Perencanaan).
+     * mengunci akun MAK beserta stempel waktu penguncian (otoritas tunggal peran Perencanaan).
      *
-     * @return bool True jika penyimpanan status berhasil
+     * @return bool mengembalikan true apabila perubahan status kunci berhasil disimpan.
+     *
+     * Contoh pemanggilan:
+     * `$mak->lock();`
      */
     public function lock(): bool
     {
@@ -135,9 +155,12 @@ class AnggaranMAK extends Model
     }
 
     /**
-     * Membuka kembali kunci anggaran MAK dan mengosongkan timestamp kunci (wewenang eksklusif Perencanaan).
+     * membuka kembali kunci akun MAK dan membersihkan `tanggal_kunci` agar dapat disesuaikan kembali oleh Perencanaan.
      *
-     * @return bool True jika penyimpanan status buka kunci berhasil
+     * @return bool mengembalikan true apabila status buka kunci berhasil disimpan.
+     *
+     * Contoh pemanggilan:
+     * `$mak->unlock();`
      */
     public function unlock(): bool
     {
@@ -148,9 +171,12 @@ class AnggaranMAK extends Model
     }
 
     /**
-     * Relasi many-to-one ke User (petugas/staf perencanaan pembuat/penetap MAK).
+     * menghubungkan MAK ke akun staf Perencanaan yang menetapkan atau membuatnya.
      *
-     * @return BelongsTo Relasi ke model User
+     * @return BelongsTo mengembalikan relasi BelongsTo ke model User.
+     *
+     * Contoh pemanggilan:
+     * `$pembuat = $mak->user;`
      */
     public function user(): BelongsTo
     {
@@ -158,10 +184,12 @@ class AnggaranMAK extends Model
     }
 
     /**
-     * Relasi one-to-many ke Permohonan Pengadaan.
-     * Menghubungkan seluruh usulan pengadaan yang membebankan anggarannya pada MAK ini.
+     * menghubungkan MAK ke seluruh permohonan pengadaan yang menunjuk kode MAK ini sebagai pos utama.
      *
-     * @return HasMany Koleksi usulan pengadaan terkait
+     * @return HasMany mengembalikan relasi HasMany ke model PermohonanPengadaan.
+     *
+     * Contoh pemanggilan:
+     * `$daftarUsulan = $mak->permohonanPengadaan;`
      */
     public function permohonanPengadaan(): HasMany
     {
@@ -169,10 +197,12 @@ class AnggaranMAK extends Model
     }
 
     /**
-     * Relasi one-to-many ke riwayat Alokasi MAK.
-     * Menghubungkan log alokasi nominal permohonan terhadap pagu MAK ini.
+     * menghubungkan MAK ke seluruh riwayat alokasi nominal di tabel `alokasi_mak`.
      *
-     * @return HasMany Koleksi riwayat alokasi permohonan
+     * @return HasMany mengembalikan relasi HasMany ke model AlokasiMAK.
+     *
+     * Contoh pemanggilan:
+     * `$riwayatAlokasi = $mak->alokasiMak;`
      */
     public function alokasiMak(): HasMany
     {

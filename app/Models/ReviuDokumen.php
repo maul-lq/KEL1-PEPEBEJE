@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : menulis model ReviuDokumen ini untuk mencatat riwayat hasil telaah dan perbaikan dokumen persiapan pengadaan oleh PP maupun PPK.
+ */
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -7,12 +15,16 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Model Reviu Dokumen (Reviu Dokumen Persiapan Pengadaan)
+ * Model Reviu Dokumen Pengadaan (ReviuDokumen)
  *
- * Merepresentasikan pencatatan hasil telaah/reviu berkas persiapan pengadaan (HPS, spesifikasi teknis,
- * rancangan kontrak) oleh Pejabat Pengadaan (PP) atau Pejabat Pembuat Komitmen (PPK).
- * Melacak siklus revisi (putaran_ke), peran reviewer, status reviu (draft, perlu_revisi, disetujui),
- * catatan perbaikan, serta stempel waktu pelaksanaan reviu.
+ * menggunakan model ini untuk merekam tiap putaran reviu teknis oleh PP (50-200jt) atau PPK (>200jt & approval 50-200jt)
+ * agar alasan permintaan perbaikan berkas ke PPBJ terdokumentasi rapi per putaran.
+ *
+ * Parameter konstruktor: `$attributes` (opsional, diwarisi dari Eloquent Model).
+ * Nilai kembali         : Instance model Eloquent yang terhubung ke tabel `reviu_dokumen` dengan primary key `id_reviu`.
+ *
+ * Contoh pemanggilan:
+ * `ReviuDokumen::create(['nomor_paket' => $no, 'id_user' => $user->id_user, 'role_reviewer' => 'pp', 'status_reviu' => 'disetujui']);`
  */
 class ReviuDokumen extends Model
 {
@@ -54,9 +66,12 @@ class ReviuDokumen extends Model
     ];
 
     /**
-     * Konfigurasi type casting untuk angka dan timestamp reviu.
+     * mengonversi nomor putaran reviu ke integer dan tanggal reviu ke Carbon untuk pengurutan kronologis.
      *
-     * @return array<string, string>
+     * @return array<string, string> mengembalikan peta tipe cast atribut model.
+     *
+     * Contoh pemanggilan:
+     * `// Dipanggil otomatis oleh Eloquent saat mengakses $reviu->putaran_ke atau $reviu->tanggal_reviu.`
      */
     protected function casts(): array
     {
@@ -67,9 +82,12 @@ class ReviuDokumen extends Model
     }
 
     /**
-     * Relasi many-to-one ke Paket Pengadaan yang direviu.
+     * menghubungkan catatan reviu ke paket pengadaan yang ditelaah.
      *
-     * @return BelongsTo Relasi ke model PaketPengadaan
+     * @return BelongsTo mengembalikan relasi BelongsTo ke model PaketPengadaan.
+     *
+     * Contoh pemanggilan:
+     * `$paket = $reviu->paket;`
      */
     public function paket(): BelongsTo
     {
@@ -77,9 +95,12 @@ class ReviuDokumen extends Model
     }
 
     /**
-     * Relasi many-to-one ke User pejabat penelaah/reviewer (PP atau PPK).
+     * menghubungkan catatan reviu ke akun pejabat penelaah (PP atau PPK).
      *
-     * @return BelongsTo Relasi ke model User
+     * @return BelongsTo mengembalikan relasi BelongsTo ke model User.
+     *
+     * Contoh pemanggilan:
+     * `$penelaah = $reviu->user;`
      */
     public function user(): BelongsTo
     {

@@ -1,5 +1,20 @@
-{{-- resources/views/dashboard/roles/keuangan.blade.php --}}
-{{-- Modul RBAC: Bagian Keuangan / Bendahara Pengeluaran (keuangan - Figma Node 568:36411) --}}
+{{--
+  Informasi File
+
+  Penulis   : Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : Sub-view dasbor ini buat untuk modul Bagian Keuangan / Bendahara Pengeluaran
+              berisi 4 KPI SP2D & pengingat bayar, daftar tagihan siap cair, serta riwayat pencairan dana.
+--}}
+{{--
+  Komentar Deskriptif: Panel Workspace Dasbor Bagian Keuangan (`dashboard.roles.keuangan`).
+
+  Tujuan: menggabungkan antrean tagihan siap cair SP2D dan pengingat operasional dari PPBJ ke
+          kolom aksi agar bendahara langsung menindaklanjuti tagihan mendesak lebih dulu.
+  Parameter: `$user` (User), `$stats` (array), `$roleData` (array).
+  Nilai kembali: Fragmen HTML dasbor Keuangan lengkap dengan tampilan rupiah ringkas dan tooltip nominal penuh.
+  Contoh pemanggilan: `@includeIf('dashboard.roles.keuangan', [...])`
+--}}
 @php
     $canSp2d = $user->hasPermission('pembayaran.pencairan_sp2d');
     $keuanganHref = $canSp2d ? route('pembayaran.index') : null;

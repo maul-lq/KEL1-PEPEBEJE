@@ -1,15 +1,40 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : Migrasi ini susun untuk menghapus kolom legacy `users.role` (digantikan penuh
+ *             oleh relasi `users.id_role`) dan kolom sisa `vendors.npwp`.
+ */
+
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Kelas migrasi anonim penghapus kolom duplikat `users.role` dan `vendors.npwp`.
+ *
+ * Tujuan: menuntaskan transisi ke sistem RBAC relasional berbasis `id_role` dan membersihkan
+ * sisa indeks kolom sebelum melakukan penghapusan kolom di SQLite maupun PostgreSQL.
+ *
+ * Contoh pemanggilan:
+ * `php artisan migrate --path=database/migrations/2026_11_15_153101_drop_role_column_from_users_and_npwp_column_from_vendors_table.php`
+ */
 return new class extends Migration
 {
     /**
-     * Menghapus kolom duplikat users.role (digantikan penuh oleh users.id_role)
-     * serta menghapus kolom sisa vendors.npwp.
+     * Menjalankan migrasi backfilling `id_role` lalu menghapus kolom `users.role` dan `vendors.npwp`.
+     *
+     * Tujuan: memetakan nilai string `role` lama ke `id_role` lebih dulu bagi baris yang
+     * masih null dan melepaskan indeks non-primary kolom terkait agar dropColumn tidak gagal.
+     *
+     * @return void
+     *
+     * Contoh pemanggilan:
+     * `$migration->up();`
      */
     public function up(): void
     {
@@ -69,7 +94,15 @@ return new class extends Migration
     }
 
     /**
-     * Memulihkan kolom users.role dan vendors.npwp saat rollback migrasi.
+     * Membalikkan migrasi dengan memulihkan kolom `users.role` dan `vendors.npwp`.
+     *
+     * Tujuan: mengisi kembali kolom string `role` dari tabel `roles` berdasar `id_role` agar
+     * sistem kembali kompatibel apabila rollback diperlukan.
+     *
+     * @return void
+     *
+     * Contoh pemanggilan:
+     * `$migration->down();`
      */
     public function down(): void
     {

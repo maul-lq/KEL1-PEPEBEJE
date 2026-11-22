@@ -1,8 +1,27 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : memperbarui berkas konfigurasi basis data bawaan Laravel ini yang mengatur koneksi PostgreSQL utama (`pgsql`) aplikasi SIM-PBJ, koneksi uji SQLite, serta tabel riwayat migrasi.
+ */
+
 use Illuminate\Support\Str;
 use Pdo\Mysql;
 
+/**
+ * Konfigurasi Koneksi Basis Data (config/database.php)
+ *
+ * memusatkan parameter koneksi database relasional (PostgreSQL untuk lingkungan utama `ppbj_kampus`
+ * dan SQLite/MySQL bila dibutuhkan) beserta konfigurasi tabel migrasi dan Redis.
+ *
+ * Parameter    : Tidak ada (membaca kredensial sensitif dari .env).
+ * Nilai kembali: array<string, mixed> — peta koneksi database, konfigurasi migrasi, dan Redis.
+ * Contoh pemanggilan:
+ * `config('database.default')` atau `DB::connection('pgsql')`
+ */
 return [
 
     /*
@@ -10,10 +29,8 @@ return [
     | Default Database Connection Name
     |--------------------------------------------------------------------------
     |
-    | Here you may specify which of the database connections below you wish
-    | to use as your default connection for database operations. This is
-    | the connection which will be utilized unless another connection
-    | is explicitly specified when you execute a query / statement.
+    | mengarahkan koneksi bawaan lewat DB_CONNECTION (yang di lingkungan
+    | aplikasi SIM-PBJ menunjuk ke 'pgsql' PostgreSQL, atau 'sqlite' saat test).
     |
     */
 
@@ -24,9 +41,8 @@ return [
     | Database Connections
     |--------------------------------------------------------------------------
     |
-    | Below are all of the database connections defined for your application.
-    | An example configuration is provided for each database system which
-    | is supported by Laravel. You're free to add / remove connections.
+    | mempertahankan definisi tiap driver yang didukung Laravel; aplikasi
+    | utama berjalan pada profil 'pgsql' dengan schema search_path 'public'.
     |
     */
 
@@ -37,6 +53,7 @@ return [
             'url' => env('DB_URL'),
             'database' => env('DB_DATABASE', database_path('database.sqlite')),
             'prefix' => '',
+            // mempertahankan foreign_key_constraints aktif di SQLite supaya pelanggaran integritas relasi tetap tertangkap saat test.
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
             'busy_timeout' => null,
             'journal_mode' => null,
@@ -59,6 +76,7 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
+            // hanya membaca konstanta SSL CA jika ekstensi pdo_mysql terpasang agar environment PostgreSQL murni tidak error.
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 Mysql::ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
@@ -84,6 +102,7 @@ return [
             ]) : [],
         ],
 
+        // mengandalkan profil koneksi PostgreSQL ini sebagai basis data utama SIM-PBJ (ppbj_kampus).
         'pgsql' => [
             'driver' => 'pgsql',
             'url' => env('DB_URL'),
@@ -121,9 +140,8 @@ return [
     | Migration Repository Table
     |--------------------------------------------------------------------------
     |
-    | This table keeps track of all the migrations that have already run for
-    | your application. Using this information, we can determine which of
-    | the migrations on disk haven't actually been run on the database.
+    | memakai tabel 'migrations' untuk mencatat setiap berkas migrasi yang
+    | telah dieksekusi supaya status skema PostgreSQL selalu sinkron.
     |
     */
 
@@ -137,9 +155,8 @@ return [
     | Redis Databases
     |--------------------------------------------------------------------------
     |
-    | Redis is an open source, fast, and advanced key-value store that also
-    | provides a richer body of commands than a typical key-value system
-    | such as Memcached. You may define your connection settings here.
+    | mempertahankan konfigurasi Redis standar dengan strategi backoff acak
+    | agar aplikasi siap diskalakan jika cache atau queue dipindahkan ke Redis.
     |
     */
 

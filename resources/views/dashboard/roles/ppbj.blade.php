@@ -1,5 +1,21 @@
-{{-- resources/views/dashboard/roles/ppbj.blade.php --}}
-{{-- Modul RBAC: Koordinator Pengadaan Barang & Jasa (ppbj) --}}
+{{--
+  Informasi File
+
+  Penulis   : Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : Sub-view dasbor ini susun untuk modul Koordinator PPBJ mencakup KPI distribusi
+              jalur HPS, seluruh antrean tindak lanjut (BAST siap bayar, SPP, SPK, registrasi paket),
+              serta panel monitoring paket dan aktivitas Pejabat Pengadaan berbasis tab.
+--}}
+{{--
+  Komentar Deskriptif: Panel Workspace Dasbor Koordinator PPBJ (`dashboard.roles.ppbj`).
+
+  Tujuan: mengagregasi berbagai jenis antrean kerja PPBJ ke panel aksi kiri sesuai izin RBAC
+          terkait dan menyematkan switcher tab monitoring paket vs Pejabat Pengadaan di panel kanan.
+  Parameter: `$user` (User), `$stats` (array), `$roleData` (array), `$recentPaket` (Collection).
+  Nilai kembali: Fragmen HTML dasbor interaktif `ppbjDashboard`.
+  Contoh pemanggilan: `@includeIf('dashboard.roles.ppbj', [...])`
+--}}
 @php
     $canManagePaket = $user->hasAnyPermission(['paket.view_all', 'paket.create', 'paket.reassign_ppk', 'permohonan.split_jenis']);
     $canCreatePaket = $user->hasPermission('paket.create');

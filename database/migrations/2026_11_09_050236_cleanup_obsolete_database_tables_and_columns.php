@@ -1,21 +1,47 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : Migrasi ini susun untuk menghapus tabel usang `vendor_file_legalitas` dan
+ *             kolom `npwp_vendor` pada `paket_pengadaan` setelah skema vendor diseragamkan ke `id_vendor`.
+ */
+
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Kelas migrasi anonim pembersihan tabel legalitas vendor terpisah dan kolom `npwp_vendor`.
+ *
+ * Tujuan: menyederhanakan relasi vendor pada paket pengadaan sehingga hanya bertumpu pada
+ * primary key surrogate `id` melalui kolom `id_vendor`.
+ *
+ * Contoh pemanggilan:
+ * `php artisan migrate --path=database/migrations/2026_11_09_050236_cleanup_obsolete_database_tables_and_columns.php`
+ */
 return new class extends Migration
 {
     /**
-     * Run the migrations.
+     * Menjalankan migrasi pembersihan `vendor_file_legalitas` dan `npwp_vendor`.
+     *
+     * Tujuan: melepas foreign key khusus pada driver SQLite sebelum drop kolom karena SQLite
+     * menuntut penjatuhan constraint secara eksplisit sebelum pengubahan kolom.
+     *
+     * @return void
+     *
+     * Contoh pemanggilan:
+     * `$migration->up();`
      */
     public function up(): void
     {
-        // 1. Hapus tabel usang vendor_file_legalitas (sudah digantikan kolom file_dokumen_legalitas pada tabel vendors)
+        // hapus tabel terpisah karena berkas legalitas sudah disatukan menjadi kolom di tabel vendors.
         Schema::dropIfExists('vendor_file_legalitas');
 
-        // 2. Hapus kolom usang npwp_vendor pada tabel paket_pengadaan (sudah digantikan oleh id_vendor dengan relasi resmi)
         if (Schema::hasColumn('paket_pengadaan', 'npwp_vendor')) {
+            // SQLite memerlukan pelepasan foreign key secara eksplisit sebelum menghapus kolom npwp_vendor.
             if (Schema::getConnection()->getDriverName() === 'sqlite') {
                 Schema::table('paket_pengadaan', function (Blueprint $table) {
                     $table->dropForeign(['npwp_vendor']);
@@ -29,7 +55,14 @@ return new class extends Migration
     }
 
     /**
-     * Reverse the migrations.
+     * Membalikkan migrasi dengan membuat ulang tabel `vendor_file_legalitas` dan kolom `npwp_vendor`.
+     *
+     * Tujuan: menyediakan jalur rollback struktural bila diperlukan pemulihan kolom lama.
+     *
+     * @return void
+     *
+     * Contoh pemanggilan:
+     * `$migration->down();`
      */
     public function down(): void
     {

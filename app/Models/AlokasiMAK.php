@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : menulis model AlokasiMAK ini untuk merekam keterkaitan nominal alokasi dana dari rekening MAK ke setiap surat permohonan pengadaan.
+ */
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -7,11 +15,16 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Model Alokasi MAK (Alokasi Mata Anggaran Kegiatan)
+ * Model Alokasi Mata Anggaran Kegiatan (AlokasiMAK)
  *
- * Merepresentasikan pencatatan alokasi dana dari Mata Anggaran Kegiatan (MAK)
- * ke suatu surat permohonan pengadaan tertentu. Berperan melacak distribusi pagu
- * anggaran secara granular untuk setiap usulan pengadaan di SIM-PBJ.
+ * menggunakan model ini untuk melacak pecahan atau alokasi nominal anggaran dari tabel `anggaran_mak`
+ * ke surat usulan di `permohonan_pengadaan` sehingga sinkronisasi pengurangan dan pengembalian sisa pagu tetap akurat.
+ *
+ * Parameter konstruktor: `$attributes` (opsional, diwarisi dari Eloquent Model).
+ * Nilai kembali         : Instance model Eloquent yang terhubung ke tabel `alokasi_mak`.
+ *
+ * Contoh pemanggilan:
+ * `AlokasiMAK::create(['nomor_surat' => $no, 'kode_mak' => $mak, 'nominal_alokasi' => 15000000, 'tanggal_alokasi' => now()]);`
  */
 class AlokasiMAK extends Model
 {
@@ -37,25 +50,28 @@ class AlokasiMAK extends Model
     ];
 
     /**
-     * Konfigurasi konversi tipe data (type casting) untuk atribut model.
+     * mengonversi kolom nominal ke desimal presisi 2 digit dan tanggal ke Carbon agar perhitungan selisih HPS bebas galat pembulatan float mentah.
      *
-     * @return array<string, string>
+     * @return array<string, string> mengembalikan peta tipe cast atribut model.
+     *
+     * Contoh pemanggilan:
+     * `// Dipanggil otomatis oleh Eloquent saat mengakses $alokasi->nominal_alokasi atau $alokasi->tanggal_alokasi.`
      */
     protected function casts(): array
     {
         return [
-            // Memastikan nilai nominal alokasi diformat sebagai bilangan desimal 2 digit presisi
             'nominal_alokasi' => 'decimal:2',
-            // Konversi string timestamp menjadi objek Carbon/Datetime
             'tanggal_alokasi' => 'datetime',
         ];
     }
 
     /**
-     * Relasi many-to-one ke Permohonan Pengadaan.
-     * Mengindikasikan surat permohonan mana yang menerima alokasi anggaran ini.
+     * mendefinisikan relasi balik ke permohonan pengadaan agar setiap alokasi dapat ditelusuri ke surat usulannya.
      *
-     * @return BelongsTo Relasi balik ke model PermohonanPengadaan
+     * @return BelongsTo mengembalikan relasi BelongsTo menuju model PermohonanPengadaan.
+     *
+     * Contoh pemanggilan:
+     * `$surat = $alokasi->permohonan;`
      */
     public function permohonan(): BelongsTo
     {
@@ -63,10 +79,12 @@ class AlokasiMAK extends Model
     }
 
     /**
-     * Relasi many-to-one ke Anggaran MAK.
-     * Mengindikasikan sumber Mata Anggaran Kegiatan (MAK) asal dana yang dialokasikan.
+     * menghubungkan record alokasi ini ke master MAK sumber dana agar pemulihan saldo dan penguncian MAK mudah ditelusuri.
      *
-     * @return BelongsTo Relasi balik ke model AnggaranMAK
+     * @return BelongsTo mengembalikan relasi BelongsTo menuju model AnggaranMAK.
+     *
+     * Contoh pemanggilan:
+     * `$mak = $alokasi->anggaranMak;`
      */
     public function anggaranMak(): BelongsTo
     {

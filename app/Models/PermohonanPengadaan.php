@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : DendyRafi, Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : menulis model PermohonanPengadaan ini untuk mengelola surat usulan pengadaan awal, pemecahan (split) MAK/jenis, pelacakan 8 siklus progres, serta penghapusan berjenjang (cascade delete) beserta berkas fisiknya.
+ */
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
@@ -12,14 +20,16 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * Model Permohonan Pengadaan (Usulan Surat Pengadaan Barang/Jasa)
+ * Model Surat Permohonan Pengadaan (PermohonanPengadaan)
  *
- * Merepresentasikan dokumen usulan awal pengadaan yang diajukan oleh unit kerja/jurusan (User).
- * Menjadi entitas sentral pada fase perencanaan dan persetujuan:
- * - Menangani alur status usulan (diajukan, reviu_paralel, pending_anggaran, disetujui, ditolak, diproses_ppbj, selesai).
- * - Mendukung verifikasi paralel simultan oleh 3 pihak independen (Staff Bidang 2, Perencanaan, Wadir 2).
- * - Mendukung pelacakan pohon usulan hasil revisi (nomor_surat_revisi) dan pemecahan/split paket (nomor_surat_induk_split).
- * - Terhubung ke alokasi Mata Anggaran Kegiatan (MAK) serta paket pengadaan yang terbentuk.
+ * menjadikan model ini titik awal alur pengadaan SIM-PBJ, yang menghubungkan unit pengusul, verifikasi berantai
+ * (Staf Bidang 2 -> Perencanaan -> Wadir 2 & PPK awal), alokasi/split MAK, hingga pemetaan otomatis posisi tahap 1-8.
+ *
+ * Parameter konstruktor: `$attributes` (opsional, diwarisi dari Eloquent Model).
+ * Nilai kembali         : Instance model Eloquent yang terhubung ke tabel `permohonan_pengadaan` dengan primary key string `nomor_surat`.
+ *
+ * Contoh pemanggilan:
+ * `$permohonan = PermohonanPengadaan::with(['unit', 'verifikasiParalel', 'paketPengadaan'])->findOrFail($nomorSurat);`
  */
 class PermohonanPengadaan extends Model
 {
@@ -54,13 +64,12 @@ class PermohonanPengadaan extends Model
     protected $keyType = 'string';
 
     /**
-     * Penanda bahwa proses pembersihan cascade telah dilakukan untuk menghindari eksekusi ganda.
+     * Penanda internal agar pembersihan kaskade dan pengembalian saldo MAK tidak dieksekusi lebih dari sekali dalam satu siklus hapus.
      */
     protected bool $cascadeCleaned = false;
 
     /**
      * Konstanta status siklus hidup surat permohonan pengadaan.
-     * Mencakup alur berantai terbaru: menunggu_bidang_2 -> cek_mak_perencanaan -> menunggu_acc_wadir_ppk -> disetujui -> diproses_ppbj -> selesai.
      */
     const STATUS_DIAJUKAN = 'diajukan';
 
@@ -124,9 +133,12 @@ class PermohonanPengadaan extends Model
     ];
 
     /**
-     * Konfigurasi type casting untuk angka, nilai nominal, dan tanggal/waktu.
+     * mengonversi kolom pagu ke desimal 2 digit, dokumen_lampiran ke array JSON, dan kolom tanggal ke instance Carbon.
      *
-     * @return array<string, string>
+     * @return array<string, string> mengembalikan peta tipe cast atribut model.
+     *
+     * Contoh pemanggilan:
+     * `// Dipanggil otomatis oleh Eloquent saat mengakses $permohonan->dokumen_lampiran atau $permohonan->estimasi_total_pagu.`
      */
     protected function casts(): array
     {
@@ -141,7 +153,12 @@ class PermohonanPengadaan extends Model
     }
 
     /**
-     * Hook booted model PermohonanPengadaan untuk memastikan integritas kolom wajib non-null.
+     * melengkapi nilai default kolom wajib saat pembuatan record dan memastikan file serta relasi anak ikut dibersihkan saat record dihapus.
+     *
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `// Dijalankan otomatis oleh Eloquent pada event creating dan deleting.`
      */
     protected static function booted(): void
     {
@@ -155,6 +172,7 @@ class PermohonanPengadaan extends Model
             if (empty($model->status_permohonan)) {
                 $model->status_permohonan = self::STATUS_DIAJUKAN;
             }
+            // membuat atau mengambil unit TIK default bila seeder/tes membuat permohonan tanpa kode_unit agar FK units tidak gagal.
             if (empty($model->kode_unit)) {
                 $unit = Unit::firstOrCreate(
                     ['kode_unit' => 'TIK'],
@@ -165,12 +183,18 @@ class PermohonanPengadaan extends Model
         });
 
         static::deleting(function (PermohonanPengadaan $model) {
+            // memanggil cleanup di hook deleting juga agar penghapusan langsung via $permohonan->delete() tetap bersih tanpa yatim file/relasi.
             $model->cleanupCascadeRelationsAndFiles();
         });
     }
 
     /**
-     * Accessor untuk alias status yang merujuk ke kolom status_permohonan.
+     * menyediakan accessor `status` sebagai alias dari kolom `status_permohonan`.
+     *
+     * @return string|null mengembalikan status permohonan saat ini atau null.
+     *
+     * Contoh pemanggilan:
+     * `$status = $permohonan->status;`
      */
     public function getStatusAttribute(): ?string
     {
@@ -178,7 +202,13 @@ class PermohonanPengadaan extends Model
     }
 
     /**
-     * Mutator untuk alias status yang menyelaraskan ke kolom status_permohonan.
+     * menyelaraskan assignment atribut `status` ke kolom basis data `status_permohonan`.
+     *
+     * @param  string|null  $value  menerima kode status permohonan baru.
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `$permohonan->status = PermohonanPengadaan::STATUS_DISETUJUI;`
      */
     public function setStatusAttribute(?string $value): void
     {
@@ -186,7 +216,12 @@ class PermohonanPengadaan extends Model
     }
 
     /**
-     * Accessor untuk alias perihal yang merujuk ke kolom judul_pengadaan.
+     * menyediakan accessor `perihal` sebagai alias dari kolom `judul_pengadaan`.
+     *
+     * @return string|null mengembalikan judul pengadaan atau null.
+     *
+     * Contoh pemanggilan:
+     * `$judul = $permohonan->perihal;`
      */
     public function getPerihalAttribute(): ?string
     {
@@ -194,7 +229,13 @@ class PermohonanPengadaan extends Model
     }
 
     /**
-     * Mutator untuk alias perihal yang menyelaraskan ke kolom judul_pengadaan.
+     * menyelaraskan penulisan `perihal` ke `judul_pengadaan` sekaligus mengisi fallback `tujuan_pengadaan_ringkas` bila masih kosong.
+     *
+     * @param  string|null  $value  menerima teks perihal/judul pengadaan.
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `$permohonan->perihal = 'Pengadaan Server Lab Jaringan';`
      */
     public function setPerihalAttribute(?string $value): void
     {
@@ -205,7 +246,12 @@ class PermohonanPengadaan extends Model
     }
 
     /**
-     * Accessor untuk alias file_surat_permohonan yang merujuk ke kolom file_permohonan.
+     * menyediakan accessor `file_surat_permohonan` yang membaca kolom `file_permohonan`.
+     *
+     * @return string|null mengembalikan path berkas surat permohonan di storage atau null.
+     *
+     * Contoh pemanggilan:
+     * `$path = $permohonan->file_surat_permohonan;`
      */
     public function getFileSuratPermohonanAttribute(): ?string
     {
@@ -213,7 +259,13 @@ class PermohonanPengadaan extends Model
     }
 
     /**
-     * Mutator untuk alias file_surat_permohonan yang menyelaraskan ke kolom file_permohonan.
+     * menyelaraskan penulisan `file_surat_permohonan` ke kolom basis data `file_permohonan`.
+     *
+     * @param  string|null  $value  menerima path relatif berkas surat usulan pada disk public.
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `$permohonan->file_surat_permohonan = 'permohonan/surat-001.pdf';`
      */
     public function setFileSuratPermohonanAttribute(?string $value): void
     {
@@ -221,7 +273,13 @@ class PermohonanPengadaan extends Model
     }
 
     /**
-     * Mutator untuk alias asal_unit agar menyelaraskan ke kode_unit.
+     * menyediakan mutator alias `asal_unit` untuk memastikan kolom `kode_unit` selalu terisi unit valid.
+     *
+     * @param  string|null  $value  menerima nama asal unit dari input lama jika `kode_unit` belum ditentukan.
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `$permohonan->asal_unit = 'Jurusan Teknik Informatika dan Komputer';`
      */
     public function setAsalUnitAttribute(?string $value): void
     {
@@ -235,7 +293,13 @@ class PermohonanPengadaan extends Model
     }
 
     /**
-     * Mutator untuk alias tujuan_ringkas agar menyelaraskan ke tujuan_pengadaan_ringkas.
+     * memetakan alias `tujuan_ringkas` ke kolom `tujuan_pengadaan_ringkas` bila kolom utamanya masih kosong.
+     *
+     * @param  string|null  $value  menerima ringkasan tujuan pengadaan.
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `$permohonan->tujuan_ringkas = 'Pembaruan perangkat laboratorium';`
      */
     public function setTujuanRingkasAttribute(?string $value): void
     {
@@ -245,7 +309,13 @@ class PermohonanPengadaan extends Model
     }
 
     /**
-     * Mutator untuk alias file_pdf_srikandi agar menyelaraskan ke file_permohonan.
+     * memetakan alias `file_pdf_srikandi` ke kolom `file_permohonan` untuk menjaga kompatibilitas form/tes terdahulu.
+     *
+     * @param  string|null  $value  menerima path file PDF Srikandi.
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `$permohonan->file_pdf_srikandi = 'permohonan/srikandi.pdf';`
      */
     public function setFilePdfSrikandiAttribute(?string $value): void
     {
@@ -255,7 +325,12 @@ class PermohonanPengadaan extends Model
     }
 
     /**
-     * Accessor untuk alias anggaran_diajukan yang merujuk ke estimasi_total_pagu.
+     * menyediakan accessor `anggaran_diajukan` sebagai alias numerik dari kolom `estimasi_total_pagu`.
+     *
+     * @return mixed mengembalikan nilai estimasi pagu atau 0 jika belum terisi.
+     *
+     * Contoh pemanggilan:
+     * `$pagu = $permohonan->anggaran_diajukan;`
      */
     public function getAnggaranDiajukanAttribute(): mixed
     {
@@ -263,7 +338,13 @@ class PermohonanPengadaan extends Model
     }
 
     /**
-     * Mutator untuk alias anggaran_diajukan yang menyelaraskan ke estimasi_total_pagu.
+     * menyelaraskan penulisan `anggaran_diajukan` langsung ke kolom `estimasi_total_pagu`.
+     *
+     * @param  mixed  $value  menerima nominal pagu usulan.
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `$permohonan->anggaran_diajukan = 45000000;`
      */
     public function setAnggaranDiajukanAttribute(mixed $value): void
     {
@@ -271,9 +352,12 @@ class PermohonanPengadaan extends Model
     }
 
     /**
-     * Relasi many-to-one ke Unit Kerja pengusul pengadaan.
+     * menghubungkan surat permohonan ke unit kerja pengusulnya.
      *
-     * @return BelongsTo Relasi ke model Unit
+     * @return BelongsTo mengembalikan relasi BelongsTo ke model Unit.
+     *
+     * Contoh pemanggilan:
+     * `$unit = $permohonan->unit;`
      */
     public function unit(): BelongsTo
     {
@@ -281,9 +365,12 @@ class PermohonanPengadaan extends Model
     }
 
     /**
-     * Relasi many-to-one ke User (staf/pemohon yang membuat surat usulan).
+     * menghubungkan surat permohonan ke akun pengguna pemohon yang mengajukannya.
      *
-     * @return BelongsTo Relasi ke model User
+     * @return BelongsTo mengembalikan relasi BelongsTo ke model User.
+     *
+     * Contoh pemanggilan:
+     * `$pengaju = $permohonan->user;`
      */
     public function user(): BelongsTo
     {
@@ -291,10 +378,12 @@ class PermohonanPengadaan extends Model
     }
 
     /**
-     * Relasi many-to-one ke akun PPK (1 dari 4 akun PPK) yang dipilih oleh Perencanaan
-     * untuk memberikan persetujuan awal usulan berdampingan dengan Wadir 2.
+     * menghubungkan permohonan ke akun PPK yang dipilih oleh Perencanaan untuk persetujuan awal usulan bersama Wadir 2.
      *
-     * @return BelongsTo Relasi ke model User (role ppk)
+     * @return BelongsTo mengembalikan relasi BelongsTo ke model User (PPK).
+     *
+     * Contoh pemanggilan:
+     * `$ppk = $permohonan->ppkAwal;`
      */
     public function ppkAwal(): BelongsTo
     {
@@ -302,9 +391,12 @@ class PermohonanPengadaan extends Model
     }
 
     /**
-     * Relasi many-to-one ke surat induk asal jika permohonan ini merupakan hasil pemecahan (split).
+     * menghubungkan surat hasil pemecahan (split) kembali ke surat permohonan induknya.
      *
-     * @return BelongsTo Relasi ke model permohonan induk
+     * @return BelongsTo mengembalikan relasi BelongsTo ke model PermohonanPengadaan induk.
+     *
+     * Contoh pemanggilan:
+     * `$induk = $permohonanSplit->indukSplit;`
      */
     public function indukSplit(): BelongsTo
     {
@@ -312,9 +404,12 @@ class PermohonanPengadaan extends Model
     }
 
     /**
-     * Relasi one-to-many ke surat-surat anak yang dipecah dari permohonan ini.
+     * mengambil seluruh surat pecahan yang diturunkan dari satu surat permohonan induk.
      *
-     * @return HasMany Koleksi permohonan anak hasil split
+     * @return HasMany mengembalikan relasi HasMany ke model PermohonanPengadaan anak.
+     *
+     * Contoh pemanggilan:
+     * `$pecahanList = $permohonanInduk->anakSplit;`
      */
     public function anakSplit(): HasMany
     {
@@ -322,9 +417,12 @@ class PermohonanPengadaan extends Model
     }
 
     /**
-     * Relasi many-to-one ke surat versi terdahulu jika permohonan ini merupakan versi revisi.
+     * menautkan surat versi revisi ke nomor surat versi sebelumnya untuk membentuk rantai riwayat revisi.
      *
-     * @return BelongsTo Relasi ke model permohonan terdahulu
+     * @return BelongsTo mengembalikan relasi BelongsTo ke model PermohonanPengadaan asal revisi.
+     *
+     * Contoh pemanggilan:
+     * `$versiLama = $permohonanRevisi->suratAsalRevisi;`
      */
     public function suratAsalRevisi(): BelongsTo
     {
@@ -332,9 +430,12 @@ class PermohonanPengadaan extends Model
     }
 
     /**
-     * Relasi one-to-many ke surat-surat versi revisi yang diturunkan dari permohonan ini.
+     * mengambil daftar surat versi revisi terbaru yang lahir dari surat usulan ini.
      *
-     * @return HasMany Koleksi permohonan revisi turunan
+     * @return HasMany mengembalikan relasi HasMany ke model PermohonanPengadaan turunan revisi.
+     *
+     * Contoh pemanggilan:
+     * `$versiBaru = $permohonanLama->suratHasilRevisi;`
      */
     public function suratHasilRevisi(): HasMany
     {
@@ -342,9 +443,12 @@ class PermohonanPengadaan extends Model
     }
 
     /**
-     * Relasi many-to-one ke Mata Anggaran Kegiatan (MAK) utama pembiaya usulan.
+     * menghubungkan surat permohonan ke rekening MAK utama pembiayanya.
      *
-     * @return BelongsTo Relasi ke model AnggaranMAK
+     * @return BelongsTo mengembalikan relasi BelongsTo ke model AnggaranMAK.
+     *
+     * Contoh pemanggilan:
+     * `$mak = $permohonan->anggaranMak;`
      */
     public function anggaranMak(): BelongsTo
     {
@@ -352,9 +456,12 @@ class PermohonanPengadaan extends Model
     }
 
     /**
-     * Relasi one-to-many ke hasil reviu tiga arah (Verifikasi Paralel: Bidang 2, Perencanaan, Wadir 2).
+     * menghubungkan surat permohonan ke seluruh catatan keputusan verifikasi awal (Bidang 2, Perencanaan, Wadir 2, PPK).
      *
-     * @return HasMany Koleksi catatan verifikasi paralel
+     * @return HasMany mengembalikan relasi HasMany ke model VerifikasiParalel.
+     *
+     * Contoh pemanggilan:
+     * `$verifikasi = $permohonan->verifikasiParalel;`
      */
     public function verifikasiParalel(): HasMany
     {
@@ -362,9 +469,12 @@ class PermohonanPengadaan extends Model
     }
 
     /**
-     * Relasi one-to-many ke rincian alokasi MAK pendukung jika usulan didanai multi-MAK.
+     * menghubungkan surat permohonan ke daftar alokasi MAK guna melacak pembebanan dan pengembalian saldo anggaran.
      *
-     * @return HasMany Koleksi alokasi MAK permohonan
+     * @return HasMany mengembalikan relasi HasMany ke model AlokasiMAK.
+     *
+     * Contoh pemanggilan:
+     * `$alokasi = $permohonan->alokasiMak;`
      */
     public function alokasiMak(): HasMany
     {
@@ -372,9 +482,12 @@ class PermohonanPengadaan extends Model
     }
 
     /**
-     * Relasi one-to-many ke paket-paket pengadaan yang dibentuk dari permohonan ini.
+     * menghubungkan surat permohonan ke paket-paket pengadaan yang didaftarkan oleh PPBJ dari usulan ini.
      *
-     * @return HasMany Koleksi paket pengadaan terkait
+     * @return HasMany mengembalikan relasi HasMany ke model PaketPengadaan.
+     *
+     * Contoh pemanggilan:
+     * `$paketList = $permohonan->paketPengadaan;`
      */
     public function paketPengadaan(): HasMany
     {
@@ -382,9 +495,12 @@ class PermohonanPengadaan extends Model
     }
 
     /**
-     * Relasi one-to-one ke paket pengadaan utama yang dibentuk dari usulan ini.
+     * menyediakan relasi tunggal ke paket pengadaan utama untuk mempermudah pembacaan status tanpa iterasi koleksi.
      *
-     * @return HasOne Relasi ke model PaketPengadaan
+     * @return HasOne mengembalikan relasi HasOne ke model PaketPengadaan.
+     *
+     * Contoh pemanggilan:
+     * `$paket = $permohonan->paket;`
      */
     public function paket(): HasOne
     {
@@ -392,9 +508,12 @@ class PermohonanPengadaan extends Model
     }
 
     /**
-     * Memeriksa apakah surat permohonan ini merupakan hasil revisi dari surat lain.
+     * mengecek apakah permohonan ini adalah surat hasil revisi dari usulan sebelumnya.
      *
-     * @return bool True jika merupakan revisi
+     * @return bool mengembalikan true jika `nomor_surat_revisi` terisi.
+     *
+     * Contoh pemanggilan:
+     * `if ($permohonan->isRevisi()) { ... }`
      */
     public function isRevisi(): bool
     {
@@ -402,9 +521,12 @@ class PermohonanPengadaan extends Model
     }
 
     /**
-     * Memeriksa apakah surat permohonan ini merupakan hasil pemecahan (split).
+     * mengecek apakah permohonan ini berasal dari pemecahan surat induk (split MAK atau split jenis).
      *
-     * @return bool True jika merupakan anak split
+     * @return bool mengembalikan true jika `nomor_surat_induk_split` terisi.
+     *
+     * Contoh pemanggilan:
+     * `if ($permohonan->isSplit()) { ... }`
      */
     public function isSplit(): bool
     {
@@ -412,9 +534,12 @@ class PermohonanPengadaan extends Model
     }
 
     /**
-     * Memeriksa apakah permohonan telah disetujui secara final.
+     * memeriksa apakah permohonan telah berstatus `disetujui` secara penuh.
      *
-     * @return bool True jika status disetujui
+     * @return bool mengembalikan true bila `status_permohonan` bernilai `disetujui`.
+     *
+     * Contoh pemanggilan:
+     * `if ($permohonan->isApproved()) { ... }`
      */
     public function isApproved(): bool
     {
@@ -422,9 +547,12 @@ class PermohonanPengadaan extends Model
     }
 
     /**
-     * Memeriksa apakah permohonan ditolak.
+     * memeriksa apakah permohonan ditolak pada fase verifikasi awal.
      *
-     * @return bool True jika status ditolak
+     * @return bool mengembalikan true bila `status_permohonan` bernilai `ditolak`.
+     *
+     * Contoh pemanggilan:
+     * `if ($permohonan->isRejected()) { ... }`
      */
     public function isRejected(): bool
     {
@@ -432,9 +560,12 @@ class PermohonanPengadaan extends Model
     }
 
     /**
-     * Memeriksa apakah permohonan berstatus pending anggaran (menunggu penetapan/ketersediaan dana MAK).
+     * memeriksa apakah permohonan sedang ditahan sambil menunggu ketersediaan dana MAK.
      *
-     * @return bool True jika pending anggaran
+     * @return bool mengembalikan true bila `status_permohonan` bernilai `pending_anggaran`.
+     *
+     * Contoh pemanggilan:
+     * `if ($permohonan->isPendingAnggaran()) { ... }`
      */
     public function isPendingAnggaran(): bool
     {
@@ -442,36 +573,27 @@ class PermohonanPengadaan extends Model
     }
 
     /**
-     * Menghitung posisi tahap siklus pengadaan (1 s.d. 8) secara akurat berdasarkan
-     * relasi database dan status progres operasional yang tercatat.
+     * menghitung posisi tahap siklus pengadaan (1 sampai 8) dari status teraktual di rantai relasi paket, BAST, dan pembayaran.
      *
-     * 1: Pengajuan Usulan Srikandi (Unit Pemohon)
-     * 2: Persetujuan 1 (Verifikasi Berantai: Bidang 2, Perencanaan, Wadir 2 & PPK)
-     * 3: Penyusunan Dokumen & Level Anggaran (Alokasi MAK & Registrasi Paket PPBJ)
-     * 4: Persetujuan 2 (Kondisional: Reviu Dokumen & HPS oleh PP/PPK)
-     * 5: Pembelian & Pembuatan Surat Kontrak (SPK / Kontrak / Kwitansi Belanja Langsung)
-     * 6: Penerimaan Barang/Jasa (Pengiriman & Pemeriksaan Fisik di Gudang)
-     * 7: Pembayaran (Penerbitan BAST & Pengajuan SPP)
-     * 8: Selesai (Pencairan Dana Pembayaran)
+     * @return int mengembalikan bilangan bulat 1..8 yang menggerakkan komponen stepper 8 siklus di UI tracking.
      *
-     * @return int Nomor tahap siklus aktif (1 - 8)
+     * Contoh pemanggilan:
+     * `$tahap = $permohonan->hitungTahapSiklus();`
      */
     public function hitungTahapSiklus(): int
     {
         $statusPermohonan = strtolower((string) ($this->status_permohonan ?? $this->status ?? 'diajukan'));
 
-        // Jika status permohonan sudah final selesai
+        // mengevaluasi dari tahap terjauh (8) mundur ke tahap awal (1) agar progres tertinggi yang sudah tercapai selalu menang.
         if (in_array($statusPermohonan, ['selesai', 'sp2d_lunas', 'cair'], true)) {
             return 8;
         }
 
-        // Cek paket pengadaan terkait
         $paket = $this->relationLoaded('paketPengadaan')
             ? ($this->paketPengadaan->first() ?? $this->paket)
             : ($this->paket ?? $this->paketPengadaan()->first());
 
         if ($paket) {
-            // Tahap 8: Cek Pembayaran Selesai / Pencairan Pembayaran
             $pembayaran = $paket->relationLoaded('pembayaran')
                 ? $paket->pembayaran->first()
                 : $paket->pembayaran()->first();
@@ -485,11 +607,9 @@ class PermohonanPengadaan extends Model
                     return 8;
                 }
 
-                // Tahap 7: Berkas pembayaran diajukan ke Keuangan
                 return 7;
             }
 
-            // Tahap 7: BAST resmi sudah terbit dari Bagian Perlengkapan
             $penerimaan = $paket->relationLoaded('penerimaanBarang')
                 ? $paket->penerimaanBarang->first()
                 : $paket->penerimaanBarang()->first();
@@ -498,7 +618,6 @@ class PermohonanPengadaan extends Model
                 return 7;
             }
 
-            // Tahap 6: Pemeriksaan fisik barang di gudang / pengiriman / pengingat rekanan
             $hasReminders = $paket->relationLoaded('reminders')
                 ? $paket->reminders->isNotEmpty()
                 : $paket->reminders()->exists();
@@ -507,11 +626,11 @@ class PermohonanPengadaan extends Model
                 return 6;
             }
 
-            // Tahap 5: Dokumen perikatan terbit / siap eksekusi belanja PP / siap upload dokumen PPBJ
             $spk = $paket->relationLoaded('kontrakSpk')
                 ? $paket->kontrakSpk
                 : $paket->kontrakSpk()->first();
 
+            // menganggap Belanja Langsung <=50jt yang sudah punya nomor kwitansi belanja setara Tahap 5 meski tanpa Kontrak/SPK.
             $isBelanjaLangsungSelesai = ($paket->jalur_routing === PaketPengadaan::ROUTING_LANGSUNG || (float) ($paket->nilai_hps ?? 0) <= 50000000)
                 && ! empty($paket->nomor_kwitansi_belanja);
 
@@ -528,7 +647,6 @@ class PermohonanPengadaan extends Model
                 return 5;
             }
 
-            // Tahap 4: Reviu dokumen teknis & evaluasi HPS oleh PP (50-200jt) atau PPK (> 200jt)
             $reviu = $paket->relationLoaded('reviuDokumen')
                 ? $paket->reviuDokumen->first()
                 : $paket->reviuDokumen()->first();
@@ -544,13 +662,10 @@ class PermohonanPengadaan extends Model
                 return 4;
             }
 
-            // Tahap 3: Paket pengadaan sudah terdaftar di PPBJ
             return 3;
         }
 
-        // Jika belum terbentuk paket pengadaan:
-        // Status yang masih berada pada fase verifikasi awal (Tahap 2) tidak boleh meloncat ke Tahap 3
-        // meskipun Perencanaan sudah mengisi kode_mak atau membuat alokasi MAK.
+        // menahan status verifikasi awal di Tahap 2 agar pengisian kode MAK oleh Perencanaan sebelum persetujuan Wadir 2 tidak melompat ke Tahap 3.
         $tahap2Statuses = [
             'reviu_paralel',
             'menunggu_bidang_2',
@@ -567,12 +682,10 @@ class PermohonanPengadaan extends Model
             return 2;
         }
 
-        // Cek Tahap 3: Permohonan sudah disetujui oleh Wadir II & PPK dan siap diproses PPBJ
         if (in_array($statusPermohonan, ['disetujui', 'diproses_ppbj', 'paket_terdaftar', 'disetujui_wadir2_dan_ppk'], true)) {
             return 3;
         }
 
-        // Fallback Tahap 2 bila sudah ada catatan verifikasi paralel pada status non-final
         $hasVerifikasi = $this->relationLoaded('verifikasiParalel')
             ? $this->verifikasiParalel->isNotEmpty()
             : $this->verifikasiParalel()->exists();
@@ -581,12 +694,16 @@ class PermohonanPengadaan extends Model
             return 2;
         }
 
-        // Default: Tahap 1 (Pengajuan baru oleh Unit Pemohon)
         return 1;
     }
 
     /**
-     * Accessor atribut current_tahap yang secara reaktif menghitung nomor tahap siklus aktif.
+     * menyediakan accessor `current_tahap` agar nomor tahap siklus tersedia langsung saat model diserialisasi ke JSON tracking SPA.
+     *
+     * @return int mengembalikan nomor tahap siklus 1..8.
+     *
+     * Contoh pemanggilan:
+     * `$step = $permohonan->current_tahap;`
      */
     public function getCurrentTahapAttribute(): int
     {
@@ -594,12 +711,14 @@ class PermohonanPengadaan extends Model
     }
 
     /**
-     * Scope query sesuai hak akses peran pengguna.
-     * Pengusul biasa (role 'user') hanya diizinkan melihat usulan permohonan yang diajukannya sendiri.
+     * membatasi query permohonan agar peran pemohon biasa hanya melihat surat pengajuannya sendiri.
      *
-     * @param  Builder  $query  Query builder Eloquent
-     * @param  User  $user  Pengguna yang sedang aktif
-     * @return Builder Query yang disaring
+     * @param  Builder  $query  menerima query builder Eloquent PermohonanPengadaan.
+     * @param  User  $user  memeriksa peran pengguna aktif.
+     * @return Builder mengembalikan query yang telah disaring berdasarkan kepemilikan `id_user` bila relevan.
+     *
+     * Contoh pemanggilan:
+     * `PermohonanPengadaan::forUser($user)->latest('tanggal_pengajuan')->get();`
      */
     public function scopeForUser($query, User $user)
     {
@@ -611,7 +730,12 @@ class PermohonanPengadaan extends Model
     }
 
     /**
-     * Menghapus seluruh relasi dan berkas terkait secara kaskade (cascade deletion) tuntas dalam transaksi database.
+     * menghapus permohonan beserta seluruh turunan relasi, pengembalian saldo MAK, dan berkas fisiknya secara atomik di dalam transaksi database.
+     *
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `$permohonan->cascadeDelete();`
      */
     public function cascadeDelete(): void
     {
@@ -622,10 +746,16 @@ class PermohonanPengadaan extends Model
     }
 
     /**
-     * Membersihkan seluruh relasi anak dan berkas fisik pada storage public sebelum permohonan dihapus.
+     * membersihkan seluruh entitas anak dari hilir ke hulu (pembayaran -> BAST -> SPK -> paket -> verifikasi -> alokasi MAK) beserta file fisiknya sebelum baris induk dihapus.
+     *
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `$permohonan->cleanupCascadeRelationsAndFiles();`
      */
     public function cleanupCascadeRelationsAndFiles(): void
     {
+        // memakai guard $cascadeCleaned karena metode ini bisa dipanggil dari cascadeDelete() lalu terpicu lagi oleh event deleting model.
         if ($this->cascadeCleaned) {
             return;
         }
@@ -633,13 +763,11 @@ class PermohonanPengadaan extends Model
 
         $nomorSurat = $this->nomor_surat;
 
-        // 1. Ambil seluruh paket pengadaan yang terhubung dengan permohonan ini
         $paketList = PaketPengadaan::where('nomor_surat', $nomorSurat)->get();
 
         foreach ($paketList as $paket) {
             $nomorPaket = $paket->nomor_paket;
 
-            // a. Hapus Pembayaran dan relasi anaknya (MemoBayar, TransaksiPencairan, berkas)
             $pembayaranList = Pembayaran::where('nomor_paket', $nomorPaket)->get();
             foreach ($pembayaranList as $pembayaran) {
                 $nomorPembayaran = $pembayaran->nomor_pembayaran;
@@ -669,7 +797,6 @@ class PermohonanPengadaan extends Model
                 $pembayaran->delete();
             }
 
-            // b. Hapus PenerimaanBarang dan dokumentasi foto
             $penerimaanList = PenerimaanBarang::where('nomor_paket', $nomorPaket)->get();
             foreach ($penerimaanList as $penerimaan) {
                 $fotoList = DokumentasiPenerimaanBarang::where('id_penerimaan', $penerimaan->id_penerimaan)->get();
@@ -690,7 +817,6 @@ class PermohonanPengadaan extends Model
                 $penerimaan->delete();
             }
 
-            // c. Hapus KontrakSPK dan berkas
             $kontrak = KontrakSPK::where('nomor_paket', $nomorPaket)->first();
             if ($kontrak) {
                 if (! empty($kontrak->file_spk) && Storage::disk('public')->exists($kontrak->file_spk)) {
@@ -699,17 +825,14 @@ class PermohonanPengadaan extends Model
                 $kontrak->delete();
             }
 
-            // d. Hapus ReviuDokumen
             ReviuDokumen::where('nomor_paket', $nomorPaket)->delete();
 
-            // f. Hapus Reminder dan NotifikasiUser
             $reminderList = Reminder::where('nomor_paket', $nomorPaket)->get();
             foreach ($reminderList as $reminder) {
                 NotifikasiUser::where('id_reminder', $reminder->id_reminder)->delete();
                 $reminder->delete();
             }
 
-            // g. Bersihkan berkas paket dan hapus paket
             if (! empty($paket->file_dokumen_pengadaan) && Storage::disk('public')->exists($paket->file_dokumen_pengadaan)) {
                 Storage::disk('public')->delete($paket->file_dokumen_pengadaan);
             }
@@ -720,14 +843,13 @@ class PermohonanPengadaan extends Model
             $paket->delete();
         }
 
-        // 2. Unlink permohonan anak hasil split / revisi
+        // melepas tautan split/revisi pada surat turunan lebih dulu agar self-referencing FK tidak menghalangi penghapusan surat induk.
         self::where('nomor_surat_induk_split', $nomorSurat)->update(['nomor_surat_induk_split' => null]);
         self::where('nomor_surat_revisi', $nomorSurat)->update(['nomor_surat_revisi' => null]);
 
-        // 3. Hapus VerifikasiParalel
         VerifikasiParalel::where('nomor_surat', $nomorSurat)->delete();
 
-        // 4. Hapus AlokasiMAK dan kembalikan sisa pagu ke anggaran_mak
+        // memulihkan sisa_pagu_mak sebelum menghapus baris alokasi agar pembatalan permohonan tidak meninggalkan saldo MAK menggantung.
         $alokasiList = AlokasiMAK::where('nomor_surat', $nomorSurat)->get();
         foreach ($alokasiList as $alokasi) {
             if ($mak = AnggaranMAK::find($alokasi->kode_mak)) {
@@ -737,7 +859,6 @@ class PermohonanPengadaan extends Model
             $alokasi->delete();
         }
 
-        // 5. Bersihkan berkas permohonan
         $permohonanFiles = [
             $this->file_permohonan,
             $this->file_kak,
@@ -760,9 +881,12 @@ class PermohonanPengadaan extends Model
     }
 
     /**
-     * Mengambil daftar seluruh dokumen lampiran permohonan (maksimal 5 berkas).
+     * menormalkan daftar dokumen lampiran (baik dari kolom JSON `dokumen_lampiran` maupun 3 kolom file lawas) menjadi format seragam untuk modal pratinjau.
      *
-     * @return array<int, array{name: string, path: string, url: string, type: string, size: string, label: string}>
+     * @return array<int, array{name: string, path: string, url: string, type: string, colorClass: string, size: string, label: string}> mengembalikan array daftar lampiran lengkap dengan kelas warna badge tipe berkas.
+     *
+     * Contoh pemanggilan:
+     * `$docs = $permohonan->dokumen_lampiran_list;`
      */
     public function getDokumenLampiranListAttribute(): array
     {
@@ -792,6 +916,7 @@ class PermohonanPengadaan extends Model
             }, $this->dokumen_lampiran);
         }
 
+        // menyediakan fallback ke kolom file tunggal terdahulu supaya data lama sebelum kolom JSON dokumen_lampiran tetap tampil di UI.
         $list = [];
         if (! empty($this->file_surat_permohonan)) {
             $name = basename($this->file_surat_permohonan);
@@ -834,9 +959,12 @@ class PermohonanPengadaan extends Model
     }
 
     /**
-     * Mengambil daftar foto dokumentasi fisik penerimaan barang dari Unit Perlengkapan.
+     * mengumpulkan seluruh foto dokumentasi fisik barang dari paket terkait agar dapat ditampilkan pada mode layar penuh tracking permohonan.
      *
-     * @return array<int, array{url: string, path: string, keterangan: string|null, nomor_bast: string|null, tanggal: string|null}>
+     * @return array<int, array{url: string, path: string, keterangan: string|null, nomor_bast: string|null, tanggal: string|null}> mengembalikan daftar foto dokumentasi barang lengkap dengan nomor BAST.
+     *
+     * Contoh pemanggilan:
+     * `$fotos = $permohonan->foto_dokumentasi_barang_list;`
      */
     public function getFotoDokumentasiBarangListAttribute(): array
     {
@@ -865,9 +993,12 @@ class PermohonanPengadaan extends Model
     }
 
     /**
-     * Mengambil daftar bukti pembayaran dan transfer pencairan SP2D terkait permohonan ini.
+     * mengumpulkan seluruh bukti keuangan (kwitansi belanja langsung, bukti transfer SP2D, kwitansi termin, dan invoice) untuk halaman detail permohonan.
      *
-     * @return array<int, array{url: string, path: string, label: string, nomor: string|null, nominal: float|null, tanggal: string|null, tipe: string}>
+     * @return array<int, array{url: string, path: string, label: string, nomor: string|null, nominal: float|null, tanggal: string|null, tipe: string}> mengembalikan daftar bukti pembayaran yang terurut per paket dan termin.
+     *
+     * Contoh pemanggilan:
+     * `$bukti = $permohonan->bukti_pembayaran_list;`
      */
     public function getBuktiPembayaranListAttribute(): array
     {

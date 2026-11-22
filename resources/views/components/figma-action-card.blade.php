@@ -1,3 +1,31 @@
+{{--
+  Informasi File
+
+  Penulis   : Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : Komponen Blade ini susun untuk merender kartu item antrean tindakan di dasbor
+              berbasis gaya Figma lengkap dengan garis aksen kiri berotasi, ikon status, lencana,
+              serta slot aksi kustom atau tombol navigasi.
+--}}
+{{--
+  Komentar Deskriptif: Komponen Kartu Item Aksi Dasbor (`<x-figma-action-card>`).
+
+  Tujuan: menyediakan template baris antrean kerja seragam untuk seluruh dasbor peran agar
+          informasi judul berkas, metadata unit/tanggal, status lencana, dan tombol tindak lanjut konsisten.
+  Parameter (@props):
+    - `index` (int, default 0): Nomor urut baris untuk memutar 3 warna garis tepi kiri.
+    - `variant` (string, default 'active'): Variasi ikon status ('active' | 'action' | 'done' | 'bell').
+    - `title` (string, wajib): Judul utama item pengadaan atau pendaftaran.
+    - `meta` (string, default ''): Subjudul metadata baris pertama.
+    - `submeta` (string|null, default null): Catatan baris kedua opsional.
+    - `badge` (string|null, default null): Teks lencana status opsional.
+    - `badgeClass` (string): Kelas Tailwind CSS untuk warna lencana.
+    - `href` (string|null): Tautan tombol aksi default jika slot `$actions` tidak disediakan.
+    - `buttonLabel` (string, default 'Buka'): Label teks tombol tautan default.
+  Nilai kembali: Kartu baris item aksi HTML siap pakai di dalam `x-figma-workspace`.
+  Contoh pemanggilan:
+    `<x-figma-action-card :index="$loop->index" variant="action" :title="$item->judul_pengadaan" :href="route('verifikasi.wadir_2')" />`
+--}}
 @props([
     'index' => 0,
     'variant' => 'active',
@@ -11,6 +39,7 @@
 ])
 
 @php
+    // pakai modulo 3 agar warna aksen tepi kiri bergantian mengikuti 3 kelas CSS (.action-card-accent-0..2).
     $accentIndex = $index % 3;
 
     $iconMap = [
@@ -51,6 +80,7 @@
             </span>
         @endif
 
+        {{-- Slot actions didahulukan dibanding href agar halaman admin atau PPBJ bisa menyematkan tombol modal kustom. --}}
         @if(isset($actions) && ! $actions->isEmpty())
             {{ $actions }}
         @elseif($href)

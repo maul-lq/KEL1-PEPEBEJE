@@ -1,17 +1,24 @@
 /**
- * Modul Frontend Riwayat dan Laporan Terpadu SIM-PBJ Politeknik Negeri Jakarta (laporan.js)
+ * Informasi File
  *
- * Mengelola interaktivitas reaktif Alpine.js pada halaman /laporan:
- * - Tab switcher (Riwayat Aktivitas & Laporan)
- * - Switcher sub-modul laporan berbasis izin RBAC aktif (termasuk gabungan Multi-Modul / Semua Modul)
- * - Pembaruan data KPI dan tabel dari server secara reaktif saat filter berubah (tahun, bulan, unit, status, role)
- * - Pencarian instan & pagination client-side
- * - Sinkronisasi URL query string (deep linking)
- * - Unduh Laporan simultan (PDF terformat + RAW CSV) sesuai modul & filter aktif
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+ * Ringkasan : Modul ini susun untuk mengelola SPA tab Riwayat Aktivitas dan Laporan Keuangan
+ *             modular berbasis RBAC (tab switcher dinamis, filter terikat URL, AJAX refresh lewat
+ *             AbortController, ekspor PDF+CSV simultan, serta paginasi tabel klien).
  */
 
 import { parseJsonDataset } from './ui_helpers.js';
 
+/**
+ * Menyalin properti konfigurasi dari server atau dataset HTML ke objek state reaktif laporan.
+ *
+ * Tujuan: memetakan nilai konfigurasi awal atau respons AJAX secara selektif supaya properti
+ * komponen Alpine tidak tertimpa apabila suatu field opsional tidak disertakan payload.
+ * Parameter: `{Object} target` - Objek state Alpine; `{Object} config` - Objek konfigurasi JSON laporan.
+ * Nilai kembali: Tidak mengembalikan nilai (memutasi properti pada `target`).
+ * Contoh pemanggilan: `applyLaporanConfig(this, parseJsonDataset(this.$el, 'config', {}));`
+ */
 function applyLaporanConfig(target, config) {
     const cfg = config && typeof config === 'object' ? config : {};
     const modular = cfg.modularPayload && typeof cfg.modularPayload === 'object'
@@ -83,7 +90,13 @@ export function laporanApp(config = null) {
         fetchController: null,
 
         /**
-         * Inisialisasi komponen: muat konfigurasi atribut data dan sinkronkan query string
+         * Menginisialisasi komponen laporan dengan membaca dataset JSON dan menyinkronkan parameter URL.
+         *
+         * Tujuan: mendahulukan parameter URL query string (deep linking) di atas nilai default
+         * sehingga tautan hasil filter yang dibagikan langsung memulihkan tab, modul, dan saringan tepat.
+         * Parameter: Tidak menerima argumen.
+         * Nilai kembali: Tidak mengembalikan nilai.
+         * Contoh pemanggilan: Dipanggil otomatis oleh Alpine saat wadah laporan dimuat.
          */
         init() {
             if (!config && this.$el?.dataset?.config) {
@@ -218,11 +231,28 @@ export function laporanApp(config = null) {
         // =====================================================================
         // NAVIGASI TAB & SUB-MODUL RBAC
         // =====================================================================
+        /**
+         * Berpindah antara tab Riwayat Aktivitas dan tab Laporan Keuangan/Kinerja lalu memperbarui URL.
+         *
+         * Tujuan: menautkan perubahan tab ke `syncUrl` agar tombol refresh tetap bertahan pada tab aktif.
+         * Parameter: `{string} tab` - Target tab (`'riwayat'` atau `'laporan'`).
+         * Nilai kembali: Tidak mengembalikan nilai.
+         * Contoh pemanggilan: `@click="switchTab('laporan')"`
+         */
         switchTab(tab) {
             this.activeTab = tab;
             this.syncUrl();
         },
 
+        /**
+         * Mengganti sub-modul laporan aktif sesuai tab izin RBAC sambil memvalidasi kompatibilitas filter status.
+         *
+         * Tujuan: mereset `laporanFilterStatus` dan memuat ulang dari server hanya bila status
+         * filter modul sebelumnya tidak terdapat dalam opsi status modul yang baru dipilih.
+         * Parameter: `{string} moduleKey` - Key modul laporan target.
+         * Nilai kembali: Tidak mengembalikan nilai.
+         * Contoh pemanggilan: `@click="switchModule('anggaran_mak')"`
+         */
         switchModule(moduleKey) {
             const exists = this.moduleTabs.some(t => t.key === moduleKey);
             if (!exists || this.selectedModule === moduleKey) {
@@ -236,6 +266,7 @@ export function laporanApp(config = null) {
             const validStatus = this.laporanFilterStatus !== ''
                 && opts.some(o => String(o.value) === String(this.laporanFilterStatus));
 
+            // reset filter status bila tidak kompatibel di modul tujuan supaya hasil tabel tidak kosong keliru.
             let shouldRefetch = false;
             if (this.laporanFilterStatus !== '' && !validStatus) {
                 this.laporanFilterStatus = '';
@@ -248,12 +279,30 @@ export function laporanApp(config = null) {
             }
         },
 
+        /**
+         * Menangani perubahan filter dropdown (tahun, bulan, unit, status, role) dengan memuat ulang API.
+         *
+         * Tujuan: mengembalikan paginasi ke halaman pertama agar hasil terfilter tidak menunjuk
+         * nomor halaman kosong di luar total baru.
+         * Parameter: Tidak menerima argumen.
+         * Nilai kembali: Tidak mengembalikan nilai.
+         * Contoh pemanggilan: `@change="onQueryFilterChange()"`
+         */
         onQueryFilterChange() {
             this.laporanPage = 1;
             this.syncUrl();
             this.refreshLaporanFromServer();
         },
 
+        /**
+         * Menangani ketikan kata kunci pencarian lokal maupun pengisian ulang jika saringan server menyempit.
+         *
+         * Tujuan: melakukan pemfilteran klien secara instan, dan hanya memanggil ulang server
+         * apabila hasil SSR sebelumnya sudah terlanjur tersaring kata kunci lama yang tidak cocok lagi.
+         * Parameter: Tidak menerima argumen.
+         * Nilai kembali: Tidak mengembalikan nilai.
+         * Contoh pemanggilan: `@input.debounce.250ms="onSearchInput()"`
+         */
         onSearchInput() {
             this.laporanPage = 1;
             this.syncUrl();
@@ -263,7 +312,13 @@ export function laporanApp(config = null) {
         },
 
         /**
-         * Menyusun query parameters laporan untuk AJAX JSON maupun ekspor PDF/CSV.
+         * Menyusun query parameters laporan untuk permintaan AJAX JSON maupun ekspor PDF/CSV.
+         *
+         * Tujuan: menahan pengiriman parameter `unit` bila modul unit dikunci ke unit pengusul
+         * sendiri (`locked_own`) agar parameter URL tidak memberi kesan lintas unit bisa dipilih.
+         * Parameter: `{boolean} [includeSearch=true]`, `{boolean} [includeLaporanOnly=false]`.
+         * Nilai kembali: `{URLSearchParams}` Objek parameter URL terstandar.
+         * Contoh pemanggilan: `const qs = this.buildLaporanQueryParams(true, false).toString();`
          */
         buildLaporanQueryParams(includeSearch = true, includeLaporanOnly = false) {
             const params = new URLSearchParams();
@@ -297,8 +352,15 @@ export function laporanApp(config = null) {
 
         /**
          * Memuat ulang kartu KPI dan baris rincian modul laporan dari server sesuai filter aktif.
+         *
+         * Tujuan: membatalkan permintaan fetch sebelumnya via `AbortController` setiap filter baru
+         * dipilih sehingga respons jaringan lambat tidak menimpa data filter yang lebih mutakhir.
+         * Parameter: Tidak menerima argumen.
+         * Nilai kembali: `{Promise<void>}` Promise pembaruan payload modular dari server.
+         * Contoh pemanggilan: `await this.refreshLaporanFromServer();`
          */
         async refreshLaporanFromServer() {
+            // batalkan permintaan sebelumnya untuk mencegah race condition antar respons filter cepat.
             if (this.fetchController) {
                 this.fetchController.abort();
             }
@@ -342,7 +404,13 @@ export function laporanApp(config = null) {
         },
 
         /**
-         * Mengunduh laporan PDF terformat dan CSV (RAW) secara simultan sesuai modul & filter aktif.
+         * Mengunduh laporan PDF terformat dan CSV (RAW) secara simultan sesuai modul dan filter aktif.
+         *
+         * Tujuan: memberi jeda 450ms antara pemicuan tautan unduh PDF dan CSV supaya browser tidak
+         * memblokir unduhan beruntun sebagai pop-up ganda, tanpa memunculkan error jika hak unduh absen.
+         * Parameter: Tidak menerima argumen.
+         * Nilai kembali: Tidak mengembalikan nilai.
+         * Contoh pemanggilan: `@click="downloadLaporan()"`
          */
         downloadLaporan() {
             if (!this.canDownload || this.isDownloading || this.activeModuleKeys.length === 0) {
@@ -378,7 +446,13 @@ export function laporanApp(config = null) {
         },
 
         /**
-         * Sinkronkan parameter aktif ke URL query string (Deep Linking)
+         * Menyinkronkan parameter tab dan filter aktif ke URL query string (Deep Linking).
+         *
+         * Tujuan: memakai `window.history.replaceState` agar URL tetap dapat disalin atau dimuat
+         * ulang tanpa mencemari riwayat tombol Back browser setiap kali pengguna mengetik filter.
+         * Parameter: Tidak menerima argumen.
+         * Nilai kembali: Tidak mengembalikan nilai.
+         * Contoh pemanggilan: `this.syncUrl();`
          */
         syncUrl() {
             const url = new URL(window.location);
@@ -444,7 +518,12 @@ export function laporanApp(config = null) {
         },
 
         /**
-         * Reset seluruh filter pada Tab Riwayat
+         * Mereset seluruh filter pada tab Riwayat Aktivitas kembali ke nilai kosong dan halaman 1.
+         *
+         * Tujuan: membersihkan pencarian serta filter jenis/waktu/status riwayat sekaligus menyinkronkan URL.
+         * Parameter: Tidak menerima argumen.
+         * Nilai kembali: Tidak mengembalikan nilai.
+         * Contoh pemanggilan: `@click="resetRiwayatFilter()"`
          */
         resetRiwayatFilter() {
             this.riwayatSearch = '';
@@ -456,7 +535,13 @@ export function laporanApp(config = null) {
         },
 
         /**
-         * Reset seluruh filter pada Tab Laporan dan muat ulang data server
+         * Mereset seluruh filter pada tab Laporan ke tahun acuan default dan memuat ulang data server.
+         *
+         * Tujuan: membiarkan `laporanFilterUnit` tetap aman bila modul berstatus `locked_own`
+         * agar pengusul unit tidak kehilangan penguncian konteks unitnya sendiri.
+         * Parameter: Tidak menerima argumen.
+         * Nilai kembali: Tidak mengembalikan nilai.
+         * Contoh pemanggilan: `@click="resetLaporanFilter()"`
          */
         resetLaporanFilter() {
             this.laporanSearch = '';
@@ -473,7 +558,12 @@ export function laporanApp(config = null) {
         },
 
         /**
-         * Reset kedua tab sekaligus
+         * Mereset seluruh filter baik pada tab Riwayat maupun tab Laporan sekaligus.
+         *
+         * Tujuan: sediakan aksi reset menyeluruh agar pengguna cepat mengembalikan tampilan baku.
+         * Parameter: Tidak menerima argumen.
+         * Nilai kembali: Tidak mengembalikan nilai.
+         * Contoh pemanggilan: `@click="resetAllFilters()"`
          */
         resetAllFilters() {
             this.resetRiwayatFilter();
@@ -481,7 +571,13 @@ export function laporanApp(config = null) {
         },
 
         /**
-         * Menentukan kelas badge status pada kolom terakhir tabel laporan.
+         * Menentukan kelas warna badge status pada kolom terakhir tabel rincian laporan.
+         *
+         * Tujuan: memetakan kata kunci semantik status ke skema Tailwind konsisten (rose untuk
+         * penolakan/kunci, amber untuk menunggu/revisi, emerald untuk tuntas/disetujui, blue untuk proses).
+         * Parameter: `{string} val` - Teks status baris tabel.
+         * Nilai kembali: `{string}` Daftar kelas utilitas Tailwind CSS untuk lencana status.
+         * Contoh pemanggilan: `:class="statusBadgeClass(row.col5)"`
          */
         statusBadgeClass(val) {
             const lower = (val || '').toLowerCase();

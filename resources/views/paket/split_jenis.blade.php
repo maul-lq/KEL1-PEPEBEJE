@@ -1,7 +1,25 @@
+{{--
+  Informasi File
+
+  Penulis   : Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : View Blade ini buat untuk halaman formulir pemecahan berkas permohonan yang
+              sudah disetujui berdasarkan kategori jenis pengadaan (Barang/Jasa/Konstruksi/Konsultansi).
+--}}
 @extends('layouts.app')
 
 @section('title', 'Pemecahan Jenis Pengadaan - SIM-PBJ PNJ')
 
+{{--
+  Komentar Deskriptif: Seksi Konten Pemecahan Jenis Pengadaan PPBJ (`paket.split_jenis`).
+
+  Tujuan: memfasilitasi PPBJ memecah satu surat permohonan multiguna menjadi berkas baru
+          khusus per jenis pengadaan lengkap dengan alokasi nominal pagu dan alasan pemecahan.
+  Parameter (Data dari Controller):
+    - `$permohonanDisetujui` (Collection<PermohonanPengadaan>): Daftar surat induk siap pecah jenis.
+  Nilai kembali: Halaman HTML formulir POST ke rute `paket.split-jenis`.
+  Contoh pemanggilan: `return view('paket.split_jenis', compact('permohonanDisetujui'));`
+--}}
 @section('content')
 <div class="max-w-3xl mx-auto space-y-6">
     <div class="rounded-2xl bg-white p-6 md:p-8 shadow-sm border border-slate-200/80">

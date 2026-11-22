@@ -1,7 +1,26 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : memperbarui berkas konfigurasi sesi bawaan Laravel ini untuk mengatur penyimpanan sesi di database, masa idle timeout, serta atribut keamanan cookie HTTP-only dan SameSite.
+ */
+
 use Illuminate\Support\Str;
 
+/**
+ * Konfigurasi Manajemen Sesi HTTP (config/session.php)
+ *
+ * mengatur penyimpanan sesi di tabel 'sessions' dengan parameter lifetime (yang juga dibaca
+ * oleh middleware SessionTimeout) serta pengamanan cookie http_only dan same_site.
+ *
+ * Parameter    : Tidak ada (membaca variabel env()).
+ * Nilai kembali: array<string, mixed> — konfigurasi driver sesi, masa hidup, dan atribut cookie.
+ * Contoh pemanggilan:
+ * `config('session.lifetime')` atau `session()->get('last_activity')`
+ */
 return [
 
     /*
@@ -9,12 +28,8 @@ return [
     | Default Session Driver
     |--------------------------------------------------------------------------
     |
-    | This option determines the default session driver that is utilized for
-    | incoming requests. Laravel supports a variety of storage options to
-    | persist session data. Database storage is a great default choice.
-    |
-    | Supported: "file", "cookie", "database", "memcached",
-    |            "redis", "dynamodb", "array"
+    | menggunakan driver 'database' sebagai default agar sesi pengguna dapat
+    | dilacak, diaudit, dan dibersihkan secara terpusat pada tabel sessions.
     |
     */
 
@@ -25,10 +40,8 @@ return [
     | Session Lifetime
     |--------------------------------------------------------------------------
     |
-    | Here you may specify the number of minutes that you wish the session
-    | to be allowed to remain idle before it expires. If you want them
-    | to expire immediately when the browser is closed then you may
-    | indicate that via the expire_on_close configuration option.
+    | menggunakan nilai lifetime ini (di .env disetel 15 menit sesuai NFR
+    | keamanan sesi) yang juga menjadi acuan middleware SessionTimeout.
     |
     */
 
@@ -41,9 +54,8 @@ return [
     | Session Encryption
     |--------------------------------------------------------------------------
     |
-    | This option allows you to easily specify that all of your session data
-    | should be encrypted before it's stored. All encryption is performed
-    | automatically by Laravel and you may use the session like normal.
+    | menyediakan opsi enkripsi payload sesi bila diperlukan agar data
+    | sesi di penyimpanan tidak terbaca secara langsung sebagai teks biasa.
     |
     */
 
@@ -54,9 +66,8 @@ return [
     | Session File Location
     |--------------------------------------------------------------------------
     |
-    | When utilizing the "file" session driver, the session files are placed
-    | on disk. The default storage location is defined here; however, you
-    | are free to provide another location where they should be stored.
+    | menetapkan direktori fallback ini apabila driver 'file' dipilih
+    | pada lingkungan pengembangan tertentu.
     |
     */
 
@@ -67,9 +78,8 @@ return [
     | Session Database Connection
     |--------------------------------------------------------------------------
     |
-    | When using the "database" or "redis" session drivers, you may specify a
-    | connection that should be used to manage these sessions. This should
-    | correspond to a connection in your database configuration options.
+    | membiarkan koneksi sesi mengikuti DB_CONNECTION utama secara default
+    | kecuali di-override eksplisit melalui SESSION_CONNECTION.
     |
     */
 
@@ -80,9 +90,8 @@ return [
     | Session Database Table
     |--------------------------------------------------------------------------
     |
-    | When using the "database" session driver, you may specify the table to
-    | be used to store sessions. Of course, a sensible default is defined
-    | for you; however, you're welcome to change this to another table.
+    | menunjuk tabel 'sessions' untuk menyimpan ID sesi, IP, user_agent,
+    | dan payload aktivitas terakhir pengguna.
     |
     */
 
@@ -93,11 +102,8 @@ return [
     | Session Cache Store
     |--------------------------------------------------------------------------
     |
-    | When using one of the framework's cache driven session backends, you may
-    | define the cache store which should be used to store the session data
-    | between requests. This must match one of your defined cache stores.
-    |
-    | Affects: "dynamodb", "memcached", "redis"
+    | menyediakan konfigurasi store ini apabila di masa depan sesi
+    | dipindahkan ke backend cache seperti Redis.
     |
     */
 
@@ -108,9 +114,8 @@ return [
     | Session Sweeping Lottery
     |--------------------------------------------------------------------------
     |
-    | Some session drivers must manually sweep their storage location to get
-    | rid of old sessions from storage. Here are the chances that it will
-    | happen on a given request. By default, the odds are 2 out of 100.
+    | mempertahankan rasio pembersihan 2 dari 100 request untuk menyapu
+    | sesi kedaluwarsa tanpa membebani setiap permintaan pengguna.
     |
     */
 
@@ -121,9 +126,8 @@ return [
     | Session Cookie Name
     |--------------------------------------------------------------------------
     |
-    | Here you may change the name of the session cookie that is created by
-    | the framework. Typically, you should not need to change this value
-    | since doing so does not grant a meaningful security improvement.
+    | menamai cookie sesi berdasarkan slug APP_NAME agar cookie SIM-PBJ
+    | tidak tertukar dengan aplikasi Laravel lain pada host yang sama.
     |
     */
 
@@ -137,9 +141,8 @@ return [
     | Session Cookie Path
     |--------------------------------------------------------------------------
     |
-    | The session cookie path determines the path for which the cookie will
-    | be regarded as available. Typically, this will be the root path of
-    | your application, but you're free to change this when necessary.
+    | membatasi cakupan cookie sesi ke path root '/' agar tersedia di
+    | seluruh modul pengadaan aplikasi.
     |
     */
 
@@ -150,9 +153,8 @@ return [
     | Session Cookie Domain
     |--------------------------------------------------------------------------
     |
-    | This value determines the domain and subdomains the session cookie is
-    | available to. By default, the cookie will be available to the root
-    | domain without subdomains. Typically, this shouldn't be changed.
+    | membiarkan domain null secara default supaya cookie hanya berlaku
+    | untuk host tempat aplikasi diakses dan tidak bocor ke subdomain lain.
     |
     */
 
@@ -163,9 +165,8 @@ return [
     | HTTPS Only Cookies
     |--------------------------------------------------------------------------
     |
-    | By setting this option to true, session cookies will only be sent back
-    | to the server if the browser has a HTTPS connection. This will keep
-    | the cookie from being sent to you when it can't be done securely.
+    | menyerahkan flag secure cookie ke env SESSION_SECURE_COOKIE agar
+    | tetap bisa diuji di HTTP lokal namun bisa dikunci ke HTTPS di produksi.
     |
     */
 
@@ -176,9 +177,8 @@ return [
     | HTTP Access Only
     |--------------------------------------------------------------------------
     |
-    | Setting this value to true will prevent JavaScript from accessing the
-    | value of the cookie and the cookie will only be accessible through
-    | the HTTP protocol. It's unlikely you should disable this option.
+    | mengaktifkan http_only secara default agar skrip JavaScript sisi
+    | klien tidak dapat membaca cookie sesi jika terjadi celah XSS.
     |
     */
 
@@ -189,13 +189,8 @@ return [
     | Same-Site Cookies
     |--------------------------------------------------------------------------
     |
-    | This option determines how your cookies behave when cross-site requests
-    | take place, and can be used to mitigate CSRF attacks. By default, we
-    | will set this value to "lax" to permit secure cross-site requests.
-    |
-    | See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#samesitesamesite-value
-    |
-    | Supported: "lax", "strict", "none", null
+    | menyetel SameSite='lax' agar alur callback OAuth Google tetap bisa
+    | membawa cookie sesi saat redirect balik sambil tetap menangkal CSRF.
     |
     */
 
@@ -206,9 +201,8 @@ return [
     | Partitioned Cookies
     |--------------------------------------------------------------------------
     |
-    | Setting this value to true will tie the cookie to the top-level site for
-    | a cross-site context. Partitioned cookies are accepted by the browser
-    | when flagged "secure" and the Same-Site attribute is set to "none".
+    | menonaktifkan partitioned cookie secara default karena aplikasi ini
+    | tidak berjalan di dalam iframe lintas-situs pihak ketiga.
     |
     */
 
@@ -219,12 +213,8 @@ return [
     | Session Serialization
     |--------------------------------------------------------------------------
     |
-    | This value controls the serialization strategy for session data, which
-    | is JSON by default. Setting this to "php" allows the storage of PHP
-    | objects in the session but can make an application vulnerable to
-    | "gadget chain" serialization attacks if the APP_KEY is leaked.
-    |
-    | Supported: "json", "php"
+    | mempertahankan serialisasi JSON agar data sesi tetap aman dari
+    | serangan deserialisasi PHP object injection bila APP_KEY terkompromi.
     |
     */
 

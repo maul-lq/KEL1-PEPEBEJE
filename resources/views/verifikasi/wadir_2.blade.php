@@ -1,7 +1,26 @@
+{{--
+  Informasi File
+
+  Penulis   : Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : View Blade ini susun untuk antarmuka Disposisi Eksekutif Wakil Direktur II
+              dalam mengevaluasi rekomendasi Bidang II dan Perencanaan lalu memberi keputusan
+              disetujui, revisi, atau ditolak pada usulan pengadaan.
+--}}
 @extends('layouts.app')
 
 @section('title', 'Verifikasi Eksekutif Wadir 2 - SIM-PBJ PNJ')
 
+{{--
+  Komentar Deskriptif: Seksi Konten Disposisi Eksekutif Wakil Direktur II (`verifikasi.wadir_2`).
+
+  Tujuan: menampilkan status paralel Bidang II, Perencanaan, dan PPK pada tiap kartu antrean
+          serta mewajibkan catatan alasan via `verifikasiKeputusanWadir2` bila menolak/meminta revisi.
+  Parameter (Data dari VerifikasiParalelController::verifikasiWadir2):
+    - `$permohonanAntrean` (Collection<PermohonanPengadaan>): Daftar usulan yang menunggu putusan Wadir II.
+  Nilai kembali: Halaman HTML workspace keputusan eksekutif Wakil Direktur II.
+  Contoh pemanggilan: `return view('verifikasi.wadir_2', compact('permohonanAntrean'));`
+--}}
 @section('content')
 <div class="mx-auto max-w-[1650px] space-y-6">
 

@@ -1,7 +1,28 @@
+{{--
+  Informasi File
+
+  Penulis   : Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : View Blade ini rancang untuk menampilkan panel persetujuan registrasi akun
+              pegawai baru lengkap dengan kartu statistik, form penetapan peran ACC, alasan
+              penolakan, dan tabel riwayat keputusan verifikasi admin.
+--}}
 @extends('layouts.app')
 
 @section('title', 'Persetujuan Registrasi Pengguna Baru - SIM-PBJ PNJ')
 
+{{--
+  Komentar Deskriptif: Seksi Konten Utama Persetujuan Registrasi Pengguna (`@section('content')`).
+
+  Tujuan: menyajikan antrean akun pendaftar mandiri agar Administrator dapat memilihkan peran
+          RBAC definitif saat menyetujui maupun mencatat alasan jelas bila menolak pendaftaran.
+  Parameter (Data dari Controller):
+    - `$pendingUsers` (LengthAwarePaginator<User>): Daftar akun berstatus menunggu persetujuan.
+    - `$historyUsers` (Collection<User>): Riwayat keputusan registrasi terkini beserta verifikatornya.
+    - `$availableRoles` (Collection<Role>): Daftar pilihan peran untuk penetapan akun baru.
+  Nilai kembali: Halaman HTML utuh antrean verifikasi pendaftaran pengguna.
+  Contoh pemanggilan: `return view('admin.approval_registrasi', compact('pendingUsers', 'historyUsers', 'availableRoles'));`
+--}}
 @section('content')
 <div class="space-y-6">
 

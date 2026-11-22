@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : menulis kelas Notification ini untuk menyusun format surel resmi peringatan dan transisi pengadaan SIM-PBJ Politeknik Negeri Jakarta.
+ */
+
 namespace App\Notifications;
 
 use App\Models\NotifikasiUser;
@@ -8,35 +16,55 @@ use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 /**
- * Notifikasi Email Peringatan & Jadwal Pengadaan (PengingatPengadaanNotification)
+ * Kelas Notifikasi Surel Pengadaan (PengingatPengadaanNotification)
  *
- * Mengirimkan email resmi dari sistem SIM-PBJ Politeknik Negeri Jakarta ke akun email pengguna:
- * - Menampilkan subjek, ringkasan pengingat, kategori (Pengingat/Verifikasi/Pembayaran/SPK/dll).
- * - Menyertakan nomor surat / referensi paket pengadaan.
- * - Menyediakan tombol tautan aksi langsung (deep-link) menuju modul terkait di web SIM-PBJ.
+ * merancang kelas notifikasi ini untuk mengubah satu record `NotifikasiUser` menjadi surel terstruktur
+ * lengkap dengan kategori badge, nomor referensi berkas, dan deep-link ke halaman tindak lanjut terkait.
+ *
+ * Parameter konstruktor: `NotifikasiUser $notifikasi` — entitas notifikasi personal sumber isi pesan.
+ * Nilai kembali         : Instance Notification yang dikirim melalui `$user->notify(...)`.
+ *
+ * Contoh pemanggilan:
+ * `$user->notify(new PengingatPengadaanNotification($notifikasi));`
  */
 class PengingatPengadaanNotification extends Notification
 {
     use Queueable;
 
     /**
-     * Inisialisasi notifikasi dengan data entitas NotifikasiUser terkait.
-     * Menggunakan constructor property promotion sesuai standar PHP 8.
+     * menyimpan entitas NotifikasiUser melalui constructor property promotion agar seluruh metadata email tersedia saat build pesan.
+     *
+     * @param  NotifikasiUser  $notifikasi  mengikat instance notifikasi personal yang baru diterbitkan untuk dibaca oleh metode via/toMail/toArray.
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `new PengingatPengadaanNotification($notifikasiUser);`
      */
     public function __construct(public NotifikasiUser $notifikasi) {}
 
     /**
-     * Menentukan channel pengiriman notifikasi (kanal surel / mail).
+     * menentukan kanal pengiriman surel ('mail') untuk notifikasi pengadaan ini.
      *
-     * @return array<int, string>
+     * @param  object  $notifiable  menerima entitas penerima notifikasi (umumnya model User).
+     * @return array<int, string> mengembalikan daftar channel pengiriman ['mail'].
+     *
+     * Contoh pemanggilan:
+     * `$channels = $notification->via($user);`
      */
     public function via(object $notifiable): array
     {
+        // cukup memakai kanal 'mail' karena pencatatan in-app sudah ditangani oleh tabel notifikasi_user sendiri.
         return ['mail'];
     }
 
     /**
-     * Membangun representasi pesan surel resmi dengan format terstruktur dan responsif.
+     * menyusun tata letak MailMessage berisi kategori, nomor referensi berkas, uraian instruksi, dan tombol tautan langsung.
+     *
+     * @param  object  $notifiable  membaca properti `nama` milik penerima untuk sapaan email yang personal.
+     * @return MailMessage mengembalikan objek MailMessage siap kirim oleh driver SMTP/log Laravel.
+     *
+     * Contoh pemanggilan:
+     * `$mail = $notification->toMail($user);`
      */
     public function toMail(object $notifiable): MailMessage
     {
@@ -46,6 +74,7 @@ class PengingatPengadaanNotification extends Notification
         $ref = $this->notifikasi->referensi_teks;
         $actionLabel = $this->notifikasi->action_label;
         $actionUrl = $this->notifikasi->action_url;
+        // menyiapkan sapaan default apabila akun pengguna tidak memiliki kolom nama terisi.
         $namaUser = $notifiable->nama ?? 'Bapak/Ibu Pengguna';
 
         return (new MailMessage)
@@ -63,9 +92,13 @@ class PengingatPengadaanNotification extends Notification
     }
 
     /**
-     * Representasi data array notifikasi untuk keperluan logging / database channel.
+     * menserialisasikan ringkasan atribut notifikasi ke bentuk array untuk kebutuhan logging atau kanal cadangan.
      *
-     * @return array<string, mixed>
+     * @param  object  $notifiable  menerima entitas penerima notifikasi sesuai kontrak Notification Laravel.
+     * @return array<string, mixed> mengembalikan array asosiatif metadata notifikasi.
+     *
+     * Contoh pemanggilan:
+     * `$payload = $notification->toArray($user);`
      */
     public function toArray(object $notifiable): array
     {

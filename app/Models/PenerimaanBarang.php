@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : menulis model PenerimaanBarang ini untuk mencatat inspeksi fisik barang/jasa oleh Unit Perlengkapan, pembuatan token tanda tangan digital HMAC-SHA256 BAST, dan klasifikasi aset BMN.
+ */
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -9,12 +17,16 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
- * Model Penerimaan Barang (Berita Acara Serah Terima / BAST)
+ * Model Penerimaan Barang & BAST (PenerimaanBarang)
  *
- * Merepresentasikan proses inspeksi fisik dan serah terima hasil pengadaan barang/jasa
- * oleh petugas unit Perlengkapan. Menyimpan nomor BAST resmi, catatan inspeksi fisik,
- * foto-foto dokumentasi barang, tanda tangan digital (HMAC-SHA256) untuk keabsahan hukum,
- * serta lampiran berkas BAST bertanda tangan dan dokumen pihak ketiga/ekspedisi.
+ * memodelkan penerbitan Berita Acara Serah Terima (BAST) yang secara domain menjadi wewenang murni Unit Perlengkapan,
+ * lengkap dengan metode kriptografis `generateSignatureToken` dan `verifyTtdDigital` untuk menjaga keabsahan dokumen.
+ *
+ * Parameter konstruktor: `$attributes` (opsional, diwarisi dari Eloquent Model).
+ * Nilai kembali         : Instance model Eloquent yang terhubung ke tabel `penerimaan_barang` dengan primary key `id_penerimaan`.
+ *
+ * Contoh pemanggilan:
+ * `$token = PenerimaanBarang::generateSignatureToken($nomorBast, auth()->id());`
  */
 class PenerimaanBarang extends Model
 {
@@ -66,9 +78,12 @@ class PenerimaanBarang extends Model
     ];
 
     /**
-     * Konfigurasi type casting untuk tanggal dan waktu.
+     * mengonversi tanggal penerimaan dan stempel waktu inspeksi ke Carbon untuk pelaporan dan PDF BAST.
      *
-     * @return array<string, string>
+     * @return array<string, string> mengembalikan peta tipe cast atribut model.
+     *
+     * Contoh pemanggilan:
+     * `// Dipanggil otomatis oleh Eloquent saat mengakses $bast->tanggal_penerimaan.`
      */
     protected function casts(): array
     {
@@ -79,9 +94,12 @@ class PenerimaanBarang extends Model
     }
 
     /**
-     * Relasi many-to-one ke Paket Pengadaan yang diserahterimakan.
+     * menghubungkan BAST ke paket pengadaan induknya.
      *
-     * @return BelongsTo Relasi ke model PaketPengadaan
+     * @return BelongsTo mengembalikan relasi BelongsTo ke model PaketPengadaan.
+     *
+     * Contoh pemanggilan:
+     * `$paket = $bast->paket;`
      */
     public function paket(): BelongsTo
     {
@@ -89,9 +107,12 @@ class PenerimaanBarang extends Model
     }
 
     /**
-     * Relasi one-to-one ke Kontrak SPK yang diserahterimakan melalui nomor paket.
+     * menghubungkan BAST ke dokumen Kontrak/SPK terkait melalui kunci bersama `nomor_paket`.
      *
-     * @return HasOne Relasi ke model KontrakSPK
+     * @return HasOne mengembalikan relasi HasOne ke model KontrakSPK.
+     *
+     * Contoh pemanggilan:
+     * `$kontrak = $bast->kontrak;`
      */
     public function kontrak(): HasOne
     {
@@ -99,9 +120,12 @@ class PenerimaanBarang extends Model
     }
 
     /**
-     * Relasi many-to-one ke User (petugas unit Perlengkapan pemeriksa fisik).
+     * menghubungkan catatan penerimaan ke akun petugas Perlengkapan yang memeriksa barang.
      *
-     * @return BelongsTo Relasi ke model User
+     * @return BelongsTo mengembalikan relasi BelongsTo ke model User.
+     *
+     * Contoh pemanggilan:
+     * `$pemeriksa = $bast->user;`
      */
     public function user(): BelongsTo
     {
@@ -109,9 +133,12 @@ class PenerimaanBarang extends Model
     }
 
     /**
-     * Relasi one-to-many ke foto-foto dokumentasi fisik barang yang diinspeksi.
+     * menghubungkan satu record penerimaan ke banyak foto dokumentasi fisik barang.
      *
-     * @return HasMany Koleksi foto dokumentasi barang
+     * @return HasMany mengembalikan relasi HasMany ke model DokumentasiPenerimaanBarang.
+     *
+     * Contoh pemanggilan:
+     * `$fotoList = $bast->fotoDokumentasi;`
      */
     public function fotoDokumentasi(): HasMany
     {
@@ -119,28 +146,33 @@ class PenerimaanBarang extends Model
     }
 
     /**
-     * Menghasilkan token tanda tangan digital kriptografis (HMAC-SHA256)
-     * untuk menjamin integritas dan autentisitas dokumen BAST (NFR Keabsahan BAST & TTD Digital).
+     * membangkitkan tanda tangan digital HMAC-SHA256 berbasiskan `app.key` agar keaslian BAST tidak dapat dipalsukan di database.
      *
-     * @param  string  $nomorBast  Nomor resmi BAST
-     * @param  int  $userId  ID petugas pemeriksa yang menandatangani
-     * @param  string|null  $timestamp  Timestamp penandatanganan (default waktu sekarang)
-     * @return string Token hash kriptografis yang dihasilkan
+     * @param  string  $nomorBast  menyertakan nomor BAST resmi ke dalam payload hash.
+     * @param  int  $userId  mengikat ID petugas pemeriksa ke payload agar tanda tangan teratribusi ke penanda tangan sah.
+     * @param  string|null  $timestamp  menerima stempel waktu ISO-8601 deterministik (atau `now()` bila tidak diberikan).
+     * @return string mengembalikan string digest heksadesimal HMAC-SHA256 sepanjang 64 karakter.
+     *
+     * Contoh pemanggilan:
+     * `$hash = PenerimaanBarang::generateSignatureToken('BAST/PNJ/2026/001', $user->id_user, $waktu);`
      */
     public static function generateSignatureToken(string $nomorBast, int $userId, ?string $timestamp = null): string
     {
         $time = $timestamp ?? now()->toIso8601String();
         $payload = "BAST:{$nomorBast}|PETUGAS:{$userId}|TIME:{$time}";
 
+        // memakai app.key sebagai secret HMAC agar verifikasi integritas BAST hanya bisa dilakukan oleh server aplikasi.
         return hash_hmac('sha256', $payload, (string) config('app.key'));
     }
 
     /**
-     * Memverifikasi keabsahan tanda tangan digital BAST terhadap token yang diharapkan
-     * menggunakan fungsi pembandingan aman tahan serangan timing attack (hash_equals).
+     * memverifikasi integritas token tanda tangan digital BAST dengan perbandingan waktu konstan.
      *
-     * @param  string  $expectedToken  Token yang diharapkan
-     * @return bool True jika tanda tangan valid dan belum dimanipulasi
+     * @param  string  $expectedToken  menerima token HMAC pembanding hasil komputasi ulang.
+     * @return bool mengembalikan true jika tanda tangan identik, atau false jika kosong/berbeda.
+     *
+     * Contoh pemanggilan:
+     * `$valid = $bast->verifyTtdDigital($expectedHash);`
      */
     public function verifyTtdDigital(string $expectedToken): bool
     {
@@ -148,6 +180,7 @@ class PenerimaanBarang extends Model
             return false;
         }
 
+        // menggunakan hash_equals() alih-alih operator '===' untuk mencegah serangan timing side-channel.
         return hash_equals($this->ttd_digital_bast, $expectedToken);
     }
 }

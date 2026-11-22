@@ -1,7 +1,26 @@
+{{--
+  Informasi File
+
+  Penulis   : DendyRafi, Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : View Blade ini kami susun untuk workspace Staf Bidang II (Umum & Keuangan) dalam
+              memantau seluruh usulan masuk Srikandi, melihat detail dokumen, serta menerbitkan
+              Memo Cek MAK ke Bagian Perencanaan melalui `trackingManager`.
+--}}
 @extends('layouts.app')
 
 @section('title', 'Tracking Pengajuan - SIM-PBJ')
 
+{{--
+  Komentar Deskriptif: Seksi Konten Telaah Administrasi Staf Bidang II (`verifikasi.bidang_2`).
+
+  Tujuan: Kami menormalisasi koleksi `$permohonanMasuk` menjadi struktur JSON `normalizedItems` agar
+          antarmuka tracking split-view tetap seragam sambil menampilkan KPI telaah Bidang II.
+  Parameter (Data dari VerifikasiParalelController::verifikasiBidang2):
+    - `$permohonanMasuk` (Collection<PermohonanPengadaan>): Daftar usulan aktif untuk ditelaah.
+  Nilai kembali: Halaman HTML workspace telaah administrasi Bidang II dan form penerusan Memo Cek MAK.
+  Contoh pemanggilan: `return view('verifikasi.bidang_2', compact('permohonanMasuk'));`
+--}}
 @section('content')
 @php
     // Normalisasi sumber data dari controller fullstuck ($permohonanMasuk atau $permohonanList)

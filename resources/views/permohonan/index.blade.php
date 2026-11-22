@@ -1,7 +1,26 @@
+{{--
+  Informasi File
+
+  Penulis   : DendyRafi, Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : View Blade ini kami bangun untuk antarmuka daftar dan pelacakan split-view permohonan
+              pengadaan (`trackingManager`), mencakup filter pengajuan, pratinjau status 8 siklus,
+              timeline riwayat, serta modal buat baru, revisi, dan batalkan pengajuan.
+--}}
 @extends('layouts.app')
 
 @section('title', 'Tracking Pengajuan - SIM-PBJ')
 
+{{--
+  Komentar Deskriptif: Seksi Konten Halaman Pelacakan & Daftar Permohonan (`permohonan.index`).
+
+  Tujuan: Kami menyerahkan koleksi `$permohonanList` ke komponen `trackingManager` melalui atribut
+          `data-items` agar pergantian item detail, filter lokal, dan mode fullscreen berjalan instan.
+  Parameter (Data dari PermohonanPengadaanController::index):
+    - `$permohonanList` (LengthAwarePaginator|Collection<PermohonanPengadaan>).
+  Nilai kembali: Halaman HTML split-view daftar usulan, panel detail, dan modal aksinya.
+  Contoh pemanggilan: `return view('permohonan.index', compact('permohonanList', ...));`
+--}}
 @section('content')
 <div x-data="trackingManager" data-items="{{ isset($permohonanList) ? json_encode($permohonanList->items() ?? $permohonanList) : '[]' }}" data-default-status="Semua" class="space-y-6 mx-1 px-4 sm:px-6 lg:px-8 py-6">
 

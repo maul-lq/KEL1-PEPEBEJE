@@ -1,34 +1,58 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : menulis command Artisan ini untuk mengeksekusi pemrosesan jadwal pengingat jatuh tempo dan pengingat berkala secara terjadwal dari CLI/cron.
+ */
+
 namespace App\Console\Commands;
 
 use App\Services\ReminderSchedulerService;
 use Illuminate\Console\Command;
 
 /**
- * Command Artisan untuk memproses jadwal pengingat (reminder) jatuh tempo dan pengingat berkala.
+ * Command Pemrosesan Pengingat Berkala (ProsesReminderBerkalaCommand)
+ *
+ * membuat command Artisan ini sebagai pintu masuk penjadwalan cron agar pengiriman pengingat H-2
+ * dan termin berkala tetap berjalan deterministik di luar siklus request HTTP.
+ *
+ * Parameter konstruktor: Tidak ada (menggunakan properti signature/description bawaan Command Laravel).
+ * Nilai kembali         : Instance command Artisan siap dijalankan oleh Console Kernel.
+ *
+ * Contoh pemanggilan:
+ * `php artisan reminder:proses`
  */
 class ProsesReminderBerkalaCommand extends Command
 {
     /**
-     * The name and signature of the console command.
+     * Signature perintah Artisan yang didaftarkan pada Console Kernel.
      *
      * @var string
      */
     protected $signature = 'reminder:proses';
 
     /**
-     * The console command description.
+     * Deskripsi ringkas perintah yang tampil pada daftar `php artisan list`.
      *
      * @var string
      */
     protected $description = 'Memproses jadwal pengingat berkala kontrak/pembayaran dan mengirim notifikasi + email untuk jadwal yang telah jatuh tempo';
 
     /**
-     * Execute the console command.
+     * menjalankan satu siklus penuh pemrosesan seluruh jadwal reminder yang telah jatuh tempo.
+     *
+     * @param  ReminderSchedulerService  $scheduler  menyuntikkan layanan penjadwal agar logika penguncian cache dan pemilihan penerima tidak diduplikasi di command.
+     * @return int mengembalikan self::SUCCESS (0) setelah ringkasan eksekusi dicetak ke konsol.
+     *
+     * Contoh pemanggilan:
+     * `$exitCode = $this->call('reminder:proses');`
      */
     public function handle(ReminderSchedulerService $scheduler): int
     {
+        // mendelegasikan seluruh eksekusi ke service agar memakai cache lock yang sama dengan middleware web dan mencegah duplikasi alert.
         $summary = $scheduler->processDueReminders();
 
         $this->info(sprintf(

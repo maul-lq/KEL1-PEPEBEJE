@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : menulis controller LaporanController ini untuk menyajikan halaman Riwayat & Laporan terpadu berbasis komposisi modul RBAC serta menyediakan ekspor PDF (DomPDF) dan CSV RAW secara serentak.
+ */
+
 namespace App\Http\Controllers;
 
 use App\Models\Unit;
@@ -13,16 +21,38 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 
 /**
- * Controller Riwayat & Laporan Terpadu (Modul 8)
+ * Controller Riwayat & Laporan Terpadu (LaporanController)
  *
- * Mengelola Tab Riwayat Aktivitas Audit & Tab Laporan Statistik berbasis komposisi izin RBAC.
+ * mendelegasikan penyusunan data lintas 10 modul RBAC ke LaporanModularService agar controller
+ * tetap ramping dan hanya mengurus negosiasi format respons (Blade HTML, JSON filter reaktif, PDF, dan CSV).
+ *
+ * Parameter konstruktor: `LaporanModularService $laporanService` — layanan komposisi laporan modular RBAC.
+ * Nilai kembali         : Instance controller yang melayani grup rute `/laporan` dan redirect legacy `/monitoring`.
+ *
+ * Contoh pemanggilan:
+ * `Route::get('/laporan', [LaporanController::class, 'laporanIndex'])->name('laporan.index');`
  */
 class LaporanController extends Controller
 {
+    /**
+     * menyuntikkan LaporanModularService melalui constructor property promotion agar seluruh endpoint laporan memakai logika RBAC yang sama.
+     *
+     * @param  LaporanModularService  $laporanService  mengikat service pembangun data riwayat, KPI, PDF, dan CSV.
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `$controller = app(LaporanController::class);`
+     */
     public function __construct(public LaporanModularService $laporanService) {}
 
     /**
-     * Menampilkan antarmuka terpadu Riwayat dan Laporan serta melayani pembaruan filter JSON.
+     * menampilkan halaman Riwayat & Laporan terpadu atau mengembalikan payload JSON terbaru ketika filter Alpine.js diubah.
+     *
+     * @param  Request  $request  membaca tab aktif, filter periode/unit/status/modul, serta flag `laporan_only` untuk request JSON.
+     * @return View|JsonResponse mengembalikan view `laporan.index` atau JSON sinkronisasi filter laporan dan riwayat.
+     *
+     * Contoh pemanggilan:
+     * `GET /laporan?tab=laporan&module=semua&tahun=2026`
      */
     public function laporanIndex(Request $request): View|JsonResponse
     {
@@ -47,6 +77,7 @@ class LaporanController extends Controller
                 ],
             ];
 
+            // melewati pembangunan riwayat saat frontend hanya mengganti filter Tab Laporan agar respon JSON tetap cepat.
             if (! $request->boolean('laporan_only')) {
                 $response['riwayat'] = $this->laporanService->buildRiwayat($user);
             }
@@ -79,7 +110,13 @@ class LaporanController extends Controller
     }
 
     /**
-     * Alias indeks standar resource.
+     * menyediakan metode alias `index` yang meneruskan ke `laporanIndex` demi konsistensi konvensi resource controller.
+     *
+     * @param  Request  $request  meneruskan objek request beserta query filter.
+     * @return View|JsonResponse mengembalikan view `laporan.index` atau JSON payload laporan.
+     *
+     * Contoh pemanggilan:
+     * `$controller->index($request);`
      */
     public function index(Request $request): View|JsonResponse
     {
@@ -87,7 +124,13 @@ class LaporanController extends Controller
     }
 
     /**
-     * Mengunduh Laporan PDF terformat rapi berbasis modul RBAC aktif (< 3 Detik - NFR 12).
+     * merender dan mengunduhkan berkas PDF landscape berformat rapi menggunakan DomPDF sesuai modul RBAC dan filter aktif pengguna.
+     *
+     * @param  Request  $request  mengekstrak parameter filter yang sedang aktif pada bar filter laporan.
+     * @return Response mengembalikan unduhan berkas PDF bernama `Laporan_PBJ_PNJ_*.pdf`.
+     *
+     * Contoh pemanggilan:
+     * `GET /laporan/unduh-pdf?module=semua&tahun=2026`
      */
     public function unduhLaporanPdf(Request $request): Response
     {
@@ -102,6 +145,7 @@ class LaporanController extends Controller
             : 'SemuaTahun';
         $filename = "Laporan_PBJ_PNJ_{$suffix}_{$tahunTag}_".now()->format('Ymd_His').'.pdf';
 
+        // memilih orientasi A4 landscape supaya tabel rincian lintas kolom dan badge status tidak terpotong di DomPDF.
         $pdf = Pdf::loadView('laporan.pdf', [
             'user' => $exportData['user'],
             'roleLabel' => $exportData['role_label'],
@@ -117,13 +161,20 @@ class LaporanController extends Controller
     }
 
     /**
-     * Mengunduh Laporan data mentah (RAW CSV) UTF-8 BOM berbasis modul RBAC dan filter aktif.
+     * menghasilkan unduhan data mentah CSV (UTF-8 BOM, angka numerik murni) yang dipicu bersamaan dengan unduhan PDF.
+     *
+     * @param  Request  $request  mengekstrak parameter filter aktif agar isi CSV selalu sinkron dengan PDF dan tabel UI.
+     * @return Response mengembalikan file `text/csv; charset=UTF-8` dengan header `no-store`.
+     *
+     * Contoh pemanggilan:
+     * `GET /laporan/unduh-csv?module=anggaran_mak&tahun=2026`
      */
     public function unduhLaporanCsv(Request $request): Response
     {
         $user = Auth::user();
         $csv = $this->laporanService->buildCsvDownload($user, $this->extractFilters($request));
 
+        // mematikan cache pada respons unduhan agar hasil ekspor selalu mencerminkan data transaksi detik terakhir.
         return response($csv['content'], 200, [
             'Content-Type' => 'text/csv; charset=UTF-8',
             'Content-Disposition' => 'attachment; filename="'.$csv['filename'].'"',
@@ -132,7 +183,13 @@ class LaporanController extends Controller
     }
 
     /**
-     * Wrapper kompatibilitas unduh ringkasan PDF terdahulu.
+     * mempertahankan wrapper rute unduh ringkasan PDF agar endpoint dan pengujian terdahulu tetap berfungsi melalui jalur modular terbaru.
+     *
+     * @param  Request  $request  meneruskan query filter ke `unduhLaporanPdf`.
+     * @return Response mengembalikan unduhan PDF laporan.
+     *
+     * Contoh pemanggilan:
+     * `GET /laporan/unduh-laporan-pdf`
      */
     public function unduhLaporanRingkasanPdf(Request $request): Response
     {
@@ -140,7 +197,13 @@ class LaporanController extends Controller
     }
 
     /**
-     * Wrapper kompatibilitas unduh detail PDF terdahulu.
+     * mempertahankan wrapper rute unduh detail PDF agar hanya ada satu sumber generasi PDF yang terawat.
+     *
+     * @param  Request  $request  meneruskan query filter ke `unduhLaporanPdf`.
+     * @return Response mengembalikan unduhan PDF laporan.
+     *
+     * Contoh pemanggilan:
+     * `GET /laporan/unduh-detail-pdf`
      */
     public function unduhLaporanDetailPdf(Request $request): Response
     {
@@ -148,7 +211,13 @@ class LaporanController extends Controller
     }
 
     /**
-     * Wrapper kompatibilitas laporan rekapitulasi terdahulu.
+     * mempertahankan alias rekapitulasi anggaran terdahulu dan meneruskannya ke `laporanIndex`.
+     *
+     * @param  Request  $request  meneruskan request filter ke indeks laporan terpadu.
+     * @return View|JsonResponse mengembalikan view atau JSON laporan.
+     *
+     * Contoh pemanggilan:
+     * `GET /laporan/rekapitulasi-anggaran`
      */
     public function laporanRekapitulasiIndex(Request $request): View|JsonResponse
     {
@@ -156,7 +225,13 @@ class LaporanController extends Controller
     }
 
     /**
-     * Wrapper kompatibilitas unduh rekapitulasi terdahulu.
+     * mempertahankan alias unduh rekapitulasi PDF terdahulu dan meneruskannya ke `unduhLaporanPdf`.
+     *
+     * @param  Request  $request  meneruskan request filter ke generator PDF terpadu.
+     * @return Response mengembalikan unduhan PDF laporan.
+     *
+     * Contoh pemanggilan:
+     * `GET /laporan/rekapitulasi-anggaran/pdf`
      */
     public function unduhRekapitulasiPdf(Request $request): Response
     {
@@ -164,7 +239,12 @@ class LaporanController extends Controller
     }
 
     /**
-     * Redirect monitoring lama ke laporan.index.
+     * mengalihkan akses modul monitoring lama secara permanen ke halaman Riwayat & Laporan terpadu.
+     *
+     * @return RedirectResponse mengembalikan redirect menuju rute `laporan.index`.
+     *
+     * Contoh pemanggilan:
+     * `GET /monitoring`
      */
     public function monitoringIndex(): RedirectResponse
     {
@@ -172,13 +252,18 @@ class LaporanController extends Controller
     }
 
     /**
-     * Mengekstrak dan menormalisasi parameter filter request laporan.
+     * mengekstrak dan menormalkan seluruh query parameter filter laporan dengan tahun berjalan sebagai default ketika `tahun` tidak dikirim.
      *
-     * @return array<string, mixed>
+     * @param  Request  $request  membaca input `tahun`, `bulan`, `unit`, `status`, `role_filter`, `q`, dan `module`.
+     * @return array<string, mixed> mengembalikan array filter ternormalisasi bertipe string.
+     *
+     * Contoh pemanggilan:
+     * `$filters = $this->extractFilters($request);`
      */
     private function extractFilters(Request $request): array
     {
         return [
+            // membedakan ketiadaan parameter 'tahun' (default tahun berjalan) dari string kosong ('Semua Tahun') agar pengguna bisa memilih opsi Semua Tahun.
             'tahun' => $request->has('tahun') ? (string) $request->input('tahun') : date('Y'),
             'bulan' => (string) $request->input('bulan', ''),
             'unit' => (string) $request->input('unit', ''),

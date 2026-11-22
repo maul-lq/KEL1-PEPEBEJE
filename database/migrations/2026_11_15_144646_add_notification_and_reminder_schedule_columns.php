@@ -1,15 +1,40 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : Migrasi ini susun untuk menambahkan kolom preferensi reminder email pada `users`
+ *             serta kolom penjadwalan otomatis pada tabel `reminder` untuk pengingat jatuh tempo.
+ */
+
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Kelas migrasi anonim penambah kolom preferensi notifikasi email dan jadwal reminder otomatis.
+ *
+ * Tujuan: melengkapi tabel `reminder` dengan target permissions JSON, flag aktif, serta
+ * jejak waktu trigger agar penjadwal berkala tidak mengirim pengingat yang sama berulang kali.
+ *
+ * Contoh pemanggilan:
+ * `php artisan migrate --path=database/migrations/2026_11_15_144646_add_notification_and_reminder_schedule_columns.php`
+ */
 return new class extends Migration
 {
     /**
-     * Menambahkan preferensi reminder email di tabel users serta metadata penjadwalan
-     * di tabel reminder agar reminder berkala dan sekali jalan dapat diproses otomatis.
+     * Menjalankan migrasi penambahan kolom preferensi email pengguna dan metadata jadwal reminder.
+     *
+     * Tujuan: menandai reminder satu-kali yang sudah masuk ke `notifikasi_user` sebagai
+     * nonaktif (`is_active = false`) agar tidak ikut diproses ulang saat scheduler baru aktif.
+     *
+     * @return void
+     *
+     * Contoh pemanggilan:
+     * `$migration->up();`
      */
     public function up(): void
     {
@@ -46,7 +71,7 @@ return new class extends Migration
                 }
             });
 
-            // Tandai histori reminder instan yang sudah memiliki notifikasi_user sebagai non-aktif (sudah terkirim)
+            // tandai nonaktif histori reminder sekali-jalan yang sudah terkirim agar scheduler tidak mengirim ganda.
             $dispatchedIds = DB::table('notifikasi_user')->distinct()->pluck('id_reminder');
             if ($dispatchedIds->isNotEmpty()) {
                 DB::table('reminder')
@@ -61,7 +86,15 @@ return new class extends Migration
     }
 
     /**
-     * Reverse the migrations.
+     * Membalikkan migrasi dengan menjatuhkan indeks terkait dan kolom penjadwalan reminder.
+     *
+     * Tujuan: memeriksa daftar indeks aktif via `Schema::getIndexes` sebelum drop kolom agar
+     * SQLite dan PostgreSQL tidak melempar error ketergantungan indeks.
+     *
+     * @return void
+     *
+     * Contoh pemanggilan:
+     * `$migration->down();`
      */
     public function down(): void
     {

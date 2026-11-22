@@ -1,5 +1,24 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : memperbarui berkas konfigurasi antrean (queue) bawaan Laravel ini untuk mengatur backend antrean tugas asinkron, job batching, dan pencatatan job gagal.
+ */
+
+/**
+ * Konfigurasi Antrean Tugas / Queue (config/queue.php)
+ *
+ * mendefinisikan driver queue default ('database') dan parameter retry_after
+ * agar pemrosesan job latar belakang serta pelacakan failed_jobs terkelola di database aplikasi.
+ *
+ * Parameter    : Tidak ada (membaca variabel env()).
+ * Nilai kembali: array<string, mixed> — daftar koneksi queue, konfigurasi batching, dan failed jobs.
+ * Contoh pemanggilan:
+ * `php artisan queue:work` atau `config('queue.default')`
+ */
 return [
 
     /*
@@ -7,9 +26,8 @@ return [
     | Default Queue Connection Name
     |--------------------------------------------------------------------------
     |
-    | Laravel's queue supports a variety of backends via a single, unified
-    | API, giving you convenient access to each backend using identical
-    | syntax for each. The default queue connection is defined below.
+    | memakai driver 'database' secara default agar antrean pekerjaan dapat
+    | langsung berjalan menggunakan tabel 'jobs' tanpa setup broker tambahan.
     |
     */
 
@@ -20,12 +38,8 @@ return [
     | Queue Connections
     |--------------------------------------------------------------------------
     |
-    | Here you may configure the connection options for every queue backend
-    | used by your application. An example configuration is provided for
-    | each backend supported by Laravel. You're also free to add more.
-    |
-    | Drivers: "sync", "database", "beanstalkd", "sqs", "redis",
-    |          "deferred", "background", "failover", "null"
+    | mempertahankan konfigurasi seluruh backend antrean Laravel (sync,
+    | database, redis, sqs, failover) untuk kebutuhan pengembangan hingga produksi.
     |
     */
 
@@ -40,6 +54,7 @@ return [
             'connection' => env('DB_QUEUE_CONNECTION'),
             'table' => env('DB_QUEUE_TABLE', 'jobs'),
             'queue' => env('DB_QUEUE', 'default'),
+            // menyetel retry_after 90 detik agar job yang macet dapat diambil kembali oleh worker lain tanpa menunggu terlalu lama.
             'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 90),
             'after_commit' => false,
         ],
@@ -96,9 +111,8 @@ return [
     | Job Batching
     |--------------------------------------------------------------------------
     |
-    | The following options configure the database and table that store job
-    | batching information. These options can be updated to any database
-    | connection and table which has been defined by your application.
+    | mengarahkan tabel job_batches ke DB_CONNECTION aktif agar batch job
+    | selalu mengikuti koneksi database utama aplikasi.
     |
     */
 
@@ -112,11 +126,8 @@ return [
     | Failed Queue Jobs
     |--------------------------------------------------------------------------
     |
-    | These options configure the behavior of failed queue job logging so you
-    | can control how and where failed jobs are stored. Laravel ships with
-    | support for storing failed jobs in a simple file or in a database.
-    |
-    | Supported drivers: "database-uuids", "dynamodb", "file", "null"
+    | menggunakan driver 'database-uuids' agar setiap kegagalan eksekusi
+    | job tercatat permanen dengan identitas unik di tabel failed_jobs.
     |
     */
 

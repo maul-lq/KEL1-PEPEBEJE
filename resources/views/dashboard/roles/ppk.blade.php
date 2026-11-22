@@ -1,5 +1,21 @@
-{{-- resources/views/dashboard/roles/ppk.blade.php --}}
-{{-- Modul RBAC: Pejabat Pembuat Komitmen - Portofolio Terisolasi & Memo Level 2 (ppk) --}}
+{{--
+  Informasi File
+
+  Penulis   : Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : Sub-view dasbor ini susun untuk modul Pejabat Pembuat Komitmen (PPK) yang
+              terisolasi per akun penugasan (`id_user_ppk`), menampilkan persetujuan awal, reviu
+              dokumen paket, paket tugas PPK, serta antrean Memo Bayar Level 2.
+--}}
+{{--
+  Komentar Deskriptif: Panel Workspace Dasbor Pejabat Pembuat Komitmen (`dashboard.roles.ppk`).
+
+  Tujuan: menggabungkan tiga antrean kerja PPK (Memo Bayar Level 2, reviu dokumen paket, dan
+          persetujuan awal usulan) dengan mematuhi isolasi hak akses masing-masing akun PPK.
+  Parameter: `$user` (User), `$stats` (array), `$roleData` (array).
+  Nilai kembali: Fragmen HTML 4 KPI PPK dan workspace antrean tindakan PPK.
+  Contoh pemanggilan: `@includeIf('dashboard.roles.ppk', [...])`
+--}}
 @php
     $hasReviuPpk = $user->hasPermission('reviu.ppk');
     $hasMemoPpk = $user->hasPermission('pembayaran.memo_ppk');
@@ -38,7 +54,7 @@
         <x-figma-stat-card
             title="Paket Tugas Saya"
             :value="$stats['total_paket_ppk'] ?? 0"
-            :subtitle="'Tugas Saya • Kontrak Aktif: ' . ($stats['spk_aktif'] ?? 0)"
+            :subtitle="'Tugas • Kontrak Aktif: ' . ($stats['spk_aktif'] ?? 0)"
             variant="done"
             :href="$kontrakPpkHref"
         />

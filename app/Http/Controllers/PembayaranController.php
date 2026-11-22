@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : menulis controller PembayaranController ini untuk mengelola antrean pengajuan tagihan pasca-BAST, persetujuan memo bayar berjenjang (Wadir 2 Lvl 1 & PPK Lvl 2), penerbitan SPP, serta pencairan SP2D Keuangan.
+ */
+
 namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
@@ -19,22 +27,40 @@ use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 /**
- * Controller Manajemen Pengajuan Tagihan & Pembayaran (Modul 7)
+ * Controller Manajemen Tagihan & Pencairan Pembayaran (PembayaranController)
  *
- * Mengelola tahapan:
- * 1. Pengajuan dokumen pembayaran (SPK + Kwitansi + Invoice) oleh PPBJ setelah BAST terbit.
- * 2. Disposisi memo persetujuan pembayaran paralel oleh Wadir 2 dan PPK.
- * 3. Penerbitan Surat Perintah Pembayaran (SPP) dan kelengkapan legalitas vendor oleh PPBJ.
- * 4. Eksekusi pencairan dana SP2D dan unggah bukti transfer bank oleh Bagian Keuangan.
+ * memusatkan alur pembayaran pengadaan di controller ini agar setiap tahap—mulai dari pengajuan berkas tagihan PPBJ,
+ * peninjauan paralel memo bayar Wadir 2 dan PPK, penerbitan SPP, hingga transfer SP2D Keuangan—terjaga integritas dan izinnya.
+ *
+ * Parameter konstruktor: `PengadaanNotificationService $notificationService` — layanan pengirim notifikasi antar tahap pembayaran.
+ * Nilai kembali         : Instance controller yang melayani grup rute `/pembayaran/*`.
+ *
+ * Contoh pemanggilan:
+ * `Route::post('/pembayaran/terbitkan-spp', [PembayaranController::class, 'terbitkanSppWeb']);`
  */
 class PembayaranController extends Controller
 {
+    /**
+     * menyuntikkan layanan notifikasi pengadaan agar transisi tagihan, penolakan memo, SPP, dan pencairan SP2D langsung mengabarkan pihak terkait.
+     *
+     * @param  PengadaanNotificationService  $notificationService  mengikat service notifikasi melalui property promotion.
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `$controller = app(PembayaranController::class);`
+     */
     public function __construct(
         public PengadaanNotificationService $notificationService
     ) {}
 
     /**
-     * Menampilkan antrean dan riwayat alur pembayaran bertingkat.
+     * menampilkan seluruh antrean pembayaran (siap bayar pasca-BAST, memo menunggu ACC, siap terbit SPP, siap cair SP2D, ditolak, dan riwayat lunas).
+     *
+     * @param  Request  $request  menerima request HTTP halaman pembayaran yang disaring sesuai izin RBAC pengguna aktif.
+     * @return View mengembalikan tampilan Blade `pembayaran.index`.
+     *
+     * Contoh pemanggilan:
+     * `GET /pembayaran`
      */
     public function pembayaranIndex(Request $request): View
     {
@@ -137,13 +163,28 @@ class PembayaranController extends Controller
         ));
     }
 
+    /**
+     * menyediakan metode alias `index` yang meneruskan langsung ke `pembayaranIndex`.
+     *
+     * @param  Request  $request  meneruskan objek request halaman pembayaran.
+     * @return View mengembalikan tampilan Blade `pembayaran.index`.
+     *
+     * Contoh pemanggilan:
+     * `$controller->index($request);`
+     */
     public function index(Request $request): View
     {
         return $this->pembayaranIndex($request);
     }
 
     /**
-     * Memproses pengajuan berkas pembayaran oleh PPBJ setelah BAST terbit.
+     * memproses pengajuan berkas pembayaran termin oleh PPBJ setelah BAST terbit dan membuatkan 2 antrean memo (PPK & Wadir 2).
+     *
+     * @param  Request  $request  memvalidasi nomor paket, nominal pengajuan, nomor & berkas kwitansi (wajib bila bukan belanja langsung berkwitansi), dan invoice.
+     * @return RedirectResponse mengarahkan kembali ke `pembayaran.index` dengan status tagihan `reviu_memo`.
+     *
+     * Contoh pemanggilan:
+     * `POST /pembayaran/pengajuan`
      */
     public function storePengajuanBayarWeb(Request $request): RedirectResponse
     {
@@ -264,7 +305,14 @@ class PembayaranController extends Controller
     }
 
     /**
-     * Memproses perbaikan berkas dokumen pembayaran oleh PPBJ setelah ditolak Wadir II / PPK.
+     * memproses perbaikan berkas tagihan oleh PPBJ dan hanya mereset memo yang sebelumnya ditolak agar persetujuan pihak lain yang sudah ACC tidak hilang.
+     *
+     * @param  Request  $request  memvalidasi unggahan ulang dokumen perikatan, kwitansi, invoice, penunjang, serta catatan perbaikan.
+     * @param  string  $nomorPembayaran  mencari berkas pembayaran sasaran perbaikan berdasarkan nomor pembayarannya.
+     * @return RedirectResponse mengarahkan kembali ke `pembayaran.index` setelah status tagihan kembali ke `reviu_memo`.
+     *
+     * Contoh pemanggilan:
+     * `PUT /pembayaran/{nomor_pembayaran}`
      */
     public function pembayaranUpdate(Request $request, string $nomorPembayaran): RedirectResponse
     {
@@ -339,13 +387,29 @@ class PembayaranController extends Controller
         );
     }
 
+    /**
+     * menyediakan metode alias `update` yang meneruskan langsung ke `pembayaranUpdate`.
+     *
+     * @param  Request  $request  meneruskan objek request perbaikan berkas tagihan.
+     * @param  string  $nomorPembayaran  meneruskan nomor pembayaran target perbaikan.
+     * @return RedirectResponse mengembalikan hasil redirect dari `pembayaranUpdate`.
+     *
+     * Contoh pemanggilan:
+     * `$controller->update($request, $nomorPembayaran);`
+     */
     public function update(Request $request, string $nomorPembayaran): RedirectResponse
     {
         return $this->pembayaranUpdate($request, $nomorPembayaran);
     }
 
     /**
-     * Memproses persetujuan/penolakan memo pembayaran oleh Wadir 2 atau PPK.
+     * memproses persetujuan atau penolakan memo bayar oleh Wadir 2 atau PPK dengan mewajibkan berkas fisik memo saat disetujui dan alasan saat ditolak.
+     *
+     * @param  Request  $request  memvalidasi `id_memo_bayar`, `status_memo`, `nomor_memo`, `file_memo` (wajib saat ACC), dan `catatan_memo` (wajib saat tolak).
+     * @return RedirectResponse mengarahkan kembali ke `pembayaran.index` setelah memperbarui status memo dan tagihan induknya.
+     *
+     * Contoh pemanggilan:
+     * `POST /pembayaran/memo/approve`
      */
     public function approveMemoBayarWeb(Request $request): RedirectResponse
     {
@@ -427,7 +491,13 @@ class PembayaranController extends Controller
     }
 
     /**
-     * Memproses penerbitan Surat Perintah Pembayaran (SPP) oleh PPBJ setelah seluruh memo disetujui.
+     * menerbitkan Surat Perintah Pembayaran (SPP) oleh PPBJ setelah memastikan seluruh memo bayar (Wadir 2 dan PPK) telah berstatus disetujui.
+     *
+     * @param  Request  $request  memvalidasi `nomor_pembayaran`, berkas `file_spp`, pembaruan legalitas vendor opsional, dan catatan reviu akhir.
+     * @return RedirectResponse mengarahkan kembali ke `pembayaran.index` setelah status tagihan dan paket menjadi `perintah_bayar`.
+     *
+     * Contoh pemanggilan:
+     * `POST /pembayaran/terbitkan-spp`
      */
     public function terbitkanSppWeb(Request $request): RedirectResponse
     {
@@ -487,7 +557,13 @@ class PembayaranController extends Controller
     }
 
     /**
-     * Memproses eksekusi pencairan dana SP2D dan upload slip bukti transfer bank oleh Keuangan.
+     * mencatat transaksi pencairan dana SP2D oleh Bagian Keuangan sambil mencegah pencairan ganda pada tagihan yang sudah lunas.
+     *
+     * @param  Request  $request  memvalidasi nomor pembayaran, nomor transaksi bank unik, tanggal & nominal cair, bank tujuan, serta bukti transfer.
+     * @return RedirectResponse mengarahkan kembali ke `pembayaran.index` setelah hook model menutup status pembayaran, paket, dan permohonan menjadi selesai.
+     *
+     * Contoh pemanggilan:
+     * `POST /pembayaran`
      */
     public function storePembayaran(Request $request): RedirectResponse
     {
@@ -544,6 +620,15 @@ class PembayaranController extends Controller
         );
     }
 
+    /**
+     * menyediakan metode alias `store` yang meneruskan langsung ke `storePembayaran`.
+     *
+     * @param  Request  $request  meneruskan payload pencairan dana SP2D.
+     * @return RedirectResponse mengembalikan hasil redirect dari `storePembayaran`.
+     *
+     * Contoh pemanggilan:
+     * `$controller->store($request);`
+     */
     public function store(Request $request): RedirectResponse
     {
         return $this->storePembayaran($request);

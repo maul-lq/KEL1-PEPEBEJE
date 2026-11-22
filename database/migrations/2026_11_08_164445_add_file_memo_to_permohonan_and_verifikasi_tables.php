@@ -1,13 +1,39 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : Migrasi ini rancang untuk menambahkan kolom unggahan berkas memo resmi pada tabel
+ *             `permohonan_pengadaan`, `verifikasi_paralel`, dan `memo_bayar`.
+ */
+
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Kelas migrasi anonim penambah kolom lampiran file memo verifikasi dan memo pembayaran.
+ *
+ * Tujuan: memfasilitasi pengarsipan scan memo cek MAK, memo ketersediaan anggaran, memo
+ * keputusan Wadir II/PPK, serta memo persetujuan bayar ke dalam basis data.
+ *
+ * Contoh pemanggilan:
+ * `php artisan migrate --path=database/migrations/2026_11_08_164445_add_file_memo_to_permohonan_and_verifikasi_tables.php`
+ */
 return new class extends Migration
 {
     /**
-     * Run the migrations.
+     * Menjalankan migrasi penambahan kolom nomor dan file memo secara bertahap dan aman.
+     *
+     * Tujuan: menambahkan pengecekan `hasTable` dan `hasColumn` pada setiap tabel target
+     * sehingga migrasi berjalan mulus di semua state basis data.
+     *
+     * @return void
+     *
+     * Contoh pemanggilan:
+     * `$migration->up();`
      */
     public function up(): void
     {
@@ -46,7 +72,14 @@ return new class extends Migration
     }
 
     /**
-     * Reverse the migrations.
+     * Membalikkan migrasi dengan menghapus kolom nomor dan file memo dari ketiga tabel.
+     *
+     * Tujuan: melepas kolom dengan urutan aman dan penjagaan `hasColumn` saat rollback.
+     *
+     * @return void
+     *
+     * Contoh pemanggilan:
+     * `$migration->down();`
      */
     public function down(): void
     {

@@ -159,3 +159,50 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 - After the feature tests pass, ask the user to run the complete suite with `php artisan test --compact`.
 
 </laravel-boost-guidelines>
+
+<project-comment-conventions>
+=== project comment conventions ===
+
+# Standar Komentar Kode 3 Tingkat (SIM-PBJ)
+
+Aturan ini melengkapi sekaligus menimpa catatan komentar generik PHP di atas untuk seluruh berkas baru maupun modul, kelas, dan fungsi baru yang ditulis pada repositori ini (`app/`, `routes/`, `database/`, `resources/`, dan `tests/`).
+
+## 1. Struktur Wajib 3 Lapisan
+
+1. **Informasi File (paling atas berkas)**
+   Wajib memuat tiga butir berikut memakai format komentar native bahasa berkas (`/** ... */` untuk PHP/JS/CSS, `{{-- ... --}}` untuk Blade):
+   - `Penulis` : nama penulis dari `git config user.name` untuk berkas baru, atau seluruh kontributor dari `git log --follow --format="%an" -- <file>` jika menyunting berkas yang sudah ada.
+   - `Lisensi` : `GNU General Public License v3.0 (GPL-3.0)` (sesuai berkas `LICENSE` di root repositori).
+   - `Ringkasan` : uraian singkat 1-2 kalimat mengenai peran berkas dalam sistem.
+
+2. **Komentar Deskriptif (tepat di atas class, function, method, komponen Blade, atau blok CSS utama)**
+   Wajib menjelaskan secara ringkas dan konkret:
+   - Tujuan dan alasan keberadaan class, fungsi, atau blok tersebut.
+   - Parameter masukan (`@param` pada PHP atau `Parameter:` pada JS/Blade/CSS).
+   - Nilai kembali (`@return` pada PHP atau `Nilai kembali:` pada JS/Blade/CSS).
+   - `Contoh pemanggilan:` yang relevan dengan kode.
+
+3. **Komentar Inline (di atas atau samping logika non-trivial)**
+   Wajib hadir pada percabangan aturan bisnis, guard validasi, ambang nominal, pola regex/wildcard, kueri terisolasi, atau fallback agar niat desain terbaca langsung:
+   - Jelaskan **alasan**, aturan domain yang berlaku, serta dampak bila dilanggar atau dilewati (misalnya penolakan `403`/`422`, pencegahan duplikasi transaksi, atau isolasi akun).
+   - Dilarang menulis komentar yang hanya mengulang sintaks atau nama fungsi.
+
+## 2. Perspektif Orang Pertama yang Natural
+
+- Tulis komentar dalam **Bahasa Indonesia** dari **perspektif orang pertama** (sudut pandang penulis kode); hindari sudut pandang orang kedua/ketiga yang berjarak (misal: *"Pengembang perlu..."* atau *"Fungsi ini dipakai pengguna untuk..."*).
+- **Jangan selalu mengawali kalimat dengan kata `"Saya"`** karena terasa kaku dan repetitif. Awali kalimat langsung dengan kata kerja aktif orang pertama (subjek tersembunyi), dan gunakan `"Saya"` sesekali saja bila memang perlu penekanan.
+- **Jangan pernah memakai kata `"kami"` dengan sendirinya**; gunakan `"kami"` hanya jika pengguna memintanya secara spesifik (misalnya untuk kesepakatan desain).
+
+Contoh perbandingan gaya komentar:
+
+- Kurang baik (repetitif `"Saya"`):
+  `// Saya mengosongkan nomor_memo_ppbj secara paksa pada jalur >200jt karena proses lelang PPK tidak menerbitkan memo PPBJ.`
+- Baik (orang pertama natural, langsung pada alasan & aturan):
+  `// mengosongkan nomor_memo_ppbj secara paksa pada jalur >200jt karena proses lelang PPK tidak menerbitkan memo PPBJ.`
+
+- Kurang baik (mengulang kode / tanpa alasan):
+  `// ubah status`
+- Baik (menjelaskan aturan & akibat pelanggaran):
+  `// hanya mengizinkan status completed atau pending; status lain ditolak dengan HTTP 400 agar riwayat audit tidak bercampur.`
+
+</project-comment-conventions>

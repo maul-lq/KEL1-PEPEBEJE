@@ -1,7 +1,29 @@
+{{--
+  Informasi File
+
+  Penulis   : Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : View Blade ini buat untuk mengelola direktori pengguna SIM-PBJ, termasuk filter
+              pencarian peran/unit/status, modal pembuatan akun, modal penyuntingan, serta dialog
+              penghapusan akun dengan perlindungan penghapusan diri sendiri.
+--}}
 @extends('layouts.app')
 
 @section('title', 'Manajemen Pengguna - SIM-PBJ PNJ')
 
+{{--
+  Komentar Deskriptif: Seksi Konten Direktori dan Manajemen Pengguna (`@section('content')`).
+
+  Tujuan: menyediakan CRUD direktori pegawai berbasis modal Alpine (`adminUsers`) agar admin
+          cepat mengubah peran, unit kerja, maupun status aktif akun tanpa meninggalkan halaman daftar.
+  Parameter (Data dari Controller):
+    - `$users` (LengthAwarePaginator<User>): Daftar akun pengguna terpaginasi hasil filter.
+    - `$stats` (array): Metrik total, aktif, menunggu persetujuan, dan nonaktif.
+    - `$availableRoles` (Collection<Role>): Pilihan peran untuk filter dan modal tambah/ubah.
+    - `$availableUnits` (Collection<Unit>): Pilihan jurusan/unit kerja PNJ.
+  Nilai kembali: Halaman HTML manajemen pengguna dan tiga dialog modal aksinya.
+  Contoh pemanggilan: `return view('admin.users', compact('users', 'stats', 'availableRoles', 'availableUnits'));`
+--}}
 @section('content')
 <div class="space-y-6" x-data="adminUsers">
 

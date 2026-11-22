@@ -1,5 +1,15 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : Seeder utama ini susun untuk membenihkan data master awal SIM-PBJ meliputi
+ *             unit kerja/jurusan, role dan permission melalui RolePermissionSeeder, serta akun
+ *             operasional 9 peran termasuk 4 akun PPK mandiri tanpa data transaksi dummy.
+ */
+
 namespace Database\Seeders;
 
 use App\Models\Role;
@@ -9,27 +19,30 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
 /**
- * Seeder Basis Data Utama (Clean BPMN Master Seeder)
+ * Menjalankan pembenihan data master inti Politeknik Negeri Jakarta untuk sistem SIM-PBJ.
  *
- * Bertanggung jawab membenihkan data master murni sesuai alur BPMN institusi:
- * 1. Master Unit Kerja, Jurusan, Bagian, dan Bidang resmi institusi.
- * 2. Master 9 Role Resmi & Hak Akses Granular RBAC (RolePermissionSeeder).
- * 3. Akun Pengguna Awal Terstandarisasi untuk 9 Peran BPMN (termasuk 4 Akun PPK mandiri).
+ * Tujuan: memastikan instalasi baru maupun `migrate:fresh --seed` hanya mengisi entitas master
+ * resmi (unit, role, permission, akun operasional) agar data transaksi tetap bersih dan siap uji.
  *
- * Murni data master awal:
- * - TANPA permohonan / paket pengadaan
- * - TANPA data dummy MAK
- * - TANPA notifikasi / reminder dummy
- * - TANPA riwayat audit log dummy
+ * Contoh pemanggilan:
+ * `php artisan db:seed`
  */
 class DatabaseSeeder extends Seeder
 {
     /**
-     * Menjalankan pembenihan data master awal sistem.
+     * Membenihkan master unit kerja, matriks RBAC, dan akun pengguna awal semua peran BPMN.
+     *
+     * Tujuan: menggunakan `updateOrCreate` pada unit dan pengguna supaya eksekusi ulang seeder
+     * bersifat idempotent dan tidak menimbulkan duplikasi kunci unik di PostgreSQL.
+     *
+     * @return void
+     *
+     * Contoh pemanggilan:
+     * `$this->call(DatabaseSeeder::class);`
      */
     public function run(): void
     {
-        // Standar enkripsi hash kata sandi untuk seluruh akun seeder awal
+        // gunakan kata sandi seragam terenkripsi bcrypt untuk seluruh akun seed awal pengujian internal.
         $defaultPassword = Hash::make('password123');
 
         // =========================================================================

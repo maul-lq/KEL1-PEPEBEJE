@@ -1,9 +1,29 @@
+{{--
+  Informasi File
+
+  Penulis   : Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : View Blade ini susun untuk formulir registrasi paket pengadaan baru oleh
+              PPBJ lengkap dengan pemetaan JSON usulan siap-paket (`permohonanMap`), banner
+              penentuan jalur HPS reaktif (`paketCreate`), serta pratinjau memo paralel sebelumnya.
+--}}
 @extends('layouts.app')
 
 @section('title', 'Registrasi Paket Pengadaan Baru - SIM-PBJ PNJ')
 
+{{--
+  Komentar Deskriptif: Seksi Konten Pembuatan Paket Pengadaan Baru (`paket.create`).
+
+  Tujuan: menggabungkan riwayat memo Perencanaan/Wadir II/PPK awal ke dalam `permohonanMap`
+          agar PPBJ dapat langsung memeriksa ketersediaan MAK, menimbang HPS, dan melihat rute paket otomatis.
+  Parameter (Data dari PaketPengadaanController::create):
+    - `$permohonanDisetujui` (Collection<PermohonanPengadaan>): Daftar usulan disetujui belum berpaket.
+  Nilai kembali: Halaman HTML form registrasi paket terikat Alpine `paketCreate`.
+  Contoh pemanggilan: `return view('paket.create', compact('permohonanDisetujui'));`
+--}}
 @section('content')
 @php
+    // bangun peta permohonan lengkap beserta riwayat MAK dan memo verifikator untuk dibaca paketCreate di klien.
     $permohonanMap = collect($permohonanDisetujui)->mapWithKeys(function ($p) {
         $paguVal = (float) ($p->anggaran_diajukan ?? $p->estimasi_total_pagu ?? 0);
         $makObj = $p->anggaranMak ?? ($p->alokasiMak?->first()?->anggaranMak ?? null);

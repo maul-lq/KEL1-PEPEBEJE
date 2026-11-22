@@ -1,5 +1,20 @@
-{{-- resources/views/dashboard/roles/staff_bidang_2.blade.php --}}
-{{-- Modul RBAC: Staf Bidang II - Pemantau Administrasi Read-Only (verifikasi_bidang2) --}}
+{{--
+  Informasi File
+
+  Penulis   : Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : Sub-view dasbor ini buat untuk modul Staf Bidang II (Umum dan Keuangan) guna
+              menampilkan metrik telaah berkas awal, antrean read-only, dan berkas usulan terkini.
+--}}
+{{--
+  Komentar Deskriptif: Panel Workspace Dasbor Staf Bidang II (`dashboard.roles.staff_bidang_2`).
+
+  Tujuan: memusatkan pemantauan kelengkapan surat masuk Srikandi sebelum diteruskan ke Bagian
+          Perencanaan untuk pengecekan MAK tanpa memberi tombol ACC substantif di dasbor ini.
+  Parameter: `$user` (User), `$stats` (array), `$roleData` (array).
+  Nilai kembali: Fragmen HTML 4 kartu KPI dan daftar antrean telaah administrasi Bidang II.
+  Contoh pemanggilan: `@includeIf('dashboard.roles.staff_bidang_2', [...])`
+--}}
 @php
     $verifikasiB2Route = $user->hasAnyPermission(['verifikasi.bidang_2_view', 'permohonan.view_all'])
         ? route('verifikasi.bidang-2')

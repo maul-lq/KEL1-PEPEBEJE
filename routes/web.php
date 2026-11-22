@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : DendyRafi, riyan-sa, Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : menyusun berkas perutean web ini sebagai peta seluruh endpoint HTTP aplikasi SIM-PBJ, mulai dari autentikasi tamu, alur pengadaan 8 siklus, RBAC admin, hingga polling notifikasi.
+ */
+
 use App\Http\Controllers\Admin\ApprovalRegistrasiController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
@@ -17,11 +25,17 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\VerifikasiParalelController;
 use Illuminate\Support\Facades\Route;
 
-/*
-|--------------------------------------------------------------------------
-| RUTE TAMU / GUEST (Belum Login)
-|--------------------------------------------------------------------------
-*/
+/**
+ * Grup Rute Tamu (Guest Routes)
+ *
+ * mengelompokkan seluruh rute login, registrasi, reset kata sandi, dan Google OAuth di bawah middleware 'guest'
+ * agar pengguna yang sudah memiliki sesi aktif otomatis diarahkan menjauh dari halaman autentikasi.
+ *
+ * Parameter    : Middleware 'guest' dan closure definisi rute publik.
+ * Nilai kembali: \Illuminate\Routing\RouteRegistrar — pendaftar grup rute tamu ke Router Laravel.
+ * Contoh pemanggilan:
+ * `route('login')` atau `route('auth.google')`
+ */
 Route::middleware('guest')->group(function () {
     // Halaman Login
     Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
@@ -42,18 +56,24 @@ Route::middleware('guest')->group(function () {
     Route::get('/auth/google/callback', [GoogleAuthController::class, 'handleGoogleCallback'])->name('auth.google.callback');
 });
 
-/*
-|--------------------------------------------------------------------------
-| RUTE TERAUTENTIKASI (Sudah Login)
-|--------------------------------------------------------------------------
-*/
+/**
+ * Grup Rute Terautentikasi (Authenticated Routes)
+ *
+ * mewajibkan middleware 'auth' pada seluruh rute operasional pengadaan barang/jasa
+ * dan melapisinya per modul dengan middleware 'role:...' yang memeriksa izin RBAC dinamis maupun persetujuan akun.
+ *
+ * Parameter    : Middleware 'auth' dan closure definisi rute seluruh modul SIM-PBJ.
+ * Nilai kembali: \Illuminate\Routing\RouteRegistrar — pendaftar grup rute terautentikasi.
+ * Contoh pemanggilan:
+ * `route('dashboard')` atau `route('permohonan.show', ['id' => '001/PNJ/2026'])`
+ */
 Route::middleware('auth')->group(function () {
-    // Redirect halaman utama ke dashboard
+    // mengarahkan root URL langsung ke dashboard agar pengguna yang sudah login tidak mendarat di halaman kosong.
     Route::get('/', function () {
         return redirect()->route('dashboard');
     });
 
-    // Dashboard & Logout
+    // mengizinkan GET dan POST untuk logout demi kompatibilitas tombol tautan maupun form CSRF di berbagai halaman.
     Route::get('/dashboard', [HomeController::class, 'index'])->name('dashboard');
     Route::match(['GET', 'POST'], '/logout', [AuthController::class, 'logout'])->name('logout');
 
@@ -70,6 +90,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/permohonan/revisi', [PermohonanPengadaanController::class, 'revisiPermohonan'])
         ->name('permohonan.revisi')
         ->middleware('role:permohonan.revisi');
+    // memakai pola '.*' pada parameter {id} karena nomor surat dinas PNJ mengandung karakter garis miring ('/').
     Route::get('/permohonan/{id}', [PermohonanPengadaanController::class, 'permohonanShow'])
         ->name('permohonan.show')
         ->where(['id' => '.*']);
@@ -95,7 +116,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/verifikasi/ppk', [VerifikasiParalelController::class, 'verifikasiPpk'])->name('verifikasi.ppk');
         Route::post('/verifikasi/ppk/keputusan', [VerifikasiParalelController::class, 'keputusanPpkAwal'])->name('verifikasi.ppk.keputusan');
 
-        // BPMN N30-N36: Menerima & Menyetujui Dokumen Pengadaan (setelah PPBJ susun & PP verifikasi)
+        // memisahkan endpoint persetujuan dokumen pasca-penyusunan PP/PPBJ di grup PPK agar terisolasi dari verifikasi usulan awal.
         Route::get('/reviu-pengadaan/ppk', [KontrakSPKController::class, 'persetujuanDokumenPpkIndex'])->name('ppk.persetujuan-dokumen.index');
         Route::post('/reviu-pengadaan/ppk/keputusan', [KontrakSPKController::class, 'keputusanDokumenPpk'])->name('ppk.persetujuan-dokumen.keputusan');
     });
@@ -103,8 +124,10 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:perencanaan')->group(function () {
         Route::get('/verifikasi/perencanaan', [VerifikasiParalelController::class, 'verifikasiPerencanaan'])->name('verifikasi.perencanaan');
         Route::post('/verifikasi/perencanaan/mak', [VerifikasiParalelController::class, 'alokasiMakPerencanaan'])->name('verifikasi.perencanaan.mak');
+        // mempertahankan alias '/alokasi' agar endpoint pemanggilan lama maupun formulir baru tetap mengarah ke handler alokasi yang sama.
         Route::post('/verifikasi/perencanaan/alokasi', [VerifikasiParalelController::class, 'alokasiMakPerencanaan'])->name('verifikasi.perencanaan.alokasi');
         Route::post('/verifikasi/perencanaan/mak/store', [VerifikasiParalelController::class, 'storeMakPerencanaan'])->name('verifikasi.perencanaan.mak.store');
+        // menerapkan wildcard '.*' pada {anggaran_mak} karena kode MAK dapat mengandung titik atau garis miring; hanya Perencanaan yang boleh lock/unlock.
         Route::post('/verifikasi/perencanaan/mak/{anggaran_mak}/lock', [VerifikasiParalelController::class, 'lockMakWeb'])
             ->name('verifikasi.perencanaan.mak.lock')
             ->where(['anggaran_mak' => '.*']);
@@ -127,7 +150,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/paket-pengadaan/reassign-ppk', [PaketPengadaanController::class, 'reassignPpkWeb'])->name('paket.reassign-ppk');
         Route::post('/paket-pengadaan/split-jenis', [PaketPengadaanController::class, 'splitJenisPpbj'])->name('paket.split-jenis');
     });
-    // Titik Kembali BPMN N18: Perbaikan / Penyusunan Ulang Dokumen Pengadaan yang Ditolak PP (N27) atau PPK (N35)
+    // menempatkan rute statis (/create, /split-jenis, /reassign-ppk) sebelum rute wildcard {id} agar tidak tertelan oleh regex '.*'.
     Route::get('/paket-pengadaan/{id}/edit', [PaketPengadaanController::class, 'paketEdit'])
         ->name('paket.edit')
         ->middleware('role:ppbj')
@@ -170,7 +193,7 @@ Route::middleware('auth')->group(function () {
     // -------------------------------------------------------------------------
     Route::get('/pembayaran', [PembayaranController::class, 'pembayaranIndex'])->name('pembayaran.index')->middleware('role:ppbj,ppk,wadir_2,keuangan');
     Route::post('/pembayaran/pengajuan', [PembayaranController::class, 'storePengajuanBayarWeb'])->name('pembayaran.pengajuan')->middleware('role:ppbj');
-    // Titik Kembali BPMN N52: Perbaikan Berkas Dokumen Pembayaran yang Ditolak Wadir II (N60) atau PPK (N61)
+    // membuka endpoint PUT perbaikan berkas tagihan agar PPBJ dapat memperbaiki dokumen yang ditolak Wadir II atau PPK tanpa membuat tagihan ganda.
     Route::put('/pembayaran/{nomor_pembayaran}', [PembayaranController::class, 'pembayaranUpdate'])
         ->name('pembayaran.update')
         ->middleware('role:ppbj')
@@ -196,7 +219,7 @@ Route::middleware('auth')->group(function () {
         ->name('laporan.unduh.detail')
         ->middleware('role:dokumen.unduh_pdf');
 
-    // Rute kompatibilitas legacy untuk pengalihan navigasi dan pengujian terdahulu
+    // mempertahankan rute rekapitulasi dan /monitoring sebagai pengalih permanen agar tautan bookmark atau tes lama tidak putus dengan 404.
     Route::get('/laporan/rekapitulasi-anggaran', [LaporanController::class, 'laporanIndex'])->name('laporan.rekapitulasi');
     Route::get('/laporan/rekapitulasi-anggaran/pdf', [LaporanController::class, 'unduhLaporanRingkasanPdf'])
         ->name('laporan.rekapitulasi.pdf')
@@ -212,7 +235,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/notifikasi/{id}/read', [NotifikasiUserController::class, 'markAsReadWeb'])->name('notifikasi.read');
     Route::post('/notifikasi/{id}/dismiss', [NotifikasiUserController::class, 'dismissNotificationWeb'])->name('notifikasi.dismiss');
 
-    // Endpoint polling notifikasi terbaru untuk alert real-time & notifikasi peramban
+    // menyediakan endpoint JSON terpisah untuk polling notifikasi latar agar tidak membebani rendering Blade penuh setiap beberapa detik.
     Route::get('/api/notifikasi-terbaru', [NotifikasiUserController::class, 'notifikasiTerbaru'])->name('notifikasi.terbaru');
 
     // -------------------------------------------------------------------------
@@ -240,6 +263,7 @@ Route::middleware('auth')->group(function () {
     // -------------------------------------------------------------------------
     // Helper Unduh Berkas Resmi Format PDF (< 3 Detik - NFR 12)
     // -------------------------------------------------------------------------
+    // mengizinkan wildcard '.*' pada {id} agar nomor surat/paket/pembayaran yang bertanda '/' bisa diunduh lewat satu endpoint PDF terpusat.
     Route::get('/dokumen-pdf/{jenis}/{id}', [HomeController::class, 'unduhDokumenPdf'])
         ->name('dokumen.pdf')
         ->where(['id' => '.*']);
@@ -253,12 +277,12 @@ Route::middleware('auth')->group(function () {
     Route::put('/profil/password', [ProfileController::class, 'updatePassword'])->name('profile.password.update');
     Route::delete('/profil/hapus-akun', [ProfileController::class, 'destroyAccount'])->name('profile.destroy');
 
-    // Google OAuth Link
+    // Penautan Akun Google OAuth untuk pengguna yang sudah masuk
     Route::get('/profile/google/link', [GoogleAuthController::class, 'redirectToGoogleForLinking'])->name('profile.google.link');
     Route::get('/profile/google/callback', [GoogleAuthController::class, 'handleGoogleLinkingCallback'])->name('profile.google.callback');
     Route::post('/profile/google/unlink', [GoogleAuthController::class, 'unlinkGoogle'])->name('profile.google.unlink');
 });
 
-// Health Checks
+// membiarkan endpoint health-check berada di luar middleware 'auth' agar load balancer atau skrip monitoring dapat memantau status database kapan saja.
 Route::get('/health', [HomeController::class, 'healthCheck'])->name('health');
 Route::get('/health-check', [HomeController::class, 'healthCheck']);

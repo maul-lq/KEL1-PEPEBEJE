@@ -1,7 +1,26 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : memperbarui berkas konfigurasi autentikasi bawaan Laravel ini untuk mendefinisikan guard sesi web, provider model User, dan kebijakan reset kata sandi.
+ */
+
 use App\Models\User;
 
+/**
+ * Konfigurasi Autentikasi & Guard Aplikasi (config/auth.php)
+ *
+ * mengembalikan pengaturan guard sesi dan provider Eloquent User agar seluruh login,
+ * middleware auth, dan fitur reset kata sandi terikat ke model App\Models\User.
+ *
+ * Parameter    : Tidak ada (membaca fallback dari env()).
+ * Nilai kembali: array<string, mixed> — struktur guard, provider, dan password broker Laravel.
+ * Contoh pemanggilan:
+ * `config('auth.providers.users.model')`
+ */
 return [
 
     /*
@@ -9,9 +28,8 @@ return [
     | Authentication Defaults
     |--------------------------------------------------------------------------
     |
-    | This option defines the default authentication "guard" and password
-    | reset "broker" for your application. You may change these values
-    | as required, but they're a perfect start for most applications.
+    | memilih guard 'web' berbasis sesi dan broker 'users' sebagai bawaan
+    | agar seluruh endpoint web dan fitur lupa kata sandi bekerja konsisten.
     |
     */
 
@@ -25,15 +43,8 @@ return [
     | Authentication Guards
     |--------------------------------------------------------------------------
     |
-    | Next, you may define every authentication guard for your application.
-    | Of course, a great default configuration has been defined for you
-    | which utilizes session storage plus the Eloquent user provider.
-    |
-    | All authentication guards have a user provider, which defines how the
-    | users are actually retrieved out of your database or other storage
-    | system used by the application. Typically, Eloquent is utilized.
-    |
-    | Supported: "session"
+    | menggunakan driver 'session' untuk guard web karena aplikasi ini
+    | menerapkan proteksi CSRF dan batas idle timeout 15 menit berbasis sesi.
     |
     */
 
@@ -49,15 +60,8 @@ return [
     | User Providers
     |--------------------------------------------------------------------------
     |
-    | All authentication guards have a user provider, which defines how the
-    | users are actually retrieved out of your database or other storage
-    | system used by the application. Typically, Eloquent is utilized.
-    |
-    | If you have multiple user tables or models you may configure multiple
-    | providers to represent the model / table. These providers may then
-    | be assigned to any extra authentication guards you have defined.
-    |
-    | Supported: "database", "eloquent"
+    | mengarahkan provider 'users' ke model App\Models\User agar kolom
+    | primary key id_user serta relasi role/permission RBAC ikut dimuat.
     |
     */
 
@@ -78,17 +82,8 @@ return [
     | Resetting Passwords
     |--------------------------------------------------------------------------
     |
-    | These configuration options specify the behavior of Laravel's password
-    | reset functionality, including the table utilized for token storage
-    | and the user provider that is invoked to actually retrieve users.
-    |
-    | The expiry time is the number of minutes that each reset token will be
-    | considered valid. This security feature keeps tokens short-lived so
-    | they have less time to be guessed. You may change this as needed.
-    |
-    | The throttle setting is the number of seconds a user must wait before
-    | generating more password reset tokens. This prevents the user from
-    | quickly generating a very large amount of password reset tokens.
+    | membatasi masa berlaku token reset 60 menit dan jeda throttle 60 detik
+    | untuk mencegah penyalahgunaan spam email atau brute-force token pemulihan akun.
     |
     */
 
@@ -106,9 +101,8 @@ return [
     | Password Confirmation Timeout
     |--------------------------------------------------------------------------
     |
-    | Here you may define the number of seconds before a password confirmation
-    | window expires and users are asked to re-enter their password via the
-    | confirmation screen. By default, the timeout lasts for three hours.
+    | mempertahankan batas 3 jam (10.800 detik) bawaan Laravel sebelum
+    | pengguna diminta mengonfirmasi ulang kata sandi pada aksi sensitif.
     |
     */
 

@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : menulis model PaketPengadaan ini sebagai poros operasional paket pengadaan, auto-routing nominal 3 jalur, sinkronisasi atribut HPS/negosiasi, serta isolasi berkas RBAC PPK/PP.
+ */
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
@@ -10,14 +18,16 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
- * Model Paket Pengadaan
+ * Model Paket Pengadaan (PaketPengadaan)
  *
- * Merepresentasikan paket kerja pengadaan barang/jasa yang dibentuk dari usulan permohonan.
- * Bertindak sebagai poros operasional yang menghubungkan:
- * - Penentuan jalur pengadaan otomatis (<=50jt Pengadaan Langsung, 50jt-200jt Pejabat Pengadaan / PP, >200jt PPK).
- * - Penugasan pejabat pelaksana (PPBJ, PP, dan PPK).
- * - Penegakan Non-Functional Requirement (NFR) Isolasi Berkas 4 Akun PPK via query scope `scopeForUser`.
- * - Hubungan ke Vendor, Reviu Dokumen, Kontrak SPK, Penerimaan Barang, hingga Pembayaran.
+ * memusatkan aturan penentuan jalur nilai (`<=50jt`, `50-200jt`, `>200jt`), pewarisan otomatis PPK awal,
+ * serta query scope isolasi berkas 4 akun PPK pada model ini agar tidak tersebar di banyak controller.
+ *
+ * Parameter konstruktor: `$attributes` (opsional, diwarisi dari Eloquent Model).
+ * Nilai kembali         : Instance model Eloquent yang terhubung ke tabel `paket_pengadaan` dengan primary key string `nomor_paket`.
+ *
+ * Contoh pemanggilan:
+ * `$pakets = PaketPengadaan::forUser($user)->with(['permohonan', 'vendor'])->latest('tanggal_registrasi_paket')->get();`
  */
 class PaketPengadaan extends Model
 {
@@ -148,9 +158,12 @@ class PaketPengadaan extends Model
     ];
 
     /**
-     * Konfigurasi type casting atribut ke tipe data desimal dan tanggal.
+     * mengonversi kolom nominal HPS/pagu/negosiasi ke desimal 2 digit serta tanggal registrasi dan belanja ke Carbon.
      *
-     * @return array<string, string>
+     * @return array<string, string> mengembalikan peta tipe cast atribut model.
+     *
+     * Contoh pemanggilan:
+     * `// Dipanggil otomatis oleh Eloquent saat mengakses $paket->nilai_hps atau $paket->tanggal_registrasi_paket.`
      */
     protected function casts(): array
     {
@@ -166,11 +179,17 @@ class PaketPengadaan extends Model
     }
 
     /**
-     * Hook booted model PaketPengadaan untuk melengkapi kolom wajib jika tidak disediakan secara eksplisit.
+     * menyinkronkan kolom kembar (HPS vs harga perkiraan, harga akhir vs negosiasi), pewarisan PPK awal, dan aturan bebas memo PPBJ pada >200jt.
+     *
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `// Dijalankan otomatis oleh Eloquent pada event creating dan saving.`
      */
     protected static function booted(): void
     {
         static::creating(function (PaketPengadaan $model) {
+            // menjaga sinkronisasi dua pasang kolom nominal agar modul lama maupun notulensi terbaru selalu membaca angka yang sama.
             if (empty($model->nilai_hps) && ! empty($model->nominal_harga_perkiraan)) {
                 $model->nilai_hps = $model->nominal_harga_perkiraan;
             }
@@ -192,6 +211,7 @@ class PaketPengadaan extends Model
             if (empty($model->mekanisme_pengadaan)) {
                 $model->mekanisme_pengadaan = $model->metode_pengadaan ?? 'Tender';
             }
+            // menyediakan fallback PPBJ agar seeder/test yang membuat paket langsung tanpa id_user_ppbj tetap memenuhi FK NOT NULL.
             if (empty($model->id_user_ppbj)) {
                 $ppbjUser = User::withRole(User::ROLE_PPBJ)->first() ?? User::first();
                 if (! $ppbjUser) {
@@ -210,7 +230,7 @@ class PaketPengadaan extends Model
                 $model->id_user_ppbj = $ppbjUser->id_user;
             }
 
-            // Warisi otomatis id_user_ppk dari permohonan.id_user_ppk_awal untuk paket > 50jt jika belum ditentukan
+            // mewariskan id_user_ppk_awal dari permohonan hanya untuk jalur >50jt karena Belanja Langsung <=50jt tidak melibatkan PPK.
             if (empty($model->id_user_ppk) && $model->jalur_routing !== self::ROUTING_LANGSUNG && ! empty($model->nomor_surat)) {
                 $permohonanAsal = PermohonanPengadaan::find($model->nomor_surat);
                 if ($permohonanAsal && $permohonanAsal->id_user_ppk_awal) {
@@ -218,7 +238,7 @@ class PaketPengadaan extends Model
                 }
             }
 
-            // Aturan bisnis Notulensi PPBJ: Paket > 200 Juta (jalur PPK) tidak menggunakan memo pengadaan PPBJ
+            // mengosongkan nomor_memo_ppbj secara paksa pada jalur >200jt karena proses lelang PPK tidak menerbitkan memo PPBJ.
             if ($model->jalur_routing === self::ROUTING_PPK || (float) ($model->nilai_hps ?? 0) > 200000000) {
                 $model->nomor_memo_ppbj = null;
             }
@@ -231,7 +251,6 @@ class PaketPengadaan extends Model
                 $model->nominal_harga_akhir = $model->nilai_hasil_negosiasi;
             }
 
-            // Pastikan paket > 200 Juta selalu tanpa nomor memo pengadaan PPBJ
             if ($model->jalur_routing === self::ROUTING_PPK || (float) ($model->nilai_hps ?? 0) > 200000000) {
                 $model->nomor_memo_ppbj = null;
             }
@@ -239,15 +258,13 @@ class PaketPengadaan extends Model
     }
 
     /**
-     * Menghitung jalur pengadaan berdasarkan batas nilai nominal pagu atau HPS (Notulensi Pertemuan PPBJ).
+     * mengklasifikasikan jalur pengadaan berdasarkan ambang batas nominal pagu/HPS sesuai aturan domain PBJ.
      *
-     * Aturan:
-     * - Nilai <= Rp 50.000.000: Belanja Langsung oleh PPBJ (output Kwitansi, tanpa Kontrak/SPK -> Perlengkapan)
-     * - Nilai > Rp 50.000.000 s.d. Rp 200.000.000: Melibatkan PP (Review PP + Input Harga & Vendor -> Approval PPK -> PP Belanja -> PPBJ Upload 1 Dokumen)
-     * - Nilai > Rp 200.000.000: Melibatkan PPK (PPBJ Input Data Lelang -> Approval & Belanja PPK -> PPBJ Upload 1 Dokumen, Tanpa Memo PPBJ)
+     * @param  float  $nominal  menerima nilai pagu atau HPS paket dalam Rupiah.
+     * @return string mengembalikan konstanta jalur routing (`langsung_sd_50jt`, `pp_50jt_sd_200jt`, atau `ppk_diatas_200jt`).
      *
-     * @param  float  $nominal  Nominal nilai paket pengadaan
-     * @return string Kode jalur routing yang sesuai
+     * Contoh pemanggilan:
+     * `$jalur = PaketPengadaan::tentukanRouting(125000000);`
      */
     public static function tentukanRouting(float $nominal): string
     {
@@ -261,8 +278,12 @@ class PaketPengadaan extends Model
     }
 
     /**
-     * Mengunci secara permanen seluruh Mata Anggaran Kegiatan (MAK) yang terhubung dengan paket ini.
-     * Dipanggil saat PPK menyetujui dokumen & mengunci MAK atau saat Kontrak SPK diterbitkan.
+     * menyediakan utilitas untuk mengunci seluruh MAK yang terhubung ke permohonan asal paket ini.
+     *
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `$paket->kunciMakTerkait();`
      */
     public function kunciMakTerkait(): void
     {
@@ -281,9 +302,12 @@ class PaketPengadaan extends Model
     }
 
     /**
-     * Relasi many-to-one ke surat usulan Permohonan Pengadaan asal.
+     * menghubungkan paket ke surat permohonan pengadaan asalnya.
      *
-     * @return BelongsTo Relasi ke model PermohonanPengadaan
+     * @return BelongsTo mengembalikan relasi BelongsTo ke model PermohonanPengadaan.
+     *
+     * Contoh pemanggilan:
+     * `$surat = $paket->permohonan;`
      */
     public function permohonan(): BelongsTo
     {
@@ -291,9 +315,12 @@ class PaketPengadaan extends Model
     }
 
     /**
-     * Relasi many-to-one ke User staf PPBJ pengelola registrasi paket.
+     * menghubungkan paket ke petugas PPBJ yang mendaftarkan dan mengoordinasikan paket.
      *
-     * @return BelongsTo Relasi ke model User
+     * @return BelongsTo mengembalikan relasi BelongsTo ke model User.
+     *
+     * Contoh pemanggilan:
+     * `$ppbj = $paket->ppbjUser;`
      */
     public function ppbjUser(): BelongsTo
     {
@@ -301,9 +328,12 @@ class PaketPengadaan extends Model
     }
 
     /**
-     * Relasi many-to-one ke User Pejabat Pembuat Komitmen (PPK) yang ditugaskan.
+     * menghubungkan paket ke akun PPK yang ditugaskan mengawal paket ini.
      *
-     * @return BelongsTo Relasi ke model User
+     * @return BelongsTo mengembalikan relasi BelongsTo ke model User.
+     *
+     * Contoh pemanggilan:
+     * `$ppk = $paket->ppkUser;`
      */
     public function ppkUser(): BelongsTo
     {
@@ -311,9 +341,12 @@ class PaketPengadaan extends Model
     }
 
     /**
-     * Relasi many-to-one ke User Pejabat Pengadaan (PP) yang ditugaskan.
+     * menghubungkan paket ke akun Pejabat Pengadaan (PP) untuk jalur Rp50jt-200jt.
      *
-     * @return BelongsTo Relasi ke model User
+     * @return BelongsTo mengembalikan relasi BelongsTo ke model User.
+     *
+     * Contoh pemanggilan:
+     * `$pp = $paket->ppUser;`
      */
     public function ppUser(): BelongsTo
     {
@@ -321,9 +354,12 @@ class PaketPengadaan extends Model
     }
 
     /**
-     * Relasi many-to-one ke pejabat pelaksana kewenangan belanja (PPBJ untuk <=50jt, PP untuk 50-200jt, PPK untuk >200jt).
+     * menghubungkan paket ke pengguna yang mengeksekusi proses belanja (PPBJ, PP, atau PPK).
      *
-     * @return BelongsTo Relasi ke model User
+     * @return BelongsTo mengembalikan relasi BelongsTo ke model User.
+     *
+     * Contoh pemanggilan:
+     * `$eksekutor = $paket->pelaksanaBelanja;`
      */
     public function pelaksanaBelanja(): BelongsTo
     {
@@ -331,9 +367,12 @@ class PaketPengadaan extends Model
     }
 
     /**
-     * Relasi many-to-one ke data Vendor/Penyedia terpilih.
+     * menghubungkan paket ke entitas Vendor rekanan setelah rekanan ditetapkan pada tahap perikatan/belanja.
      *
-     * @return BelongsTo Relasi ke model Vendor
+     * @return BelongsTo mengembalikan relasi BelongsTo ke model Vendor.
+     *
+     * Contoh pemanggilan:
+     * `$rekanan = $paket->vendor;`
      */
     public function vendor(): BelongsTo
     {
@@ -341,9 +380,12 @@ class PaketPengadaan extends Model
     }
 
     /**
-     * Relasi one-to-many ke catatan reviu dokumen oleh PP/PPK.
+     * menghubungkan paket ke riwayat catatan reviu dokumen oleh PP maupun PPK.
      *
-     * @return HasMany Koleksi berkas reviu dokumen
+     * @return HasMany mengembalikan relasi HasMany ke model ReviuDokumen.
+     *
+     * Contoh pemanggilan:
+     * `$daftarReviu = $paket->reviuDokumen;`
      */
     public function reviuDokumen(): HasMany
     {
@@ -351,9 +393,12 @@ class PaketPengadaan extends Model
     }
 
     /**
-     * Relasi one-to-many ke rekam jejak audit mutasi pengalihan tugas PPK.
+     * mengambil riwayat mutasi pengalihan PPK dari tabel `audit_log` agar tidak perlu tabel riwayat terpisah.
      *
-     * @return HasMany Koleksi jejak audit log alih tugas PPK
+     * @return HasMany mengembalikan relasi HasMany ke model AuditLog khusus aksi `REASSIGN_PPK`.
+     *
+     * Contoh pemanggilan:
+     * `$riwayat = $paket->riwayatPpk;`
      */
     public function riwayatPpk(): HasMany
     {
@@ -362,9 +407,12 @@ class PaketPengadaan extends Model
     }
 
     /**
-     * Relasi one-to-one ke dokumen Kontrak SPK yang terbit untuk paket ini.
+     * menghubungkan paket (>50jt) ke satu dokumen perikatan Kontrak/SPK/Surat Pesanan miliknya.
      *
-     * @return HasOne Relasi ke model KontrakSPK
+     * @return HasOne mengembalikan relasi HasOne ke model KontrakSPK.
+     *
+     * Contoh pemanggilan:
+     * `$spk = $paket->kontrakSpk;`
      */
     public function kontrakSpk(): HasOne
     {
@@ -372,9 +420,12 @@ class PaketPengadaan extends Model
     }
 
     /**
-     * Relasi alias one-to-one ke dokumen Kontrak SPK.
+     * menyediakan relasi alias `kontrak` yang meneruskan ke `kontrakSpk()` demi kompatibilitas pemanggilan ringkas.
      *
-     * @return HasOne Relasi ke model KontrakSPK
+     * @return HasOne mengembalikan relasi HasOne ke model KontrakSPK.
+     *
+     * Contoh pemanggilan:
+     * `$spk = $paket->kontrak;`
      */
     public function kontrak(): HasOne
     {
@@ -382,9 +433,12 @@ class PaketPengadaan extends Model
     }
 
     /**
-     * Relasi one-to-many ke pencatatan fisik barang yang diterima di gudang/lokasi.
+     * menghubungkan paket ke rekaman inspeksi fisik dan penerbitan BAST oleh Unit Perlengkapan.
      *
-     * @return HasMany Koleksi penerimaan barang
+     * @return HasMany mengembalikan relasi HasMany ke model PenerimaanBarang.
+     *
+     * Contoh pemanggilan:
+     * `$daftarBast = $paket->penerimaanBarang;`
      */
     public function penerimaanBarang(): HasMany
     {
@@ -392,9 +446,12 @@ class PaketPengadaan extends Model
     }
 
     /**
-     * Relasi one-to-many ke tagihan/transaksi pembayaran paket ini.
+     * menghubungkan paket ke pengajuan pembayaran termin beserta status pencairannya.
      *
-     * @return HasMany Koleksi pembayaran
+     * @return HasMany mengembalikan relasi HasMany ke model Pembayaran.
+     *
+     * Contoh pemanggilan:
+     * `$daftarTagihan = $paket->pembayaran;`
      */
     public function pembayaran(): HasMany
     {
@@ -402,9 +459,12 @@ class PaketPengadaan extends Model
     }
 
     /**
-     * Relasi one-to-many ke daftar reminder/pengingat terjadwal paket ini.
+     * menghubungkan paket ke seluruh jadwal dan histori alarm pengingat pengiriman terkait.
      *
-     * @return HasMany Koleksi reminder
+     * @return HasMany mengembalikan relasi HasMany ke model Reminder.
+     *
+     * Contoh pemanggilan:
+     * `$alarmList = $paket->reminders;`
      */
     public function reminders(): HasMany
     {
@@ -412,17 +472,14 @@ class PaketPengadaan extends Model
     }
 
     /**
-     * Scope query untuk memfilter paket sesuai wewenang peran dan isolasi berkas 4 akun PPK (NFR RBAC).
+     * menyaring daftar paket berdasarkan izin RBAC dan aturan isolasi 4 akun PPK agar tidak terjadi kebocoran berkas lintas PPK.
      *
-     * Memastikan:
-     * - Akun PPK hanya dapat mengakses paket yang secara spesifik ditugaskan kepada ID dirinya.
-     * - Akun PP hanya dapat mengakses paket di bawah jalurnya (50jt-200jt) atau yang ditugaskan padanya.
-     * - Pengusul (User) hanya dapat melihat paket yang berasal dari permohonannya sendiri.
-     * - Manajemen (Wadir 2, PPBJ, Perencanaan, Keuangan, Perlengkapan, Staf Bidang 2) memiliki akses menyeluruh.
+     * @param  Builder  $query  menerima query builder Eloquent PaketPengadaan.
+     * @param  User  $user  memeriksa kombinasi permission `paket.view_all`, `reviu.ppk`, `reviu.pp`, dan `permohonan.view_own`.
+     * @return Builder mengembalikan query yang sudah dibatasi sesuai hak akses pengguna.
      *
-     * @param  Builder  $query  Query builder Eloquent
-     * @param  User  $user  Objek pengguna yang sedang terautentikasi
-     * @return Builder Query yang telah dibatasi hak aksesnya
+     * Contoh pemanggilan:
+     * `PaketPengadaan::forUser(auth()->user())->paginate(15);`
      */
     public function scopeForUser($query, User $user)
     {
@@ -431,13 +488,12 @@ class PaketPengadaan extends Model
         }
 
         if ($user->hasPermission('reviu.ppk')) {
-            // Isolasi berkas 4 akun PPK: Hanya melihat paket yang ditugaskan ke ID akun PPK bersangkutan (>200jt / non-langsung)
+            // mengisolasi PPK hanya pada paket yang ditugaskan ke ID dirinya dan mengecualikan Belanja Langsung <=50jt yang memang tidak melibatkan PPK.
             return $query->where('id_user_ppk', $user->id_user)
                 ->where('jalur_routing', '!=', self::ROUTING_LANGSUNG);
         }
 
         if ($user->hasPermission('reviu.pp')) {
-            // PP hanya melihat paket yang dialokasikan ke jalur PP (50jt - 200jt) atau ditugaskan kepadanya
             return $query->where(function ($q) use ($user) {
                 $q->where('jalur_routing', self::ROUTING_PP)
                     ->orWhere('id_user_pp', $user->id_user);
@@ -445,18 +501,21 @@ class PaketPengadaan extends Model
         }
 
         if ($user->hasPermission('permohonan.view_own') && ! $user->hasPermission('permohonan.view_all')) {
-            // Pemohon hanya melihat paket dari permohonan yang diajukannya
             return $query->whereHas('permohonan', function ($q) use ($user) {
                 $q->where('id_user', $user->id_user);
             });
         }
 
-        // Role pengawas & manajemen (ppbj, perencanaan, wadir_2, perlengkapan, keuangan, staff_bidang_2) dapat melihat seluruh paket
         return $query;
     }
 
     /**
-     * Accessor untuk alias kode_paket yang merujuk ke primary key nomor_paket.
+     * menyediakan accessor `kode_paket` sebagai alias dari primary key `nomor_paket`.
+     *
+     * @return string|null mengembalikan nomor/kode paket atau null bila belum terisi.
+     *
+     * Contoh pemanggilan:
+     * `$kode = $paket->kode_paket;`
      */
     public function getKodePaketAttribute(): ?string
     {
@@ -464,7 +523,13 @@ class PaketPengadaan extends Model
     }
 
     /**
-     * Mutator untuk alias kode_paket yang menyelaraskan ke kolom nomor_paket.
+     * menyelaraskan assignment atribut `kode_paket` ke kolom asli `nomor_paket` bila `nomor_paket` belum diisi.
+     *
+     * @param  string|null  $value  menerima nilai kode paket dari caller/seeder lama.
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `$paket->kode_paket = 'PKT-2026-001';`
      */
     public function setKodePaketAttribute(?string $value): void
     {
@@ -474,7 +539,13 @@ class PaketPengadaan extends Model
     }
 
     /**
-     * Mutator untuk alias ppbj_user_id yang mengarahkan ke id_user_ppbj.
+     * menyediakan mutator alias `ppbj_user_id` untuk memetakan input lama langsung ke kolom `id_user_ppbj`.
+     *
+     * @param  int|null  $value  menerima ID user PPBJ penanggung jawab.
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `$paket->ppbj_user_id = 5;`
      */
     public function setPpbjUserIdAttribute(?int $value): void
     {
@@ -482,7 +553,12 @@ class PaketPengadaan extends Model
     }
 
     /**
-     * Accessor alias metode_pengadaan yang merujuk ke kolom mekanisme_pengadaan.
+     * menyediakan accessor `metode_pengadaan` yang membaca kolom basis data `mekanisme_pengadaan`.
+     *
+     * @return string|null mengembalikan metode pengadaan paket atau null.
+     *
+     * Contoh pemanggilan:
+     * `$metode = $paket->metode_pengadaan;`
      */
     public function getMetodePengadaanAttribute(): ?string
     {
@@ -490,7 +566,13 @@ class PaketPengadaan extends Model
     }
 
     /**
-     * Mutator alias metode_pengadaan yang menyelaraskan ke kolom mekanisme_pengadaan.
+     * menyelaraskan penulisan properti `metode_pengadaan` ke kolom `mekanisme_pengadaan` di tabel `paket_pengadaan`.
+     *
+     * @param  string|null  $value  menerima slug/nama metode pengadaan yang dipilih PPBJ.
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `$paket->metode_pengadaan = PaketPengadaan::METODE_NON_TENDER;`
      */
     public function setMetodePengadaanAttribute(?string $value): void
     {
@@ -500,10 +582,16 @@ class PaketPengadaan extends Model
     }
 
     /**
-     * Mutator untuk alias kode_mak agar tidak error saat dipassing mass assignment lama.
+     * menyediakan mutator no-op untuk `kode_mak` agar mass assignment lama yang masih mengirim kunci `kode_mak` tidak melempar MassAssignmentException.
+     *
+     * @param  string|null  $value  mengabaikan nilai ini karena MAK kini disimpan di tabel permohonan dan alokasi_mak.
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `PaketPengadaan::create(['nomor_paket' => '...', 'kode_mak' => '521211']);`
      */
     public function setKodeMakAttribute(?string $value): void
     {
-        // Kompatibilitas ke belakang
+        // biarkan kosong demi kompatibilitas ke belakang tanpa menyimpan kolom duplikat di paket_pengadaan.
     }
 }

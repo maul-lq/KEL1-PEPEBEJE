@@ -1,17 +1,42 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : Migrasi ini rancang untuk memisahkan kolom `file_spp` dari `file_dokumen_penunjang`,
+ *             membersihkan path dummy yang tidak berfile fisik, serta menyinkronkan nilai kontrak SPK
+ *             terhadap HPS paket dan saldo efisiensi MAK.
+ */
+
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
+/**
+ * Kelas migrasi anonim pemisah berkas SPP dan penyinkron data kontrak-HPS historis.
+ *
+ * Tujuan: menormalkan dokumen pembayaran lama agar berkas SPP tersimpan di kolom tersendiri
+ * dan mengembalikan selisih efisiensi nilai kontrak di bawah HPS ke `sisa_pagu_mak` dengan aman.
+ *
+ * Contoh pemanggilan:
+ * `php artisan migrate --path=database/migrations/2026_11_15_113412_separate_file_spp_and_sync_kontrak_hps.php`
+ */
 return new class extends Migration
 {
     /**
-     * Memisahkan kolom file_spp dari file_dokumen_penunjang pada tabel pembayaran,
-     * membersihkan path dummy yang tidak memiliki file fisik, serta menyinkronkan
-     * nilai_hps, nominal_harga_akhir, dan saldo sisa_pagu_mak dari kontrak_spk existing.
+     * Menjalankan migrasi pemisahan `file_spp` dan rekonsiliasi efisiensi kontrak terhadap pagu MAK.
+     *
+     * Tujuan: membungkus seluruh pembaruan data dalam transaksi dengan `lockForUpdate()` pada
+     * baris `anggaran_mak` agar pengembalian saldo efisiensi bebas race condition.
+     *
+     * @return void
+     *
+     * Contoh pemanggilan:
+     * `$migration->up();`
      */
     public function up(): void
     {
@@ -136,7 +161,15 @@ return new class extends Migration
     }
 
     /**
-     * Reverse the migrations.
+     * Membalikkan migrasi dengan memindahkan `file_spp` kembali ke `file_dokumen_penunjang` bila kosong.
+     *
+     * Tujuan: menjaga agar path berkas SPP yang terlanjur tersimpan tidak hilang sebelum
+     * kolom `file_spp` dijatuhkan pada proses rollback.
+     *
+     * @return void
+     *
+     * Contoh pemanggilan:
+     * `$migration->down();`
      */
     public function down(): void
     {

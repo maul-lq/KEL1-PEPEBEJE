@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : menulis model Unit ini untuk mengelola master data jurusan, unit penunjang, dan bagian kerja di Politeknik Negeri Jakarta.
+ */
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -7,11 +15,16 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Model Unit Kerja (Jurusan / Bagian / Program Studi)
+ * Model Unit Kerja / Jurusan (Unit)
  *
- * Merepresentasikan unit kerja atau entitas pemohon dalam lingkup politeknik/institusi.
- * Mengelompokkan para pengguna (user pemohon) dan usulan pengadaan barang/jasa
- * berdasarkan kode unik dan klasifikasi unit (akademik, non-akademik, penunjang).
+ * memodelkan entitas organisasi pengusul di tabel `units` dengan primary key string `kode_unit`
+ * untuk mengelompokkan akun pegawai dan rekapitulasi anggaran permohonan per unit kerja.
+ *
+ * Parameter konstruktor: `$attributes` (opsional, diwarisi dari Eloquent Model).
+ * Nilai kembali         : Instance model Eloquent yang terhubung ke tabel `units`.
+ *
+ * Contoh pemanggilan:
+ * `$units = Unit::orderBy('kode_unit')->get();`
  */
 class Unit extends Model
 {
@@ -57,9 +70,12 @@ class Unit extends Model
     ];
 
     /**
-     * Relasi one-to-many ke seluruh User pegawai/staf yang bertugas di unit kerja ini.
+     * menghubungkan unit kerja ke seluruh akun pengguna yang bernaung di bawahnya.
      *
-     * @return HasMany Koleksi pengguna dalam unit ini
+     * @return HasMany mengembalikan relasi HasMany ke model User.
+     *
+     * Contoh pemanggilan:
+     * `$anggotaUnit = $unit->users;`
      */
     public function users(): HasMany
     {
@@ -67,9 +83,12 @@ class Unit extends Model
     }
 
     /**
-     * Relasi one-to-many ke seluruh usulan Permohonan Pengadaan yang diajukan oleh unit ini.
+     * menghubungkan unit kerja ke seluruh usulan permohonan pengadaan yang diajukan oleh unit ini.
      *
-     * @return HasMany Koleksi permohonan pengadaan unit ini
+     * @return HasMany mengembalikan relasi HasMany ke model PermohonanPengadaan.
+     *
+     * Contoh pemanggilan:
+     * `$usulanUnit = $unit->permohonanPengadaan;`
      */
     public function permohonanPengadaan(): HasMany
     {
@@ -77,9 +96,12 @@ class Unit extends Model
     }
 
     /**
-     * Aksesor untuk tipe unit (kompatibilitas dengan alias kolom jenis_unit).
+     * menyediakan accessor alias `tipe_unit` yang membaca `jenis_unit` demi kompatibilitas pemanggilan lama.
      *
-     * @return string|null Jenis/klasifikasi unit kerja
+     * @return string|null mengembalikan jenis/klasifikasi unit kerja atau null.
+     *
+     * Contoh pemanggilan:
+     * `$klasifikasi = $unit->tipe_unit;`
      */
     public function getTipeUnitAttribute(): ?string
     {

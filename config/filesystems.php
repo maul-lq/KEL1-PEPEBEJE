@@ -1,5 +1,24 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : memperbarui berkas konfigurasi sistem berkas bawaan Laravel ini untuk mengatur disk penyimpanan privat, disk publik dokumen PBJ, dan tautan simbolik storage.
+ */
+
+/**
+ * Konfigurasi Penyimpanan Berkas (config/filesystems.php)
+ *
+ * mengatur disk 'public' untuk menampung dokumen permohonan, memo, SPK, BAST, dan foto profil
+ * agar dapat dipratinjau lewat '/storage', sambil mempertahankan disk 'local' privat sebagai default.
+ *
+ * Parameter    : Tidak ada (membaca path dan variabel env()).
+ * Nilai kembali: array<string, mixed> — peta disk penyimpanan dan konfigurasi symlink.
+ * Contoh pemanggilan:
+ * `Storage::disk('public')->putFile('permohonan', $file)`
+ */
 return [
 
     /*
@@ -7,9 +26,8 @@ return [
     | Default Filesystem Disk
     |--------------------------------------------------------------------------
     |
-    | Here you may specify the default filesystem disk that should be used
-    | by the framework. The "local" disk, as well as a variety of cloud
-    | based disks are available to your application for file storage.
+    | menjaga disk 'local' sebagai default agar berkas tanpa spesifikasi
+    | disk tidak otomatis terekspos ke direktori publik.
     |
     */
 
@@ -20,11 +38,8 @@ return [
     | Filesystem Disks
     |--------------------------------------------------------------------------
     |
-    | Below you may configure as many filesystem disks as necessary, and you
-    | may even configure multiple disks for the same driver. Examples for
-    | most supported storage drivers are configured here for reference.
-    |
-    | Supported drivers: "local", "ftp", "sftp", "s3"
+    | menyediakan disk 'local' (app/private), 'public' (app/public untuk
+    | lampiran PBJ yang disajikan melalui symlink), serta profil 's3'.
     |
     */
 
@@ -38,9 +53,11 @@ return [
             'report' => false,
         ],
 
+        // menggunakan disk 'public' secara eksplisit di controller pengadaan agar dokumen PDF dan foto barang bisa dipratinjau di browser.
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),
+            // memangkas trailing slash dari APP_URL agar URL gabungan '/storage/...' tidak menghasilkan double slash.
             'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/storage',
             'visibility' => 'public',
             'throw' => false,
@@ -67,9 +84,8 @@ return [
     | Symbolic Links
     |--------------------------------------------------------------------------
     |
-    | Here you may configure the symbolic links that will be created when the
-    | `storage:link` Artisan command is executed. The array keys should be
-    | the locations of the links and the values should be their targets.
+    | memetakan public/storage ke storage/app/public agar perintah
+    | `php artisan storage:link` mengekspos seluruh unggahan publik secara aman.
     |
     */
 

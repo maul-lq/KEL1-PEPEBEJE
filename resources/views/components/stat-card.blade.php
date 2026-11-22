@@ -1,3 +1,26 @@
+{{--
+  Informasi File
+
+  Penulis   : Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : Komponen Blade ini rancang untuk merender kartu metrik KPI modul internal
+              lengkap dengan pilihan skema warna, lencana tren naik/turun, slot ikon SVG, serta
+              dukungan mode tautan `<a>`.
+--}}
+{{--
+  Komentar Deskriptif: Komponen Kartu Statistik Modul Internal (`<x-stat-card>`).
+
+  Tujuan: membakukan tampilan kartu angka statistik pada halaman admin, verifikasi, kontrak,
+          dan penerimaan barang agar warna status dan ikon SVG terpusat di satu komponen.
+  Parameter (@props):
+    - `title` (string, wajib), `value` (mixed, wajib): Label dan nilai statistik utama.
+    - `icon` (string|null): Nama ikon bawaan ('document' | 'box' | 'users' | 'vendor' | 'bell' | 'wallet' | 'check').
+    - `color` (string, default 'blue'): Tema warna ('navy' | 'blue' | 'teal' | 'amber' | 'emerald' | 'rose').
+    - `subtitle`, `badge`, `badgeColor`, `trend` ('up'|'down'|null), `href`.
+  Nilai kembali: Elemen kartu statistik `<a>` atau `<div>` siap pakai.
+  Contoh pemanggilan:
+    `<x-stat-card title="Total Pengguna" :value="$stats['total_users']" icon="users" color="navy" />`
+--}}
 @props([
     'title',
     'value',

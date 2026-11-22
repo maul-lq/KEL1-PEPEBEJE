@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : menulis model Vendor ini dengan struktur minimalis (hanya `nama_vendor` dan `file_dokumen_legalitas`) yang diinput secara inline pada tahap belanja/perikatan.
+ */
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -7,12 +15,16 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Model Rekanan / Penyedia (Vendor)
+ * Model Rekanan Penyedia (Vendor)
  *
- * Merepresentasikan perusahaan atau penyedia barang/jasa yang bermitra dengan institusi.
- * Diselaraskan ke struktur minimalis dan operasional:
- * - Identitas: id (primary key auto-increment), nama_vendor
- * - Berkas Legalitas: file_dokumen_legalitas (unggah berkas izin usaha / legalitas penyedia)
+ * menyederhanakan model Vendor agar tidak lagi menyimpan NPWP, rekening bank, atau flag aktif,
+ * sehingga penetapan vendor cukup menginput nama rekanan dan mengunggah dokumen legalitasnya saat perikatan.
+ *
+ * Parameter konstruktor: `$attributes` (opsional, diwarisi dari Eloquent Model).
+ * Nilai kembali         : Instance model Eloquent yang terhubung ke tabel `vendors`.
+ *
+ * Contoh pemanggilan:
+ * `$vendor = Vendor::firstOrCreate(['nama_vendor' => $nama], ['file_dokumen_legalitas' => $path]);`
  */
 class Vendor extends Model
 {
@@ -57,7 +69,12 @@ class Vendor extends Model
     ];
 
     /**
-     * Accessor alias id_vendor untuk primary key id.
+     * menyediakan accessor alias `id_vendor` yang mengembalikan primary key `id` demi kompatibilitas pemanggilan lama.
+     *
+     * @return int|string|null mengembalikan ID vendor atau null jika belum tersimpan.
+     *
+     * Contoh pemanggilan:
+     * `$id = $vendor->id_vendor;`
      */
     public function getIdVendorAttribute(): int|string|null
     {
@@ -65,9 +82,12 @@ class Vendor extends Model
     }
 
     /**
-     * Relasi one-to-many ke seluruh Paket Pengadaan yang pernah atau sedang dikerjakan rekanan ini.
+     * menghubungkan rekanan penyedia ke seluruh paket pengadaan yang ditanganinya.
      *
-     * @return HasMany Koleksi paket pengadaan vendor
+     * @return HasMany mengembalikan relasi HasMany ke model PaketPengadaan.
+     *
+     * Contoh pemanggilan:
+     * `$paketVendor = $vendor->paketPengadaan;`
      */
     public function paketPengadaan(): HasMany
     {

@@ -1,16 +1,40 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : Migrasi ini susun untuk menyelaraskan tabel permohonan, paket pengadaan, dan
+ *             pembayaran dengan notulensi alur BPMN terbaru (KAK, Memo Cek/Ketersediaan MAK,
+ *             PPK awal, kwitansi belanja langsung, serta kwitansi/invoice tagihan).
+ */
+
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Kelas migrasi anonim pembaruan skema alur kerja PBJ sesuai notulensi pertemuan terbaru.
+ *
+ * Tujuan: memperkaya tabel inti transaksi dengan kolom dokumen KAK, memo antar-unit,
+ * pelacakan PPK awal, harga perkiraan/akhir, serta dokumen bukti kwitansi dan invoice.
+ *
+ * Contoh pemanggilan:
+ * `php artisan migrate --path=database/migrations/2026_11_01_000001_update_pbj_workflow_notulensi_terbaru.php`
+ */
 return new class extends Migration
 {
     /**
-     * Menambahkan kolom-kolom baru hasil Notulensi Pertemuan PPBJ terbaru:
-     * 1. permohonan_pengadaan: Memo Cek MAK (Bidang 2 -> Perencanaan), Memo Ketersediaan MAK (Perencanaan -> Bidang 2 & PPK), dan id_user_ppk_awal.
-     * 2. paket_pengadaan: nominal_harga_perkiraan, nominal_harga_akhir, dieksekusi_belanja_oleh, tanggal_eksekusi_belanja, serta output Kwitansi Belanja Langsung (<= 50jt).
-     * 3. pembayaran: nomor_kwitansi, file_kwitansi, nomor_invoice, file_invoice untuk Informasi Dokumen Pembayaran.
+     * Menjalankan migrasi penambahan kolom alur kerja PBJ terbaru pada tiga tabel transaksi.
+     *
+     * Tujuan: menjaga idempotensi skema dengan memeriksa `hasColumn` pada tiap kolom baru
+     * sehingga migrasi aman dieksekusi lintas lingkungan database.
+     *
+     * @return void
+     *
+     * Contoh pemanggilan:
+     * `$migration->up();`
      */
     public function up(): void
     {
@@ -90,7 +114,15 @@ return new class extends Migration
     }
 
     /**
-     * Membatalkan penambahan kolom-kolom alur baru.
+     * Membalikkan migrasi dengan melepas foreign key dan kolom alur notulensi secara aman.
+     *
+     * Tujuan: menyaring daftar kolom yang benar-benar ada terlebih dahulu dan melepas FK
+     * sebelum melakukan `dropColumn` agar rollback bebas error di PostgreSQL maupun SQLite.
+     *
+     * @return void
+     *
+     * Contoh pemanggilan:
+     * `$migration->down();`
      */
     public function down(): void
     {

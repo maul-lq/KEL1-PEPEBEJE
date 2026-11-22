@@ -1,5 +1,20 @@
-{{-- resources/views/dashboard/roles/pp.blade.php --}}
-{{-- Modul RBAC: Pejabat Pengadaan (pp - Nilai 50jt s.d 200jt) --}}
+{{--
+  Informasi File
+
+  Penulis   : Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : Sub-view dasbor ini rancang untuk modul Pejabat Pengadaan (paket Rp 50–200 Juta)
+              yang memuat KPI negosiasi, antrean reviu/eksekusi belanja, dan riwayat paket PP.
+--}}
+{{--
+  Komentar Deskriptif: Panel Workspace Dasbor Pejabat Pengadaan (`dashboard.roles.pp`).
+
+  Tujuan: membedakan lencana status paket yang masih dalam tahap reviu teknis dengan yang
+          sudah disetujui PPK agar Pejabat Pengadaan dapat memprioritaskan eksekusi belanja.
+  Parameter: `$user` (User), `$stats` (array), `$roleData` (array).
+  Nilai kembali: Fragmen HTML dasbor Pejabat Pengadaan dengan navigasi langsung ke tab reviu kontrak.
+  Contoh pemanggilan: `@includeIf('dashboard.roles.pp', [...])`
+--}}
 @php
     $canReviuPp = $user->hasPermission('reviu.pp');
     $canCreateSpk = $user->hasPermission('spk.create');

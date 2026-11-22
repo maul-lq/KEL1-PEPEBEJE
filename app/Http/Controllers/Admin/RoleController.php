@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
+ * Ringkasan : menulis controller RoleController ini untuk mengelola CRUD peran RBAC dan matriks izin fitur serta menjaga proteksi peran sistem inti.
+ */
+
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
@@ -15,18 +23,27 @@ use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 /**
- * Controller Manajemen Role & Hak Akses Fitur (RoleController)
+ * Controller Manajemen Peran & Matriks Izin RBAC (RoleController)
  *
- * Mengelola fungsionalitas CRUD Role dan pengaturan matriks hak akses fitur (permissions):
- * - Menampilkan daftar seluruh role sistem dan kustom beserta permissions yang aktif.
- * - Membuat role kustom baru beserta penugasan permissions awal.
- * - Mengedit metadata dan memperbarui permissions role.
- * - Menghapus role kustom (Role sistem institusi diproteksi dengan is_system = true).
+ * membangun controller ini agar Administrator dapat menambah peran kustom (termasuk role gabungan lintas modul),
+ * mengatur centang permission per modul, dan mencegah penghapusan peran `admin` maupun peran yang masih dipakai pengguna.
+ *
+ * Parameter konstruktor: Tidak ada.
+ * Nilai kembali         : Instance controller yang melayani grup rute `admin.roles.*`.
+ *
+ * Contoh pemanggilan:
+ * `Route::put('/roles/{role}', [RoleController::class, 'update'])->name('roles.update');`
  */
 class RoleController extends Controller
 {
     /**
-     * Menampilkan daftar role, jumlah pengguna tiap role, dan matriks hak akses permissions.
+     * menampilkan seluruh peran beserta jumlah pemegangnya dan matriks permission yang dikelompokkan per modul.
+     *
+     * @param  Request  $request  memeriksa apakah klien meminta view Blade atau respons JSON.
+     * @return View|JsonResponse mengembalikan view `admin.roles` atau payload JSON daftar role dan permissions.
+     *
+     * Contoh pemanggilan:
+     * `GET /admin/roles`
      */
     public function index(Request $request): View|JsonResponse
     {
@@ -47,13 +64,18 @@ class RoleController extends Controller
     }
 
     /**
-     * Menyimpan role kustom baru beserta penugasan hak akses fitur yang dipilih.
+     * menyimpan peran kustom baru beserta sinkronisasi permission awal yang dicentang Administrator.
+     *
+     * @param  Request  $request  memvalidasi slug `nama_role` (snake_case), `label`, `deskripsi`, dan array ID `permissions`.
+     * @return RedirectResponse|JsonResponse mengembalikan redirect sukses atau JSON status 201 dengan data role baru.
+     *
+     * Contoh pemanggilan:
+     * `POST /admin/roles`
      */
     public function store(Request $request): RedirectResponse|JsonResponse
     {
         $admin = Auth::user();
 
-        // 1. Validasi input pembuatan role baru
         $validated = $request->validate([
             'nama_role' => ['required', 'string', 'max:50', 'unique:roles,nama_role', 'regex:/^[a-z0-9_]+$/'],
             'label' => ['required', 'string', 'max:100'],
@@ -64,7 +86,7 @@ class RoleController extends Controller
             'nama_role.regex' => 'Nama slug role hanya boleh menggunakan huruf kecil, angka, dan garis bawah (underscore).',
         ]);
 
-        // 2. Buat record role baru (Role baru selalu berstatus kustom: is_system = false)
+        // selalu menandai peran buatan admin melalui UI sebagai kustom (is_system=false) agar dapat dikelola/dihapus bila suatu saat tidak terpakai.
         $role = Role::create([
             'nama_role' => Str::lower($validated['nama_role']),
             'label' => $validated['label'],
@@ -72,12 +94,10 @@ class RoleController extends Controller
             'is_system' => false,
         ]);
 
-        // 3. Sinkronkan permissions fitur yang dicentang Admin
         if (! empty($validated['permissions'])) {
             $role->permissions()->sync($validated['permissions']);
         }
 
-        // 4. Catat jejak audit log pembuatan role baru
         AuditLog::catat(
             $admin?->id_user ?? 1,
             'BUAT_ROLE_BARU',
@@ -102,7 +122,14 @@ class RoleController extends Controller
     }
 
     /**
-     * Memperbarui label, deskripsi, status proteksi sistem, dan matriks hak akses permissions dari suatu role.
+     * memperbarui metadata peran dan menyinkronkan ulang seluruh matriks permission RBAC milik peran tersebut.
+     *
+     * @param  Request  $request  menerima pembaruan label, deskripsi, opsi `is_system`, serta daftar ID permissions aktif.
+     * @param  Role  $role  menerima model Role sasaran melalui route model binding.
+     * @return RedirectResponse|JsonResponse mengembalikan redirect sukses atau JSON role terbaru beserta permissions.
+     *
+     * Contoh pemanggilan:
+     * `PUT /admin/roles/{role}`
      */
     public function update(Request $request, Role $role): RedirectResponse|JsonResponse
     {
@@ -121,18 +148,14 @@ class RoleController extends Controller
             'deskripsi' => $validated['deskripsi'] ?? null,
         ];
 
-        // Role admin utama selalu diproteksi sebagai sistem, role lain dapat diatur status proteksinya oleh Admin
+        // mengunci proteksi sistem untuk slug 'admin' secara permanen agar admin utama tidak pernah kehilangan proteksi.
         if ($role->nama_role !== 'admin') {
             $updateData['is_system'] = $request->boolean('is_system');
         }
 
-        // Update informasi label, deskripsi, dan status proteksi
         $role->update($updateData);
-
-        // Sinkronisasi permissions fitur
         $role->permissions()->sync($validated['permissions'] ?? []);
 
-        // Catat audit log pembaruan hak akses role
         AuditLog::catat(
             $admin?->id_user ?? 1,
             'UBAH_HAK_AKSES_ROLE',
@@ -157,14 +180,19 @@ class RoleController extends Controller
     }
 
     /**
-     * Menghapus role kustom dari sistem.
-     * Role administrator sistem utama diproteksi mutlak dari penghapusan.
+     * menghapus peran kustom setelah memastikan peran tersebut bukan admin utama, tidak terproteksi sistem, dan tidak lagi dipakai user aktif.
+     *
+     * @param  Request  $request  memeriksa tipe request untuk mengembalikan error 403/422 dalam JSON atau redirect flash.
+     * @param  Role  $role  menerima model Role yang hendak dihapus.
+     * @return RedirectResponse|JsonResponse mengembalikan redirect sukses/error atau respons JSON status penghapusan.
+     *
+     * Contoh pemanggilan:
+     * `DELETE /admin/roles/{role}`
      */
     public function destroy(Request $request, Role $role): RedirectResponse|JsonResponse
     {
         $admin = Auth::user();
 
-        // 1. Proteksi Role Administrator Utama: Tidak dapat dihapus
         if ($role->nama_role === 'admin') {
             $errorMsg = "Akses Ditolak: Role [{$role->label}] adalah Administrator utama sistem yang tidak boleh dihapus.";
 
@@ -178,7 +206,6 @@ class RoleController extends Controller
             return back()->with('error', $errorMsg);
         }
 
-        // 2. Proteksi Role dengan status is_system aktif
         if ($role->is_system) {
             $errorMsg = "Akses Ditolak: Role [{$role->label}] saat ini memiliki proteksi peran sistem. Buka modal 'Atur Hak Akses' lalu hilangkan centang proteksi sistem jika ingin menghapusnya.";
 
@@ -192,7 +219,7 @@ class RoleController extends Controller
             return back()->with('error', $errorMsg);
         }
 
-        // 3. Proteksi Pengguna Aktif: Role tidak dapat dihapus jika masih ada pengguna yang menggunakannya
+        // menolak penghapusan dengan 422 bila masih ada user yang menunjuk id_role ini agar tidak memicu kegagalan foreign key atau akun yatim tanpa peran.
         $usersCount = User::where('id_role', $role->id)->count();
         if ($usersCount > 0) {
             $errorMsg = "Tidak dapat menghapus role [{$role->label}] karena masih digunakan oleh {$usersCount} pengguna. Alihkan peran pengguna tersebut terlebih dahulu.";
@@ -210,11 +237,9 @@ class RoleController extends Controller
         $namaRole = $role->label;
         $slugRole = $role->nama_role;
 
-        // 4. Hapus relasi pivot permissions dan hapus role
         $role->permissions()->detach();
         $role->delete();
 
-        // 5. Catat jejak audit log penghapusan role
         AuditLog::catat(
             $admin?->id_user ?? 1,
             'HAPUS_ROLE_KUSTOM',

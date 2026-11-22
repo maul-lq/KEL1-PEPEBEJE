@@ -1,7 +1,26 @@
+{{--
+  Informasi File
+
+  Penulis   : Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : View Blade ini buat untuk halaman pemantauan aktivitas Pejabat Pengadaan (paket
+              Rp 50–200 Juta) berisi 4 metrik kinerja termasuk selisih efisiensi negosiasi dan tabel
+              progres penelaahan beserta status kelulusan PPK.
+--}}
 @extends('layouts.app')
 
 @section('title', 'Pantau Aktivitas Pejabat Pengadaan - SIM-PBJ PNJ')
 
+{{--
+  Komentar Deskriptif: Seksi Konten Monitoring Aktivitas Pejabat Pengadaan (`pp.monitoring`).
+
+  Tujuan: menyajikan ikhtisar agregat efisiensi biaya hasil negosiasi PP vs HPS awal sehingga
+          Koordinator PPBJ atau pimpinan pemegang izin `lihat_pp` mudah mengawasi transaksi paket.
+  Parameter (Data dari Controller):
+    - `$totalPaketPp`, `$paketMenungguReviu`, `$paketSelesaiReviu`, `$totalPaguPp`, `$totalNegosiasiPp`.
+  Nilai kembali: Halaman HTML KPI negosiasi PP dan tabel pemantauan paket.
+  Contoh pemanggilan: `return view('pp.monitoring', compact(...));`
+--}}
 @section('content')
 <div class="space-y-6">
 

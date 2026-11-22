@@ -1,3 +1,22 @@
+/**
+ * Informasi File
+ *
+ * Penulis   : DendyRafi, Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0) - lihat file LICENSE di root repositori.
+ * Ringkasan : Stylesheet utama ini kami susun untuk memuat Tailwind CSS v4, mengimpor CSS
+ *             modular antarmuka aplikasi, mendefinisikan token tema font serta palet warna SIM-PBJ,
+ *             dan menyembunyikan elemen Alpine [x-cloak] sebelum hidrasi selesai.
+ */
+
+/**
+ * Bagian Impor Framework, Modul CSS Lokal, dan Token Tema Desain.
+ *
+ * Tujuan: Kami menyatukan Tailwind v4 dengan empat berkas gaya modular serta mendeklarasikan
+ * custom property warna institusi (`--color-primary`, `--color-brand-blue`, dll.) lewat `@theme`.
+ * Parameter: Aturan `@import`, blok `@theme`, dan aturan global antarmuka.
+ * Nilai kembali: Menghasilkan stylesheet utama yang dibundel oleh Vite ke `public/build`.
+ * Contoh pemanggilan: `@vite(['resources/css/app.css', 'resources/js/app.js'])`
+ */
 @import "tailwindcss";
 @import "./modules/layout.css";
 @import "./modules/dashboard.css";

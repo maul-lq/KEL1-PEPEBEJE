@@ -1,5 +1,20 @@
-{{-- resources/views/dashboard/roles/perencanaan.blade.php --}}
-{{-- Modul RBAC: Subbagian Perencanaan & Anggaran MAK (perencanaan) --}}
+{{--
+  Informasi File
+
+  Penulis   : Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : Sub-view dasbor ini susun untuk modul Subbagian Perencanaan & Anggaran MAK,
+              menampilkan metrik pagu & sisa anggaran, antrean usulan cek MAK, dan status rekening DIPA.
+--}}
+{{--
+  Komentar Deskriptif: Panel Workspace Dasbor Bagian Perencanaan (`dashboard.roles.perencanaan`).
+
+  Tujuan: meringkas beban usulan yang belum dialokasikan pos anggarannya bersama daftar saldo
+          MAK aktif atau terkunci agar penentuan PPK dan pos anggaran tidak tertahan.
+  Parameter: `$user` (User), `$stats` (array), `$roleData` (array).
+  Nilai kembali: Fragmen HTML 4 kartu statistik pagu dan daftar pos anggaran Perencanaan.
+  Contoh pemanggilan: `@includeIf('dashboard.roles.perencanaan', [...])`
+--}}
 @php
     $canViewMak = $user->hasAnyPermission(['anggaran.mak_view', 'anggaran.mak_manage', 'anggaran.mak_alokasi', 'permohonan.split_mak']);
     $canAlokasiMak = $user->hasAnyPermission(['anggaran.mak_alokasi', 'permohonan.split_mak']);

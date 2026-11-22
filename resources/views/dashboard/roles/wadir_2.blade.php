@@ -1,5 +1,20 @@
-{{-- resources/views/dashboard/roles/wadir_2.blade.php --}}
-{{-- Modul RBAC: Wakil Direktur II - Disposisi Eksekutif & Memo Bayar Level 1 (verifikasi_wadir2) --}}
+{{--
+  Informasi File
+
+  Penulis   : Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : Sub-view dasbor ini rancang untuk modul Wakil Direktur II berisi KPI usulan
+              menunggu ACC, antrean Memo Bayar Level 1, serta daftar keputusan Wadir II.
+--}}
+{{--
+  Komentar Deskriptif: Panel Workspace Dasbor Wakil Direktur II (`dashboard.roles.wadir_2`).
+
+  Tujuan: menyatukan dua kewenangan utama Wadir II (persetujuan kegiatan usulan dan
+          persetujuan Memo Bayar Level 1) dalam satu panel prioritas berurutan.
+  Parameter: `$user` (User), `$stats` (array), `$roleData` (array).
+  Nilai kembali: Fragmen HTML KPI pimpinan Bidang II beserta antrean disposisi dan memo bayar.
+  Contoh pemanggilan: `@includeIf('dashboard.roles.wadir_2', [...])`
+--}}
 @php
     $canVerifWadir = $user->hasAnyPermission(['verifikasi.wadir_2_view', 'verifikasi.wadir_2_decide']);
     $canDecideWadir = $user->hasPermission('verifikasi.wadir_2_decide');

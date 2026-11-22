@@ -1,7 +1,26 @@
+{{--
+  Informasi File
+
+  Penulis   : Rizlrad Fz
+  Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+  Ringkasan : View Blade ini rancang untuk workspace Subbagian Perencanaan PNJ yang mencakup
+              KPI pagu/sisa MAK, antrean alokasi rekening MAK beserta penunjukan 1 dari 4 akun PPK,
+              pemecahan (split) usulan per MAK, serta pengelolaan kunci/buka rekening MAK.
+--}}
 @extends('layouts.app')
 
 @section('title', 'Verifikasi Anggaran - Subbagian Perencanaan PNJ')
 
+{{--
+  Komentar Deskriptif: Seksi Konten Verifikasi Anggaran & Pengelolaan MAK (`verifikasi.perencanaan`).
+
+  Tujuan: menyajikan dua antrean kerja (usulan belum beralokasi dan daftar MAK DIPA) lengkap
+          dengan kontrol penahanan anggaran (`hold`), penguncian permanen rekening, dan split MAK.
+  Parameter (Data dari VerifikasiParalelController::verifikasiPerencanaan):
+    - `$permohonanAntrean`, `$permohonanSudahMak`, `$makList`, `$ppkUsers`.
+  Nilai kembali: Halaman HTML pusat manajemen alokasi anggaran MAK DIPA Bagian Perencanaan.
+  Contoh pemanggilan: `return view('verifikasi.perencanaan', compact(...));`
+--}}
 @section('content')
 <div class="mx-auto max-w-[1650px] space-y-8">
 
