@@ -20,7 +20,7 @@ import {
     modalDialog,
 } from './modules/ui_helpers.js';
 import { appShell, headerNotificationBar } from './modules/layout.js';
-import { initLoginAutofill, loginForm, registerForm } from './modules/auth.js';
+import { initLoginAutofill, loginForm, registerForm, resetPasswordForm } from './modules/auth.js';
 import {
     adminDashboardApproval,
     adminRoleRow,
@@ -80,6 +80,7 @@ const alpineComponents = {
     headerNotificationBar,
     loginForm,
     registerForm,
+    resetPasswordForm,
     adminUsers,
     adminRolesPage,
     adminRoleRow,

@@ -217,7 +217,7 @@
                                 />
                                 Ingat saya
                             </label>
-                            <a href="#" class="text-[#3B82F6] hover:underline">
+                            <a href="{{ route('password.request') }}" class="text-[#3B82F6] hover:underline">
                                 Lupa password?
                             </a>
                         </div>

@@ -5,21 +5,28 @@
  *
  * Penulis   : Rizlrad Fz
  * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
- * Ringkasan : menulis controller AuthController ini untuk menangani tampilan login/registrasi, pendaftaran akun menunggu persetujuan admin, login multi-identitas dengan rate limiter, logout, dan stub pemulihan kata sandi.
+ * Ringkasan : menulis controller AuthController ini untuk menangani tampilan login/registrasi, pendaftaran akun menunggu persetujuan admin, login multi-identitas dengan rate limiter, logout, serta pemulihan dan reset kata sandi melalui email.
  */
 
 namespace App\Http\Controllers;
 
+use App\Models\AuditLog;
 use App\Models\Role;
 use App\Models\Unit;
 use App\Models\User;
 use App\Services\PengadaanNotificationService;
+use Illuminate\Auth\Events\PasswordReset;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -226,75 +233,219 @@ class AuthController extends Controller
     }
 
     /**
-     * menampilkan formulir lupa kata sandi apabila view tersedia, atau mengalihkan kembali ke login dengan panduan kontak Administrator.
+     * menampilkan formulir permintaan tautan pengaturan ulang kata sandi untuk pengunjung tamu.
      *
-     * @return View|RedirectResponse mengembalikan view `auth.forgot-password` bila tersedia atau redirect aman ke login.
+     * @return View mengembalikan tampilan Blade `auth.forgot-password`.
      *
      * Contoh pemanggilan:
      * `GET /forgot-password`
      */
-    public function showForgotPasswordForm(): View|RedirectResponse
+    public function showForgotPasswordForm(): View
     {
-        if (view()->exists('auth.forgot-password')) {
-            return view('auth.forgot-password');
-        }
-
-        return redirect()->route('login')->with('info', 'Layanan reset kata sandi belum tersedia. Silakan hubungi Administrator.');
+        return view('auth.forgot-password');
     }
 
     /**
-     * memvalidasi email pemulihan kata sandi dan mengembalikan pesan status netral agar tidak membocorkan daftar email terdaftar.
+     * memproses permintaan tautan reset kata sandi hanya untuk akun aktif yang sudah disetujui, dengan pesan respons netral anti-enumerasi.
      *
-     * @param  Request  $request  memvalidasi field `email` yang dikirim pemohon reset kata sandi.
-     * @return RedirectResponse mengembalikan redirect kembali dengan pesan status informatif netral.
+     * @param  Request  $request  memvalidasi alamat `email` dan membatasi frekuensi permintaan per IP agar terhindar dari penyalahgunaan spam.
+     * @return RedirectResponse|JsonResponse mengembalikan redirect ke formulir atau JSON status netral saat diminta oleh klien JSON.
      *
      * Contoh pemanggilan:
      * `POST /forgot-password`
      */
-    public function sendResetLinkEmail(Request $request): RedirectResponse
+    public function sendResetLinkEmail(Request $request): RedirectResponse|JsonResponse
     {
-        $request->validate([
-            'email' => ['required', 'email'],
+        $validated = $request->validate([
+            'email' => ['required', 'email', 'max:100'],
+        ], [
+            'email.required' => 'Alamat email wajib diisi.',
+            'email.email' => 'Format alamat email tidak valid.',
+            'email.max' => 'Alamat email maksimal 100 karakter.',
         ]);
 
-        return back()->with('status', 'Jika alamat email terdaftar, instruksi pemulihan telah dikirimkan.');
-    }
+        // membatasi permintaan hanya per IP (bukan per email) agar banjir email acak tertahan tanpa membocorkan apakah suatu alamat terdaftar.
+        $ipThrottleKey = 'forgot-password-ip|'.$request->ip();
+        if (RateLimiter::tooManyAttempts($ipThrottleKey, 10)) {
+            $seconds = RateLimiter::availableIn($ipThrottleKey);
+            $throttleMessage = "Terlalu banyak permintaan pengaturan ulang kata sandi. Silakan coba kembali dalam {$seconds} detik.";
 
-    /**
-     * menampilkan formulir penetapan kata sandi baru berdasarkan token pemulihan apabila templat Blade-nya tersedia.
-     *
-     * @param  string  $token  meneruskan token reset kata sandi dari parameter rute ke view.
-     * @return View|RedirectResponse mengembalikan view `auth.reset-password` atau redirect aman ke halaman login.
-     *
-     * Contoh pemanggilan:
-     * `GET /reset-password/{token}`
-     */
-    public function showResetPasswordForm(string $token): View|RedirectResponse
-    {
-        if (view()->exists('auth.reset-password')) {
-            return view('auth.reset-password', ['token' => $token]);
+            if ($request->expectsJson()) {
+                return response()->json(['status' => 'error', 'message' => $throttleMessage], 429);
+            }
+
+            return back()
+                ->withInput($request->only('email'))
+                ->withErrors(['email' => $throttleMessage]);
+        }
+        RateLimiter::hit($ipThrottleKey, 60);
+
+        $normalizedEmail = Str::lower(trim((string) $validated['email']));
+        $neutralStatus = 'Jika alamat email terdaftar dan aktif, tautan pengaturan ulang kata sandi telah dikirimkan.';
+
+        try {
+            // menyaring LOWER(email), status_aktif, dan status_registrasi disetujui di broker agar akun tertunda/tertolak/nonaktif tidak pernah menerima token maupun email.
+            Password::broker()->sendResetLink([
+                fn (Builder $query) => $query
+                    ->whereRaw('LOWER(email) = ?', [$normalizedEmail])
+                    ->where('status_aktif', true)
+                    ->where('status_registrasi', User::STATUS_REGISTRASI_DISETUJUI),
+            ]);
+        } catch (\Throwable $e) {
+            // menghapus token baru jika pengiriman SMTP gagal agar pengguna tidak langsung terkena jeda throttle 60 detik saat mencoba ulang.
+            if (Schema::hasTable('password_reset_tokens')) {
+                DB::table('password_reset_tokens')
+                    ->whereRaw('LOWER(email) = ?', [$normalizedEmail])
+                    ->delete();
+            }
+
+            Log::warning('Gagal mengirim email pengaturan ulang kata sandi.', [
+                'exception' => $e::class,
+                'message' => $e->getMessage(),
+            ]);
+
+            $serviceError = 'Layanan pengiriman email sedang mengalami kendala. Silakan coba kembali beberapa saat lagi atau hubungi Administrator.';
+
+            if ($request->expectsJson()) {
+                return response()->json(['status' => 'error', 'message' => $serviceError], 503);
+            }
+
+            return back()
+                ->withInput($request->only('email'))
+                ->with('error', $serviceError);
         }
 
-        return redirect()->route('login')->with('info', 'Tautan pemulihan kata sandi belum tersedia. Silakan hubungi Administrator.');
+        if ($request->expectsJson()) {
+            return response()->json(['status' => 'success', 'message' => $neutralStatus]);
+        }
+
+        // menyamakan pesan baik saat email terkirim, tidak ditemukan, belum aktif, maupun sedang masa throttle 60 detik demi mencegah enumerasi akun.
+        return back()->with('status', $neutralStatus);
     }
 
     /**
-     * memvalidasi permintaan pembaruan kata sandi melalui token reset dan mengarahkan kembali ke halaman login.
+     * menampilkan formulir penetapan kata sandi baru berdasarkan token pemulihan dan email dari tautan email.
+     *
+     * @param  Request  $request  membaca parameter query `email` agar kolom email langsung terisi di formulir.
+     * @param  string  $token  meneruskan token reset kata sandi dari parameter rute ke view.
+     * @return View mengembalikan tampilan Blade `auth.reset-password`.
+     *
+     * Contoh pemanggilan:
+     * `GET /reset-password/{token}?email=nama@pnj.ac.id`
+     */
+    public function showResetPasswordForm(Request $request, string $token): View
+    {
+        return view('auth.reset-password', [
+            'token' => $token,
+            'email' => (string) $request->query('email', ''),
+        ]);
+    }
+
+    /**
+     * memvalidasi token serta memperbarui kata sandi akun aktif yang disetujui, merotasi token sesi, membersihkan throttle login, dan mencatat jejak audit.
      *
      * @param  Request  $request  memvalidasi `token`, `email`, serta `password` terkonfirmasi minimal 6 karakter.
-     * @return RedirectResponse mengembalikan redirect ke login dengan pesan sukses.
+     * @return RedirectResponse|JsonResponse mengarahkan ke login saat berhasil atau mengembalikan JSON/redirect dengan pesan error seragam.
      *
      * Contoh pemanggilan:
      * `POST /reset-password`
      */
-    public function resetPassword(Request $request): RedirectResponse
+    public function resetPassword(Request $request): RedirectResponse|JsonResponse
     {
-        $request->validate([
+        $validated = $request->validate([
             'token' => ['required', 'string'],
-            'email' => ['required', 'email'],
+            'email' => ['required', 'email', 'max:100'],
             'password' => ['required', 'string', 'min:6', 'confirmed'],
+        ], [
+            'token.required' => 'Token pengaturan ulang kata sandi tidak ditemukan.',
+            'email.required' => 'Alamat email wajib diisi.',
+            'email.email' => 'Format alamat email tidak valid.',
+            'password.required' => 'Kata sandi baru wajib diisi.',
+            'password.min' => 'Kata sandi baru minimal 6 karakter.',
+            'password.confirmed' => 'Konfirmasi kata sandi tidak cocok.',
         ]);
 
-        return redirect()->route('login')->with('success', 'Kata sandi berhasil diperbarui. Silakan masuk kembali.');
+        $normalizedEmail = Str::lower(trim((string) $validated['email']));
+        $resetThrottleKey = 'reset-password|'.$normalizedEmail.'|'.$request->ip();
+
+        // membatasi percobaan validasi token per kombinasi email dan IP untuk menangkal tebakan berulang.
+        if (RateLimiter::tooManyAttempts($resetThrottleKey, 5)) {
+            $seconds = RateLimiter::availableIn($resetThrottleKey);
+            $throttleMessage = "Terlalu banyak percobaan pengaturan ulang kata sandi. Silakan coba kembali dalam {$seconds} detik.";
+
+            if ($request->expectsJson()) {
+                return response()->json(['status' => 'error', 'message' => $throttleMessage], 429);
+            }
+
+            return back()
+                ->withInput($request->only('email'))
+                ->withErrors(['email' => $throttleMessage]);
+        }
+
+        $status = Password::broker()->reset(
+            [
+                'token' => $validated['token'],
+                'password' => $validated['password'],
+                fn (Builder $query) => $query
+                    ->whereRaw('LOWER(email) = ?', [$normalizedEmail])
+                    ->where('status_aktif', true)
+                    ->where('status_registrasi', User::STATUS_REGISTRASI_DISETUJUI),
+            ],
+            function (User $user, string $password) use ($request): void {
+                // memperbarui sandi (otomatis ter-hash oleh cast model User) sekaligus merotasi remember_token agar sesi ingat lama tidak berlaku lagi.
+                $user->forceFill([
+                    'password' => $password,
+                    'remember_token' => Str::random(60),
+                ])->save();
+
+                // menghapus seluruh sesi database lama milik pengguna setelah reset kata sandi berhasil.
+                if (config('session.driver') === 'database' && Schema::hasTable(config('session.table', 'sessions'))) {
+                    DB::table(config('session.table', 'sessions'))
+                        ->where('user_id', $user->id_user)
+                        ->delete();
+                }
+
+                // membersihkan batas gagal login pada seluruh identitas akun untuk IP pemohon agar pengguna langsung bisa masuk dengan sandi baru.
+                foreach (array_filter([$user->username, $user->email, $user->nip]) as $identity) {
+                    $loginThrottleKey = Str::transliterate(Str::lower((string) $identity).'|'.$request->ip());
+                    RateLimiter::clear($loginThrottleKey);
+                }
+
+                AuditLog::catat(
+                    $user->id_user,
+                    'RESET_PASSWORD',
+                    'users',
+                    (string) $user->id_user,
+                    null,
+                    null,
+                    "Pengguna mengatur ulang kata sandi melalui tautan email pemulihan ({$user->username})"
+                );
+
+                event(new PasswordReset($user));
+            }
+        );
+
+        if ($status === Password::PASSWORD_RESET) {
+            RateLimiter::clear($resetThrottleKey);
+            $successMessage = 'Kata sandi berhasil diperbarui. Silakan masuk menggunakan kata sandi baru Anda.';
+
+            if ($request->expectsJson()) {
+                return response()->json(['status' => 'success', 'message' => $successMessage]);
+            }
+
+            return redirect()->route('login')->with('success', $successMessage);
+        }
+
+        RateLimiter::hit($resetThrottleKey, 60);
+        $invalidMessage = 'Tautan pengaturan ulang kata sandi tidak valid atau sudah kedaluwarsa. Silakan ajukan permintaan baru.';
+
+        if ($request->expectsJson()) {
+            return response()->json(['status' => 'error', 'message' => $invalidMessage], 422);
+        }
+
+        // memakai satu pesan error yang sama untuk token tidak valid, kedaluwarsa, maupun akun tidak ditemukan agar status email tidak bocor.
+        return back()
+            ->withInput($request->only('email'))
+            ->withErrors(['email' => $invalidMessage]);
     }
 }

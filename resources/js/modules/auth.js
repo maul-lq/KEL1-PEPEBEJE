@@ -24,6 +24,21 @@ export function loginForm() {
 }
 
 /**
+ * Membangun state visibilitas dua kolom kata sandi independen untuk formulir registrasi maupun reset kata sandi.
+ *
+ * Tujuan: menyatukan factory state dua input kata sandi agar tidak menduplikasi logika antar halaman autentikasi.
+ * Parameter: Tidak menerima argumen.
+ * Nilai kembali: Objek state `showPassword` dan `showPasswordConfirm` untuk Alpine.js.
+ * Contoh pemanggilan: `return createDualPasswordVisibilityState();`
+ */
+function createDualPasswordVisibilityState() {
+    return {
+        showPassword: false,
+        showPasswordConfirm: false,
+    };
+}
+
+/**
  * Mengelola state tampilan dua field kata sandi pada halaman pendaftaran akun.
  *
  * Tujuan: memberi kontrol toggle independen untuk kolom password utama dan konfirmasi
@@ -33,10 +48,20 @@ export function loginForm() {
  * Contoh pemanggilan: `<form x-data="registerForm()">`
  */
 export function registerForm() {
-    return {
-        showPassword: false,
-        showPasswordConfirm: false,
-    };
+    return createDualPasswordVisibilityState();
+}
+
+/**
+ * Mengelola state tampilan dua field kata sandi pada halaman reset kata sandi.
+ *
+ * Tujuan: memberi kontrol toggle independen untuk kolom kata sandi baru dan konfirmasi
+ * kata sandi pada halaman `auth.reset-password`.
+ * Parameter: Tidak menerima argumen.
+ * Nilai kembali: Objek state `showPassword` dan `showPasswordConfirm` untuk Alpine.js.
+ * Contoh pemanggilan: `<div x-data="resetPasswordForm">`
+ */
+export function resetPasswordForm() {
+    return createDualPasswordVisibilityState();
 }
 
 /**

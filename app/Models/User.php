@@ -10,6 +10,7 @@
 
 namespace App\Models;
 
+use App\Notifications\ResetPasswordNotification;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -516,5 +517,19 @@ class User extends Authenticatable
     public function isGoogleLinked(): bool
     {
         return ! empty($this->google_id);
+    }
+
+    /**
+     * mengganti email reset kata sandi bawaan Laravel berbahasa Inggris dengan notifikasi SIM-PBJ berbahasa Indonesia.
+     *
+     * @param  string  $token  menerima token pemulihan kata sandi dari PasswordBroker.
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `$user->sendPasswordResetNotification($token);`
+     */
+    public function sendPasswordResetNotification(#[\SensitiveParameter] $token): void
+    {
+        $this->notify(new ResetPasswordNotification($token));
     }
 }
