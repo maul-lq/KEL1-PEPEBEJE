@@ -115,8 +115,8 @@ class GoogleAuthController extends Controller
 
         if ($user->status_registrasi === User::STATUS_REGISTRASI_MENUNGGU) {
             return redirect()->route('login')->with(
-                'status',
-                'Akun Anda sedang menunggu verifikasi dan persetujuan dari Admin sebelum dapat digunakan.'
+                'warning',
+                'Pendaftaran akun Anda sedang menunggu verifikasi dan persetujuan dari Administrator.'
             );
         }
 
@@ -142,8 +142,10 @@ class GoogleAuthController extends Controller
         ]);
 
         Auth::login($user);
-        // meregenerasi sesi setelah login OAuth untuk mencegah serangan Session Fixation.
+        // meregenerasi sesi setelah login OAuth untuk mencegah serangan Session Fixation dan mencatat timestamp awal idle timeout.
         $request->session()->regenerate();
+        $request->session()->put('last_activity', time());
+        $request->session()->put('verified_active_user_id', $user->id_user);
 
         Log::info('Pengguna berhasil masuk melalui Google OAuth', [
             'id_user' => $user->id_user,

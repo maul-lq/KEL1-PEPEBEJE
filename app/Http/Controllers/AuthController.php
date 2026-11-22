@@ -108,6 +108,25 @@ class AuthController extends Controller
             'jabatan' => ['required', 'string', 'max:100'],
             'kode_unit' => ['required', 'string', 'exists:units,kode_unit'],
             'no_hp' => ['required', 'string', 'max:20'],
+        ], [
+            'nip.required' => 'NIP wajib diisi.',
+            'nip.unique' => 'NIP sudah terdaftar.',
+            'nip.max' => 'NIP maksimal 30 karakter.',
+            'username.required' => 'Username wajib diisi.',
+            'username.unique' => 'Username sudah digunakan.',
+            'username.max' => 'Username maksimal 50 karakter.',
+            'email.required' => 'Alamat email wajib diisi.',
+            'email.email' => 'Format alamat email tidak valid.',
+            'email.unique' => 'Alamat email sudah terdaftar.',
+            'email.max' => 'Alamat email maksimal 100 karakter.',
+            'nama.required' => 'Nama lengkap wajib diisi.',
+            'password.required' => 'Kata sandi wajib diisi.',
+            'password.min' => 'Kata sandi minimal 6 karakter.',
+            'password.confirmed' => 'Konfirmasi kata sandi tidak cocok.',
+            'jabatan.required' => 'Jabatan wajib diisi.',
+            'kode_unit.required' => 'Unit kerja wajib dipilih.',
+            'kode_unit.exists' => 'Unit kerja yang dipilih tidak ditemukan.',
+            'no_hp.required' => 'Nomor HP wajib diisi.',
         ]);
 
         // mengunci akun baru agar tidak aktif sampai Administrator memverifikasi dan menetapkan role definitif saat ACC.
@@ -117,22 +136,52 @@ class AuthController extends Controller
 
         $newUser = User::create($validated);
 
-        try {
-            app(PengadaanNotificationService::class)->kirimKePeran(
+        $notificationService = app(PengadaanNotificationService::class);
+
+        $this->notifySafely(
+            fn () => $notificationService->kirimKePeran(
                 'admin',
                 "Pendaftar Akun Baru: {$newUser->nama}",
                 "Pengguna baru {$newUser->nama} (NIP: {$newUser->nip}) telah mendaftar dan menunggu verifikasi serta penetapan peran (role) oleh Administrator.",
                 'verifikasi'
-            );
-        } catch (\Throwable $e) {
-            // menelan kegagalan notifikasi agar proses registrasi pendaftar tidak ikut gagal bila mailer sedang bermasalah.
-            Log::warning("Gagal mengirim notifikasi pendaftar baru ke admin: {$e->getMessage()}");
-        }
+            ),
+            'Gagal mengirim notifikasi pendaftar baru ke admin'
+        );
+
+        $this->notifySafely(
+            fn () => $notificationService->kirimKeUser(
+                $newUser,
+                'Pendaftaran Akun SIM-PBJ Diterima',
+                "Pendaftaran akun SIM-PBJ Anda atas nama {$newUser->nama} (NIP: {$newUser->nip}) telah diterima dan sedang menunggu verifikasi serta persetujuan Administrator sebelum dapat digunakan.",
+                'verifikasi'
+            ),
+            'Gagal mengirim konfirmasi pendaftaran akun ke pendaftar'
+        );
 
         return redirect()->route('login')->with(
             'success',
             'Pendaftaran akun berhasil diajukan! Akun Anda menunggu verifikasi dan persetujuan Administrator sebelum dapat digunakan.'
         );
+    }
+
+    /**
+     * mengeksekusi pengiriman notifikasi di dalam blok try/catch aman agar kendala mailer tidak menggagalkan registrasi pendaftar.
+     *
+     * @param  callable  $callback  menjalankan pemanggilan layanan notifikasi yang berpotensi melempar exception transport email.
+     * @param  string  $logPrefix  memberi konteks log peringatan bila pengiriman gagal.
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `$this->notifySafely(fn () => $service->kirimKeUser(...), 'Gagal kirim konfirmasi daftar');`
+     */
+    protected function notifySafely(callable $callback, string $logPrefix): void
+    {
+        try {
+            $callback();
+        } catch (\Throwable $e) {
+            // menelan kegagalan pengiriman email/notifikasi agar proses pendaftaran akun baru tetap selesai tersimpan.
+            Log::warning("{$logPrefix}: {$e->getMessage()}");
+        }
     }
 
     /**
@@ -149,6 +198,9 @@ class AuthController extends Controller
         $credentials = $request->validate([
             'login' => ['required', 'string'],
             'password' => ['required', 'string'],
+        ], [
+            'login.required' => 'Email, username, atau NIP wajib diisi.',
+            'password.required' => 'Password wajib diisi.',
         ]);
 
         $loginInput = $credentials['login'];
@@ -163,17 +215,21 @@ class AuthController extends Controller
             ])->onlyInput('login');
         }
 
-        $user = User::where('username', $loginInput)
-            ->orWhere('email', $loginInput)
-            ->orWhere('nip', $loginInput)
+        $normalizedLogin = Str::lower(trim((string) $loginInput));
+
+        // mencocokkan username dan email tanpa memedulikan kapitalisasi huruf pada PostgreSQL yang peka huruf besar/kecil.
+        $user = User::whereRaw('LOWER(username) = ?', [$normalizedLogin])
+            ->orWhereRaw('LOWER(email) = ?', [$normalizedLogin])
+            ->orWhere('nip', trim((string) $loginInput))
             ->first();
 
         if ($user && Hash::check($credentials['password'], $user->password)) {
             // memvalidasi status registrasi dan keaktifan sebelum membuat sesi agar akun tertunda/tertolak tidak bisa masuk.
             if ($user->status_registrasi === User::STATUS_REGISTRASI_MENUNGGU) {
-                return back()->withErrors([
-                    'login' => 'Pendaftaran akun Anda sedang menunggu verifikasi dan persetujuan dari Administrator.',
-                ])->onlyInput('login');
+                return back()->with(
+                    'warning',
+                    'Pendaftaran akun Anda sedang menunggu verifikasi dan persetujuan dari Administrator.'
+                )->onlyInput('login');
             }
 
             if ($user->status_registrasi === User::STATUS_REGISTRASI_DITOLAK) {
@@ -196,6 +252,7 @@ class AuthController extends Controller
             // meregenerasi ID sesi untuk menangkal Session Fixation serta mencatat timestamp awal timer idle timeout 15 menit.
             $request->session()->regenerate();
             $request->session()->put('last_activity', time());
+            $request->session()->put('verified_active_user_id', $user->id_user);
 
             $user->loadMissing('roleEntity');
             $roleLabel = $user->roleEntity?->label ?? 'Pengguna';
@@ -246,10 +303,10 @@ class AuthController extends Controller
     }
 
     /**
-     * memproses permintaan tautan reset kata sandi hanya untuk akun aktif yang sudah disetujui, dengan pesan respons netral anti-enumerasi.
+     * memproses permintaan tautan reset kata sandi untuk akun aktif yang sudah disetujui, serta memberi pemberitahuan jelas bagi akun tertunda, ditolak, atau dinonaktifkan.
      *
      * @param  Request  $request  memvalidasi alamat `email` dan membatasi frekuensi permintaan per IP agar terhindar dari penyalahgunaan spam.
-     * @return RedirectResponse|JsonResponse mengembalikan redirect ke formulir atau JSON status netral saat diminta oleh klien JSON.
+     * @return RedirectResponse|JsonResponse mengembalikan redirect ke formulir atau JSON status sesuai kondisi akun.
      *
      * Contoh pemanggilan:
      * `POST /forgot-password`
@@ -264,7 +321,7 @@ class AuthController extends Controller
             'email.max' => 'Alamat email maksimal 100 karakter.',
         ]);
 
-        // membatasi permintaan hanya per IP (bukan per email) agar banjir email acak tertahan tanpa membocorkan apakah suatu alamat terdaftar.
+        // membatasi permintaan hanya per IP agar banjir permintaan beruntun tertahan sebelum menyentuh basis data dan SMTP.
         $ipThrottleKey = 'forgot-password-ip|'.$request->ip();
         if (RateLimiter::tooManyAttempts($ipThrottleKey, 10)) {
             $seconds = RateLimiter::availableIn($ipThrottleKey);
@@ -283,11 +340,57 @@ class AuthController extends Controller
         $normalizedEmail = Str::lower(trim((string) $validated['email']));
         $neutralStatus = 'Jika alamat email terdaftar dan aktif, tautan pengaturan ulang kata sandi telah dikirimkan.';
 
+        $targetUser = User::whereRaw('LOWER(email) = ?', [$normalizedEmail])->first();
+        if (! $targetUser) {
+            if ($request->expectsJson()) {
+                return response()->json(['status' => 'success', 'message' => $neutralStatus]);
+            }
+
+            return back()->with('status', $neutralStatus);
+        }
+
+        // memberi tahu pendaftar secara terbuka jika akunnya memang belum disetujui, ditolak, atau dinonaktifkan sehingga tidak menunggu email yang tidak pernah dikirim.
+        if ($targetUser->status_registrasi === User::STATUS_REGISTRASI_MENUNGGU) {
+            $pendingMessage = 'Pendaftaran akun Anda masih menunggu verifikasi dan persetujuan dari Administrator. Fitur lupa kata sandi dapat digunakan setelah akun disetujui.';
+
+            if ($request->expectsJson()) {
+                return response()->json(['status' => 'warning', 'message' => $pendingMessage], 403);
+            }
+
+            return back()
+                ->withInput($request->only('email'))
+                ->with('warning', $pendingMessage);
+        }
+
+        if ($targetUser->status_registrasi === User::STATUS_REGISTRASI_DITOLAK) {
+            $alasan = $targetUser->alasan_penolakan ? " Alasan: {$targetUser->alasan_penolakan}" : '';
+            $rejectedMessage = "Pendaftaran akun Anda ditolak oleh Administrator.{$alasan}";
+
+            if ($request->expectsJson()) {
+                return response()->json(['status' => 'error', 'message' => $rejectedMessage], 403);
+            }
+
+            return back()
+                ->withInput($request->only('email'))
+                ->withErrors(['email' => $rejectedMessage]);
+        }
+
+        if (! $targetUser->status_aktif) {
+            $disabledMessage = 'Akun Anda sedang dinonaktifkan oleh Administrator. Silakan hubungi Administrator untuk mengaktifkan kembali akun Anda.';
+
+            if ($request->expectsJson()) {
+                return response()->json(['status' => 'error', 'message' => $disabledMessage], 403);
+            }
+
+            return back()
+                ->withInput($request->only('email'))
+                ->withErrors(['email' => $disabledMessage]);
+        }
+
         try {
-            // menyaring LOWER(email), status_aktif, dan status_registrasi disetujui di broker agar akun tertunda/tertolak/nonaktif tidak pernah menerima token maupun email.
-            Password::broker()->sendResetLink([
+            $brokerStatus = Password::broker()->sendResetLink([
                 fn (Builder $query) => $query
-                    ->whereRaw('LOWER(email) = ?', [$normalizedEmail])
+                    ->where('id_user', $targetUser->id_user)
                     ->where('status_aktif', true)
                     ->where('status_registrasi', User::STATUS_REGISTRASI_DISETUJUI),
             ]);
@@ -315,12 +418,15 @@ class AuthController extends Controller
                 ->with('error', $serviceError);
         }
 
+        $responseMessage = $brokerStatus === Password::RESET_THROTTLED
+            ? 'Permintaan pengaturan ulang kata sandi baru saja diproses. Silakan periksa kotak masuk email Anda atau coba kembali dalam 1 menit.'
+            : 'Tautan pengaturan ulang kata sandi telah dikirim ke email Anda. Silakan periksa kotak masuk atau folder spam.';
+
         if ($request->expectsJson()) {
-            return response()->json(['status' => 'success', 'message' => $neutralStatus]);
+            return response()->json(['status' => 'success', 'message' => $responseMessage]);
         }
 
-        // menyamakan pesan baik saat email terkirim, tidak ditemukan, belum aktif, maupun sedang masa throttle 60 detik demi mencegah enumerasi akun.
-        return back()->with('status', $neutralStatus);
+        return back()->with('status', $responseMessage);
     }
 
     /**

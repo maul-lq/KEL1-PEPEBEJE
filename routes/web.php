@@ -67,7 +67,7 @@ Route::middleware('guest')->group(function () {
  * Contoh pemanggilan:
  * `route('dashboard')` atau `route('permohonan.show', ['id' => '001/PNJ/2026'])`
  */
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'prevent.back'])->group(function () {
     // mengarahkan root URL langsung ke dashboard agar pengguna yang sudah login tidak mendarat di halaman kosong.
     Route::get('/', function () {
         return redirect()->route('dashboard');

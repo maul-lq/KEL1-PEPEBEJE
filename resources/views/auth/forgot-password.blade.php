@@ -111,6 +111,12 @@
                                 <span>{{ session('error') }}</span>
                             </div>
                         @endif
+                        @if(session('warning'))
+                            <div class="mt-4 flex items-start gap-3 rounded-[8px] border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
+                                <svg class="mt-0.5 size-5 shrink-0 text-amber-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86l-7.5 13A1 1 0 003.65 18.5h16.7a1 1 0 00.86-1.5l-7.5-13a1 1 0 00-1.72 0z"/></svg>
+                                <span>{{ session('warning') }}</span>
+                            </div>
+                        @endif
                         @if(session('status'))
                             <div class="mt-4 flex items-start gap-3 rounded-[8px] border border-blue-300 bg-blue-50 p-4 text-sm text-blue-800">
                                 <svg class="mt-0.5 size-5 shrink-0 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>

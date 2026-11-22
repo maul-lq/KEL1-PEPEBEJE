@@ -74,12 +74,12 @@ return [
     | Application Timezone
     |--------------------------------------------------------------------------
     |
-    | mempertahankan default UTC pada tingkat konfigurasi dasar Laravel
-    | agar penyimpanan stempel waktu di PostgreSQL tetap netral zona waktu.
+    | menyelaraskan zona waktu default Laravel dan PHP ke Asia/Jakarta (GMT+7 / WIB)
+    | agar pencatatan log, stempel waktu database, serta laporan resmi konsisten WIB.
     |
     */
 
-    'timezone' => 'UTC',
+    'timezone' => env('APP_TIMEZONE', 'Asia/Jakarta'),
 
     /*
     |--------------------------------------------------------------------------

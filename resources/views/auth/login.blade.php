@@ -113,16 +113,36 @@
                             Selamat Datang!
                         </h1>
 
-                        @if(session('error'))
+                        @php
+                            $loginErrors = collect([session('error'), ...$errors->all()])
+                                ->filter()
+                                ->unique()
+                                ->values();
+                        @endphp
+                        @if($loginErrors->isNotEmpty())
                             <div class="mt-4 flex items-start gap-3 rounded-[8px] border border-red-300 bg-red-50 p-4 text-sm text-red-800">
                                 <svg class="size-5 shrink-0 text-red-600 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                <span>{{ session('error') }}</span>
+                                @if($loginErrors->count() === 1)
+                                    <span>{{ $loginErrors->first() }}</span>
+                                @else
+                                    <ul class="list-disc space-y-1 pl-4">
+                                        @foreach($loginErrors as $errorMessage)
+                                            <li>{{ $errorMessage }}</li>
+                                        @endforeach
+                                    </ul>
+                                @endif
                             </div>
                         @endif
-                        @if(session('status'))
+                        @if(session('warning'))
+                            <div class="mt-4 flex items-start gap-3 rounded-[8px] border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
+                                <svg class="size-5 shrink-0 text-amber-600 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86l-7.5 13A1 1 0 003.65 18.5h16.7a1 1 0 00.86-1.5l-7.5-13a1 1 0 00-1.72 0z"/></svg>
+                                <span>{{ session('warning') }}</span>
+                            </div>
+                        @endif
+                        @if(session('status') || session('info'))
                             <div class="mt-4 flex items-start gap-3 rounded-[8px] border border-blue-300 bg-blue-50 p-4 text-sm text-blue-800">
                                 <svg class="size-5 shrink-0 text-blue-600 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                <span>{{ session('status') }}</span>
+                                <span>{{ session('status') ?? session('info') }}</span>
                             </div>
                         @endif
                         @if(session('success'))
@@ -137,7 +157,7 @@
                             for="login"
                             class="mt-8 text-lg font-medium text-black"
                         >
-                            Email atau Nomor Induk
+                            Username, Email atau Nomor Induk
                         </label>
                         <div class="relative flex items-center mt-3">
                             <div class="pointer-events-none absolute left-5 flex items-center justify-center text-[#AAA]">
@@ -151,7 +171,7 @@
                                 name="login"
                                 type="text"
                                 value="{{ old('login', old('identifier')) }}"
-                                placeholder="Masukkan email atau nomor induk"
+                                placeholder="Masukkan username/email/nomor induk"
                                 required
                                 autofocus
                                 class="h-[60px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] pl-14 pr-4 text-lg text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6]"

@@ -87,7 +87,7 @@ it('sends synchronous Indonesian password reset link for active approved users r
         ]);
 
     $response->assertRedirect(route('password.request'))
-        ->assertSessionHas('status', 'Jika alamat email terdaftar dan aktif, tautan pengaturan ulang kata sandi telah dikirimkan.');
+        ->assertSessionHas('status', 'Tautan pengaturan ulang kata sandi telah dikirim ke email Anda. Silakan periksa kotak masuk atau folder spam.');
 
     Notification::assertSentTo($user, ResetPasswordNotification::class, function (ResetPasswordNotification $notification) use ($user): bool {
         $mail = $notification->toMail($user);
@@ -105,7 +105,7 @@ it('sends synchronous Indonesian password reset link for active approved users r
     ]);
 });
 
-it('returns uniform neutral status and does not issue tokens for unknown, pending, rejected, inactive, or throttled accounts', function (): void {
+it('shows clear warnings or errors for pending, rejected, and inactive accounts while keeping unknown emails neutral', function (): void {
     Notification::fake();
 
     $pendingUser = User::factory()->withRole(User::ROLE_USER)->menungguApproval()->create([
@@ -115,6 +115,7 @@ it('returns uniform neutral status and does not issue tokens for unknown, pendin
         'email' => 'ditolak@pnj.ac.id',
         'status_aktif' => false,
         'status_registrasi' => User::STATUS_REGISTRASI_DITOLAK,
+        'alasan_penolakan' => 'Data kepegawaian belum sesuai.',
     ]);
     $inactiveUser = User::factory()->withRole(User::ROLE_USER)->create([
         'email' => 'nonaktif@pnj.ac.id',
@@ -127,23 +128,37 @@ it('returns uniform neutral status and does not issue tokens for unknown, pendin
         'status_registrasi' => User::STATUS_REGISTRASI_DISETUJUI,
     ]);
 
-    $expectedStatus = 'Jika alamat email terdaftar dan aktif, tautan pengaturan ulang kata sandi telah dikirimkan.';
+    // Email tidak dikenal tetap menerima pesan netral.
+    $this->from(route('password.request'))
+        ->post(route('password.email'), ['email' => 'tidak-ada@pnj.ac.id'])
+        ->assertRedirect(route('password.request'))
+        ->assertSessionHas('status', 'Jika alamat email terdaftar dan aktif, tautan pengaturan ulang kata sandi telah dikirimkan.');
 
-    foreach (['tidak-ada@pnj.ac.id', 'menunggu@pnj.ac.id', 'ditolak@pnj.ac.id', 'nonaktif@pnj.ac.id'] as $email) {
-        $this->from(route('password.request'))
-            ->post(route('password.email'), ['email' => $email])
-            ->assertRedirect(route('password.request'))
-            ->assertSessionHas('status', $expectedStatus);
-    }
+    // Akun menunggu persetujuan diberi tahu secara jelas dan tidak dikirimi email reset.
+    $this->from(route('password.request'))
+        ->post(route('password.email'), ['email' => 'menunggu@pnj.ac.id'])
+        ->assertRedirect(route('password.request'))
+        ->assertSessionHas('warning', 'Pendaftaran akun Anda masih menunggu verifikasi dan persetujuan dari Administrator. Fitur lupa kata sandi dapat digunakan setelah akun disetujui.');
+
+    // Akun ditolak maupun dinonaktifkan diberi pesan error jelas dan tidak dikirimi email reset.
+    $this->from(route('password.request'))
+        ->post(route('password.email'), ['email' => 'ditolak@pnj.ac.id'])
+        ->assertRedirect(route('password.request'))
+        ->assertSessionHasErrors('email');
+
+    $this->from(route('password.request'))
+        ->post(route('password.email'), ['email' => 'nonaktif@pnj.ac.id'])
+        ->assertRedirect(route('password.request'))
+        ->assertSessionHasErrors('email');
 
     Notification::assertNothingSent();
     expect(DB::table('password_reset_tokens')->count())->toBe(0);
 
-    // Pengajuan beruntun ke akun aktif dalam 60 detik terkena throttle broker, tetapi respons layar tetap netral dan email kedua tidak dikirim.
+    // Pengajuan beruntun ke akun aktif dalam 60 detik hanya mengirim 1 email lalu memberi informasi sudah diproses.
     $this->post(route('password.email'), ['email' => $activeUser->email])
-        ->assertSessionHas('status', $expectedStatus);
+        ->assertSessionHas('status', 'Tautan pengaturan ulang kata sandi telah dikirim ke email Anda. Silakan periksa kotak masuk atau folder spam.');
     $this->post(route('password.email'), ['email' => $activeUser->email])
-        ->assertSessionHas('status', $expectedStatus);
+        ->assertSessionHas('status', 'Permintaan pengaturan ulang kata sandi baru saja diproses. Silakan periksa kotak masuk email Anda atau coba kembali dalam 1 menit.');
 
     Notification::assertSentToTimes($activeUser, ResetPasswordNotification::class, 1);
 });

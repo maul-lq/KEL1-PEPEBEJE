@@ -19,6 +19,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -278,6 +280,22 @@ class UserController extends Controller
         $validated['name'] = $validated['nama'];
 
         $user->update($validated);
+
+        // merotasi remember_token dan menandai cache sesi agar pengguna aktif yang dinonaktifkan/ditolak Admin langsung diputus ke halaman Login beserta pesannya.
+        if (! $user->status_aktif || $user->status_registrasi !== User::STATUS_REGISTRASI_DISETUJUI) {
+            $user->forceFill(['remember_token' => Str::random(60)])->save();
+
+            $reason = match ($user->status_registrasi) {
+                User::STATUS_REGISTRASI_DITOLAK => 'Pendaftaran akun Anda ditolak oleh Administrator.'
+                    .($user->alasan_penolakan ? " Alasan: {$user->alasan_penolakan}" : ''),
+                User::STATUS_REGISTRASI_MENUNGGU => 'Pendaftaran akun Anda sedang menunggu verifikasi dan persetujuan dari Administrator.',
+                default => 'Akun Anda telah dinonaktifkan oleh Administrator.',
+            };
+
+            Cache::put("force_logout_user_{$user->id_user}", $reason, now()->addHours(24));
+        } else {
+            Cache::forget("force_logout_user_{$user->id_user}");
+        }
 
         if (class_exists(AuditLog::class) && Auth::check()) {
             AuditLog::catat(

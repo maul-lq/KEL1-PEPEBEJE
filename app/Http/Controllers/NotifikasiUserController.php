@@ -384,6 +384,7 @@ class NotifikasiUserController extends Controller
         }
 
         $recentNotifications = (clone $baseQuery)
+            ->where('is_dismissed', false)
             ->latest('id')
             ->take(8)
             ->get()

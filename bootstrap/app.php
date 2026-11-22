@@ -9,6 +9,7 @@
  */
 
 use App\Http\Middleware\CheckRole;
+use App\Http\Middleware\PreventBackHistory;
 use App\Http\Middleware\SessionTimeout;
 use App\Http\Middleware\TriggerDueReminders;
 use Illuminate\Foundation\Application;
@@ -47,6 +48,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => CheckRole::class,
             'session.timeout' => SessionTimeout::class,
+            'prevent.back' => PreventBackHistory::class,
         ]);
     })
     // menyeragamkan respons error agar klien JSON menerima JSON aman, sementara akses browser biasa (termasuk URL /api/*) merender halaman error HTML.

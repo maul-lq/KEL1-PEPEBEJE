@@ -57,6 +57,11 @@
                         <span>Notifikasi Browser Aktif</span>
                     </span>
                 </template>
+                <template x-if="!secureContext">
+                    <span class="px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-[11px] font-medium text-slate-600 inline-flex items-center gap-1.5">
+                        <span>Notifikasi browser memerlukan alamat localhost (127.0.0.1) atau koneksi HTTPS</span>
+                    </span>
+                </template>
                 <template x-if="supported && permission === 'denied'">
                     <span class="px-3 py-1.5 rounded-xl border border-amber-200 bg-amber-50 text-[11px] font-medium text-amber-800 inline-flex items-center gap-1.5"
                           title="Klik ikon izin situs di bilah alamat peramban lalu ubah Notifikasi menjadi Izinkan">

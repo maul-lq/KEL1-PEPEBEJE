@@ -37,15 +37,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Session Lifetime
+    | Session Lifetime & Idle Timeout
     |--------------------------------------------------------------------------
     |
-    | menggunakan nilai lifetime ini (di .env disetel 15 menit sesuai NFR
-    | keamanan sesi) yang juga menjadi acuan middleware SessionTimeout.
+    | memisahkan masa simpan record sesi (`lifetime`, 120 menit) dari batas waktu
+    | ketidakaktifan (`idle_timeout`, 15 menit / 900 detik) agar middleware SessionTimeout
+    | selalu sempat membaca `last_activity` dan mengirim peringatan saat sesi berakhir.
     |
     */
 
     'lifetime' => (int) env('SESSION_LIFETIME', 120),
+
+    'idle_timeout' => (int) env('SESSION_IDLE_TIMEOUT', 15),
 
     'expire_on_close' => env('SESSION_EXPIRE_ON_CLOSE', false),
 

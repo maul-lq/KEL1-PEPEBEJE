@@ -58,8 +58,20 @@ function getActiveLanIp() {
  * `npm run dev` atau `npm run build`
  */
 export default defineConfig(({ mode }) => {
-    // mengizinkan override manual via VITE_DEV_IP apabila mesin memiliki beberapa antarmuka jaringan aktif sekaligus.
-    const lanIp = process.env.VITE_DEV_IP || getActiveLanIp();
+    const env = loadEnv(mode, process.cwd(), '');
+    let defaultHost = '127.0.0.1';
+
+    try {
+        if (env.APP_URL) {
+            defaultHost = new URL(env.APP_URL).hostname || '127.0.0.1';
+        }
+    } catch {
+        defaultHost = '127.0.0.1';
+    }
+
+    // menyelaraskan host HMR dengan hostname APP_URL agar akses dari 127.0.0.1 tidak gagal WebSocket, sambil tetap mendukung VITE_DEV_IP=lan untuk uji perangkat jaringan lokal.
+    const explicitDevIp = process.env.VITE_DEV_IP || env.VITE_DEV_IP;
+    const hmrHost = explicitDevIp === 'lan' ? getActiveLanIp() : (explicitDevIp || defaultHost);
 
     return {
         plugins: [
@@ -80,14 +92,14 @@ export default defineConfig(({ mode }) => {
             tailwindcss(),
         ],
         server: {
-            // mengikat ke 0.0.0.0 dengan strictPort agar URL aset @vite pada Blade selalu cocok dengan port 5173.
+            // mengikat ke 0.0.0.0 dengan strictPort agar server tetap menerima koneksi dari host lokal maupun LAN sesuai origin/hmr.
             host: '0.0.0.0',
             port: 5173,
             strictPort: true,
             cors: true,
-            origin: `http://${lanIp}:5173`,
+            origin: `http://${hmrHost}:5173`,
             hmr: {
-                host: lanIp,
+                host: hmrHost,
             },
             watch: {
                 // mengecualikan cache Blade terkompilasi supaya perubahan view tidak memicu reload loop tanpa henti.

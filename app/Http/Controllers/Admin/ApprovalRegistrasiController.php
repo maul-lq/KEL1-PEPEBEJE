@@ -19,6 +19,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -129,6 +131,8 @@ class ApprovalRegistrasiController extends Controller
         $user->alasan_penolakan = null;
         $user->save();
 
+        Cache::forget("force_logout_user_{$user->id_user}");
+
         AuditLog::catat(
             $admin?->id_user ?? $user->id_user,
             'REGISTRASI_USER_DISETUJUI',
@@ -185,7 +189,14 @@ class ApprovalRegistrasiController extends Controller
         $user->alasan_penolakan = $validated['alasan_penolakan'];
         $user->id_admin_approval = $admin?->id_user;
         $user->tanggal_approval = now();
+        $user->forceFill(['remember_token' => Str::random(60)]);
         $user->save();
+
+        Cache::put(
+            "force_logout_user_{$user->id_user}",
+            "Pendaftaran akun Anda ditolak oleh Administrator. Alasan: {$validated['alasan_penolakan']}",
+            now()->addHours(24)
+        );
 
         AuditLog::catat(
             $admin?->id_user ?? $user->id_user,

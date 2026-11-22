@@ -324,7 +324,8 @@
                             <input
                                 name="password"
                                 :type="showPassword ? 'text' : 'password'"
-                                placeholder="Minimal 8 karakter"
+                                placeholder="Minimal 6 karakter"
+                                minlength="6"
                                 required
                                 class="h-[55px] w-full rounded-[5px] border border-[#D2D2D2] bg-[#F5F6FF] pl-[22px] pr-14 text-base text-black outline-none placeholder:text-[#AAA] focus:border-[#3B82F6] [&::-ms-reveal]:hidden"
                             />

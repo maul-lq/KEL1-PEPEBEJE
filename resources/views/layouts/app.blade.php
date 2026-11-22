@@ -38,7 +38,11 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Iceland&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
-<body x-data="appShell" class="min-h-screen bg-[#F4F8FA] text-gray-800 flex antialiased">
+<body x-data="appShell"
+      data-auth-page="{{ Auth::check() ? '1' : '0' }}"
+      data-idle-timeout-ms="{{ Auth::check() ? ((int) config('session.idle_timeout', 15) * 60 * 1000) : 0 }}"
+      data-login-url="{{ route('login') }}"
+      class="min-h-screen bg-[#F4F8FA] text-gray-800 flex antialiased">
 
     @auth
     @php

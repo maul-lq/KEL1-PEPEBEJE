@@ -20,7 +20,7 @@ import {
     modalDialog,
 } from './modules/ui_helpers.js';
 import { appShell, headerNotificationBar } from './modules/layout.js';
-import { initLoginAutofill, loginForm, registerForm, resetPasswordForm } from './modules/auth.js';
+import { loginForm, registerForm, resetPasswordForm } from './modules/auth.js';
 import {
     adminDashboardApproval,
     adminRoleRow,
@@ -134,7 +134,7 @@ document.addEventListener('alpine:init', () => {
 /**
  * Inisialisasi pengikat event DOM global setelah struktur dokumen HTML selesai dimuat.
  *
- * Tujuan: menjalankan delegasi tombol global, autofill demo login, dan pemilih SPP cair
+ * Tujuan: menjalankan delegasi tombol global dan pemilih SPP cair
  * tepat setelah DOM tersedia tanpa memerlukan inline `<script>` di file Blade.
  * Parameter: Callback event `DOMContentLoaded`.
  * Nilai kembali: Tidak mengembalikan nilai.
@@ -142,6 +142,5 @@ document.addEventListener('alpine:init', () => {
  */
 document.addEventListener('DOMContentLoaded', () => {
     initGlobalDomHandlers();
-    initLoginAutofill();
     initPembayaranPencairan();
 });

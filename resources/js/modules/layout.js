@@ -8,10 +8,34 @@
  */
 
 /**
+ * Menghentikan poller latar dan mengarahkan tab browser ke halaman masuk saat sesi berakhir atau dicabut.
+ *
+ * Tujuan: mencegah permintaan beruntun dari dua komponen polling ketika sesi telah berakhir dan
+ * menimpa riwayat peramban dengan `location.replace` agar tombol Back tidak kembali ke halaman lama.
+ * Parameter: `{string} [redirectUrl]` - URL halaman masuk opsional dari respons JSON 401 server.
+ * Nilai kembali: Tidak mengembalikan nilai.
+ * Contoh pemanggilan: `redirectToLoginOnSessionEnd(payload?.redirect);`
+ */
+export function redirectToLoginOnSessionEnd(redirectUrl) {
+    if (window.__simpbjRedirectingToLogin) {
+        return;
+    }
+    window.__simpbjRedirectingToLogin = true;
+
+    if (window.__simpbjNotifPollerTimer) {
+        clearInterval(window.__simpbjNotifPollerTimer);
+    }
+
+    const fallbackLoginUrl = document.body?.dataset?.loginUrl || '/login';
+    window.location.replace(redirectUrl || fallbackLoginUrl);
+}
+
+/**
  * Mengelola kondisi buka/tutup bilah navigasi samping pada tampilan desktop dan seluler.
  *
  * Tujuan: membedakan perilaku tombol toggle berdasarkan breakpoint layar (`768px`) agar
- * sidebar di layar seluler menutup drawer sepenuhnya sedangkan desktop hanya menciut/melebar.
+ * sidebar di layar seluler menutup drawer sepenuhnya sedangkan desktop hanya menciut/melebar,
+ * sekaligus memasang penjagaan anti-BFCache serta timer idle klien 15 menit pada halaman privat.
  * Parameter: Tidak menerima argumen.
  * Nilai kembali: Objek state dan method toggle sidebar untuk Alpine.js.
  * Contoh pemanggilan: `<body x-data="appShell()">`
@@ -20,6 +44,61 @@ export function appShell() {
     return {
         sidebarExpanded: false,
         mobileSidebarOpen: false,
+
+        /**
+         * Memasang penjaga riwayat Back browser dan pelacak aktivitas pengguna untuk timeout sesi.
+         *
+         * Tujuan: memaksa pemuatan ulang bila browser mencoba memulihkan snapshot dari BFCache
+         * sesudah logout, dan memicu validasi ulang ke server tepat setelah batas idle 15 menit.
+         * Parameter: Tidak menerima argumen.
+         * Nilai kembali: Tidak mengembalikan nilai.
+         * Contoh pemanggilan: Dijalankan otomatis oleh Alpine saat elemen body dimuat.
+         */
+        init() {
+            const isAuthPage = document.body?.dataset?.authPage === '1';
+            if (!isAuthPage || window.__simpbjSessionGuardsReady) {
+                return;
+            }
+            window.__simpbjSessionGuardsReady = true;
+
+            // memuat ulang halaman jika browser memulihkan halaman privat dari Back/Forward Cache setelah logout.
+            window.addEventListener('pageshow', (event) => {
+                if (event.persisted) {
+                    window.location.reload();
+                }
+            });
+
+            const idleTimeoutMs = parseInt(document.body?.dataset?.idleTimeoutMs || '0', 10);
+            if (!idleTimeoutMs || idleTimeoutMs <= 0) {
+                return;
+            }
+
+            let idleTimerId = null;
+            let lastActivityMark = 0;
+
+            const scheduleIdleCheck = () => {
+                const now = Date.now();
+                if (now - lastActivityMark < 1000 && idleTimerId !== null) {
+                    return;
+                }
+                lastActivityMark = now;
+
+                if (idleTimerId !== null) {
+                    clearTimeout(idleTimerId);
+                }
+
+                // memberi jeda +1 detik melewati batas 900 detik agar middleware SessionTimeout server pasti mendeteksinya sebagai expired.
+                idleTimerId = setTimeout(() => {
+                    window.location.reload();
+                }, idleTimeoutMs + 1000);
+            };
+
+            ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'].forEach((eventName) => {
+                window.addEventListener(eventName, scheduleIdleCheck, { passive: true });
+            });
+
+            scheduleIdleCheck();
+        },
 
         /**
          * Mengubah status bilah sisi menyesuaikan ukuran layar seluler atau desktop.
@@ -176,6 +255,11 @@ export function headerNotificationBar() {
                     credentials: 'same-origin',
                     headers: { Accept: 'application/json' },
                 });
+                if (res.status === 401) {
+                    const expiredPayload = await res.json().catch(() => null);
+                    redirectToLoginOnSessionEnd(expiredPayload?.redirect);
+                    return;
+                }
                 if (!res.ok) {
                     return;
                 }

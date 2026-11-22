@@ -2,11 +2,127 @@
  * Informasi File
  *
  * Penulis   : Rizlrad Fz
- * Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
  * Ringkasan : Modul ini bangun untuk mengelola notifikasi real-time di dalam aplikasi dan
  *             browser (toast antarmuka, polling berkala API notifikasi, kursor ID persisten di
- *             localStorage, serta pendaftaran Service Worker PWA `/sw.js`).
+ *             localStorage, serta pendaftaran Service Worker `/sw.js` dengan fallback aman).
  */
+
+import { redirectToLoginOnSessionEnd } from './layout.js';
+
+/**
+ * Memeriksa apakah peramban mendukung Web Notification pada konteks asal aman (localhost atau HTTPS).
+ *
+ * Tujuan: mencegah tombol izin notifikasi tampak aktif namun gagal diam-diam saat halaman dibuka melalui IP LAN HTTP.
+ * Parameter: Tidak menerima argumen.
+ * Nilai kembali: `{boolean}` Bernilai true jika API Notification tersedia dan berjalan di konteks aman.
+ * Contoh pemanggilan: `if (isBrowserNotificationSupported()) { ... }`
+ */
+function isBrowserNotificationSupported() {
+    return typeof Notification !== 'undefined' && window.isSecureContext !== false;
+}
+
+/**
+ * Mengirimkan notifikasi sistem operasi melalui Service Worker beserta fallback otomatis ke Notification API standar.
+ *
+ * Tujuan: mempertahankan pemakaian ikon/badge `favicon.ico` serta tag unik per ID notifikasi sambil
+ * menjamin kegagalan `reg.showNotification()` tetap jatuh ke constructor `Notification` standar.
+ * Parameter: `{string} title`, `{string} body`, `{string} [url='/notifikasi']`, `{string|number} [tagSuffix]`.
+ * Nilai kembali: `{Promise<void>}` Promise pengiriman notifikasi OS.
+ * Contoh pemanggilan: `await displayNativeBrowserNotification('Judul', 'Isi pesan', '/notifikasi', 15);`
+ */
+async function displayNativeBrowserNotification(title, body, url = '/notifikasi', tagSuffix = '') {
+    if (!isBrowserNotificationSupported() || Notification.permission !== 'granted') {
+        return;
+    }
+
+    const uniqueId = tagSuffix || `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const targetUrl = url || '/notifikasi';
+    const tag = `simpbj-notif-${uniqueId}`;
+
+    const swOptions = {
+        body,
+        icon: '/favicon.ico',
+        badge: '/favicon.ico',
+        data: { url: targetUrl },
+        tag,
+        renotify: true,
+    };
+
+    if ('serviceWorker' in navigator) {
+        try {
+            const registration = (await navigator.serviceWorker.getRegistration('/')) || (await navigator.serviceWorker.ready);
+            if (registration && typeof registration.showNotification === 'function') {
+                await registration.showNotification(title, swOptions);
+                return;
+            }
+        } catch (swError) {
+            // lanjut ke fallback Notification() langsung bila Service Worker menolak opsi ikon/badge atau belum aktif.
+        }
+    }
+
+    try {
+        const notif = new Notification(title, {
+            body,
+            icon: '/favicon.ico',
+            data: { url: targetUrl },
+            tag,
+        });
+        notif.onclick = function () {
+            window.focus();
+            window.location.href = targetUrl;
+        };
+    } catch (directError) {
+        try {
+            // mencoba ulang tanpa ikon apabila sistem operasi menolak ukuran ikon besar pada konstruktor langsung.
+            const plainNotif = new Notification(title, { body, tag });
+            plainNotif.onclick = function () {
+                window.focus();
+                window.location.href = targetUrl;
+            };
+        } catch (fallbackError) {
+            console.warn('Gagal menampilkan notifikasi browser OS:', fallbackError);
+        }
+    }
+}
+
+/**
+ * Meminta izin notifikasi peramban langsung pada konteks klik pengguna agar diterima oleh Firefox dan Chrome.
+ *
+ * Tujuan: menjaga keabsahan user-gesture saat memanggil `Notification.requestPermission()`, menyiarkan
+ * status izin baru ke seluruh komponen UI, dan mengirim satu notifikasi uji begitu izin diberikan.
+ * Parameter: `{Function} [onPermissionResolved]` - Callback opsional penerima nilai permission baru.
+ * Nilai kembali: `{Promise<string|null>}` Status izin (`granted`, `denied`, `default`) atau null bila tidak didukung.
+ * Contoh pemanggilan: `await requestDirectNotificationPermission((perm) => { this.permission = perm; });`
+ */
+async function requestDirectNotificationPermission(onPermissionResolved) {
+    if (!isBrowserNotificationSupported()) {
+        return null;
+    }
+
+    try {
+        const permission = await Notification.requestPermission();
+        if (typeof onPermissionResolved === 'function') {
+            onPermissionResolved(permission);
+        }
+
+        window.dispatchEvent(new CustomEvent('simpbj-permission-changed', { detail: { permission } }));
+
+        if (permission === 'granted') {
+            await displayNativeBrowserNotification(
+                'SIM-PBJ Politeknik Negeri Jakarta',
+                'Notifikasi browser aktif! Anda akan menerima pemberitahuan pengadaan secara langsung.',
+                '/notifikasi',
+                `welcome-${Date.now()}`
+            );
+        }
+
+        return permission;
+    } catch (error) {
+        console.warn('Gagal meminta izin notifikasi browser:', error);
+        return null;
+    }
+}
 
 /**
  * Mengelola polling notifikasi latar belakang, antrean toast in-app, dan notifikasi native OS.
@@ -20,7 +136,8 @@
 export function desktopNotificationManager() {
     return {
         userId: 'guest',
-        permission: typeof Notification !== 'undefined' ? Notification.permission : 'denied',
+        supported: isBrowserNotificationSupported(),
+        permission: isBrowserNotificationSupported() ? Notification.permission : 'denied',
         showBanner: false,
         inAppToasts: [],
         seenToastIds: new Set(),
@@ -28,16 +145,17 @@ export function desktopNotificationManager() {
         /**
          * Memeriksa izin notifikasi browser, mendaftarkan Service Worker, dan menyalakan poller.
          *
-         * Tujuan: hanya menampilkan banner permintaan izin sekali per pengguna jika pengguna
-         * belum memilih dan belum menekan tombol tutup permanen.
+         * Tujuan: hanya menampilkan kontrol permintaan izin bila konteks asal aman mendukung Web Notification
+         * serta menyinkronkan status izin terbaru bila diubah lewat tombol halaman Notifikasi.
          * Parameter: Tidak menerima argumen.
          * Nilai kembali: Tidak mengembalikan nilai.
          * Contoh pemanggilan: Dipanggil otomatis saat komponen dimuat oleh Alpine.
          */
         init() {
             this.userId = this.$el?.dataset?.userId || 'guest';
+            this.supported = isBrowserNotificationSupported();
 
-            if (typeof Notification !== 'undefined') {
+            if (this.supported) {
                 this.permission = Notification.permission;
                 const dismissKey = `simpbj_os_notif_dismissed_${this.userId}`;
                 if (this.permission === 'default' && !localStorage.getItem(dismissKey)) {
@@ -45,8 +163,15 @@ export function desktopNotificationManager() {
                 }
             }
 
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('/sw.js').catch((err) => {
+            window.addEventListener('simpbj-permission-changed', (event) => {
+                if (event.detail?.permission) {
+                    this.permission = event.detail.permission;
+                    this.showBanner = false;
+                }
+            });
+
+            if (this.supported && 'serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch((err) => {
                     console.warn('Gagal mendaftarkan Service Worker SIM-PBJ:', err);
                 });
             }
@@ -55,31 +180,17 @@ export function desktopNotificationManager() {
         },
 
         /**
-         * Meminta izin notifikasi native browser kepada pengguna dan mengirim notifikasi uji bila disetujui.
+         * Meminta izin notifikasi native browser kepada pengguna secara langsung dan mengirim notifikasi uji bila disetujui.
          *
-         * Tujuan: menyebarkan CustomEvent `simpbj-permission-changed` agar komponen tombol status
-         * izin di halaman profil atau header langsung tersinkron tanpa reload.
+         * Tujuan: memanggil helper izin sinkron dari handler klik dan menutup banner permintaan izin.
          * Parameter: Tidak menerima argumen.
-         * Nilai kembali: Tidak mengembalikan nilai.
+         * Nilai kembali: `{Promise<void>}`
          * Contoh pemanggilan: `@click="requestPermission()"`
          */
-        requestPermission() {
-            if (typeof Notification === 'undefined') {
-                return;
-            }
-
-            Notification.requestPermission().then((perm) => {
+        async requestPermission() {
+            await requestDirectNotificationPermission((perm) => {
                 this.permission = perm;
                 this.showBanner = false;
-                window.dispatchEvent(new CustomEvent('simpbj-permission-changed', { detail: { permission: perm } }));
-
-                if (perm === 'granted') {
-                    this.showNativeAlert(
-                        'SIM-PBJ Politeknik Negeri Jakarta',
-                        'Notifikasi browser aktif! Anda akan menerima pemberitahuan pengadaan secara langsung.',
-                        '/notifikasi'
-                    );
-                }
             });
         },
 
@@ -148,8 +259,8 @@ export function desktopNotificationManager() {
         /**
          * Memulai polling periodik 20 detik sekali beserta sinkronisasi saat tab kembali aktif.
          *
-         * Tujuan: menyimpan penanda poller global per `userId` untuk mencegah interval ganda saat
-         * komponen terinisialisasi ulang, serta mematikan timer otomatis bila server merespons HTTP 401.
+         * Tujuan: memunculkan hingga 3 notifikasi belum dibaca terbaru pada kunjungan perdana agar
+         * alert sebelum login tidak terlewati, lalu memantau item berikutnya memakai `since_id`.
          * Parameter: Tidak menerima argumen.
          * Nilai kembali: Tidak mengembalikan nilai.
          * Contoh pemanggilan: `this.startPolling();`
@@ -166,6 +277,21 @@ export function desktopNotificationManager() {
 
             const cursorKey = `simpbj_last_notified_id_${this.userId}`;
             let lastCheckAt = 0;
+
+            const dispatchItemAlerts = (items) => {
+                items.forEach((item) => {
+                    this.pushToast(item);
+
+                    if (isBrowserNotificationSupported() && Notification.permission === 'granted') {
+                        this.showNativeAlert(
+                            item.judul || 'SIM-PBJ: Notifikasi Pengadaan',
+                            item.pesan + (item.referensi ? ` (${item.referensi})` : ''),
+                            item.action_url || '/notifikasi',
+                            item.id
+                        );
+                    }
+                });
+            };
 
             const checkNewAlerts = () => {
                 const now = Date.now();
@@ -185,12 +311,11 @@ export function desktopNotificationManager() {
                     credentials: 'same-origin',
                     headers: { Accept: 'application/json' },
                 })
-                    .then((res) => {
-                        // Jika sesi berakhir (401), hentikan interval agar tidak terus mengirim request gagal.
+                    .then(async (res) => {
+                        // Jika sesi berakhir atau akun dinonaktifkan (401), hentikan polling dan alihkan ke halaman masuk.
                         if (res.status === 401) {
-                            if (window.__simpbjNotifPollerTimer) {
-                                clearInterval(window.__simpbjNotifPollerTimer);
-                            }
+                            const expiredPayload = await res.json().catch(() => null);
+                            redirectToLoginOnSessionEnd(expiredPayload?.redirect);
                             return null;
                         }
                         return res.json();
@@ -200,22 +325,22 @@ export function desktopNotificationManager() {
                             return;
                         }
 
-                        // Pada kunjungan perdana tanpa kursor, simpan latest_id tanpa membanjiri layar dengan notifikasi lama.
                         if (!hasCursor) {
+                            // memicu toast & notifikasi OS untuk maksimal 3 item belum dibaca terbaru agar notifikasi yang masuk sebelum tab terbuka tetap tersampaikan.
+                            const unreadRecent = Array.isArray(payload.recent)
+                                ? payload.recent.filter((item) => !item.is_read).slice(0, 3).reverse()
+                                : [];
+
+                            if (unreadRecent.length > 0) {
+                                dispatchItemAlerts(unreadRecent);
+                            }
+
                             const initialCursor = Number(payload.latest_id || 0);
                             localStorage.setItem(cursorKey, String(initialCursor));
                         } else if (Array.isArray(payload.data) && payload.data.length > 0) {
+                            dispatchItemAlerts(payload.data);
+
                             payload.data.forEach((item) => {
-                                this.pushToast(item);
-
-                                if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-                                    this.showNativeAlert(
-                                        item.judul || 'SIM-PBJ: Notifikasi Pengadaan',
-                                        item.pesan + (item.referensi ? ` (${item.referensi})` : ''),
-                                        item.action_url || '/notifikasi'
-                                    );
-                                }
-
                                 if (item.id > lastSeenId) {
                                     lastSeenId = item.id;
                                 }
@@ -232,67 +357,42 @@ export function desktopNotificationManager() {
             window.__simpbjNotifPollerTimer = setInterval(checkNewAlerts, 20000);
 
             document.addEventListener('visibilitychange', () => {
-                if (!document.hidden && Date.now() - lastCheckAt > 15000) {
+                if (!document.hidden && Date.now() - lastCheckAt > 5000) {
                     checkNewAlerts();
                 }
             });
         },
 
         /**
-         * Menampilkan notifikasi desktop OS melalui Service Worker atau fallback API Notification.
+         * Menampilkan notifikasi desktop OS melalui Service Worker atau fallback API Notification langsung.
          *
-         * Tujuan: memprioritaskan `registration.showNotification` agar notifikasi mendukung
-         * klik navigasi di background lewat `sw.js`, dengan fallback objek `Notification` standar.
-         * Parameter: `{string} title`, `{string} body`, `{string} url`.
+         * Tujuan: meneruskan pengiriman ke helper terpusat lengkap dengan tag unik per ID notifikasi.
+         * Parameter: `{string} title`, `{string} body`, `{string} url`, `{string|number} [tagId]`.
          * Nilai kembali: Tidak mengembalikan nilai.
-         * Contoh pemanggilan: `this.showNativeAlert('Judul', 'Isi pesan', '/notifikasi');`
+         * Contoh pemanggilan: `this.showNativeAlert('Judul', 'Isi pesan', '/notifikasi', 42);`
          */
-        showNativeAlert(title, body, url) {
-            if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
-                return;
-            }
-
-            const options = {
-                body,
-                icon: '/favicon.ico',
-                badge: '/favicon.ico',
-                data: { url: url || '/notifikasi' },
-                tag: `simpbj-notif-${Date.now()}`,
-                renotify: true,
-            };
-
-            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-                navigator.serviceWorker.ready.then((reg) => {
-                    reg.showNotification(title, options);
-                });
-            } else {
-                try {
-                    const notif = new Notification(title, options);
-                    notif.onclick = function () {
-                        window.focus();
-                        window.location.href = url || '/notifikasi';
-                    };
-                } catch (e) {
-                    console.warn('Fallback Notification gagal:', e);
-                }
-            }
+        showNativeAlert(title, body, url, tagId = '') {
+            void displayNativeBrowserNotification(title, body, url, tagId);
         },
     };
 }
 
 /**
- * Menyediakan kontrol UI sederhana untuk menampilkan dan memicu izin notifikasi browser.
+ * Menyediakan kontrol UI untuk menampilkan status izin dan memicu permintaan izin notifikasi browser langsung.
  *
- * Tujuan: menjembatani tombol pengaktifan notifikasi di halaman notifikasi/profil dengan
- * komponen manajer utama lewat event global `simpbj-request-browser-permission`.
+ * Tujuan: memanggil `Notification.requestPermission()` secara sinkron di dalam aksi klik pengguna
+ * serta mendeteksi konteks asal tidak aman agar pesan status akurat di seluruh browser.
  * Parameter: Tidak menerima argumen.
- * Nilai kembali: Objek state `supported`, `permission`, dan method `activate()` untuk Alpine.js.
+ * Nilai kembali: Objek state `supported`, `secureContext`, `permission`, dan method `activate()` untuk Alpine.js.
  * Contoh pemanggilan: `<div x-data="browserNotificationControl()">`
  */
 export function browserNotificationControl() {
+    const secureContext = window.isSecureContext !== false;
+
     return {
-        supported: typeof Notification !== 'undefined',
-        permission: typeof Notification !== 'undefined' ? Notification.permission : 'unsupported',
+        secureContext,
+        supported: typeof Notification !== 'undefined' && secureContext,
+        permission: isBrowserNotificationSupported() ? Notification.permission : 'unsupported',
 
         /**
          * Mendengarkan pembaruan status izin notifikasi agar label tombol UI ikut berubah seketika.
@@ -312,18 +412,21 @@ export function browserNotificationControl() {
         },
 
         /**
-         * Mengirim sinyal global guna meminta prompt perizinan notifikasi dari manajer utama.
+         * Meminta izin notifikasi secara langsung di konteks klik pengguna agar tidak diblokir browser.
          *
-         * Tujuan: mengabaikan aksi secara aman jika peramban tidak mendukung Notification API.
+         * Tujuan: menghindari pemutusan rantai user-gesture akibat pengiriman CustomEvent antarkomponen.
          * Parameter: Tidak menerima argumen.
-         * Nilai kembali: Tidak mengembalikan nilai.
+         * Nilai kembali: `{Promise<void>}`
          * Contoh pemanggilan: `@click="activate()"`
          */
-        activate() {
+        async activate() {
             if (!this.supported) {
                 return;
             }
-            window.dispatchEvent(new CustomEvent('simpbj-request-browser-permission'));
+
+            await requestDirectNotificationPermission((perm) => {
+                this.permission = perm;
+            });
         },
     };
 }
