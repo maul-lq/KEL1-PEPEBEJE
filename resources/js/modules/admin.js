@@ -34,9 +34,10 @@ export function adminUsers() {
          * Contoh pemanggilan: `@click="openEdit(userRow)"`
          */
         openEdit(user) {
-            // kloning objek dan ubah id_role ke string agar <select> x-model langsung menyorot peran aktif.
+            // kloning objek, ubah id_role ke string untuk <select> x-model, dan normalkan status_aktif menjadi boolean untuk checkbox x-model.
             this.editUser = Object.assign({}, user, {
                 id_role: user.id_role != null ? String(user.id_role) : '',
+                status_aktif: Boolean(user.status_aktif),
             });
             this.editUserModal = true;
         },

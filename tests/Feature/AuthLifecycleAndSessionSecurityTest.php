@@ -9,8 +9,11 @@
  */
 
 use App\Http\Middleware\PreventBackHistory;
+use App\Models\NotifikasiUser;
+use App\Models\Reminder;
 use App\Models\Unit;
 use App\Models\User;
+use App\Notifications\AccountStatusNotification;
 use App\Notifications\PengingatPengadaanNotification;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -164,15 +167,18 @@ it('displays clear alerts on login page for pending approval, rejected, deactiva
         ->assertSee('Terlalu banyak percobaan login gagal.');
 });
 
-it('terminates active sessions immediately with login notice when admin deactivates or rejects a logged-in user', function (): void {
+it('terminates active sessions immediately, notifies user via inbox and email, and enforces admin user activation guards', function (): void {
+    Notification::fake();
+
     $admin = User::factory()->withRole(User::ROLE_ADMIN)->create();
     $pengusul = User::factory()->withRole(User::ROLE_USER)->create([
         'username' => 'user_aktif',
         'password' => 'rahasia123',
         'remember_token' => 'token-ingat-awal',
+        'reminder_email_aktif' => false,
     ]);
 
-    // Admin menonaktifkan akun pengusul lewat panel manajemen pengguna.
+    // 1. Admin menonaktifkan akun lewat hidden checkbox '0' -> status_aktif false, notifikasi & email status akun terkirim.
     $this->actingAs($admin)
         ->put(route('admin.users.update', $pengusul), [
             'nip' => $pengusul->nip,
@@ -181,7 +187,7 @@ it('terminates active sessions immediately with login notice when admin deactiva
             'nama' => $pengusul->nama,
             'jabatan' => $pengusul->jabatan,
             'id_role' => $pengusul->id_role,
-            'status_aktif' => 0,
+            'status_aktif' => '0',
             'status_registrasi' => User::STATUS_REGISTRASI_DISETUJUI,
             'no_hp' => $pengusul->no_hp,
             'kode_unit' => $pengusul->kode_unit,
@@ -192,7 +198,35 @@ it('terminates active sessions immediately with login notice when admin deactiva
     expect($pengusul->status_aktif)->toBeFalse()
         ->and($pengusul->remember_token)->not->toBe('token-ingat-awal');
 
-    // Sesi pengusul yang masih aktif pada request berikutnya langsung diputus dan diberi tahu di halaman masuk.
+    $deactivatedNotif = NotifikasiUser::with('reminder')
+        ->where('id_user', $pengusul->id_user)
+        ->latest('id')
+        ->first();
+    expect($deactivatedNotif)->not->toBeNull()
+        ->and($deactivatedNotif->reminder?->tipe_reminder)->toBe(Reminder::TIPE_AKUN)
+        ->and($deactivatedNotif->judul)->toContain('Dinonaktifkan')
+        ->and($deactivatedNotif->jenis_badge)->toBe('Akun');
+
+    Notification::assertSentTo(
+        $pengusul,
+        AccountStatusNotification::class,
+        fn (AccountStatusNotification $notification): bool => $notification->isActive === false
+    );
+    Notification::assertNotSentTo($pengusul, PengingatPengadaanNotification::class);
+
+    // 2. Percobaan login baru oleh akun yang baru dinonaktifkan ditolak dengan pesan error jelas.
+    $this->post('/logout');
+    $this->from(route('login'))
+        ->followingRedirects()
+        ->post(route('login'), [
+            'login' => $pengusul->username,
+            'password' => 'rahasia123',
+        ])
+        ->assertOk()
+        ->assertSee('Akun Anda sedang dinonaktifkan oleh Administrator.');
+    $this->assertGuest();
+
+    // 3. Sesi pengusul yang masih aktif pada request berikutnya langsung diputus dan diberi tahu di halaman masuk.
     $kickedHtml = $this->actingAs($pengusul)
         ->withSession(['last_activity' => time()])
         ->get(route('dashboard'));
@@ -204,6 +238,64 @@ it('terminates active sessions immediately with login notice when admin deactiva
         ->assertOk()
         ->assertSee('bg-red-50', false)
         ->assertSee('Akun Anda telah dinonaktifkan oleh Administrator.');
+
+    // 4. Admin mengaktifkan kembali akun -> status_aktif true, email pengaktifan terkirim, dan pengguna bisa login kembali.
+    $this->actingAs($admin)
+        ->put(route('admin.users.update', $pengusul), [
+            'nip' => $pengusul->nip,
+            'username' => $pengusul->username,
+            'email' => $pengusul->email,
+            'nama' => $pengusul->nama,
+            'jabatan' => $pengusul->jabatan,
+            'id_role' => $pengusul->id_role,
+            'status_aktif' => '1',
+            'status_registrasi' => User::STATUS_REGISTRASI_DISETUJUI,
+            'no_hp' => $pengusul->no_hp,
+            'kode_unit' => $pengusul->kode_unit,
+        ])
+        ->assertRedirect(route('admin.users.index'));
+
+    $pengusul->refresh();
+    expect($pengusul->status_aktif)->toBeTrue();
+    Notification::assertSentTo(
+        $pengusul,
+        AccountStatusNotification::class,
+        fn (AccountStatusNotification $notification): bool => $notification->isActive === true
+    );
+
+    // 5. Guard Edit Pengguna: Admin tidak bisa menonaktifkan akunnya sendiri dan tidak bisa mengaktifkan akun menunggu persetujuan.
+    $this->actingAs($admin)
+        ->from(route('admin.users.index'))
+        ->put(route('admin.users.update', $admin), [
+            'nip' => $admin->nip,
+            'username' => $admin->username,
+            'email' => $admin->email,
+            'nama' => $admin->nama,
+            'jabatan' => $admin->jabatan,
+            'id_role' => $admin->id_role,
+            'status_aktif' => '0',
+            'no_hp' => $admin->no_hp,
+            'kode_unit' => $admin->kode_unit,
+        ])
+        ->assertSessionHasErrors('status_aktif');
+    expect($admin->fresh()->status_aktif)->toBeTrue();
+
+    $unapproved = User::factory()->pendingApproval()->withRole(User::ROLE_USER)->create();
+    $this->actingAs($admin)
+        ->from(route('admin.users.index'))
+        ->put(route('admin.users.update', $unapproved), [
+            'nip' => $unapproved->nip,
+            'username' => $unapproved->username,
+            'email' => $unapproved->email,
+            'nama' => $unapproved->nama,
+            'jabatan' => $unapproved->jabatan,
+            'id_role' => $unapproved->id_role,
+            'status_aktif' => '1',
+            'no_hp' => $unapproved->no_hp,
+            'kode_unit' => $unapproved->kode_unit,
+        ])
+        ->assertSessionHasErrors('status_aktif');
+    expect($unapproved->fresh()->status_aktif)->toBeFalse();
 
     // Pengujian serupa untuk penolakan akun via ApprovalRegistrasiController serta polling JSON 401.
     Notification::fake();

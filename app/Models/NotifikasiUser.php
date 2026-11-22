@@ -157,6 +157,9 @@ class NotifikasiUser extends Model
         ) {
             return 'Pembayaran';
         }
+        if ($tipe === Reminder::TIPE_AKUN) {
+            return 'Akun';
+        }
         if (in_array($tipe, ['spk', 'tembusan_spk'], true) || str_contains($judul, 'spk') || str_contains($judul, 'kontrak')) {
             return 'Dokumen Kontrak';
         }
@@ -212,6 +215,10 @@ class NotifikasiUser extends Model
         $badge = $this->jenis_badge;
         $judul = strtolower($this->judul);
         $pesan = strtolower($this->pesan);
+
+        if ($tipe === Reminder::TIPE_AKUN) {
+            return ['label' => 'Lihat Notifikasi ↗', 'url' => route('notifikasi.index')];
+        }
 
         if (str_contains($judul, 'pendaftar') || str_contains($judul, 'registrasi')) {
             if ($user?->hasPermission('admin.approval_registrasi')) {

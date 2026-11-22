@@ -12,14 +12,18 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
+use App\Models\NotifikasiUser;
+use App\Models\Reminder;
 use App\Models\Role;
 use App\Models\Unit;
 use App\Models\User;
+use App\Notifications\AccountStatusNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -143,8 +147,10 @@ class UserController extends Controller
             'kode_unit' => ['nullable', 'string', 'exists:units,kode_unit'],
         ]);
 
-        // mengaktifkan akun secara default saat dibuat langsung oleh Admin kecuali Admin menonaktifkannya secara eksplisit.
-        $validated['status_aktif'] = $request->has('status_aktif') ? (bool) $request->status_aktif : true;
+        // membaca boolean eksplisit dari input (termasuk hidden '0' saat checkbox dilepas) dan hanya memakai default aktif jika field sama sekali tidak dikirim.
+        $validated['status_aktif'] = $request->exists('status_aktif')
+            ? $request->boolean('status_aktif')
+            : true;
 
         if (empty($validated['status_registrasi'])) {
             $validated['status_registrasi'] = $validated['status_aktif']
@@ -251,7 +257,28 @@ class UserController extends Controller
             'kode_unit' => ['nullable', 'string', 'exists:units,kode_unit'],
         ]);
 
-        $validated['status_aktif'] = $request->has('status_aktif') ? (bool) $request->status_aktif : (bool) $user->status_aktif;
+        $wasActive = (bool) $user->status_aktif;
+
+        // mengecek keberadaan kunci input agar pelepasan checkbox via hidden '0' terbaca false tanpa mengganggu pembaruan parsial API.
+        $validated['status_aktif'] = $request->exists('status_aktif')
+            ? $request->boolean('status_aktif')
+            : $wasActive;
+
+        // mencegah Administrator menonaktifkan akunnya sendiri yang sedang aktif login agar akses pengelolaan tidak terkunci.
+        if ($user->id_user === Auth::id() && ! $validated['status_aktif']) {
+            throw ValidationException::withMessages([
+                'status_aktif' => 'Anda tidak dapat menonaktifkan akun Anda sendiri yang sedang digunakan untuk masuk.',
+            ]);
+        }
+
+        $effectiveRegistrationStatus = $validated['status_registrasi'] ?? $user->status_registrasi;
+
+        // mewajibkan pendaftaran disetujui lebih dulu supaya aktivasi akun baru tetap melalui menu Persetujuan Registrasi dan penetapan peran.
+        if ($validated['status_aktif'] && $effectiveRegistrationStatus !== User::STATUS_REGISTRASI_DISETUJUI) {
+            throw ValidationException::withMessages([
+                'status_aktif' => 'Akun yang belum disetujui atau ditolak hanya dapat diaktifkan melalui menu Persetujuan Registrasi.',
+            ]);
+        }
 
         $roleRecord = ! empty($validated['id_role'])
             ? Role::findOrFail($validated['id_role'])
@@ -281,8 +308,10 @@ class UserController extends Controller
 
         $user->update($validated);
 
+        $isNowActive = (bool) $user->status_aktif;
+
         // merotasi remember_token dan menandai cache sesi agar pengguna aktif yang dinonaktifkan/ditolak Admin langsung diputus ke halaman Login beserta pesannya.
-        if (! $user->status_aktif || $user->status_registrasi !== User::STATUS_REGISTRASI_DISETUJUI) {
+        if (! $isNowActive || $user->status_registrasi !== User::STATUS_REGISTRASI_DISETUJUI) {
             $user->forceFill(['remember_token' => Str::random(60)])->save();
 
             $reason = match ($user->status_registrasi) {
@@ -295,6 +324,11 @@ class UserController extends Controller
             Cache::put("force_logout_user_{$user->id_user}", $reason, now()->addHours(24));
         } else {
             Cache::forget("force_logout_user_{$user->id_user}");
+        }
+
+        // mengirim pemberitahuan ke kotak masuk aplikasi dan email resmi setiap kali status_aktif berubah (nonaktif atau aktif kembali).
+        if ($wasActive !== $isNowActive) {
+            $this->notifyAccountStatusChange($user, $isNowActive);
         }
 
         if (class_exists(AuditLog::class) && Auth::check()) {
@@ -374,5 +408,64 @@ class UserController extends Controller
         }
 
         return redirect()->route('admin.users.index')->with('success', $message);
+    }
+
+    /**
+     * mencatat notifikasi di aplikasi dan mengirim email pemberitahuan saat status aktif pengguna diubah Admin.
+     *
+     * @param  User  $user  menerima model pengguna sasaran perubahan status.
+     * @param  bool  $isActive  menentukan isi pemberitahuan penonaktifan (`false`) atau pengaktifan kembali (`true`).
+     * @return void Tidak mengembalikan nilai.
+     *
+     * Contoh pemanggilan:
+     * `$this->notifyAccountStatusChange($user, false);`
+     */
+    protected function notifyAccountStatusChange(User $user, bool $isActive): void
+    {
+        $judul = $isActive
+            ? 'Akun Anda Diaktifkan Kembali oleh Administrator'
+            : 'Akun Anda Dinonaktifkan oleh Administrator';
+
+        $pesan = $isActive
+            ? 'Akun SIM-PBJ Anda telah diaktifkan kembali oleh Administrator. Anda sekarang dapat masuk kembali ke sistem.'
+            : 'Akun SIM-PBJ Anda telah dinonaktifkan oleh Administrator. Selama dinonaktifkan, Anda tidak dapat masuk ke sistem.';
+
+        try {
+            $reminder = Reminder::create([
+                'nomor_paket' => null,
+                'tipe_reminder' => Reminder::TIPE_AKUN,
+                'waktu_trigger' => now(),
+                'is_recurring' => false,
+                'is_active' => false,
+                'last_triggered_at' => now(),
+                'judul_alert' => $judul,
+                'pesan_alert' => $pesan,
+            ]);
+
+            // menyimpan riwayat notifikasi tanpa memicu observer agar tidak mengirim email format pengingat paket ganda.
+            NotifikasiUser::createQuietly([
+                'id_user' => $user->id_user,
+                'id_reminder' => $reminder->id_reminder,
+                'is_read' => false,
+                'is_dismissed' => false,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning("Gagal mencatat notifikasi perubahan status akun {$user->username}: {$e->getMessage()}");
+        }
+
+        if (empty($user->email) || ! filter_var($user->email, FILTER_VALIDATE_EMAIL)) {
+            return;
+        }
+
+        try {
+            // mengirim email status akun secara langsung tanpa memedulikan opt-out pengingat pengadaan agar informasi akses akun selalu diterima pemiliknya.
+            $user->notify(new AccountStatusNotification($isActive));
+        } catch (\Throwable $e) {
+            // menahan kegagalan SMTP agar pembaruan status keaktifan akun di database tidak ikut batal.
+            Log::warning("Gagal mengirim email perubahan status akun ke {$user->email}: {$e->getMessage()}", [
+                'user_id' => $user->id_user,
+                'status_aktif' => $isActive,
+            ]);
+        }
     }
 }

@@ -65,6 +65,8 @@ class Reminder extends Model
 
     public const TIPE_JATUH_TEMPO_PEMBAYARAN = 'jatuh_tempo_pembayaran';
 
+    public const TIPE_AKUN = 'akun';
+
     /**
      * Daftar tipe reminder terjadwal yang dieksekusi oleh ReminderSchedulerService agar notifikasi instan tidak ikut diproses ulang.
      *
