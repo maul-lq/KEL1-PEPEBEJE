@@ -404,6 +404,7 @@
 
                 <div class="pt-2 border-t border-slate-100 flex items-center justify-between">
                     <label class="inline-flex items-center gap-2 cursor-pointer">
+                        <input type="hidden" name="status_aktif" value="0">
                         <input type="checkbox" name="status_aktif" value="1" checked class="rounded border-slate-300 text-[#0969da] focus:ring-[#0969da]">
                         <span class="text-xs font-bold text-slate-700">Akun Langsung Aktif (Dapat Login)</span>
                     </label>
@@ -515,11 +516,20 @@
                            class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 focus:border-[#0969da] focus:ring-1 focus:ring-[#0969da]">
                 </div>
 
-                <div class="pt-2 border-t border-slate-100 flex items-center justify-between">
-                    <label class="inline-flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" name="status_aktif" value="1" :checked="editUser.status_aktif" class="rounded border-slate-300 text-[#0969da] focus:ring-[#0969da]">
-                        <span class="text-xs font-bold text-slate-700">Status Akun Aktif (Dapat Login)</span>
-                    </label>
+                <div class="pt-2 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div class="space-y-1">
+                        <label class="inline-flex items-center gap-2" :class="editUser.id_user == {{ Auth::id() }} ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'">
+                            <input type="hidden" name="status_aktif" :value="editUser.id_user == {{ Auth::id() }} ? 1 : 0">
+                            <input type="checkbox" name="status_aktif" value="1" x-model="editUser.status_aktif" :disabled="editUser.id_user == {{ Auth::id() }}" class="rounded border-slate-300 text-[#0969da] focus:ring-[#0969da] disabled:bg-slate-100">
+                            <span class="text-xs font-bold text-slate-700">Status Akun Aktif (Dapat Login)</span>
+                        </label>
+                        <p x-show="editUser.id_user == {{ Auth::id() }}" x-cloak class="text-[11px] text-slate-500">
+                            Akun yang sedang dipakai masuk tidak dapat dinonaktifkan.
+                        </p>
+                        <p x-show="editUser.id_user != {{ Auth::id() }} && editUser.status_registrasi && editUser.status_registrasi !== 'disetujui'" x-cloak class="text-[11px] text-slate-500">
+                            Pendaftaran akun ini belum disetujui. Aktivasi dilakukan lewat menu Persetujuan Registrasi.
+                        </p>
+                    </div>
 
                     <div class="flex items-center gap-2">
                         <button type="button" @click="editUserModal = false" class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition">
