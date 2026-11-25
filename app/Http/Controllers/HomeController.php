@@ -79,29 +79,36 @@ class HomeController extends Controller
             $user->load(['unit', 'roleEntity.permissions']);
         }
 
-        // menghitung agregat ringkas real-time sambil mengecualikan surat lama yang sudah digantikan revisi agar jumlah permohonan tidak mengganda.
+        // menyelaraskan cakupan hitung dan daftar ringkas dashboard sesuai RBAC (view_all melihat semua, view_own hanya milik sendiri).
+        $permohonanScope = PermohonanPengadaan::where('status_permohonan', '!=', 'digantikan_oleh_revisi');
+        if ($user) {
+            $permohonanScope->forUser($user);
+        }
+
+        $paketScope = PaketPengadaan::query();
+        if ($user) {
+            $paketScope->forUser($user);
+        }
+
         $stats = [
             'total_units' => Unit::count(),
-            'total_permohonan' => PermohonanPengadaan::where('status_permohonan', '!=', 'digantikan_oleh_revisi')->count(),
+            'total_permohonan' => (clone $permohonanScope)->count(),
             'total_anggaran' => (float) (AnggaranMAK::sum('pagu_anggaran') ?? 0),
-            'total_paket' => PaketPengadaan::count(),
+            'total_paket' => (clone $paketScope)->count(),
             'total_vendor' => Vendor::count(),
         ];
 
-        // hanya membatasi daftar permohonan ke milik sendiri jika pengguna punya view_own tanpa view_all.
-        $permohonanQuery = PermohonanPengadaan::with(['unit', 'user'])
-            ->where('status_permohonan', '!=', 'digantikan_oleh_revisi');
-        if ($user && $user->hasPermission('permohonan.view_own') && ! $user->hasPermission('permohonan.view_all')) {
-            $permohonanQuery->where('id_user', $user->id_user);
-        }
-        $recentPermohonan = $permohonanQuery->latest('tanggal_pengajuan')->take(5)->get();
+        $recentPermohonan = (clone $permohonanScope)
+            ->with(['unit', 'user'])
+            ->latest('tanggal_pengajuan')
+            ->take(5)
+            ->get();
 
-        // menerapkan scopeForUser agar akun PPK di dashboard hanya melihat paket penugasannya sendiri.
-        $paketQuery = PaketPengadaan::with(['permohonan', 'ppkUser', 'ppUser']);
-        if ($user) {
-            $paketQuery->forUser($user);
-        }
-        $recentPaket = $paketQuery->latest('tanggal_registrasi_paket')->take(5)->get();
+        $recentPaket = (clone $paketScope)
+            ->with(['permohonan', 'ppkUser', 'ppUser'])
+            ->latest('tanggal_registrasi_paket')
+            ->take(5)
+            ->get();
 
         // menyaring notifikasi yang belum ditutup (is_dismissed=false) supaya toast/panel ringkas di dashboard tetap bersih.
         $notifications = $user ? NotifikasiUser::with('reminder.paket')
@@ -456,12 +463,12 @@ class HomeController extends Controller
             $canTerbitSpp = $user->hasPermission('pembayaran.spp_terbitkan');
 
             $data['stats'] = array_merge($data['stats'], [
-                'total_paket' => PaketPengadaan::count(),
-                'paket_proses' => PaketPengadaan::where('status_paket', '!=', 'selesai')->count(),
-                'paket_selesai_count' => PaketPengadaan::where('status_paket', 'selesai')->count(),
-                'routing_langsung' => PaketPengadaan::where('jalur_routing', PaketPengadaan::ROUTING_LANGSUNG)->count(),
-                'routing_pp' => PaketPengadaan::where('jalur_routing', PaketPengadaan::ROUTING_PP)->count(),
-                'routing_ppk' => PaketPengadaan::where('jalur_routing', PaketPengadaan::ROUTING_PPK)->count(),
+                'total_paket' => PaketPengadaan::forUser($user)->count(),
+                'paket_proses' => PaketPengadaan::forUser($user)->where('status_paket', '!=', 'selesai')->count(),
+                'paket_selesai_count' => PaketPengadaan::forUser($user)->where('status_paket', 'selesai')->count(),
+                'routing_langsung' => PaketPengadaan::forUser($user)->where('jalur_routing', PaketPengadaan::ROUTING_LANGSUNG)->count(),
+                'routing_pp' => PaketPengadaan::forUser($user)->where('jalur_routing', PaketPengadaan::ROUTING_PP)->count(),
+                'routing_ppk' => PaketPengadaan::forUser($user)->where('jalur_routing', PaketPengadaan::ROUTING_PPK)->count(),
                 'belum_spk' => PaketPengadaan::where('jalur_routing', '!=', PaketPengadaan::ROUTING_LANGSUNG)
                     ->whereDoesntHave('kontrakSpk')
                     ->count(),
@@ -890,8 +897,27 @@ class HomeController extends Controller
      */
     public function unduhDokumenPdf(Request $request, string $jenis, string $id): Response
     {
-        $filename = "Dokumen_{$jenis}_{$id}.pdf";
-        $title = strtoupper('DOKUMEN RESMI '.str_replace('_', ' ', $jenis));
+        $user = Auth::user();
+        if (! $user || ! $user->hasPermission('dokumen.unduh_pdf')) {
+            abort(403, 'Akses Ditolak: Anda tidak memiliki izin untuk mengunduh dokumen PDF.');
+        }
+
+        $jenisKey = strtolower(trim($jenis));
+        $candidateIds = array_values(array_unique([$id, urldecode($id), rawurldecode($id)]));
+
+        // memverifikasi keberadaan entitas dan otorisasi per jenis dokumen agar endpoint PDF tidak menjadi celah IDOR lintas peran.
+        match ($jenisKey) {
+            'permohonan' => $this->authorizePermohonanPdfAccess($user, $candidateIds),
+            'paket' => $this->authorizePaketPdfAccess($user, $candidateIds),
+            'spk' => $this->authorizeSpkPdfAccess($user, $candidateIds),
+            'bast' => $this->authorizeBastPdfAccess($user, $candidateIds),
+            'transfer' => $this->authorizeTransferPdfAccess($user, $candidateIds),
+            default => abort(404, 'Jenis dokumen PDF tidak dikenali.'),
+        };
+
+        $safeId = preg_replace('/[^A-Za-z0-9._-]+/', '_', $id) ?: 'dokumen';
+        $filename = "Dokumen_{$jenisKey}_{$safeId}.pdf";
+        $title = strtoupper('DOKUMEN RESMI '.str_replace('_', ' ', $jenisKey));
         $subtitle = "Nomor Dokumen / Referensi: {$id}";
         $meta = 'Politeknik Negeri Jakarta - Diunduh pada '.now()->format('d/m/Y H:i:s');
 
@@ -902,6 +928,172 @@ class HomeController extends Controller
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'attachment; filename="'.$filename.'"',
         ]);
+    }
+
+    /**
+     * Memeriksa hak unduh PDF bukti permohonan agar pengguna view_own tidak dapat mengunduh surat unit lain.
+     *
+     * Tujuan: memastikan pengusul hanya mengunduh surat miliknya sendiri, sedangkan verifikator dan
+     * pemegang izin global tetap dapat membuka dokumen sesuai kewenangan masing-masing.
+     *
+     * @param  User  $user  Pengguna yang meminta unduhan PDF permohonan.
+     * @param  array<int, string>  $candidateIds  Variasi nomor surat mentah dan terdekode URL.
+     *
+     * Contoh pemanggilan:
+     * `$this->authorizePermohonanPdfAccess($user, [$id]);`
+     */
+    private function authorizePermohonanPdfAccess(User $user, array $candidateIds): void
+    {
+        if (! $user->hasAnyPermission([
+            'permohonan.view_own',
+            'permohonan.view_all',
+            'paket.create',
+            'paket.view_all',
+            'reviu.ppk',
+            'verifikasi.wadir_2_view',
+            'verifikasi.ppk_approve',
+            'verifikasi.bidang_2_view',
+        ])) {
+            abort(403, 'Akses Ditolak: Anda tidak memiliki izin melihat atau mengunduh dokumen permohonan.');
+        }
+
+        $permohonan = PermohonanPengadaan::whereIn('nomor_surat', $candidateIds)->firstOrFail();
+
+        if ($user->hasAnyPermission([
+            'permohonan.view_all',
+            'paket.create',
+            'paket.view_all',
+            'verifikasi.wadir_2_view',
+            'verifikasi.bidang_2_view',
+        ])) {
+            return;
+        }
+
+        $isOwner = $user->hasPermission('permohonan.view_own') && (int) $permohonan->id_user === (int) $user->id_user;
+        $isAssignedPpk = $user->hasAnyPermission(['verifikasi.ppk_approve', 'reviu.ppk'])
+            && ((int) $permohonan->id_user_ppk_awal === (int) $user->id_user
+                || PaketPengadaan::where('nomor_surat', $permohonan->nomor_surat)->where('id_user_ppk', $user->id_user)->exists());
+
+        if (! $isOwner && ! $isAssignedPpk) {
+            abort(403, 'Akses Ditolak: Anda hanya dapat mengunduh dokumen permohonan yang menjadi hak akses Anda.');
+        }
+    }
+
+    /**
+     * Memeriksa hak unduh PDF dokumen paket berdasarkan cakupan paket RBAC pengguna.
+     *
+     * @param  User  $user  Pengguna aktif peminta dokumen.
+     * @param  array<int, string>  $candidateIds  Variasi nomor paket.
+     *
+     * Contoh pemanggilan:
+     * `$this->authorizePaketPdfAccess($user, [$id]);`
+     */
+    private function authorizePaketPdfAccess(User $user, array $candidateIds): void
+    {
+        $paket = PaketPengadaan::whereIn('nomor_paket', $candidateIds)->firstOrFail();
+
+        if (! PaketPengadaan::where('nomor_paket', $paket->nomor_paket)->forUser($user)->exists()) {
+            abort(403, 'Akses Ditolak: Anda tidak memiliki hak akses terhadap dokumen paket pengadaan ini.');
+        }
+    }
+
+    /**
+     * Memeriksa hak unduh PDF Kontrak atau SPK beserta isolasi penugasan PP dan PPK.
+     *
+     * @param  User  $user  Pengguna aktif peminta dokumen SPK.
+     * @param  array<int, string>  $candidateIds  Variasi nomor SPK.
+     *
+     * Contoh pemanggilan:
+     * `$this->authorizeSpkPdfAccess($user, [$id]);`
+     */
+    private function authorizeSpkPdfAccess(User $user, array $candidateIds): void
+    {
+        if (! $user->hasAnyPermission([
+            'spk.create',
+            'reviu.pp',
+            'reviu.ppk',
+            'paket.view_all',
+            'paket.view_assigned',
+            'penerimaan.view',
+            'pembayaran.pengajuan',
+            'pembayaran.spp_terbitkan',
+            'monitoring.view',
+        ])) {
+            abort(403, 'Akses Ditolak: Anda tidak memiliki izin mengunduh dokumen Kontrak atau SPK.');
+        }
+
+        $spk = KontrakSPK::with('paket')->whereIn('nomor_spk', $candidateIds)->firstOrFail();
+
+        if (! $user->hasAnyPermission(['paket.view_all', 'spk.create', 'penerimaan.view', 'pembayaran.pengajuan', 'pembayaran.spp_terbitkan'])
+            && $user->hasAnyPermission(['paket.view_assigned', 'reviu.pp', 'reviu.ppk'])) {
+            $isAssigned = $spk->paket && ((int) $spk->paket->id_user_ppk === (int) $user->id_user || (int) $spk->paket->id_user_pp === (int) $user->id_user);
+            if (! $isAssigned) {
+                abort(403, 'Akses Ditolak: Dokumen Kontrak atau SPK ini bukan bagian dari penugasan Anda.');
+            }
+        }
+    }
+
+    /**
+     * Memeriksa hak unduh PDF dokumen Berita Acara Serah Terima (BAST).
+     *
+     * @param  User  $user  Pengguna aktif peminta dokumen BAST.
+     * @param  array<int, string>  $candidateIds  Variasi nomor BAST.
+     *
+     * Contoh pemanggilan:
+     * `$this->authorizeBastPdfAccess($user, [$id]);`
+     */
+    private function authorizeBastPdfAccess(User $user, array $candidateIds): void
+    {
+        if (! $user->hasAnyPermission([
+            'penerimaan.view',
+            'penerimaan.bast_create',
+            'penerimaan.bast_sign',
+            'paket.view_all',
+            'paket.view_assigned',
+            'spk.create',
+            'pembayaran.pengajuan',
+            'pembayaran.spp_terbitkan',
+            'pembayaran.memo_ppk',
+            'pembayaran.memo_wadir2',
+            'pembayaran.pencairan_sp2d',
+        ])) {
+            abort(403, 'Akses Ditolak: Anda tidak memiliki izin mengunduh dokumen BAST.');
+        }
+
+        PenerimaanBarang::whereIn('nomor_bast', $candidateIds)->firstOrFail();
+    }
+
+    /**
+     * Memeriksa hak unduh PDF bukti transaksi pencairan atau transfer bank SP2D.
+     *
+     * @param  User  $user  Pengguna aktif peminta bukti transfer.
+     * @param  array<int, string>  $candidateIds  Variasi nomor transaksi bank.
+     *
+     * Contoh pemanggilan:
+     * `$this->authorizeTransferPdfAccess($user, [$id]);`
+     */
+    private function authorizeTransferPdfAccess(User $user, array $candidateIds): void
+    {
+        if (! $user->hasAnyPermission([
+            'pembayaran.pencairan_sp2d',
+            'pembayaran.spp_terbitkan',
+            'pembayaran.pengajuan',
+            'pembayaran.memo_wadir2',
+            'pembayaran.memo_ppk',
+            'laporan.rekapitulasi',
+        ])) {
+            abort(403, 'Akses Ditolak: Anda tidak memiliki izin mengunduh bukti transaksi pencairan.');
+        }
+
+        $transaksi = TransaksiPencairan::with('pembayaran.paket')
+            ->whereIn('nomor_transaksi_bank', $candidateIds)
+            ->firstOrFail();
+
+        if ($user->hasPermission('pembayaran.memo_ppk')
+            && ! $user->hasAnyPermission(['pembayaran.pencairan_sp2d', 'pembayaran.spp_terbitkan', 'pembayaran.pengajuan', 'pembayaran.memo_wadir2', 'laporan.rekapitulasi'])
+            && (int) ($transaksi->pembayaran?->paket?->id_user_ppk) !== (int) $user->id_user) {
+            abort(403, 'Akses Ditolak: Bukti transaksi pencairan ini bukan bagian dari paket PPK Anda.');
+        }
     }
 
     /**

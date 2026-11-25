@@ -472,10 +472,10 @@ class PaketPengadaan extends Model
     }
 
     /**
-     * menyaring daftar paket berdasarkan izin RBAC dan aturan isolasi 4 akun PPK agar tidak terjadi kebocoran berkas lintas PPK.
+     * menyaring daftar paket berdasarkan izin RBAC dan aturan isolasi penugasan agar tidak terjadi kebocoran berkas lintas akun maupun peran tanpa izin.
      *
      * @param  Builder  $query  menerima query builder Eloquent PaketPengadaan.
-     * @param  User  $user  memeriksa kombinasi permission `paket.view_all`, `reviu.ppk`, `reviu.pp`, dan `permohonan.view_own`.
+     * @param  User  $user  memeriksa kombinasi permission `paket.*`, `reviu.*`, `spk.create`, `pp.monitoring_aktivitas`, dan `permohonan.view_own`.
      * @return Builder mengembalikan query yang sudah dibatasi sesuai hak akses pengguna.
      *
      * Contoh pemanggilan:
@@ -483,29 +483,40 @@ class PaketPengadaan extends Model
      */
     public function scopeForUser($query, User $user)
     {
-        if ($user->hasPermission('paket.view_all')) {
+        if ($user->hasAnyPermission(['paket.view_all', 'paket.reassign_ppk'])) {
             return $query;
         }
 
-        if ($user->hasPermission('reviu.ppk') || ($user->hasPermission('paket.view_assigned') && ! $user->hasPermission('reviu.pp'))) {
-            // mengisolasi peninjau PPK agar hanya melihat paket yang ditugaskan kepadanya.
-            return $query->where('id_user_ppk', $user->id_user);
+        $canPpkScope = $user->hasPermission('reviu.ppk') || ($user->hasPermission('paket.view_assigned') && ! $user->hasPermission('reviu.pp'));
+        $canPpScope = $user->hasAnyPermission(['reviu.pp', 'pp.monitoring_aktivitas']);
+        $canPpbjScope = $user->hasAnyPermission(['paket.create', 'spk.create', 'permohonan.split_jenis']);
+        $canOwnScope = $user->hasPermission('permohonan.view_own') && ! $user->hasPermission('permohonan.view_all');
+
+        if (! $canPpkScope && ! $canPpScope && ! $canPpbjScope && ! $canOwnScope) {
+            // mencegah role tanpa izin modul paket (seperti keuangan atau perlengkapan) melihat seluruh baris paket secara bawaan.
+            return $query->whereRaw('1 = 0');
         }
 
-        if ($user->hasPermission('reviu.pp')) {
-            return $query->where(function ($q) use ($user) {
-                $q->where('jalur_routing', self::ROUTING_PP)
+        return $query->where(function (Builder $q) use ($user, $canPpkScope, $canPpScope, $canPpbjScope, $canOwnScope): void {
+            if ($canPpkScope) {
+                $q->orWhere('id_user_ppk', $user->id_user);
+            }
+
+            if ($canPpScope) {
+                $q->orWhere('jalur_routing', self::ROUTING_PP)
                     ->orWhere('id_user_pp', $user->id_user);
-            });
-        }
+            }
 
-        if ($user->hasPermission('permohonan.view_own') && ! $user->hasPermission('permohonan.view_all')) {
-            return $query->whereHas('permohonan', function ($q) use ($user) {
-                $q->where('id_user', $user->id_user);
-            });
-        }
+            if ($canPpbjScope) {
+                $q->orWhere('id_user_ppbj', $user->id_user);
+            }
 
-        return $query;
+            if ($canOwnScope) {
+                $q->orWhereHas('permohonan', function ($pq) use ($user): void {
+                    $pq->where('id_user', $user->id_user);
+                });
+            }
+        });
     }
 
     /**

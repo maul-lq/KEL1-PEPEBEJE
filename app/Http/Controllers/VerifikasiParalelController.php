@@ -56,7 +56,7 @@ class VerifikasiParalelController extends Controller
      * Menampilkan daftar permohonan masuk beserta filter pencarian pada halaman Staf Bidang 2.
      *
      * Tujuan: menyaring berkas yang tidak digantikan oleh revisi serta menerapkan pencarian
-     * case-insensitive (`ilike` PostgreSQL) pada nomor surat, judul, dan perihal pengadaan.
+     * case-insensitive (`ilike` PostgreSQL / `like` SQLite) pada nomor surat, judul, dan ringkasan tujuan pengadaan.
      *
      * @param  Request  $request  Permintaan HTTP berisi kata kunci atau filter status permohonan.
      * @return View Halaman `verifikasi.bidang_2` dengan koleksi `$permohonanMasuk`.
@@ -74,13 +74,16 @@ class VerifikasiParalelController extends Controller
             ->where('status_permohonan', '!=', 'digantikan_oleh_revisi'); // kecualikan surat lama yang telah digantikan revisi agar daftar pemantauan bebas duplikat.
 
         if ($request->filled('keyword')) {
-            $keyword = $request->keyword;
-            $query->where(function ($q) use ($keyword) {
-                // pakai operator ilike agar pencarian tetap case-insensitive di PostgreSQL.
-                $q->where('nomor_surat', 'ilike', "%{$keyword}%")
-                    ->orWhere('judul_pengadaan', 'ilike', "%{$keyword}%")
-                    ->orWhere('perihal', 'ilike', "%{$keyword}%");
-            });
+            $keyword = trim((string) $request->keyword);
+            if ($keyword !== '') {
+                $likeOperator = DB::connection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
+                $query->where(function ($q) use ($keyword, $likeOperator) {
+                    // pakai operator ilike di PostgreSQL agar pencarian tetap case-insensitive tanpa memanggil kolom virtual perihal.
+                    $q->where('nomor_surat', $likeOperator, "%{$keyword}%")
+                        ->orWhere('judul_pengadaan', $likeOperator, "%{$keyword}%")
+                        ->orWhere('tujuan_pengadaan_ringkas', $likeOperator, "%{$keyword}%");
+                });
+            }
         }
 
         if ($request->filled('status') && $request->status !== 'Semua') {

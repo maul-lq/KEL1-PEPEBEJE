@@ -114,10 +114,12 @@
                                     @endif
                                 </div>
                                 <div class="flex flex-wrap items-center gap-2 mt-2">
-                                    <a href="{{ route('permohonan.show', $p->nomor_surat) }}" 
-                                       class="text-[11px] font-bold text-[#0969da] hover:underline inline-flex items-center gap-1">
-                                        <span>Detail Penuh &amp; Silsilah &rarr;</span>
-                                    </a>
+                                    @if(Auth::user()?->hasPermission('permohonan.view_all') || (Auth::user()?->hasPermission('permohonan.view_own') && (int) $p->id_user === (int) Auth::id()))
+                                        <a href="{{ route('permohonan.show', $p->nomor_surat) }}" 
+                                           class="text-[11px] font-bold text-[#0969da] hover:underline inline-flex items-center gap-1">
+                                            <span>Detail Penuh &amp; Silsilah &rarr;</span>
+                                        </a>
+                                    @endif
                                     @foreach($p->dokumen_lampiran_list as $doc)
                                         @if(strtoupper($doc['type'] ?? '') === 'PDF')
                                             <button type="button" 

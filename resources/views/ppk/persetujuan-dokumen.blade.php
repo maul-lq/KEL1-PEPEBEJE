@@ -212,12 +212,14 @@
                                             @endforeach
                                         @endif
 
-                                        <a href="{{ route('dokumen.pdf', ['jenis' => 'permohonan', 'id' => $pkt->nomor_surat]) }}" 
-                                           target="_blank"
-                                           class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-200 transition shadow-xs">
-                                            <svg class="size-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-                                            Surat Srikandi (PDF)
-                                        </a>
+                                        @if(Auth::user()?->hasPermission('dokumen.unduh_pdf'))
+                                            <a href="{{ route('dokumen.pdf', ['jenis' => 'permohonan', 'id' => $pkt->nomor_surat]) }}" 
+                                               target="_blank"
+                                               class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-200 transition shadow-xs">
+                                                <svg class="size-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                                                Surat Srikandi (PDF)
+                                            </a>
+                                        @endif
 
                                         <a href="{{ route('paket.show', $pkt->nomor_paket) }}" 
                                            class="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-slate-100 transition">

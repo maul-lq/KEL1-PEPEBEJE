@@ -111,21 +111,24 @@ class KontrakSPKController extends Controller
         $kontrakQuery = clone $kontrakBaseQuery;
 
         if ($request->filled('q') || $request->filled('search')) {
-            $kw = $request->input('q', $request->input('search'));
-            $kontrakQuery->where(function ($q) use ($kw) {
-                $q->where('nomor_spk', 'like', "%{$kw}%")
-                    ->orWhere('nomor_paket', 'like', "%{$kw}%")
-                    ->orWhereHas('vendor', function ($vq) use ($kw) {
-                        $vq->where('nama_vendor', 'like', "%{$kw}%");
-                    });
-            });
+            $kw = trim((string) $request->input('q', $request->input('search')));
+            if ($kw !== '') {
+                $likeOp = DB::connection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
+                $kontrakQuery->where(function ($q) use ($kw, $likeOp) {
+                    $q->where('nomor_spk', $likeOp, "%{$kw}%")
+                        ->orWhere('nomor_paket', $likeOp, "%{$kw}%")
+                        ->orWhereHas('vendor', function ($vq) use ($kw, $likeOp) {
+                            $vq->where('nama_vendor', $likeOp, "%{$kw}%");
+                        });
+                });
+            }
         }
 
         if ($request->filled('status_spk')) {
             $kontrakQuery->where('status_spk', $request->input('status_spk'));
         }
 
-        $kontrakList = $kontrakQuery->latest()->paginate(15);
+        $kontrakList = $kontrakQuery->latest()->paginate(15)->withQueryString();
 
         $paketReviu = collect();
         $paketReviuAksi = collect();
@@ -268,13 +271,14 @@ class KontrakSPKController extends Controller
             'kontrakSpk',
         ])->where('jalur_routing', PaketPengadaan::ROUTING_PP);
 
-        if ($request->filled('keyword')) {
-            $kw = $request->keyword;
-            $query->where(function ($q) use ($kw) {
-                $q->where('nomor_paket', 'like', "%{$kw}%")
-                    ->orWhere('nama_paket', 'like', "%{$kw}%")
-                    ->orWhereHas('vendor', fn ($vq) => $vq->where('nama_vendor', 'like', "%{$kw}%"))
-                    ->orWhereHas('ppUser', fn ($pq) => $pq->where('nama', 'like', "%{$kw}%"));
+        $searchKw = trim((string) ($request->filled('q') ? $request->input('q') : $request->input('keyword', '')));
+        if ($searchKw !== '') {
+            $likeOp = DB::connection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
+            $query->where(function ($q) use ($searchKw, $likeOp) {
+                $q->where('nomor_paket', $likeOp, "%{$searchKw}%")
+                    ->orWhere('nama_paket', $likeOp, "%{$searchKw}%")
+                    ->orWhereHas('vendor', fn ($vq) => $vq->where('nama_vendor', $likeOp, "%{$searchKw}%"))
+                    ->orWhereHas('ppUser', fn ($pq) => $pq->where('nama', $likeOp, "%{$searchKw}%"));
             });
         }
 
@@ -282,7 +286,7 @@ class KontrakSPKController extends Controller
             $query->where('status_paket', $request->status);
         }
 
-        $paketPpList = $query->latest('tanggal_registrasi_paket')->paginate(15);
+        $paketPpList = $query->latest('tanggal_registrasi_paket')->paginate(15)->withQueryString();
         $totalPaketPp = PaketPengadaan::where('jalur_routing', PaketPengadaan::ROUTING_PP)->count();
         $paketMenungguReviu = PaketPengadaan::where('jalur_routing', PaketPengadaan::ROUTING_PP)
             ->whereIn('status_paket', ['terdaftar', 'reviu_dokumen', 'perlu_perbaikan'])

@@ -25,6 +25,7 @@ use App\Services\PengadaanRoutingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -67,19 +68,45 @@ class PaketPengadaanController extends Controller
     public function paketIndex(Request $request): View
     {
         $user = Auth::user();
-        $query = PaketPengadaan::with(['permohonan.unit', 'ppkUser', 'ppUser', 'vendor', 'pelaksanaBelanja']);
-
-        if ($user) {
-            $query->forUser($user);
+        if (! $user || ! $user->hasAnyPermission([
+            'paket.create',
+            'paket.view_all',
+            'paket.view_assigned',
+            'paket.reassign_ppk',
+            'permohonan.split_jenis',
+            'reviu.pp',
+            'reviu.ppk',
+            'spk.create',
+            'pp.monitoring_aktivitas',
+        ])) {
+            abort(403, 'Akses Ditolak: Anda tidak memiliki izin membuka daftar paket pengadaan.');
         }
 
+        $this->syncAllPermohonanDisetujuiParalel();
+
+        $baseScopeQuery = PaketPengadaan::forUser($user);
+        $stats = [
+            'total_paket' => (clone $baseScopeQuery)->count(),
+            'routing_langsung' => (clone $baseScopeQuery)->where('jalur_routing', PaketPengadaan::ROUTING_LANGSUNG)->count(),
+            'routing_pp' => (clone $baseScopeQuery)->where('jalur_routing', PaketPengadaan::ROUTING_PP)->count(),
+            'routing_ppk' => (clone $baseScopeQuery)->where('jalur_routing', PaketPengadaan::ROUTING_PPK)->count(),
+        ];
+
+        $query = PaketPengadaan::with(['permohonan.unit', 'ppkUser', 'ppUser', 'vendor', 'pelaksanaBelanja'])
+            ->forUser($user);
+
         if ($request->filled('q') || $request->filled('search')) {
-            $kw = $request->input('q', $request->input('search'));
-            $query->where(function ($q) use ($kw) {
-                $q->where('nomor_paket', 'like', "%{$kw}%")
-                    ->orWhere('nama_paket', 'like', "%{$kw}%")
-                    ->orWhere('nomor_surat', 'like', "%{$kw}%");
-            });
+            $kw = trim((string) $request->input('q', $request->input('search')));
+            if ($kw !== '') {
+                $likeOp = DB::connection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
+                $query->where(function ($q) use ($kw, $likeOp) {
+                    $q->where('nomor_paket', $likeOp, "%{$kw}%")
+                        ->orWhere('nama_paket', $likeOp, "%{$kw}%")
+                        ->orWhere('nomor_surat', $likeOp, "%{$kw}%")
+                        ->orWhereHas('permohonan', fn ($pq) => $pq->where('judul_pengadaan', $likeOp, "%{$kw}%"))
+                        ->orWhereHas('vendor', fn ($vq) => $vq->where('nama_vendor', $likeOp, "%{$kw}%"));
+                });
+            }
         }
 
         if ($request->filled('status')) {
@@ -94,29 +121,33 @@ class PaketPengadaanController extends Controller
             $query->where('jenis_pengadaan', $request->input('jenis_pengadaan'));
         }
 
-        $this->syncAllPermohonanDisetujuiParalel();
-
-        $paketList = $query->latest('tanggal_registrasi_paket')->paginate(15);
+        $paketList = $query->latest('tanggal_registrasi_paket')->paginate(15)->withQueryString();
         $ppkUsers = User::eligibleForPpk()->get();
-        $riwayatPenugasan = AuditLog::with('user')
-            ->where('jenis_aksi', 'REASSIGN_PPK')
-            ->latest('waktu_log')
-            ->take(20)
-            ->get();
-        $permohonanDisetujui = PermohonanPengadaan::with([
-            'unit',
-            'ppkAwal',
-            'anggaranMak',
-            'alokasiMak.anggaranMak',
-            'verifikasiParalel.user',
-        ])
-            ->whereIn('status_permohonan', [
-                PermohonanPengadaan::STATUS_DISETUJUI,
-                PermohonanPengadaan::STATUS_DIPROSES_PPBJ,
+        $riwayatPenugasan = $user->hasAnyPermission(['paket.reassign_ppk', 'paket.view_all', 'paket.create'])
+            ? AuditLog::with('user')
+                ->where('jenis_aksi', 'REASSIGN_PPK')
+                ->latest('waktu_log')
+                ->take(20)
+                ->get()
+            : collect();
+
+        $permohonanDisetujui = $user->hasAnyPermission(['paket.create', 'paket.view_all', 'permohonan.split_jenis'])
+            ? PermohonanPengadaan::with([
+                'unit',
+                'ppkAwal',
+                'anggaranMak',
+                'alokasiMak.anggaranMak',
+                'verifikasiParalel.user',
             ])
-            ->whereDoesntHave('paketPengadaan')
-            ->latest('tanggal_pengajuan')
-            ->get();
+                ->whereIn('status_permohonan', [
+                    PermohonanPengadaan::STATUS_DISETUJUI,
+                    PermohonanPengadaan::STATUS_DIPROSES_PPBJ,
+                ])
+                ->whereDoesntHave('paketPengadaan')
+                ->latest('tanggal_pengajuan')
+                ->get()
+            : collect();
+
         $vendors = Vendor::all();
 
         // Paket yang dikembalikan untuk perbaikan (BPMN N18: Titik kembali jika ditolak PP N27 atau PPK N35)
@@ -127,11 +158,12 @@ class PaketPengadaanController extends Controller
             'vendor',
             'reviuDokumen.user',
         ])
+            ->forUser($user)
             ->where('status_paket', 'perlu_perbaikan')
             ->latest()
             ->get();
 
-        return view('paket.index', compact('paketList', 'ppkUsers', 'riwayatPenugasan', 'permohonanDisetujui', 'vendors', 'paketPerluPerbaikan'));
+        return view('paket.index', compact('paketList', 'stats', 'ppkUsers', 'riwayatPenugasan', 'permohonanDisetujui', 'vendors', 'paketPerluPerbaikan'));
     }
 
     /**

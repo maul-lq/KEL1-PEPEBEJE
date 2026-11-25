@@ -217,12 +217,14 @@
                 <div>
                     <h3 class="text-sm font-bold text-[#213153]">Berkas Usulan Awal</h3>
                 </div>
-                <a
-                    href="{{ route('permohonan.show', $paket->permohonan->nomor_surat) }}"
-                    class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white font-semibold text-slate-700 hover:bg-slate-50 transition shadow-xs text-xs inline-flex items-center gap-1"
-                >
-                    Lihat Detail Usulan &rarr;
-                </a>
+                @if(Auth::user()?->hasPermission('permohonan.view_all') || (Auth::user()?->hasPermission('permohonan.view_own') && (int) $paket->permohonan->id_user === (int) Auth::id()))
+                    <a
+                        href="{{ route('permohonan.show', $paket->permohonan->nomor_surat) }}"
+                        class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white font-semibold text-slate-700 hover:bg-slate-50 transition shadow-xs text-xs inline-flex items-center gap-1"
+                    >
+                        Lihat Detail Usulan &rarr;
+                    </a>
+                @endif
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
@@ -235,10 +237,12 @@
                         <p class="text-slate-500 text-[11px] mt-0.5">Unit: {{ $paket->permohonan->unit->nama_unit ?? $paket->permohonan->kode_unit }}</p>
                     </div>
                     <div class="pt-2 border-t border-slate-200/60 flex flex-wrap gap-2">
-                        <a href="{{ route('dokumen.pdf', ['jenis' => 'permohonan', 'id' => $paket->permohonan->nomor_surat]) }}" target="_blank" class="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0969da] hover:underline">
-                            <svg class="size-3 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-                            Surat Permohonan
-                        </a>
+                        @if(Auth::user()?->hasPermission('dokumen.unduh_pdf'))
+                            <a href="{{ route('dokumen.pdf', ['jenis' => 'permohonan', 'id' => $paket->permohonan->nomor_surat]) }}" target="_blank" class="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0969da] hover:underline">
+                                <svg class="size-3 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                                Surat Permohonan
+                            </a>
+                        @endif
                         @if($paket->permohonan->file_kak)
                             <a href="{{ asset('storage/' . $paket->permohonan->file_kak) }}" target="_blank" class="text-[11px] font-semibold text-[#0969da] hover:underline">
                                 Kerangka Acuan

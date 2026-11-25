@@ -131,7 +131,7 @@
             {{-- Role Filter --}}
             <div>
                 <label class="block text-[11px] font-bold text-slate-600 mb-1">Peran Pengguna</label>
-                <select name="role" class="w-full h-9.5 rounded-xl border border-slate-200 bg-slate-50/50 px-2.5 text-xs text-slate-800 focus:bg-white focus:border-[#0969da] focus:ring-1 focus:ring-[#0969da] transition">
+                <select name="role" data-auto-submit class="w-full h-9.5 rounded-xl border border-slate-200 bg-slate-50/50 px-2.5 text-xs text-slate-800 focus:bg-white focus:border-[#0969da] focus:ring-1 focus:ring-[#0969da] transition">
                     <option value="">Semua Peran</option>
                     @foreach($availableRoles as $r)
                         <option value="{{ $r->nama_role }}" {{ request('role') == $r->nama_role ? 'selected' : '' }}>
@@ -144,7 +144,7 @@
             {{-- Unit Filter --}}
             <div>
                 <label class="block text-[11px] font-bold text-slate-600 mb-1">Unit Kerja / Jurusan</label>
-                <select name="kode_unit" class="w-full h-9.5 rounded-xl border border-slate-200 bg-slate-50/50 px-2.5 text-xs text-slate-800 focus:bg-white focus:border-[#0969da] focus:ring-1 focus:ring-[#0969da] transition">
+                <select name="kode_unit" data-auto-submit class="w-full h-9.5 rounded-xl border border-slate-200 bg-slate-50/50 px-2.5 text-xs text-slate-800 focus:bg-white focus:border-[#0969da] focus:ring-1 focus:ring-[#0969da] transition">
                     <option value="">Semua Unit</option>
                     @foreach($availableUnits as $u)
                         <option value="{{ $u->kode_unit }}" {{ request('kode_unit') == $u->kode_unit ? 'selected' : '' }}>
@@ -158,7 +158,7 @@
             <div class="flex items-end gap-2">
                 <div class="flex-1">
                     <label class="block text-[11px] font-bold text-slate-600 mb-1">Status Akun</label>
-                    <select name="status_aktif" class="w-full h-9.5 rounded-xl border border-slate-200 bg-slate-50/50 px-2.5 text-xs text-slate-800 focus:bg-white focus:border-[#0969da] focus:ring-1 focus:ring-[#0969da] transition">
+                    <select name="status_aktif" data-auto-submit class="w-full h-9.5 rounded-xl border border-slate-200 bg-slate-50/50 px-2.5 text-xs text-slate-800 focus:bg-white focus:border-[#0969da] focus:ring-1 focus:ring-[#0969da] transition">
                         <option value="">Semua</option>
                         <option value="1" {{ request('status_aktif') === '1' ? 'selected' : '' }}>Aktif</option>
                         <option value="0" {{ request('status_aktif') === '0' ? 'selected' : '' }}>Nonaktif</option>

@@ -80,12 +80,14 @@
         <div class="flex items-center gap-2.5">
             <x-status-badge :status="$permohonan->status_permohonan ?? $permohonan->status" size="md" />
 
-            <a href="{{ route('dokumen.pdf', ['jenis' => 'permohonan', 'id' => $permohonan->nomor_surat]) }}" 
-               target="_blank"
-               class="inline-flex items-center gap-2 rounded-xl bg-[#0969da] px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-blue-700 transition-colors">
-                <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                Unduh PDF Resmi
-            </a>
+            @if(Auth::user()?->hasPermission('dokumen.unduh_pdf'))
+                <a href="{{ route('dokumen.pdf', ['jenis' => 'permohonan', 'id' => $permohonan->nomor_surat]) }}" 
+                   target="_blank"
+                   class="inline-flex items-center gap-2 rounded-xl bg-[#0969da] px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-blue-700 transition-colors">
+                    <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    Unduh PDF Resmi
+                </a>
+            @endif
 
             @if(Auth::user()->hasPermission('permohonan.delete') || (Auth::user()->hasPermission('permohonan.create') && in_array($st, ['draft', 'diajukan', 'ditolak']) && Auth::user()->id_user === $permohonan->id_user))
                 <form action="{{ route('permohonan.destroy', $permohonan->nomor_surat) }}" 
@@ -255,7 +257,7 @@
                                 <label class="text-xs font-bold text-slate-700">Nomor Surat Usulan Srikandi <span class="text-slate-400 font-normal text-[11px]">(Tetap atau sesuaikan)</span></label>
                                 <input type="text" 
                                        name="nomor_surat_baru" 
-                                       value="{{ $permohonan->nomor_surat }}" 
+                                       value="{{ old('nomor_surat_baru', $permohonan->nomor_surat) }}" 
                                        class="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-mono font-medium focus:border-[#0969da] focus:outline-none focus:ring-2 focus:ring-[#0969da]/20">
                             </div>
 
@@ -263,7 +265,7 @@
                                 <label class="text-xs font-bold text-slate-700">Penyesuaian Anggaran Pagu (Rp) <span class="text-rose-500">*</span></label>
                                 <input type="number" 
                                        name="anggaran_diajukan" 
-                                       value="{{ $permohonan->estimasi_total_pagu ?? $permohonan->anggaran_diajukan }}" 
+                                       value="{{ old('anggaran_diajukan', $permohonan->estimasi_total_pagu ?? $permohonan->anggaran_diajukan) }}" 
                                        step="0.01" 
                                        min="1" 
                                        required
@@ -274,7 +276,7 @@
                                 <label class="text-xs font-bold text-slate-700">Perihal Kegiatan Baru <span class="text-rose-500">*</span></label>
                                 <input type="text" 
                                        name="perihal" 
-                                       value="{{ $permohonan->perihal ?? $permohonan->judul_pengadaan }}" 
+                                       value="{{ old('perihal', $permohonan->perihal ?? $permohonan->judul_pengadaan) }}" 
                                        required
                                        class="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-medium focus:border-[#0969da] focus:outline-none focus:ring-2 focus:ring-[#0969da]/20">
                             </div>
@@ -285,7 +287,7 @@
                                           rows="3" 
                                           required 
                                           placeholder="Jelaskan poin perbaikan pada kerangka acuan atau spesifikasi..."
-                                          class="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-medium focus:border-[#0969da] focus:outline-none focus:ring-2 focus:ring-[#0969da]/20"></textarea>
+                                          class="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-medium focus:border-[#0969da] focus:outline-none focus:ring-2 focus:ring-[#0969da]/20">{{ old('keterangan_revisi') }}</textarea>
                             </div>
 
                             <div class="space-y-1.5 md:col-span-2" x-data="{ revisiFiles: [] }">
