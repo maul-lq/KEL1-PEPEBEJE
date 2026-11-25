@@ -3,19 +3,19 @@
 
   Penulis   : Rizlrad Fz
   Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
-  Ringkasan : View Blade ini susun untuk antarmuka Disposisi Eksekutif Wakil Direktur II
-              dalam mengevaluasi rekomendasi Bidang II dan Perencanaan lalu memberi keputusan
-              disetujui, revisi, atau ditolak pada usulan pengadaan.
+  Ringkasan : View Blade ini disusun untuk antarmuka Disposisi Eksekutif Wakil Direktur II
+              dalam mengevaluasi alokasi anggaran dan penetapan PPK dari Bagian Perencanaan
+              lalu memberi keputusan disetujui, revisi, atau ditolak secara paralel bersama PPK.
 --}}
 @extends('layouts.app')
 
 @section('title', 'Verifikasi Eksekutif Wadir 2 - SIM-PBJ PNJ')
 
 {{--
-  Komentar Deskriptif: Seksi Konten Disposisi Eksekutif Wakil Direktur II (`verifikasi.wadir_2`).
+   Seksi Konten Disposisi Eksekutif Wakil Direktur II (`verifikasi.wadir_2`).
 
-  Tujuan: menampilkan status paralel Bidang II, Perencanaan, dan PPK pada tiap kartu antrean
-          serta mewajibkan catatan alasan via `verifikasiKeputusanWadir2` bila menolak/meminta revisi.
+  Tujuan: menampilkan status penetapan anggaran, PPK awal terpilih, dan riwayat persetujuan paralel
+          serta mewajibkan catatan alasan via `keputusanWadir2` bila menolak/meminta revisi.
   Parameter (Data dari VerifikasiParalelController::verifikasiWadir2):
     - `$permohonanAntrean` (Collection<PermohonanPengadaan>): Daftar usulan yang menunggu putusan Wadir II.
   Nilai kembali: Halaman HTML workspace keputusan eksekutif Wakil Direktur II.
@@ -115,16 +115,28 @@
                         </p>
                     </div>
 
-                    <!-- Rekomendasi Staf Bidang 2 & Status Perencanaan -->
+                    <!-- Penetapan PPK Awal & Status Pos Anggaran Perencanaan -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                        <!-- Box Rekomendasi Staf B2 -->
+                        <!-- Box PPK Awal & Status Paralel PPK -->
                         <div class="rounded-xl bg-blue-50/70 p-3.5 border border-blue-200/70 space-y-1">
-                            <div class="font-bold text-blue-900 flex items-center gap-1.5">
-                                <svg class="size-4 text-[#0969da]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                <span>Rekomendasi Telaah Staf Bidang II:</span>
+                            <div class="font-bold text-blue-900 flex items-center justify-between gap-1.5">
+                                <span class="flex items-center gap-1.5">
+                                    <svg class="size-4 text-[#0969da]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                    <span>PPK Terpilih (Persetujuan Paralel):</span>
+                                </span>
+                                @if($vpPpk && $vpPpk->status_keputusan === 'disetujui')
+                                    <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">Sudah Menyetujui</span>
+                                @elseif($vpPpk && in_array($vpPpk->status_keputusan, ['ditolak', 'revisi'], true))
+                                    <span class="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-800">Menolak / Revisi</span>
+                                @else
+                                    <span class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">Menunggu PPK</span>
+                                @endif
                             </div>
                             <p class="text-slate-700 leading-relaxed">
-                                {{ $vpStaff && $vpStaff->catatan_alasan ? $vpStaff->catatan_alasan : 'Berkas administrasi dan kerangka acuan telah lengkap.' }}
+                                Penanggung Jawab: <strong>{{ $p->ppkAwal->nama ?? 'Belum ditetapkan' }}</strong>
+                                @if($vpPpk && $vpPpk->catatan_alasan)
+                                    <span class="block text-[11px] text-slate-600 mt-1">Catatan PPK: {{ $vpPpk->catatan_alasan }}</span>
+                                @endif
                             </p>
                         </div>
 

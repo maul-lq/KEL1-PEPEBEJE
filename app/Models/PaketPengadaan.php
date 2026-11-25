@@ -487,10 +487,9 @@ class PaketPengadaan extends Model
             return $query;
         }
 
-        if ($user->hasPermission('reviu.ppk')) {
-            // mengisolasi PPK hanya pada paket yang ditugaskan ke ID dirinya dan mengecualikan Belanja Langsung <=50jt yang memang tidak melibatkan PPK.
-            return $query->where('id_user_ppk', $user->id_user)
-                ->where('jalur_routing', '!=', self::ROUTING_LANGSUNG);
+        if ($user->hasPermission('reviu.ppk') || ($user->hasPermission('paket.view_assigned') && ! $user->hasPermission('reviu.pp'))) {
+            // mengisolasi peninjau PPK agar hanya melihat paket yang ditugaskan kepadanya.
+            return $query->where('id_user_ppk', $user->id_user);
         }
 
         if ($user->hasPermission('reviu.pp')) {

@@ -7,7 +7,7 @@
               berisi 4 KPI SP2D & pengingat bayar, daftar tagihan siap cair, serta riwayat pencairan dana.
 --}}
 {{--
-  Komentar Deskriptif: Panel Workspace Dasbor Bagian Keuangan (`dashboard.roles.keuangan`).
+   Panel Workspace Dasbor Bagian Keuangan (`dashboard.roles.keuangan`).
 
   Tujuan: menggabungkan antrean tagihan siap cair SP2D dan pengingat operasional dari PPBJ ke
           kolom aksi agar bendahara langsung menindaklanjuti tagihan mendesak lebih dulu.

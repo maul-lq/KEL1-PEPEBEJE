@@ -8,7 +8,7 @@
               serta tabel aktivitas terbaru pengajuan milik unit pengusul.
 --}}
 {{--
-  Komentar Deskriptif: Panel Workspace Dasbor Pemohon / Unit Pengusul (`dashboard.roles.user`).
+   Panel Workspace Dasbor Pemohon / Unit Pengusul (`dashboard.roles.user`).
 
   Tujuan: menyorot usulan berstatus `ditolak` atau `perlu_revisi` di panel kiri bersama catatan
           penolakannya agar unit pengusul cepat memperbaiki berkas tanpa mencari manual di daftar.

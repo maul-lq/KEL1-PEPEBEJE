@@ -28,7 +28,7 @@ paths:
    2. `permohonan_sendiri`: `permohonan.create` / `permohonan.view_own` (bila tanpa `permohonan.view_all`)
    3. `verifikasi_usulan`: `verifikasi.bidang_2_view`, `verifikasi.wadir_2_view`, `verifikasi.wadir_2_decide`, `permohonan.view_all`
    4. `anggaran_mak`: `anggaran.mak_view`, `anggaran.mak_manage`, `anggaran.mak_alokasi`, `anggaran.mak_lock`, `permohonan.split_mak`
-   5. `pengadaan_ppbj`: `paket.create`, `paket.view_all`, `spk.create`, `reminder.manage`, `pp.monitoring_aktivitas`, `lihat_pp`
+   5. `pengadaan_ppbj`: `paket.create`, `paket.view_all`, `paket.reassign_ppk`, `spk.create`, `pp.monitoring_aktivitas`
    6. `penugasan_pp`: `reviu.pp`
    7. `komitmen_ppk`: `reviu.ppk`
    8. `penerimaan_bmn`: `penerimaan.view`, `penerimaan.bast_create`, `penerimaan.bast_sign`

@@ -225,6 +225,7 @@ export function trackingManager(initialItems = null) {
                 currentTahap: determinedTahap,
                 current_tahap: determinedTahap,
                 fileName: item.fileName || (item.file_surat_permohonan ? String(item.file_surat_permohonan).split('/').pop() : 'Surat_Permohonan_Pengadaan.pdf'),
+                id_user_ppk_awal: item.id_user_ppk_awal ?? null,
                 revisi_ke: item.revisi_ke || 0,
                 alasan_revisi: item.alasan_revisi || '',
             });
@@ -262,7 +263,7 @@ export function trackingManager(initialItems = null) {
             };
             const map = {
                 diajukan:                { label: 'Diajukan',                     t: 'sky' },
-                menunggu_bidang_2:       { label: 'Pemeriksaan Staf Bidang II',   t: 'amber' },
+                menunggu_bidang_2:       { label: 'Usulan Masuk',                 t: 'amber' },
                 cek_mak_perencanaan:     { label: 'Cek Anggaran Perencanaan',     t: 'amber' },
                 menunggu_acc_wadir_ppk:  { label: 'Menunggu Persetujuan',         t: 'amber' },
                 reviu_paralel:           { label: 'Pemeriksaan Paralel',          t: 'amber' },
@@ -362,8 +363,8 @@ export function trackingManager(initialItems = null) {
                 list.push({
                     id: 3,
                     time: tanggalStr + ' • 11:00',
-                    title: 'Perencanaan dan Bidang 2 sedang memeriksa form pengajuan',
-                    subtitle: 'Pemeriksaan berkas telaah dan alokasi pagu',
+                    title: 'Bagian Perencanaan sedang memeriksa pos anggaran usulan',
+                    subtitle: 'Pemeriksaan kelengkapan berkas, pos anggaran, dan penetapan PPK',
                     badge: 'Informasi',
                     badge_type: 'info',
                     type: 'info',
@@ -375,7 +376,7 @@ export function trackingManager(initialItems = null) {
                     id: 4,
                     time: tanggalStr + ' • 11:00',
                     title: 'Form berhasil disampaikan',
-                    subtitle: 'Pihak Perencanaan dan Bidang 2 berhasil menerima notifikasi',
+                    subtitle: 'Bagian Perencanaan berhasil menerima notifikasi pengajuan',
                     badge: 'Sistem',
                     badge_type: 'info',
                     type: 'info',
@@ -514,8 +515,8 @@ export function trackingManager(initialItems = null) {
                     list.push({
                         id: 201,
                         time: tanggalStr + ' • 11:00',
-                        title: 'Perencanaan dan Staf Bidang II sedang memeriksa usulan',
-                        subtitle: 'Pemeriksaan kelengkapan berkas dan ketersediaan anggaran',
+                        title: 'Bagian Perencanaan sedang memeriksa usulan & pos anggaran',
+                        subtitle: 'Pemeriksaan kelengkapan berkas, ketersediaan anggaran, dan penetapan PPK',
                         badge: 'Informasi',
                         badge_type: 'info',
                         type: 'info',
@@ -528,7 +529,7 @@ export function trackingManager(initialItems = null) {
                     id: 101,
                     time: tanggalStr + ' • 11:00',
                     title: 'Form berhasil disampaikan',
-                    subtitle: 'Pihak Perencanaan dan Bidang 2 berhasil menerima notifikasi',
+                    subtitle: 'Bagian Perencanaan berhasil menerima notifikasi pengajuan',
                     badge: 'Sistem',
                     badge_type: 'info',
                     type: 'info',

@@ -12,7 +12,7 @@
 @section('title', 'Persetujuan Registrasi Pengguna Baru - SIM-PBJ PNJ')
 
 {{--
-  Komentar Deskriptif: Seksi Konten Utama Persetujuan Registrasi Pengguna (`@section('content')`).
+   Seksi Konten Utama Persetujuan Registrasi Pengguna (`@section('content')`).
 
   Tujuan: menyajikan antrean akun pendaftar mandiri agar Administrator dapat memilihkan peran
           RBAC definitif saat menyetujui maupun mencatat alasan jelas bila menolak pendaftaran.

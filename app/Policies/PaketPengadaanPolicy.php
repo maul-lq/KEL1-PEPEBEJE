@@ -55,19 +55,19 @@ class PaketPengadaanPolicy
      */
     public function view(User $user, PaketPengadaan $paket): Response
     {
-        if ($user->hasRole('admin')) {
+        if ($user->hasPermission('paket.view_all') || $user->hasPermission('admin.user_manage')) {
             return Response::allow();
         }
 
-        // mendahulukan isolasi 4 akun PPK (dan mengecualikan akun PPBJ yang kebetulan memiliki izin gabungan) agar PPK tidak bisa mengintip paket PPK lain.
-        if ($user->hasRole('ppk') || ($user->hasPermission('reviu.ppk') && ! $user->hasRole('ppbj'))) {
+        // mendahulukan isolasi paket yang ditugaskan khusus ke PPK (termasuk role kustom yang memegang reviu.ppk/paket.view_assigned) agar berkas antar-PPK tidak bocor.
+        if (($user->hasPermission('reviu.ppk') || $user->hasPermission('paket.view_assigned')) && ! $user->hasPermission('reviu.pp')) {
             return (int) $paket->id_user_ppk === (int) $user->id_user
                 ? Response::allow()
                 : Response::deny('Akses Ditolak: Paket pengadaan ini ditugaskan kepada PPK lain.');
         }
 
-        // membatasi PP hanya pada jalur Rp50jt-200jt atau paket yang ditugaskan langsung padanya agar paket tender >200jt tidak terekspos.
-        if ($user->hasRole('pp') || ($user->hasPermission('reviu.pp') && ! $user->hasRole('ppbj'))) {
+        // membatasi pemeriksa PP pada paket jalur Rp50jt-200jt atau yang ditugaskan langsung padanya agar paket >200jt tidak terekspos.
+        if ($user->hasPermission('reviu.pp')) {
             $isAssigned = (int) $paket->id_user_pp === (int) $user->id_user;
             $isPpRouting = in_array($paket->jalur_routing, [PaketPengadaan::ROUTING_PP, 'pp_50_sd_200jt']);
 
@@ -76,19 +76,31 @@ class PaketPengadaanPolicy
                 : Response::deny('Akses Ditolak: Paket pengadaan ini bukan wewenang Pejabat Pengadaan.');
         }
 
-        // mengizinkan unit pemohon melihat progres paket hanya jika berasal dari surat permohonannya sendiri (kecuali punya izin view_all).
-        if ($user->hasRole(['user', 'pengaju']) || ($user->hasPermission('permohonan.view_own') && ! $user->hasPermission('permohonan.view_all'))) {
+        // memberi akses lihat bagi pemeriksa penerimaan, pencairan pembayaran, atau verifikator lintas unit sesuai izin aktifnya.
+        if ($user->hasAnyPermission([
+            'penerimaan.view',
+            'penerimaan.bast_create',
+            'penerimaan.bast_sign',
+            'pembayaran.pencairan_sp2d',
+            'pembayaran.memo_wadir2',
+            'pembayaran.pengajuan',
+            'pembayaran.spp_terbitkan',
+            'verifikasi.wadir_2_view',
+            'verifikasi.wadir_2_decide',
+            'verifikasi.bidang_2_view',
+            'anggaran.mak_view',
+        ])) {
+            return Response::allow();
+        }
+
+        // mengizinkan unit pemohon melihat progres paket hanya jika berasal dari usulannya sendiri (tanpa izin view_all).
+        if ($user->hasPermission('permohonan.view_own') && ! $user->hasPermission('permohonan.view_all')) {
             return (int) $paket->permohonan?->id_user === (int) $user->id_user
                 ? Response::allow()
                 : Response::deny('Akses Ditolak: Anda bukan pemohon pengadaan ini.');
         }
 
-        // memberi akses baca lintas paket bagi jajaran manajemen, verifikator, perlengkapan, dan keuangan sesuai kebutuhan pengawasan siklus.
-        if ($user->hasRole(['admin', 'ppbj', 'perencanaan', 'wadir_2', 'staff_bidang_2', 'perlengkapan', 'keuangan']) || $user->hasAnyPermission(['paket.view_all', 'penerimaan.view', 'pembayaran.pencairan_sp2d', 'verifikasi.wadir_2_view'])) {
-            return Response::allow();
-        }
-
-        // mengizinkan akun dengan izin pemantauan PP melihat paket jalur PP walaupun tidak memiliki izin paket.view_all.
+        // mengizinkan pemegang izin pemantauan PP melihat paket jalur PP walaupun tidak memegang paket.view_all.
         if ($user->canMonitorPp() && (in_array($paket->jalur_routing, [PaketPengadaan::ROUTING_PP, 'pp_50_sd_200jt']) || ! empty($paket->id_user_pp))) {
             return Response::allow();
         }
@@ -99,26 +111,26 @@ class PaketPengadaanPolicy
     /**
      * menentukan apakah pengguna berwenang memodifikasi data teknis atau status paket pengadaan.
      *
-     * @param  User  $user  memeriksa apakah pengguna merupakan PPBJ, PPK penanggung jawab, atau PP jalur terkait.
+     * @param  User  $user  memeriksa izin pembuatan paket, reviu PPK, atau reviu PP tanpa mengunci pada slug peran tertentu.
      * @param  PaketPengadaan  $paket  mencocokkan penugasan pengguna dengan atribut id_user_ppk / id_user_pp / jalur_routing paket.
-     * @return Response mengembalikan Response::allow() jika sesuai wewenang atau Response::deny() bila melanggar isolasi peran.
+     * @return Response mengembalikan Response::allow() jika sesuai wewenang atau Response::deny() bila melanggar isolasi.
      *
      * Contoh pemanggilan:
      * `Gate::authorize('update', $paket);`
      */
     public function update(User $user, PaketPengadaan $paket): Response
     {
-        if ($user->hasRole(User::ROLE_PPBJ)) {
+        if ($user->hasPermission('paket.create')) {
             return Response::allow();
         }
 
-        if ($user->hasRole(User::ROLE_PPK)) {
+        if ($user->hasPermission('reviu.ppk')) {
             return (int) $paket->id_user_ppk === (int) $user->id_user
                 ? Response::allow()
                 : Response::deny('Akses Ditolak: Anda hanya berwenang memperbarui paket yang ditugaskan kepada Anda.');
         }
 
-        if ($user->hasRole(User::ROLE_PP)) {
+        if ($user->hasPermission('reviu.pp')) {
             return ($paket->jalur_routing === PaketPengadaan::ROUTING_PP || (int) $paket->id_user_pp === (int) $user->id_user)
                 ? Response::allow()
                 : Response::deny('Akses Ditolak: Anda bukan Pejabat Pengadaan yang berwenang atas paket ini.');
@@ -128,21 +140,21 @@ class PaketPengadaanPolicy
     }
 
     /**
-     * membatasi wewenang pengalihan penugasan PPK hanya kepada koordinator PPBJ dan Bagian Perencanaan sesuai notulensi domain.
+     * membatasi wewenang pengalihan penugasan PPK hanya kepada peran yang memegang izin `paket.reassign_ppk`.
      *
-     * @param  User  $user  memeriksa apakah pelaku mutasi termasuk peran PPBJ atau Perencanaan.
+     * @param  User  $user  memeriksa apakah pengguna memegang izin pengalihan penugasan PPK.
      * @param  PaketPengadaan  $paket  menerima paket yang akan dialihkan penugasan PPK-nya.
-     * @return Response mengembalikan Response::allow() untuk PPBJ/Perencanaan dan Response::deny() untuk peran lain.
+     * @return Response mengembalikan Response::allow() jika memiliki izin atau Response::deny() bila tidak.
      *
      * Contoh pemanggilan:
      * `Gate::authorize('reassignPpk', $paket);`
      */
     public function reassignPpk(User $user, PaketPengadaan $paket): Response
     {
-        if ($user->hasRole([User::ROLE_PPBJ, User::ROLE_PERENCANAAN])) {
+        if ($user->hasPermission('paket.reassign_ppk')) {
             return Response::allow();
         }
 
-        return Response::deny('Akses Ditolak: Hanya Unit Pengadaan dan Perencanaan yang dapat mengubah penugasan PPK.');
+        return Response::deny('Akses Ditolak: Peran Anda tidak memiliki izin untuk mengubah penugasan PPK.');
     }
 }

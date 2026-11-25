@@ -494,16 +494,80 @@ class User extends Authenticatable
     }
 
     /**
-     * memeriksa hak akses monitoring aktivitas Pejabat Pengadaan (PP) secara murni berbasis RBAC permission.
+     * memeriksa hak akses pemantauan aktivitas Pejabat Pengadaan secara murni berbasis izin fitur.
      *
-     * @return bool mengembalikan true jika pengguna memiliki `pp.monitoring_aktivitas` atau `lihat_pp`.
+     * @return bool mengembalikan true jika pengguna memiliki `pp.monitoring_aktivitas`.
      *
      * Contoh pemanggilan:
      * `if ($user->canMonitorPp()) { ... }`
      */
     public function canMonitorPp(): bool
     {
-        return $this->hasAnyPermission(['pp.monitoring_aktivitas', 'lihat_pp']);
+        return $this->hasPermission('pp.monitoring_aktivitas');
+    }
+
+    /**
+     * menyaring pengguna aktif dan disetujui berdasarkan kepemilikan izin fitur PPK maupun peran bawaan `ppk`.
+     *
+     * Tujuan: memungkinkan Perencanaan maupun PPBJ memilih dan menugaskan user dari peran kustom apa pun
+     * yang memegang izin persetujuan awal, reviu paket, atau memo pembayaran PPK.
+     *
+     * @param  Builder  $query  menerima query builder model User.
+     * @return Builder mengembalikan query terfilter kandidat PPK aktif.
+     *
+     * Contoh pemanggilan:
+     * `$ppkList = User::eligibleForPpk()->get();`
+     */
+    public function scopeEligibleForPpk(Builder $query): Builder
+    {
+        return $query->where('status_aktif', true)
+            ->where('status_registrasi', self::STATUS_REGISTRASI_DISETUJUI)
+            ->whereHas('roleEntity', function (Builder $roleQuery): void {
+                // menyertakan peran kustom yang diberi izin PPK agar pemilihan penanggung jawab tidak terpaku ke akun role bawaan.
+                $roleQuery->where('nama_role', self::ROLE_PPK)
+                    ->orWhereHas('permissions', fn (Builder $pq) => $pq->whereIn('nama_permission', [
+                        'verifikasi.ppk_approve',
+                        'reviu.ppk',
+                        'pembayaran.memo_ppk',
+                    ]));
+            });
+    }
+
+    /**
+     * memeriksa apakah pengguna memenuhi syarat untuk ditugaskan sebagai penanggung jawab PPK.
+     *
+     * @return bool mengembalikan true jika pengguna memegang peran `ppk` atau salah satu izin PPK terkait.
+     *
+     * Contoh pemanggilan:
+     * `if (! $target->isEligiblePpk()) { ... }`
+     */
+    public function isEligiblePpk(): bool
+    {
+        return $this->hasRole(self::ROLE_PPK)
+            || $this->hasAnyPermission(['verifikasi.ppk_approve', 'reviu.ppk', 'pembayaran.memo_ppk']);
+    }
+
+    /**
+     * menyaring pengguna aktif yang memiliki salah satu izin sasaran atau peran bawaan cadangan.
+     *
+     * @param  Builder  $query  menerima query builder model User.
+     * @param  array<int, string>  $permissions  daftar slug izin RBAC target.
+     * @param  string|null  $fallbackRole  slug peran bawaan opsional bila diperlukan kompatibilitas.
+     * @return Builder mengembalikan query terfilter pengguna aktif dan disetujui.
+     *
+     * Contoh pemanggilan:
+     * `$ppUsers = User::eligibleForPermissions(['reviu.pp'], User::ROLE_PP)->get();`
+     */
+    public function scopeEligibleForPermissions(Builder $query, array $permissions, ?string $fallbackRole = null): Builder
+    {
+        return $query->where('status_aktif', true)
+            ->where('status_registrasi', self::STATUS_REGISTRASI_DISETUJUI)
+            ->whereHas('roleEntity', function (Builder $roleQuery) use ($permissions, $fallbackRole): void {
+                $roleQuery->whereHas('permissions', fn (Builder $pq) => $pq->whereIn('nama_permission', $permissions));
+                if ($fallbackRole !== null) {
+                    $roleQuery->orWhere('nama_role', $fallbackRole);
+                }
+            });
     }
 
     /**

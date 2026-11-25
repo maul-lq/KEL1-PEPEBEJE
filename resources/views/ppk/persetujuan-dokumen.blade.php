@@ -12,7 +12,7 @@
 @section('title', 'Persetujuan Dokumen Pengadaan (PPK) - SIM-PBJ PNJ')
 
 {{--
-  Komentar Deskriptif: Seksi Konten Antrean Persetujuan Dokumen PPK (`ppk.persetujuan-dokumen`).
+   Seksi Konten Antrean Persetujuan Dokumen PPK (`ppk.persetujuan-dokumen`).
 
   Tujuan: menampilkan riwayat catatan Pejabat Pengadaan sebelumnya pada tiap kartu paket agar
           PPK berwenang dapat memutuskan kelayakan lanjut belanja atau mengembalikan berkas ke PPBJ.

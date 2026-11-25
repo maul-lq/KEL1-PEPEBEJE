@@ -12,7 +12,7 @@
 @section('title', 'Detail Paket Pengadaan ' . ($paket->kode_paket ?? $paket->nomor_paket) . ' - SIM-PBJ PNJ')
 
 {{--
-  Komentar Deskriptif: Seksi Konten Detail Paket Pengadaan (`paket.show`).
+   Seksi Konten Detail Paket Pengadaan (`paket.show`).
 
   Tujuan: memetakan seluruh varian `status_paket` ke nomor tahap 1..8 lewat `$stepMap` dan
           membedakan tombol aksi antara paket Belanja Langsung (<=50jt) dengan paket kontrak SPK/PPK.
@@ -91,7 +91,7 @@
                             <svg class="size-4 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                             Kwitansi Sah: {{ $paket->nomor_kwitansi_belanja }}
                         </span>
-                    @elseif(Auth::user() && (Auth::user()->hasRole('admin') || Auth::user()->hasPermission('paket.create')))
+                    @elseif(Auth::user() && Auth::user()->hasPermission('paket.create'))
                         <a
                             href="{{ route('paket.index') }}"
                             class="px-4 py-2 rounded-xl bg-teal-600 text-xs font-bold text-white hover:bg-teal-700 shadow-sm transition inline-flex items-center gap-1.5"

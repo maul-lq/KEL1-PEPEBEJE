@@ -7,7 +7,7 @@
               KPI barang masuk/BAST/rasio aset, jadwal barang datang, dan riwayat bukti serah terima.
 --}}
 {{--
-  Komentar Deskriptif: Panel Workspace Dasbor Unit Perlengkapan & BMN (`dashboard.roles.perlengkapan`).
+   Panel Workspace Dasbor Unit Perlengkapan & BMN (`dashboard.roles.perlengkapan`).
 
   Tujuan: menggabungkan jadwal kontrak maupun belanja langsung yang barangnya siap diperiksa
           fisik agar petugas Perlengkapan segera menerbitkan BAST bertoken digital.

@@ -7,7 +7,7 @@
               yang memuat KPI negosiasi, antrean reviu/eksekusi belanja, dan riwayat paket PP.
 --}}
 {{--
-  Komentar Deskriptif: Panel Workspace Dasbor Pejabat Pengadaan (`dashboard.roles.pp`).
+   Panel Workspace Dasbor Pejabat Pengadaan (`dashboard.roles.pp`).
 
   Tujuan: membedakan lencana status paket yang masih dalam tahap reviu teknis dengan yang
           sudah disetujui PPK agar Pejabat Pengadaan dapat memprioritaskan eksekusi belanja.

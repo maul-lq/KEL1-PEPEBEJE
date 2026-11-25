@@ -12,10 +12,10 @@
 @section('title', 'Pantau Aktivitas Pejabat Pengadaan - SIM-PBJ PNJ')
 
 {{--
-  Komentar Deskriptif: Seksi Konten Monitoring Aktivitas Pejabat Pengadaan (`pp.monitoring`).
+   Seksi Konten Monitoring Aktivitas Pejabat Pengadaan (`pp.monitoring`).
 
   Tujuan: menyajikan ikhtisar agregat efisiensi biaya hasil negosiasi PP vs HPS awal sehingga
-          Koordinator PPBJ atau pimpinan pemegang izin `lihat_pp` mudah mengawasi transaksi paket.
+          Koordinator PPBJ atau pimpinan pemegang izin `pp.monitoring_aktivitas` mudah mengawasi transaksi paket.
   Parameter (Data dari Controller):
     - `$totalPaketPp`, `$paketMenungguReviu`, `$paketSelesaiReviu`, `$totalPaguPp`, `$totalNegosiasiPp`.
   Nilai kembali: Halaman HTML KPI negosiasi PP dan tabel pemantauan paket.
@@ -344,7 +344,7 @@
                                         >
                                             Detail
                                         </a>
-                                        @if($paket->status_paket === 'perlu_perbaikan' && (Auth::user()->hasRole('admin') || Auth::user()->hasRole('ppbj') || Auth::user()->hasPermission('paket.create')))
+                                        @if($paket->status_paket === 'perlu_perbaikan' && Auth::user()->hasPermission('paket.create'))
                                             <a
                                                 href="{{ route('paket.edit', $paket->nomor_paket) }}"
                                                 class="px-2.5 py-1 rounded-lg bg-amber-500 text-xs font-semibold text-white hover:bg-amber-600 shadow-xs transition"

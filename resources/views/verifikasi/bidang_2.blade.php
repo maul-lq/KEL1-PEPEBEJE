@@ -3,22 +3,21 @@
 
   Penulis   : DendyRafi, Rizlrad Fz
   Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
-  Ringkasan : View Blade ini kami susun untuk workspace Staf Bidang II (Umum & Keuangan) dalam
-              memantau seluruh usulan masuk Srikandi, melihat detail dokumen, serta menerbitkan
-              Memo Cek MAK ke Bagian Perencanaan melalui `trackingManager`.
+  Ringkasan : View Blade ini disusun untuk ruang pemantauan berkas Staf Bidang II dalam
+              melihat seluruh usulan masuk dan detail dokumennya secara baca-saja melalui `trackingManager`.
 --}}
 @extends('layouts.app')
 
-@section('title', 'Tracking Pengajuan - SIM-PBJ')
+@section('title', 'Pemantauan Berkas Masuk - SIM-PBJ')
 
 {{--
-  Komentar Deskriptif: Seksi Konten Telaah Administrasi Staf Bidang II (`verifikasi.bidang_2`).
+   Seksi Konten Pemantauan Berkas Staf Bidang II (`verifikasi.bidang_2`).
 
-  Tujuan: Kami menormalisasi koleksi `$permohonanMasuk` menjadi struktur JSON `normalizedItems` agar
-          antarmuka tracking split-view tetap seragam sambil menampilkan KPI telaah Bidang II.
+  Tujuan: menormalisasi koleksi `$permohonanMasuk` menjadi struktur JSON `normalizedItems` agar
+          antarmuka tracking split-view seragam bagi pemegang izin pemantauan berkas Bidang II.
   Parameter (Data dari VerifikasiParalelController::verifikasiBidang2):
-    - `$permohonanMasuk` (Collection<PermohonanPengadaan>): Daftar usulan aktif untuk ditelaah.
-  Nilai kembali: Halaman HTML workspace telaah administrasi Bidang II dan form penerusan Memo Cek MAK.
+    - `$permohonanMasuk` (Collection<PermohonanPengadaan>): Daftar usulan aktif untuk dipantau.
+  Nilai kembali: Halaman HTML ruang pemantauan berkas baca-saja tanpa formulir persetujuan.
   Contoh pemanggilan: `return view('verifikasi.bidang_2', compact('permohonanMasuk'));`
 --}}
 @section('content')
@@ -26,12 +25,10 @@
     // Normalisasi sumber data dari controller fullstuck ($permohonanMasuk atau $permohonanList)
     $rawCollection = isset($permohonanMasuk) ? $permohonanMasuk : ($permohonanList ?? collect());
     
-    // Perhitungan statistik KPI dari data backend
+    // Perhitungan statistik pemantauan berkas dari data backend
     $totalPermohonanCount = $rawCollection->count();
-    $belumDitelaahCount = $rawCollection->where('status_permohonan', 'diajukan')->count();
-    $memoMakCount = class_exists(\App\Models\VerifikasiParalel::class)
-        ? \App\Models\VerifikasiParalel::where('role_verifikator', 'staff_bidang_2')->where('status_keputusan', 'disetujui')->count()
-        : 0;
+    $belumDitelaahCount = $rawCollection->whereIn('status_permohonan', ['diajukan', 'menunggu_bidang_2', 'cek_mak_perencanaan'])->count();
+    $memoMakCount = $rawCollection->filter(fn ($p) => ! empty($p->kode_mak))->count();
 
     // Transformasi data Eloquent ke representasi JSON untuk AlpineJS Frontend-pemula
     $normalizedItems = $rawCollection->map(function($p) {
@@ -94,19 +91,14 @@
 
         <!-- Role Badge & Action -->
         <div class="flex items-center gap-2 shrink-0">
-            @if(Auth::check() && Auth::user()->hasRole('admin'))
-                <span class="inline-flex items-center gap-1.5 rounded-full bg-rose-50 border border-rose-200 px-3 py-1 text-xs font-bold text-rose-700">
-                    <span class="size-2 rounded-full bg-rose-600"></span>
-                    Administrator SIM-PBJ
+            @if(Auth::check())
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200/80 px-3 py-1 text-xs font-bold text-[#0969da]">
+                    <span class="size-2 rounded-full bg-[#0969da]"></span>
+                    {{ Auth::user()->roleEntity->label ?? 'Pemantau Berkas Masuk' }}
                 </span>
-            @else
-                {{-- <span class="inline-flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200/80 px-3 py-1 text-xs font-bold text-[#0969da]">
-                    <span class="size-2 rounded-full bg-[#0969da] animate-pulse"></span>
-                    Staf Bidang II (Pemantau Berkas - Read-Only)
-                </span> --}}
             @endif
 
-            @if(!Auth::user()->hasRole('admin') && (Auth::user()->hasRole('user') || Auth::user()->hasAnyPermission(['permohonan.create'])))
+            @if(Auth::check() && Auth::user()->hasPermission('permohonan.create'))
                 <button x-show="viewMode !== 'fullscreen'" 
                         @click="openModalCreate()" 
                         type="button" 
@@ -136,12 +128,12 @@
             </div>
         </div>
 
-        <!-- Card 2: Belum Ditelaah -->
+        <!-- Card 2: Tahap Awal & Cek Anggaran -->
         <div class="bg-white rounded-xl border border-slate-200/80 p-4 shadow-sm flex items-center justify-between">
             <div>
-                <span class="text-xs font-medium text-slate-400 block">Belum Ditelaah</span>
+                <span class="text-xs font-medium text-slate-400 block">Tahap Awal &amp; Cek Anggaran</span>
                 <span class="text-2xl font-extrabold text-amber-600 mt-0.5 block font-mono">{{ $belumDitelaahCount }}</span>
-                <span class="text-[11px] text-slate-500 font-medium">Perlu verifikasi checklist</span>
+                <span class="text-[11px] text-slate-500 font-medium">Usulan baru &amp; penentuan anggaran</span>
             </div>
             <div class="size-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
                 <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -150,12 +142,12 @@
             </div>
         </div>
 
-        <!-- Card 3: Memo Cek Anggaran Terbit -->
+        <!-- Card 3: Anggaran Sudah Ditetapkan -->
         <div class="bg-white rounded-xl border border-slate-200/80 p-4 shadow-sm flex items-center justify-between">
             <div>
-                <span class="text-xs font-medium text-slate-400 block">Memo Cek Anggaran Terbit</span>
+                <span class="text-xs font-medium text-slate-400 block">Anggaran Sudah Ditetapkan</span>
                 <span class="text-2xl font-extrabold text-teal-600 mt-0.5 block font-mono">{{ $memoMakCount }}</span>
-                <span class="text-[11px] text-slate-500 font-medium">Diteruskan ke Perencanaan</span>
+                <span class="text-[11px] text-slate-500 font-medium">Memiliki pos anggaran</span>
             </div>
             <div class="size-11 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center shrink-0">
                 <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -398,10 +390,10 @@
                         </div>
                     </div>
 
-                    <!-- Panel Informasi & Keputusan Telaah (fullstuck) -->
+                    <!-- Panel Informasi Status Pemantauan -->
                     <div class="bg-white rounded-xl border border-slate-200/80 p-5 shadow-sm space-y-4">
                         <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                            <h3 class="font-bold text-base text-[#213153]">Informasi Status &amp; Tindakan</h3>
+                            <h3 class="font-bold text-base text-[#213153]">Informasi Status Berkas</h3>
                             <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 text-slate-600 px-2.5 py-0.5 text-[11px] font-semibold">
                                 Pemantauan Staf Bidang II
                             </span>
@@ -410,22 +402,22 @@
                         <!-- Info Pemantauan Staf Bidang II -->
                         <div class="rounded-xl bg-blue-50/70 border border-blue-100 p-3.5 text-xs text-blue-900 flex items-start gap-2.5 leading-relaxed">
                             <svg class="size-4 text-[#0969da] shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                            <span>Staf Bidang II memantau berkas pengajuan. Pemeriksaan dokumen dan keputusan akhir dilakukan oleh <strong>Wakil Direktur II</strong>.</span>
+                            <span>Halaman ini bersifat baca-saja untuk memantau usulan masuk. Penetapan pos anggaran dan pemilihan PPK dilakukan oleh <strong>Bagian Perencanaan</strong>, sedangkan persetujuan usulan diputuskan oleh <strong>Wakil Direktur II</strong> dan <strong>PPK terpilih</strong>.</span>
                         </div>
 
-                        <!-- 3 Status Grid Administrasi dari fullstuck -->
+                        <!-- 3 Status Grid Administrasi -->
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
                             <div class="bg-slate-50 p-3 rounded-xl border border-slate-200/60 space-y-1">
                                 <span class="text-slate-400 block text-[11px]">Naskah Srikandi:</span>
                                 <span class="font-bold text-slate-800 font-mono text-xs truncate block" x-text="selectedItem.nomor"></span>
                             </div>
                             <div class="bg-slate-50 p-3 rounded-xl border border-slate-200/60 space-y-1">
-                                <span class="text-slate-400 block text-[11px]">Kelengkapan:</span>
-                                <span class="font-bold text-indigo-700 text-xs block">Wadir II &amp; Pengusul</span>
+                                <span class="text-slate-400 block text-[11px]">Pemeriksa Berkas:</span>
+                                <span class="font-bold text-indigo-700 text-xs block">Perencanaan, Wadir II &amp; PPK</span>
                             </div>
                             <div class="bg-slate-50 p-3 rounded-xl border border-slate-200/60 space-y-1">
                                 <span class="text-slate-400 block text-[11px]">Pos Anggaran:</span>
-                                <span class="font-bold text-teal-700 text-xs block" x-text="selectedItem.kode_mak || 'Dalam Telaah'"></span>
+                                <span class="font-bold text-teal-700 text-xs block" x-text="selectedItem.kode_mak || 'Menunggu Perencanaan'"></span>
                             </div>
                         </div>
 
@@ -636,7 +628,7 @@
                         <!-- Panel Status Berkas & MAK (fullstuck) -->
                         <div class="p-4 rounded-xl border border-slate-200 bg-white space-y-3 shadow-xs">
                             <div class="flex items-center justify-between">
-                                <h4 class="font-bold text-sm text-[#213153]">Status Telaah Administrasi</h4>
+                                <h4 class="font-bold text-sm text-[#213153]">Status Berkas Pengajuan</h4>
                                 <span class="text-xs font-bold font-mono text-[#0969da]" x-text="selectedItem.anggaran_formatted"></span>
                             </div>
 

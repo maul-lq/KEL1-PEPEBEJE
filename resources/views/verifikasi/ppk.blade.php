@@ -12,7 +12,7 @@
 @section('title', 'Persetujuan Awal Usulan PPK - SIM-PBJ PNJ')
 
 {{--
-  Komentar Deskriptif: Seksi Konten Antrean Persetujuan Awal PPK (`verifikasi.ppk`).
+   Seksi Konten Antrean Persetujuan Awal PPK (`verifikasi.ppk`).
 
   Tujuan: membatasi tampilan usulan hanya untuk `id_user_ppk_awal` yang cocok dengan akun PPK
           login dan mewajibkan catatan penolakan via komponen Alpine `verifikasiKeputusanPpk`.

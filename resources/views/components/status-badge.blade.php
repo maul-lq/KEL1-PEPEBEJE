@@ -7,7 +7,7 @@
               data menjadi lencana status berwarna konsisten (dot pulse, soft/outline/solid).
 --}}
 {{--
-  Komentar Deskriptif: Komponen Lencana Status Transaksi (`<x-status-badge>`).
+   Komponen Lencana Status Transaksi (`<x-status-badge>`).
 
   Tujuan: memetakan seluruh enum/string status permohonan, paket, kontrak, penerimaan, dan
           pembayaran ke label bahasa Indonesia baku beserta warna semantiknya.

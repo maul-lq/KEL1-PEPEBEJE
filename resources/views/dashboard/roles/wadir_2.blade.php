@@ -4,13 +4,13 @@
   Penulis   : Rizlrad Fz
   Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
   Ringkasan : Sub-view dasbor ini rancang untuk modul Wakil Direktur II berisi KPI usulan
-              menunggu ACC, antrean Memo Bayar Level 1, serta daftar keputusan Wadir II.
+              menunggu ACC, antrean Memo Bayar Wadir II, serta daftar keputusan Wadir II.
 --}}
 {{--
-  Komentar Deskriptif: Panel Workspace Dasbor Wakil Direktur II (`dashboard.roles.wadir_2`).
+   Panel Workspace Dasbor Wakil Direktur II (`dashboard.roles.wadir_2`).
 
   Tujuan: menyatukan dua kewenangan utama Wadir II (persetujuan kegiatan usulan dan
-          persetujuan Memo Bayar Level 1) dalam satu panel prioritas berurutan.
+          persetujuan Memo Bayar Wadir II) dalam satu panel prioritas paralel.
   Parameter: `$user` (User), `$stats` (array), `$roleData` (array).
   Nilai kembali: Fragmen HTML KPI pimpinan Bidang II beserta antrean disposisi dan memo bayar.
   Contoh pemanggilan: `@includeIf('dashboard.roles.wadir_2', [...])`
@@ -40,7 +40,7 @@
         />
 
         <x-figma-stat-card
-            title="Memo Bayar Lvl 1"
+            title="Memo Bayar Wadir II"
             :value="$stats['memo_bayar_pending'] ?? 0"
             :subtitle="$canMemoWadir ? 'Antrean persetujuan memo' : 'Akses Memo tidak aktif'"
             variant="bell"
@@ -107,8 +107,8 @@
                         variant="bell"
                         :title="$paketNama"
                         :meta="$memo->nomor_pembayaran . ' • ' . $vendorNama"
-                        :submeta="'Nominal Pengajuan: Rp ' . $nominalBayar . ' • Persetujuan Level 1'"
-                        badge="Memo Lvl 1"
+                        :submeta="'Nominal Pengajuan: Rp ' . $nominalBayar . ' • Persetujuan Wadir II'"
+                        badge="Memo Bayar Wadir II"
                         badgeClass="bg-blue-50 text-[#0969da]"
                         :href="$memoWadirHref"
                         buttonLabel="Buka"
@@ -143,7 +143,7 @@
                     </div>
                 @empty
                     <div class="py-10 text-center text-xs text-slate-400">
-                        Belum ada riwayat disposisi atau Memo Bayar Level 1 yang tercatat.
+                        Belum ada riwayat disposisi atau Memo Bayar Wadir II yang tercatat.
                     </div>
                 @endforelse
             </div>

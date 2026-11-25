@@ -11,7 +11,7 @@
 @section('title', 'Dashboard Utama - SIM-PBJ Politeknik Negeri Jakarta')
 
 {{--
-  Komentar Deskriptif: Seksi Konten Utama Dasbor Kumulatif RBAC (`@section('content')`).
+   Seksi Konten Utama Dasbor Kumulatif RBAC (`@section('content')`).
 
   Tujuan: Kami memetakan daftar modul aktif dari controller ke sub-view peran di `dashboard.roles.*`
           serta menghindari duplikasi tampilan bila `ppbj` dan `monitoring_pp` sama-sama aktif.

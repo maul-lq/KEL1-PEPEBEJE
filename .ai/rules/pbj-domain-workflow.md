@@ -9,10 +9,11 @@ paths:
 
 # Aturan Domain & Alur Bisnis SIM-PBJ (Notulensi PPBJ Terbaru)
 
-1. **Alur Telaah Berkas & Persetujuan Eksekutif Wadir 2 (Staf Bidang 2 Read-Only)**:
-   - **Peran Staf Bidang II (Read-Only)**: Staf Bidang II hanya memiliki hak akses melihat/membaca seluruh usulan permohonan masuk (monitoring & preview dokumen) tanpa memiliki hak meneruskan atau mendisposisikan berkas ke Wadir 2.
-   - **Pemeriksaan Kelengkapan Dokumen & Keputusan oleh Wadir II**: Wakil Direktur II secara langsung memeriksa kelengkapan administrasi berkas dinas (Surat Usulan Srikandi, KAK, Spesifikasi Teknis) dan menetapkan keputusan eksekutif: **ACC (Disetujui)**, **Tolak**, atau **Minta Revisi**.
-   - **Pemeriksaan Anggaran oleh Subbagian Perencanaan**: Bagian Perencanaan memeriksa/mengalokasikan ketersediaan MAK DIPA dan memilih PPK awal, yang kemudian disahkan bersama Wadir II sebelum dilanjutkan ke modul PPBJ.
+1. **Alur Usulan Awal, Pemantauan Staf Bidang II, & Persetujuan Paralel Wadir II dan PPK**:
+   - **Urutan Alur Awal**: **`Pemohon -> Bagian Perencanaan (Tentukan Pos Anggaran & Pilih PPK) -> Verifikasi Paralel Wakil Direktur II & PPK Terpilih -> Unit Pengadaan (PPBJ)`**.
+   - **Peran Staf Bidang II (Baca-Saja)**: Staf Bidang II (`verifikasi.bidang_2_view`) hanya memiliki hak melihat/memantau usulan permohonan masuk dan pratinjau dokumennya tanpa formulir verifikasi, tanpa upload memo, dan tanpa tombol penerusan.
+   - **Penentuan Pos Anggaran oleh Bagian Perencanaan**: Bagian Perencanaan menerima usulan baru maupun revisi secara langsung, menentukan/mengalokasikan ketersediaan anggaran (`anggaran.mak_alokasi`), dan memilih PPK penanggung jawab awal (`id_user_ppk_awal`), lalu mendorong status ke `menunggu_acc_wadir_ppk`.
+   - **Persetujuan Paralel Wadir II & PPK Terpilih**: Setelah Bagian Perencanaan menetapkan pos anggaran dan PPK, Wakil Direktur II (`verifikasi.wadir_2_decide`) dan PPK terpilih (`verifikasi.ppk_approve`) memeriksa dan memutuskan persetujuan secara paralel sebelum diteruskan ke Unit Pengadaan. Wewenang persetujuan dokumen paket pengadaan PPK dipisahkan pada izin `reviu.ppk` agar tidak tercampur dengan persetujuan usulan awal.
 2. **Otoritas Tunggal Kunci & Buka Kunci MAK di Perencanaan**:
    - Selain membuat MAK, **hanya role `perencanaan`** yang berwenang mengunci (`lock`) dan membuka kunci (`unlock`) MAK. PPK maupun penerbitan SPK tidak mengunci MAK secara sepihak.
 3. **Penentuan Metode Pengadaan & 3 Jalur Eksekusi**:
@@ -23,17 +24,17 @@ paths:
 4. **Satu Dokumen Perikatan Terpilih (`> Rp50 Juta`)**:
    - Setiap paket `> Rp50 juta` hanya mengunggah **salah satu** dokumen: `Surat Pesanan` (`surat_pesanan`) atau `SPK` (`spk`) untuk E-Katalog/Inaproc, atau `Surat Kontrak` (`surat_kontrak`) untuk Non-Tender/Tender pihak ketiga.
 5. **BAST Murni di Perlengkapan & Informasi Dokumen Pembayaran**:
-   - **BAST** hanya diterbitkan oleh **Perlengkapan** saat serah terima fisik barang (beserta penentuan `belanja_barang` / `belanja_modal`, foto, & TTD digital HMAC), baik untuk paket `> 50jt` maupun `<= 50jt` Belanja Langsung.
-   - **Informasi Dokumen Pembayaran** menampilkan referensi dokumen perikatan tunggal (`SPK` / `Surat Pesanan` / `Surat Kontrak` untuk `> 50jt`) **ditambah** `Kwitansi` dan `Invoice`, lalu melewati Memo Bayar berjenjang (`PPK` -> `Wadir 2`) -> Perintah Bayar `PPBJ` -> Pencairan `Keuangan`.
+   - **BAST** hanya diterbitkan oleh **Perlengkapan** saat serah terima fisik barang (beserta penentuan `belanja_barang` / `belanja_modal`, foto, dan tanda tangan digital), baik untuk paket `> 50jt` maupun `<= 50jt` Belanja Langsung.
+   - **Informasi Dokumen Pembayaran** menampilkan referensi dokumen perikatan tunggal (`SPK` / `Surat Pesanan` / `Surat Kontrak` untuk `> 50jt`) **ditambah** `Kwitansi` dan `Invoice`, lalu melewati Memo Bayar paralel (`Wadir II` via `pembayaran.memo_wadir2` dan `PPK` penanggung jawab via `pembayaran.memo_ppk`, termasuk paket Belanja Langsung serta PPK pengganti hasil alih tugas) -> Perintah Bayar `PPBJ` -> Pencairan `Keuangan`.
 6. **Kelengkapan Navigasi & Entrypoint Antarmuka (End-to-End Navigation)**:
-   - Setiap peran yang memiliki tanggung jawab pada alur persetujuan berantai (`staff_bidang_2`, `perencanaan`, `wadir_2`, `ppk`) **wajib** memiliki 2 pintu masuk antarmuka:
-     a. **Ikon Menu Sidebar**: Terpasang di `resources/views/layouts/app.blade.php` dengan pengecekan role yang sesuai, title deskriptif, dan indikator badge antrean aktif.
-     b. **Daftar Antrean & Kartu KPI Dashboard**: Tampil di `resources/views/dashboard/roles/{role}.blade.php` lengkap dengan tombol aksi langsung menuju halaman verifikasi, disuplai datanya melalui `HomeController::getRoleDashboardData()`.
+   - Setiap modul yang memiliki alur pemantauan atau persetujuan (`verifikasi.bidang_2_view`, `anggaran.*`, `verifikasi.wadir_2_*`, `verifikasi.ppk_approve`, `reviu.ppk`) **wajib** memiliki 2 pintu masuk antarmuka berbasis RBAC permission:
+     a. **Ikon Menu Sidebar**: Terpasang di `resources/views/layouts/app.blade.php` dengan pemeriksaan izin RBAC yang sesuai, title deskriptif, dan indikator badge antrean aktif.
+     b. **Daftar Antrean & Kartu Statistik Dashboard**: Tampil di `resources/views/dashboard/roles/{role}.blade.php` menggunakan cek izin murni dan data dari `HomeController::getRoleDashboardData()`.
 7. **Integritas Sinkronisasi Skema Database**:
    - Setelah setiap penggabungan kode (merge git) atau penambahan migrasi baru, wajib memverifikasi `php artisan migrate:status` dan menjalankan `php artisan migrate --no-interaction` sebelum memulai pengujian alur bisnis.
 8. **Penyederhanaan Entitas Vendor & Input Rekanan Secara Inline**:
    - **Struktur Minimalis Vendor**: Rekanan vendor hanya menyimpan nama vendor (`nama_vendor`) dan dokumen legalitas digital (`file_dokumen_legalitas`). Kolom `npwp`, `npwp_vendor`, `is_active`, NIB, rekening bank, PIC, dan `nama_perusahaan` telah dihapus seluruhnya dari database dan UI.
-   - **Sumber Peran Tunggal Pengguna**: Tabel `users` hanya menyimpan `id_role` (FK ke `roles.id`), tanpa kolom teks `users.role`. Gunakan `User::withRole(...)`, `$user->hasRole(...)`, `$user->hasPermission(...)`, dan `$user->roleEntity`.
+   - **Sumber Peran Tunggal & Otorisasi Berbasis Permission**: Tabel `users` hanya menyimpan `id_role` (FK ke `roles.id`), tanpa kolom teks `users.role`. Otorisasi fitur di rute, controller, policy, dan Blade wajib memakai permission (`$user->hasPermission(...)`, `$user->hasAnyPermission(...)`) serta seleksi kandidat PPK memakai `User::eligibleForPpk()` / `User::eligibleForPermissions(...)`. Gunakan label izin yang jelas, tergeneralisasi dalam Bahasa Indonesia, dan bebas jargon teknis internal.
    - **Peniadaan Modul Master `/vendors`**: Rute, controller, dan antarmuka master CRUD rekanan ditiadakan dari sidebar navigasi dan sistem.
    - **Penetapan Rekanan di Tahap Perikatan/Belanja (Bukan di Registrasi Paket)**: Pada saat pendaftaran awal paket pengadaan oleh PPBJ, vendor belum ditentukan. Rekanan baru diinput dan dokumen legalitasnya diunggah secara *inline* pada tahap penerbitan dokumen perikatan (Kwitansi Belanja Langsung pada `<= 50jt`, SPK/Surat Pesanan pada `50-200jt`, atau Kontrak pada `> 200jt`).
 9. **Auto-Routing HPS, Filter Metode Pengadaan, & Sinkronisasi Saldo MAK**:

@@ -100,64 +100,79 @@ Route::middleware(['auth', 'prevent.back'])->group(function () {
         ->where(['id' => '.*']);
 
     // -------------------------------------------------------------------------
-    // Modul 2 & 3: Verifikasi Berantai Awal (Staf B2 -> Perencanaan -> Wadir 2 & PPK)
+    // Modul 2 & 3: Pemantauan Berkas & Verifikasi Paralel (Perencanaan -> Wadir 2 & PPK)
     // -------------------------------------------------------------------------
-    Route::middleware('role:staff_bidang_2')->group(function () {
-        Route::get('/verifikasi/bidang-2', [VerifikasiParalelController::class, 'verifikasiBidang2'])->name('verifikasi.bidang-2');
-        Route::post('/verifikasi/bidang-2/teruskan', [VerifikasiParalelController::class, 'teruskanStaffB2'])->name('verifikasi.bidang-2.teruskan');
-    });
+    Route::get('/verifikasi/bidang-2', [VerifikasiParalelController::class, 'verifikasiBidang2'])
+        ->name('verifikasi.bidang-2')
+        ->middleware('role:verifikasi.bidang_2_view');
 
-    Route::middleware('role:wadir_2')->group(function () {
-        Route::get('/verifikasi/wadir-2', [VerifikasiParalelController::class, 'verifikasiWadir2'])->name('verifikasi.wadir-2');
-        Route::post('/verifikasi/wadir-2/keputusan', [VerifikasiParalelController::class, 'keputusanWadir2'])->name('verifikasi.wadir-2.keputusan');
-    });
+    Route::get('/verifikasi/wadir-2', [VerifikasiParalelController::class, 'verifikasiWadir2'])
+        ->name('verifikasi.wadir-2')
+        ->middleware('role:verifikasi.wadir_2_view,verifikasi.wadir_2_decide');
+    Route::post('/verifikasi/wadir-2/keputusan', [VerifikasiParalelController::class, 'keputusanWadir2'])
+        ->name('verifikasi.wadir-2.keputusan')
+        ->middleware('role:verifikasi.wadir_2_decide');
 
-    Route::middleware('role:ppk')->group(function () {
+    Route::middleware('role:verifikasi.ppk_approve')->group(function () {
         Route::get('/verifikasi/ppk', [VerifikasiParalelController::class, 'verifikasiPpk'])->name('verifikasi.ppk');
         Route::post('/verifikasi/ppk/keputusan', [VerifikasiParalelController::class, 'keputusanPpkAwal'])->name('verifikasi.ppk.keputusan');
+    });
 
-        // memisahkan endpoint persetujuan dokumen pasca-penyusunan PP/PPBJ di grup PPK agar terisolasi dari verifikasi usulan awal.
+    // memisahkan endpoint persetujuan dokumen paket pengadaan untuk PPK agar terisolasi dari verifikasi usulan awal.
+    Route::middleware('role:reviu.ppk')->group(function () {
         Route::get('/reviu-pengadaan/ppk', [KontrakSPKController::class, 'persetujuanDokumenPpkIndex'])->name('ppk.persetujuan-dokumen.index');
         Route::post('/reviu-pengadaan/ppk/keputusan', [KontrakSPKController::class, 'keputusanDokumenPpk'])->name('ppk.persetujuan-dokumen.keputusan');
     });
 
-    Route::middleware('role:perencanaan')->group(function () {
-        Route::get('/verifikasi/perencanaan', [VerifikasiParalelController::class, 'verifikasiPerencanaan'])->name('verifikasi.perencanaan');
+    Route::get('/verifikasi/perencanaan', [VerifikasiParalelController::class, 'verifikasiPerencanaan'])
+        ->name('verifikasi.perencanaan')
+        ->middleware('role:anggaran.mak_view,anggaran.mak_manage,anggaran.mak_alokasi,anggaran.mak_lock,permohonan.split_mak');
+    Route::middleware('role:anggaran.mak_alokasi')->group(function () {
         Route::post('/verifikasi/perencanaan/mak', [VerifikasiParalelController::class, 'alokasiMakPerencanaan'])->name('verifikasi.perencanaan.mak');
         // mempertahankan alias '/alokasi' agar endpoint pemanggilan lama maupun formulir baru tetap mengarah ke handler alokasi yang sama.
         Route::post('/verifikasi/perencanaan/alokasi', [VerifikasiParalelController::class, 'alokasiMakPerencanaan'])->name('verifikasi.perencanaan.alokasi');
-        Route::post('/verifikasi/perencanaan/mak/store', [VerifikasiParalelController::class, 'storeMakPerencanaan'])->name('verifikasi.perencanaan.mak.store');
-        // menerapkan wildcard '.*' pada {anggaran_mak} karena kode MAK dapat mengandung titik atau garis miring; hanya Perencanaan yang boleh lock/unlock.
+    });
+    Route::post('/verifikasi/perencanaan/mak/store', [VerifikasiParalelController::class, 'storeMakPerencanaan'])
+        ->name('verifikasi.perencanaan.mak.store')
+        ->middleware('role:anggaran.mak_manage');
+    // menerapkan wildcard '.*' pada {anggaran_mak} karena kode MAK dapat mengandung titik atau garis miring; hanya pemegang izin kunci yang boleh lock/unlock.
+    Route::middleware('role:anggaran.mak_lock')->group(function () {
         Route::post('/verifikasi/perencanaan/mak/{anggaran_mak}/lock', [VerifikasiParalelController::class, 'lockMakWeb'])
             ->name('verifikasi.perencanaan.mak.lock')
             ->where(['anggaran_mak' => '.*']);
         Route::post('/verifikasi/perencanaan/mak/{anggaran_mak}/unlock', [VerifikasiParalelController::class, 'unlockMakWeb'])
             ->name('verifikasi.perencanaan.mak.unlock')
             ->where(['anggaran_mak' => '.*']);
-        Route::post('/verifikasi/perencanaan/split', [VerifikasiParalelController::class, 'splitMakPerencanaan'])->name('verifikasi.perencanaan.split');
     });
+    Route::post('/verifikasi/perencanaan/split', [VerifikasiParalelController::class, 'splitMakPerencanaan'])
+        ->name('verifikasi.perencanaan.split')
+        ->middleware('role:permohonan.split_mak');
 
     // -------------------------------------------------------------------------
     // Modul 4: Paket Pengadaan & Belanja Langsung <= 50 Juta (Koordinator PPBJ)
     // -------------------------------------------------------------------------
     Route::get('/paket-pengadaan', [PaketPengadaanController::class, 'paketIndex'])->name('paket.index');
-    Route::get('/paket-pengadaan/split-jenis', [PaketPengadaanController::class, 'splitJenisCreate'])->name('paket.split-jenis.create')->middleware('role:ppbj');
-    Route::get('/paket-pengadaan/reassign-ppk', [PaketPengadaanController::class, 'reassignPpkCreate'])->name('paket.reassign-ppk.create')->middleware('role:ppbj,perencanaan,wadir_2');
-    Route::middleware('role:ppbj')->group(function () {
+    Route::middleware('role:permohonan.split_jenis')->group(function () {
+        Route::get('/paket-pengadaan/split-jenis', [PaketPengadaanController::class, 'splitJenisCreate'])->name('paket.split-jenis.create');
+        Route::post('/paket-pengadaan/split-jenis', [PaketPengadaanController::class, 'splitJenisPpbj'])->name('paket.split-jenis');
+    });
+    Route::middleware('role:paket.reassign_ppk')->group(function () {
+        Route::get('/paket-pengadaan/reassign-ppk', [PaketPengadaanController::class, 'reassignPpkCreate'])->name('paket.reassign-ppk.create');
+        Route::post('/paket-pengadaan/reassign-ppk', [PaketPengadaanController::class, 'reassignPpkWeb'])->name('paket.reassign-ppk');
+    });
+    Route::middleware('role:paket.create')->group(function () {
         Route::get('/paket-pengadaan/create', [PaketPengadaanController::class, 'paketCreate'])->name('paket.create');
         Route::post('/paket-pengadaan', [PaketPengadaanController::class, 'storePaket'])->name('paket.store');
         Route::post('/paket-pengadaan/belanja-langsung', [PaketPengadaanController::class, 'storeBelanjaLangsungWeb'])->name('paket.belanja-langsung');
-        Route::post('/paket-pengadaan/reassign-ppk', [PaketPengadaanController::class, 'reassignPpkWeb'])->name('paket.reassign-ppk');
-        Route::post('/paket-pengadaan/split-jenis', [PaketPengadaanController::class, 'splitJenisPpbj'])->name('paket.split-jenis');
     });
     // menempatkan rute statis (/create, /split-jenis, /reassign-ppk) sebelum rute wildcard {id} agar tidak tertelan oleh regex '.*'.
     Route::get('/paket-pengadaan/{id}/edit', [PaketPengadaanController::class, 'paketEdit'])
         ->name('paket.edit')
-        ->middleware('role:ppbj')
+        ->middleware('role:paket.create')
         ->where(['id' => '.*']);
     Route::put('/paket-pengadaan/{id}', [PaketPengadaanController::class, 'paketUpdate'])
         ->name('paket.update')
-        ->middleware('role:ppbj')
+        ->middleware('role:paket.create')
         ->where(['id' => '.*']);
     Route::get('/paket-pengadaan/{id}', [PaketPengadaanController::class, 'paketShow'])
         ->name('paket.show')
@@ -168,11 +183,11 @@ Route::middleware(['auth', 'prevent.back'])->group(function () {
     // -------------------------------------------------------------------------
     Route::get('/monitor-pp', [KontrakSPKController::class, 'monitorPpIndex'])
         ->name('monitor-pp.index')
-        ->middleware('role:pp.monitoring_aktivitas,lihat_pp');
+        ->middleware('role:pp.monitoring_aktivitas');
 
     Route::get('/kontrak-spk', [KontrakSPKController::class, 'kontrakIndex'])
         ->name('kontrak.index')
-        ->middleware('role:spk.create,reviu.pp,reviu.ppk,pp.monitoring_aktivitas,lihat_pp');
+        ->middleware('role:spk.create,reviu.pp,reviu.ppk,pp.monitoring_aktivitas');
     Route::post('/kontrak-spk', [KontrakSPKController::class, 'storeKontrak'])
         ->name('kontrak.store')
         ->middleware('role:spk.create');
@@ -183,24 +198,36 @@ Route::middleware(['auth', 'prevent.back'])->group(function () {
     // -------------------------------------------------------------------------
     // Modul 6: Penerimaan Barang & BAST
     // -------------------------------------------------------------------------
-    Route::middleware('role:perlengkapan')->group(function () {
-        Route::get('/penerimaan-barang', [PenerimaanBarangController::class, 'penerimaanIndex'])->name('penerimaan.index');
-        Route::post('/penerimaan-barang', [PenerimaanBarangController::class, 'storePenerimaan'])->name('penerimaan.store');
-    });
+    Route::get('/penerimaan-barang', [PenerimaanBarangController::class, 'penerimaanIndex'])
+        ->name('penerimaan.index')
+        ->middleware('role:penerimaan.view,penerimaan.bast_create,penerimaan.bast_sign');
+    Route::post('/penerimaan-barang', [PenerimaanBarangController::class, 'storePenerimaan'])
+        ->name('penerimaan.store')
+        ->middleware('role:penerimaan.bast_create,penerimaan.bast_sign');
 
     // -------------------------------------------------------------------------
     // Modul 7: Tagihan SPP & Pencairan Dana
     // -------------------------------------------------------------------------
-    Route::get('/pembayaran', [PembayaranController::class, 'pembayaranIndex'])->name('pembayaran.index')->middleware('role:ppbj,ppk,wadir_2,keuangan');
-    Route::post('/pembayaran/pengajuan', [PembayaranController::class, 'storePengajuanBayarWeb'])->name('pembayaran.pengajuan')->middleware('role:ppbj');
+    Route::get('/pembayaran', [PembayaranController::class, 'pembayaranIndex'])
+        ->name('pembayaran.index')
+        ->middleware('role:pembayaran.pengajuan,pembayaran.memo_ppk,pembayaran.memo_wadir2,pembayaran.spp_terbitkan,pembayaran.pencairan_sp2d');
+    Route::post('/pembayaran/pengajuan', [PembayaranController::class, 'storePengajuanBayarWeb'])
+        ->name('pembayaran.pengajuan')
+        ->middleware('role:pembayaran.pengajuan');
     // membuka endpoint PUT perbaikan berkas tagihan agar PPBJ dapat memperbaiki dokumen yang ditolak Wadir II atau PPK tanpa membuat tagihan ganda.
     Route::put('/pembayaran/{nomor_pembayaran}', [PembayaranController::class, 'pembayaranUpdate'])
         ->name('pembayaran.update')
-        ->middleware('role:ppbj')
+        ->middleware('role:pembayaran.pengajuan')
         ->where(['nomor_pembayaran' => '.*']);
-    Route::post('/pembayaran/memo/approve', [PembayaranController::class, 'approveMemoBayarWeb'])->name('pembayaran.memo.approve')->middleware('role:ppk,wadir_2');
-    Route::post('/pembayaran/terbitkan-spp', [PembayaranController::class, 'terbitkanSppWeb'])->name('pembayaran.terbitkan-spp')->middleware('role:ppbj');
-    Route::post('/pembayaran', [PembayaranController::class, 'storePembayaran'])->name('pembayaran.store')->middleware('role:keuangan');
+    Route::post('/pembayaran/memo/approve', [PembayaranController::class, 'approveMemoBayarWeb'])
+        ->name('pembayaran.memo.approve')
+        ->middleware('role:pembayaran.memo_ppk,pembayaran.memo_wadir2');
+    Route::post('/pembayaran/terbitkan-spp', [PembayaranController::class, 'terbitkanSppWeb'])
+        ->name('pembayaran.terbitkan-spp')
+        ->middleware('role:pembayaran.spp_terbitkan');
+    Route::post('/pembayaran', [PembayaranController::class, 'storePembayaran'])
+        ->name('pembayaran.store')
+        ->middleware('role:pembayaran.pencairan_sp2d');
 
     // -------------------------------------------------------------------------
     // Modul 8: Riwayat & Laporan Terpadu
@@ -261,7 +288,7 @@ Route::middleware(['auth', 'prevent.back'])->group(function () {
     });
 
     // -------------------------------------------------------------------------
-    // Helper Unduh Berkas Resmi Format PDF (< 3 Detik - NFR 12)
+    // Helper Unduh Berkas Resmi Format PDF
     // -------------------------------------------------------------------------
     // mengizinkan wildcard '.*' pada {id} agar nomor surat/paket/pembayaran yang bertanda '/' bisa diunduh lewat satu endpoint PDF terpusat.
     Route::get('/dokumen-pdf/{jenis}/{id}', [HomeController::class, 'unduhDokumenPdf'])

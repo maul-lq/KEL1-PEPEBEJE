@@ -7,7 +7,7 @@
               dalam tiga mode tampilan (horizontal, vertical timeline, dan compact bar).
 --}}
 {{--
-  Komentar Deskriptif: Komponen Blade Stepper 8 Siklus Pengadaan (`<x-stepper-8-siklus>`).
+   Komponen Blade Stepper 8 Siklus Pengadaan (`<x-stepper-8-siklus>`).
 
   Tujuan: memetakan tahap aktif 1..8 serta status penolakan/penahanan ke visual lingkaran
           tahapan, garis penghubung horizontal/vertikal, maupun indikator bar ringkas di tabel.

@@ -12,7 +12,7 @@
 @section('title', 'Manajemen Paket Pengadaan & Penugasan PPK - SIM-PBJ PNJ')
 
 {{--
-  Komentar Deskriptif: Seksi Konten Daftar Paket Pengadaan & Aksi Penugasan (`paket.index`).
+   Seksi Konten Daftar Paket Pengadaan & Aksi Penugasan (`paket.index`).
 
   Tujuan: mengelompokkan tombol aksi manajerial sesuai izin RBAC (`permohonan.split_jenis`,
           `paket.reassign_ppk`, `paket.create`) dan menampilkan distribusi paket menurut ambang HPS.
@@ -31,9 +31,9 @@
                 <h1 class="text-2xl font-bold text-[#213153] mt-1">Manajemen Paket Pengadaan &amp; Penugasan PPK</h1>
             </div>
 
-            @if(Auth::user() && (Auth::user()->hasRole('admin') || Auth::user()->hasAnyPermission(['paket.create', 'paket.view_all', 'paket.reassign_ppk', 'permohonan.split_jenis'])))
+            @if(Auth::user() && Auth::user()->hasAnyPermission(['paket.create', 'paket.view_all', 'paket.reassign_ppk', 'permohonan.split_jenis']))
                 <div class="flex flex-wrap items-center gap-2 shrink-0">
-                    @if(Auth::user()->hasRole('admin') || Auth::user()->hasPermission('permohonan.split_jenis'))
+                    @if(Auth::user()->hasPermission('permohonan.split_jenis'))
                         <button
                             type="button"
                             @click="$dispatch('open-modal', 'modal-split-jenis')"
@@ -44,7 +44,7 @@
                         </button>
                     @endif
 
-                    @if(Auth::user()->hasRole('admin') || Auth::user()->hasPermission('paket.reassign_ppk'))
+                    @if(Auth::user()->hasPermission('paket.reassign_ppk'))
                         <button
                             type="button"
                             @click="selectedPaket = ''; $dispatch('open-modal', 'modal-reassign-ppk')"
@@ -55,7 +55,7 @@
                         </button>
                     @endif
 
-                    @if(Auth::user()->hasRole('admin') || Auth::user()->hasPermission('paket.create'))
+                    @if(Auth::user()->hasPermission('paket.create'))
                         <a
                             href="{{ route('paket.create') }}"
                             class="px-4 py-2 rounded-xl bg-[#0969da] text-xs font-bold text-white hover:bg-blue-700 shadow-sm hover:shadow transition inline-flex items-center gap-1.5"
@@ -153,7 +153,7 @@
     </x-filter-bar>
 
     {{-- 3.5. Antrean Usulan Masuk dari Wadir 2 & PPK (BPMN: Menerima Form Pengadaan, MAK & Memo) --}}
-    @if(Auth::user() && (Auth::user()->hasRole('admin') || Auth::user()->hasAnyPermission(['paket.create', 'paket.view_all'])))
+    @if(Auth::user() && Auth::user()->hasAnyPermission(['paket.create', 'paket.view_all']))
         <div class="rounded-2xl bg-white shadow-sm border border-slate-200/80 overflow-hidden">
             <div class="px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-blue-50/50 via-white to-slate-50/50">
                 <div>
@@ -318,7 +318,7 @@
     @endif
 
     {{-- 3.6. Antrean Paket Perlu Perbaikan (BPMN N18: Titik Kembali jika Ditolak PP N27 atau PPK N35) --}}
-    @if(isset($paketPerluPerbaikan) && $paketPerluPerbaikan->isNotEmpty() && Auth::user() && (Auth::user()->hasRole('admin') || Auth::user()->hasAnyPermission(['paket.create', 'paket.view_all'])))
+    @if(isset($paketPerluPerbaikan) && $paketPerluPerbaikan->isNotEmpty() && Auth::user() && Auth::user()->hasAnyPermission(['paket.create', 'paket.view_all']))
         <div class="rounded-2xl bg-white shadow-sm border border-amber-200 overflow-hidden">
             <div class="px-6 py-4 border-b border-amber-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-amber-50/70 via-white to-amber-50/30">
                 <div>
@@ -510,7 +510,7 @@
                                             Detail
                                         </a>
 
-                                        @if($pkt->status_paket === 'perlu_perbaikan' && (Auth::user()->hasRole('admin') || Auth::user()->hasRole('ppbj') || Auth::user()->hasPermission('paket.create')))
+                                        @if($pkt->status_paket === 'perlu_perbaikan' && Auth::user()->hasPermission('paket.create'))
                                             <a
                                                 href="{{ route('paket.edit', $pkt->nomor_paket) }}"
                                                 class="px-2.5 py-1 rounded-lg bg-amber-500 text-xs font-semibold text-white hover:bg-amber-600 transition shadow-xs"
@@ -520,7 +520,7 @@
                                             </a>
                                         @endif
 
-                                        @if(Auth::user() && (Auth::user()->hasRole('admin') || Auth::user()->hasPermission('paket.reassign_ppk')))
+                                        @if(Auth::user() && Auth::user()->hasPermission('paket.reassign_ppk'))
                                             <button
                                                 type="button"
                                                 @click="selectedPaket = '{{ $pkt->nomor_paket }}'; $dispatch('open-modal', 'modal-reassign-ppk')"
@@ -532,7 +532,7 @@
                                         @endif
 
                                         @if($pkt->jalur_routing === 'langsung_sd_50jt' || (float)($pkt->nilai_hps ?: $pkt->alokasi_pagu_paket) <= 50000000)
-                                            @if(Auth::user() && (Auth::user()->hasRole('admin') || Auth::user()->hasPermission('paket.create')))
+                                            @if(Auth::user() && Auth::user()->hasPermission('paket.create'))
                                                 @if(in_array($pkt->status_paket, [\App\Models\PaketPengadaan::STATUS_SIAP_UPLOAD_DOKUMEN_PPBJ, 'disetujui']))
                                                     <button
                                                         type="button"

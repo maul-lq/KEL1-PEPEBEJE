@@ -7,7 +7,7 @@
               agar tetap aman tampil pada kondisi tamu, pengguna login, maupun gangguan server 500/503.
 --}}
 {{--
-  Komentar Deskriptif: Template Induk Halaman Error HTTP SIM-PBJ (`errors.layout`).
+   Template Induk Halaman Error HTTP SIM-PBJ (`errors.layout`).
 
   Tujuan: Saya menyediakan kerangka halaman error mandiri dengan bilah atas SIM-PBJ, kartu informasi
           error di tengah layar, tombol kembali ke halaman sebelumnya, serta tautan aman ke beranda/login.

@@ -4,15 +4,15 @@
   Penulis   : Rizlrad Fz
   Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
   Ringkasan : Sub-view dasbor ini buat untuk modul Staf Bidang II (Umum dan Keuangan) guna
-              menampilkan metrik telaah berkas awal, antrean read-only, dan berkas usulan terkini.
+              menampilkan ringkasan berkas usulan masuk untuk pemantauan tanpa aksi verifikasi.
 --}}
 {{--
-  Komentar Deskriptif: Panel Workspace Dasbor Staf Bidang II (`dashboard.roles.staff_bidang_2`).
+   Panel Workspace Dasbor Staf Bidang II (`dashboard.roles.staff_bidang_2`).
 
-  Tujuan: memusatkan pemantauan kelengkapan surat masuk Srikandi sebelum diteruskan ke Bagian
-          Perencanaan untuk pengecekan MAK tanpa memberi tombol ACC substantif di dasbor ini.
+  Tujuan: menampilkan pemantauan berkas permohonan masuk dan status prosesnya di Bagian
+          Perencanaan serta Wadir II & PPK bagi pemegang izin lihat berkas Bidang II.
   Parameter: `$user` (User), `$stats` (array), `$roleData` (array).
-  Nilai kembali: Fragmen HTML 4 kartu KPI dan daftar antrean telaah administrasi Bidang II.
+  Nilai kembali: Fragmen HTML 4 kartu statistik dan daftar pemantauan usulan masuk.
   Contoh pemanggilan: `@includeIf('dashboard.roles.staff_bidang_2', [...])`
 --}}
 @php
@@ -25,25 +25,25 @@
     {{-- 1. 4-COLUMN FIGMA KPI STAT CARDS --}}
     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
         <x-figma-stat-card
-            title="Menunggu Telaah"
+            title="Usulan Tahap Awal"
             :value="$stats['menunggu_telaah'] ?? 0"
-            subtitle="Berkas Srikandi masuk"
+            subtitle="Usulan masuk & cek anggaran"
             variant="action"
             :href="$verifikasiB2Route"
         />
 
         <x-figma-stat-card
-            title="Dalam Reviu Paralel"
+            title="Dalam Persetujuan"
             :value="$stats['reviu_paralel'] ?? 0"
-            subtitle="Telaah Perencanaan & Wadir II"
+            subtitle="Perencanaan, Wadir II & PPK"
             variant="bell"
             :href="$verifikasiB2Route"
         />
 
         <x-figma-stat-card
-            title="Selesai Diteruskan"
+            title="Telah Disetujui"
             :value="$stats['bidang2_disetujui'] ?? 0"
-            subtitle="Telah diputuskan Wadir II"
+            subtitle="Diteruskan ke pengadaan"
             variant="done"
             :href="$verifikasiB2Route"
         />
@@ -59,7 +59,7 @@
 
     {{-- 2. 2-COLUMN FIGMA OPERATION GRID --}}
     <x-figma-workspace
-        leftTitle="Perlu Tindakan Anda"
+        leftTitle="Usulan Pengadaan Terbaru"
         :leftHref="$verifikasiB2Route"
         rightTitle="Berkas Permohonan Terkini"
         :rightHref="$verifikasiB2Route"
@@ -76,15 +76,15 @@
                     variant="action"
                     :title="$usulan->judul_pengadaan"
                     :meta="$usulan->nomor_surat . ' • ' . $unitNama . ' • ' . $tglSurat"
-                    :submeta="'Estimasi Pagu: Rp ' . $estimasiPagu . ' • Pemeriksaan Read-Only'"
-                    badge="Read-Only"
+                    :submeta="'Estimasi Pagu: Rp ' . $estimasiPagu"
+                    badge="Lihat Saja"
                     badgeClass="bg-blue-50 text-[#0969da]"
                     :href="$verifikasiB2Route"
-                    buttonLabel="Buka"
+                    buttonLabel="Lihat"
                 />
             @empty
                 <x-figma-empty
-                    title="Tidak ada berkas baru menunggu telaah"
+                    title="Belum ada berkas baru untuk dipantau"
                     subtitle=""
                 />
             @endforelse

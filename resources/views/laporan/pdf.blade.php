@@ -8,7 +8,7 @@
               banyak seksi modul aktif.
 --}}
 {{--
-  Komentar Deskriptif: Template Render PDF Laporan Resmi SIM-PBJ (`laporan.pdf`).
+   Template Render PDF Laporan Resmi SIM-PBJ (`laporan.pdf`).
 
   Tujuan: merender kop institusi PNJ, kotak metadata pencetak beserta filter aktif, grid
           kartu KPI 3-kolom, serta tabel rincian data setiap seksi modul yang diizinkan oleh RBAC.

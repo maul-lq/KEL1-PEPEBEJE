@@ -8,7 +8,7 @@
               dukungan mode tautan `<a>`.
 --}}
 {{--
-  Komentar Deskriptif: Komponen Kartu Statistik Modul Internal (`<x-stat-card>`).
+   Komponen Kartu Statistik Modul Internal (`<x-stat-card>`).
 
   Tujuan: membakukan tampilan kartu angka statistik pada halaman admin, verifikasi, kontrak,
           dan penerimaan barang agar warna status dan ikon SVG terpusat di satu komponen.

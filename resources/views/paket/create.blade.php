@@ -12,7 +12,7 @@
 @section('title', 'Registrasi Paket Pengadaan Baru - SIM-PBJ PNJ')
 
 {{--
-  Komentar Deskriptif: Seksi Konten Pembuatan Paket Pengadaan Baru (`paket.create`).
+   Seksi Konten Pembuatan Paket Pengadaan Baru (`paket.create`).
 
   Tujuan: menggabungkan riwayat memo Perencanaan/Wadir II/PPK awal ke dalam `permohonanMap`
           agar PPBJ dapat langsung memeriksa ketersediaan MAK, menimbang HPS, dan melihat rute paket otomatis.

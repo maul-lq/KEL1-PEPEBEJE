@@ -8,7 +8,7 @@
               aktivitas terbaru atau ringkasan prioritas peran.
 --}}
 {{--
-  Komentar Deskriptif: Komponen Layout Dua Kolom Workspace Dasbor (`<x-figma-workspace>`).
+   Komponen Layout Dua Kolom Workspace Dasbor (`<x-figma-workspace>`).
 
   Tujuan: menyeragamkan kerangka kolom kiri ("Perlu Tindakan Anda") dan kanan ("Aktivitas Terbaru")
           lintas seluruh dasbor peran agar konsistensi visual dan proporsi 12-kolom selalu terjaga.

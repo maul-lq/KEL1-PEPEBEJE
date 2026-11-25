@@ -68,7 +68,7 @@ class KontrakSPKController extends Controller
     public function kontrakIndex(Request $request): View
     {
         $user = Auth::user();
-        if (! $user || ! $user->hasAnyPermission(['spk.create', 'reviu.pp', 'reviu.ppk', 'pp.monitoring_aktivitas', 'lihat_pp'])) {
+        if (! $user || ! $user->hasAnyPermission(['spk.create', 'reviu.pp', 'reviu.ppk', 'pp.monitoring_aktivitas'])) {
             abort(403, 'Akses Ditolak: Anda tidak memiliki hak akses untuk membuka halaman Kontrak Kerja & Tinjauan Dokumen.');
         }
 
@@ -255,6 +255,9 @@ class KontrakSPKController extends Controller
     public function monitorPpIndex(Request $request): View
     {
         $user = Auth::user();
+        if (! $user || ! $user->hasPermission('pp.monitoring_aktivitas')) {
+            abort(403, 'Akses Ditolak: Anda tidak memiliki izin memantau aktivitas Pejabat Pengadaan.');
+        }
 
         $query = PaketPengadaan::with([
             'permohonan.unit',

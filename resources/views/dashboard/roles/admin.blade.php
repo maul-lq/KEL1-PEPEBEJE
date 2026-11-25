@@ -8,7 +8,7 @@
               atau ringkasan peran, serta modal aksi persetujuan registrasi.
 --}}
 {{--
-  Komentar Deskriptif: Panel Workspace Dasbor Administrator (`dashboard.roles.admin`).
+   Panel Workspace Dasbor Administrator (`dashboard.roles.admin`).
 
   Tujuan: memeriksa permission `admin.approval_registrasi` dan `audit_log.view` secara mandiri
           sehingga peran kombinasi tetap hanya melihat widget sesuai izin aktifnya.

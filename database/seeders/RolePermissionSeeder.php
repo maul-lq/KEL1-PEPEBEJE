@@ -60,7 +60,7 @@ class RolePermissionSeeder extends Seeder
             [
                 'nama_role' => 'staff_bidang_2',
                 'label' => 'Staff Bidang II (Umum & Keuangan)',
-                'deskripsi' => 'Pemeriksa kelengkapan berkas administrasi awal dan penerus telaah ke Wadir 2 (read-only/tanpa wewenang ACC).',
+                'deskripsi' => 'Pemantau daftar dan dokumen usulan permohonan masuk (hanya baca tanpa wewenang verifikasi atau disposisi).',
                 'is_system' => true,
             ],
             [
@@ -90,19 +90,19 @@ class RolePermissionSeeder extends Seeder
             [
                 'nama_role' => 'ppk',
                 'label' => 'Pejabat Pembuat Komitmen (PPK)',
-                'deskripsi' => 'Peninjau dokumen, pengunci MAK, dan pembeli barang/sewa jasa komitmen terisolasi per akun (4 akun mandiri).',
+                'deskripsi' => 'Verifikator persetujuan awal usulan, peninjau dan pemberi persetujuan dokumen paket, serta penyetuju memo pembayaran sesuai penugasan.',
                 'is_system' => true,
             ],
             [
                 'nama_role' => 'perlengkapan',
                 'label' => 'Unit Perlengkapan & BMN',
-                'deskripsi' => 'Pemeriksa fisik barang, pengunggah multi-foto, penentu Belanja Barang vs Modal, dan penerbit BAST HMAC.',
+                'deskripsi' => 'Pemeriksa fisik barang, pengunggah foto dokumentasi, penentu jenis belanja, dan penerbit BAST.',
                 'is_system' => true,
             ],
             [
                 'nama_role' => 'keuangan',
                 'label' => 'Bagian Keuangan & Bendahara',
-                'deskripsi' => 'Verifikator berkas tagihan SPP dan eksekutor transfer pencairan dana SP2D anti-duplicate bayar.',
+                'deskripsi' => 'Verifikator berkas tagihan SPP dan pelaksana pencairan dana SP2D.',
                 'is_system' => true,
             ],
         ];
@@ -120,56 +120,58 @@ class RolePermissionSeeder extends Seeder
         // =========================================================================
         $permissions = [
             // Modul Permohonan
-            ['nama_permission' => 'permohonan.create', 'label' => 'Membuat Usulan Permohonan Pengadaan', 'kategori_modul' => 'Permohonan'],
-            ['nama_permission' => 'permohonan.view_own', 'label' => 'Melihat Usulan Milik Sendiri & Catatan Penolakan', 'kategori_modul' => 'Permohonan'],
+            ['nama_permission' => 'permohonan.create', 'label' => 'Mengajukan Usulan Permohonan Pengadaan', 'kategori_modul' => 'Permohonan'],
+            ['nama_permission' => 'permohonan.view_own', 'label' => 'Melihat Daftar Usulan Milik Sendiri', 'kategori_modul' => 'Permohonan'],
             ['nama_permission' => 'permohonan.view_all', 'label' => 'Melihat Seluruh Usulan Permohonan Unit', 'kategori_modul' => 'Permohonan'],
-            ['nama_permission' => 'permohonan.revisi', 'label' => 'Mengajukan Revisi Usulan yang Ditolak', 'kategori_modul' => 'Permohonan'],
-            ['nama_permission' => 'permohonan.delete', 'label' => 'Menghapus Usulan Permohonan Pengadaan', 'kategori_modul' => 'Permohonan'],
-            ['nama_permission' => 'permohonan.split_mak', 'label' => 'Memecah Usulan Berdasarkan Kode MAK', 'kategori_modul' => 'Permohonan'],
-            ['nama_permission' => 'permohonan.split_jenis', 'label' => 'Memecah Berkas Berdasarkan Jenis Pengadaan', 'kategori_modul' => 'Permohonan'],
+            ['nama_permission' => 'permohonan.revisi', 'label' => 'Mengajukan Perbaikan Usulan yang Ditolak', 'kategori_modul' => 'Permohonan'],
+            ['nama_permission' => 'permohonan.delete', 'label' => 'Membatalkan & Menghapus Usulan Permohonan', 'kategori_modul' => 'Permohonan'],
+            ['nama_permission' => 'permohonan.split_mak', 'label' => 'Memecah Usulan Berdasarkan Pos Anggaran', 'kategori_modul' => 'Permohonan'],
+            ['nama_permission' => 'permohonan.split_jenis', 'label' => 'Memecah Usulan Berdasarkan Jenis Pengadaan', 'kategori_modul' => 'Permohonan'],
 
-            // Modul Verifikasi & Anggaran
-            ['nama_permission' => 'verifikasi.bidang_2_view', 'label' => 'Melihat Antrean & Dokumen Usulan Masuk (Staf B2 Read-Only)', 'kategori_modul' => 'Verifikasi'],
-            ['nama_permission' => 'verifikasi.wadir_2_view', 'label' => 'Melihat Antrean & Telaah Kelengkapan Dokumen Wadir 2', 'kategori_modul' => 'Verifikasi'],
-            ['nama_permission' => 'verifikasi.wadir_2_decide', 'label' => 'Memberikan Keputusan ACC / Tolak / Revisi Usulan', 'kategori_modul' => 'Verifikasi'],
-            ['nama_permission' => 'anggaran.mak_view', 'label' => 'Melihat Daftar Rekening MAK dan Pagu DIPA', 'kategori_modul' => 'Anggaran'],
-            ['nama_permission' => 'anggaran.mak_manage', 'label' => 'Mengelola Master MAK DIPA', 'kategori_modul' => 'Anggaran'],
-            ['nama_permission' => 'anggaran.mak_alokasi', 'label' => 'Mengalokasikan Pagu MAK atau Menetapkan Hold', 'kategori_modul' => 'Anggaran'],
-            ['nama_permission' => 'anggaran.mak_lock', 'label' => 'Mengunci Pagu MAK DIPA Permanen', 'kategori_modul' => 'Anggaran'],
+            // Modul Verifikasi
+            ['nama_permission' => 'verifikasi.bidang_2_view', 'label' => 'Melihat Antrean & Berkas Usulan Masuk (Hanya Baca)', 'kategori_modul' => 'Verifikasi'],
+            ['nama_permission' => 'verifikasi.wadir_2_view', 'label' => 'Melihat Antrean Verifikasi Usulan (Wadir 2)', 'kategori_modul' => 'Verifikasi'],
+            ['nama_permission' => 'verifikasi.wadir_2_decide', 'label' => 'Menyetujui, Menolak, atau Meminta Revisi Usulan (Wadir 2)', 'kategori_modul' => 'Verifikasi'],
+            ['nama_permission' => 'verifikasi.ppk_approve', 'label' => 'Menyetujui atau Menolak Usulan Awal (PPK)', 'kategori_modul' => 'Verifikasi'],
+
+            // Modul Anggaran
+            ['nama_permission' => 'anggaran.mak_view', 'label' => 'Melihat Daftar Pos Anggaran & Sisa Pagu', 'kategori_modul' => 'Anggaran'],
+            ['nama_permission' => 'anggaran.mak_manage', 'label' => 'Menambah & Mengelola Daftar Pos Anggaran', 'kategori_modul' => 'Anggaran'],
+            ['nama_permission' => 'anggaran.mak_alokasi', 'label' => 'Menentukan Pos Anggaran, Menahan Usulan & Memilih PPK', 'kategori_modul' => 'Anggaran'],
+            ['nama_permission' => 'anggaran.mak_lock', 'label' => 'Mengunci & Membuka Kunci Pos Anggaran', 'kategori_modul' => 'Anggaran'],
 
             // Modul Pengadaan & SPK
-            ['nama_permission' => 'paket.create', 'label' => 'Registrasi Paket Pengadaan & Penetapan HPS', 'kategori_modul' => 'Pengadaan'],
+            ['nama_permission' => 'paket.create', 'label' => 'Membuat Paket Pengadaan & Menentukan Harga Perkiraan', 'kategori_modul' => 'Pengadaan'],
             ['nama_permission' => 'paket.view_all', 'label' => 'Melihat Seluruh Paket Pengadaan', 'kategori_modul' => 'Pengadaan'],
-            ['nama_permission' => 'paket.view_assigned', 'label' => 'Melihat Paket yang Ditugaskan Khusus (Terisolasi)', 'kategori_modul' => 'Pengadaan'],
-            ['nama_permission' => 'paket.reassign_ppk', 'label' => 'Mengalihkan Penugasan Paket ke PPK Lain', 'kategori_modul' => 'Pengadaan'],
-            ['nama_permission' => 'reviu.pp', 'label' => 'Verifikasi Teknis & Negosiasi Harga Rekanan (PP)', 'kategori_modul' => 'Pengadaan'],
-            ['nama_permission' => 'pp.monitoring_aktivitas', 'label' => 'Memonitor Seluruh Aktivitas & Hasil Negosiasi PP', 'kategori_modul' => 'Pengadaan'],
-            ['nama_permission' => 'lihat_pp', 'label' => 'Melihat & Memonitor Seluruh Berkas / Aktivitas PP (Lihat PP)', 'kategori_modul' => 'Pengadaan'],
-            ['nama_permission' => 'reviu.ppk', 'label' => 'Tinjauan Dokumen, Kunci MAK & Beli/Sewa (PPK)', 'kategori_modul' => 'Pengadaan'],
-            ['nama_permission' => 'spk.create', 'label' => 'Menerbitkan Surat Kontrak/SPK & Tembusan Otomatis', 'kategori_modul' => 'Pengadaan'],
+            ['nama_permission' => 'paket.view_assigned', 'label' => 'Melihat Paket Pengadaan yang Ditugaskan', 'kategori_modul' => 'Pengadaan'],
+            ['nama_permission' => 'paket.reassign_ppk', 'label' => 'Mengalihkan Penugasan PPK pada Paket', 'kategori_modul' => 'Pengadaan'],
+            ['nama_permission' => 'reviu.pp', 'label' => 'Meninjau Teknis & Negosiasi Harga Penyedia (PP)', 'kategori_modul' => 'Pengadaan'],
+            ['nama_permission' => 'pp.monitoring_aktivitas', 'label' => 'Memantau Aktivitas & Hasil Negosiasi Pejabat Pengadaan', 'kategori_modul' => 'Pengadaan'],
+            ['nama_permission' => 'reviu.ppk', 'label' => 'Meninjau & Menyetujui Dokumen Paket Pengadaan (PPK)', 'kategori_modul' => 'Pengadaan'],
+            ['nama_permission' => 'spk.create', 'label' => 'Mengunggah Dokumen Kontrak, SPK, atau Surat Pesanan', 'kategori_modul' => 'Pengadaan'],
 
-            // Modul Penerimaan (BMN)
-            ['nama_permission' => 'penerimaan.view', 'label' => 'Melihat Daftar Penerimaan Fisik Barang', 'kategori_modul' => 'Penerimaan'],
-            ['nama_permission' => 'penerimaan.bast_create', 'label' => 'Inspeksi Fisik, Upload Multi-Foto & Kategori Belanja', 'kategori_modul' => 'Penerimaan'],
-            ['nama_permission' => 'penerimaan.bast_sign', 'label' => 'Penerbitan BAST Resmi Bertoken HMAC SHA-256', 'kategori_modul' => 'Penerimaan'],
+            // Modul Penerimaan
+            ['nama_permission' => 'penerimaan.view', 'label' => 'Melihat Daftar Penerimaan Barang', 'kategori_modul' => 'Penerimaan'],
+            ['nama_permission' => 'penerimaan.bast_create', 'label' => 'Memeriksa Fisik Barang, Unggah Foto & Jenis Belanja', 'kategori_modul' => 'Penerimaan'],
+            ['nama_permission' => 'penerimaan.bast_sign', 'label' => 'Menerbitkan Berita Acara Serah Terima (BAST)', 'kategori_modul' => 'Penerimaan'],
 
             // Modul Pembayaran & Pencairan
-            ['nama_permission' => 'pembayaran.pengajuan', 'label' => 'Mengajukan Berkas Tagihan Termin / Pelunasan', 'kategori_modul' => 'Pembayaran'],
-            ['nama_permission' => 'pembayaran.memo_ppk', 'label' => 'Persetujuan Disposisi Memo Bayar Level 1 (PPK)', 'kategori_modul' => 'Pembayaran'],
-            ['nama_permission' => 'pembayaran.memo_wadir2', 'label' => 'Persetujuan Disposisi Memo Bayar Level 2 (Wadir 2)', 'kategori_modul' => 'Pembayaran'],
+            ['nama_permission' => 'pembayaran.pengajuan', 'label' => 'Mengajukan Berkas Tagihan Pembayaran', 'kategori_modul' => 'Pembayaran'],
+            ['nama_permission' => 'pembayaran.memo_wadir2', 'label' => 'Menyetujui atau Menolak Memo Pembayaran (Wadir 2)', 'kategori_modul' => 'Pembayaran'],
+            ['nama_permission' => 'pembayaran.memo_ppk', 'label' => 'Menyetujui atau Menolak Memo Pembayaran (PPK)', 'kategori_modul' => 'Pembayaran'],
             ['nama_permission' => 'pembayaran.spp_terbitkan', 'label' => 'Menerbitkan Surat Perintah Pembayaran (SPP)', 'kategori_modul' => 'Pembayaran'],
-            ['nama_permission' => 'pembayaran.pencairan_sp2d', 'label' => 'Eksekusi Transfer SP2D Anti-Duplicate Bayar', 'kategori_modul' => 'Pembayaran'],
+            ['nama_permission' => 'pembayaran.pencairan_sp2d', 'label' => 'Mencairkan Dana Pembayaran (SP2D)', 'kategori_modul' => 'Pembayaran'],
 
             // Modul Monitoring & Laporan
-            ['nama_permission' => 'monitoring.view', 'label' => 'Melacak 8 Tahapan Siklus Pengadaan Real-Time', 'kategori_modul' => 'Laporan'],
-            ['nama_permission' => 'laporan.rekapitulasi', 'label' => 'Mengakses Laporan Rekapitulasi Realisasi Anggaran', 'kategori_modul' => 'Laporan'],
-            ['nama_permission' => 'dokumen.unduh_pdf', 'label' => 'Mengunduh Dokumen Resmi Format PDF (< 3 Detik)', 'kategori_modul' => 'Laporan'],
-            ['nama_permission' => 'audit_log.view', 'label' => 'Memantau Riwayat Jejak Audit Mutasi Transaksi', 'kategori_modul' => 'Laporan'],
+            ['nama_permission' => 'monitoring.view', 'label' => 'Memantau Progres Tahapan Pengadaan', 'kategori_modul' => 'Laporan'],
+            ['nama_permission' => 'laporan.rekapitulasi', 'label' => 'Melihat & Mengunduh Laporan Rekapitulasi Anggaran', 'kategori_modul' => 'Laporan'],
+            ['nama_permission' => 'dokumen.unduh_pdf', 'label' => 'Mengunduh Dokumen Resmi (PDF)', 'kategori_modul' => 'Laporan'],
+            ['nama_permission' => 'audit_log.view', 'label' => 'Melihat Riwayat Jejak Audit Sistem', 'kategori_modul' => 'Laporan'],
 
             // Modul Administrasi Sistem
-            ['nama_permission' => 'admin.approval_registrasi', 'label' => 'Menyetujui (ACC) atau Menolak Pendaftaran Pengguna', 'kategori_modul' => 'Administrasi'],
-            ['nama_permission' => 'admin.user_manage', 'label' => 'Mengelola Data Pengguna & Penugasan Role', 'kategori_modul' => 'Administrasi'],
-            ['nama_permission' => 'admin.role_manage', 'label' => 'Manajemen CRUD Role & Matriks Hak Akses Fitur', 'kategori_modul' => 'Administrasi'],
+            ['nama_permission' => 'admin.approval_registrasi', 'label' => 'Menyetujui atau Menolak Pendaftaran Akun Baru', 'kategori_modul' => 'Administrasi'],
+            ['nama_permission' => 'admin.user_manage', 'label' => 'Mengelola Data Pengguna & Penetapan Peran', 'kategori_modul' => 'Administrasi'],
+            ['nama_permission' => 'admin.role_manage', 'label' => 'Mengelola Daftar Peran & Hak Akses Fitur', 'kategori_modul' => 'Administrasi'],
         ];
 
         $permissionModels = [];
@@ -178,6 +180,15 @@ class RolePermissionSeeder extends Seeder
                 ['nama_permission' => $perm['nama_permission']],
                 $perm
             );
+        }
+
+        // pindahkan pemegang izin lama lihat_pp ke pp.monitoring_aktivitas sebelum izin duplikat dihapus agar peran kustom tidak kehilangan akses.
+        $oldLihatPp = Permission::where('nama_permission', 'lihat_pp')->first();
+        if ($oldLihatPp && isset($permissionModels['pp.monitoring_aktivitas'])) {
+            $monitorPermId = $permissionModels['pp.monitoring_aktivitas']->id;
+            foreach ($oldLihatPp->roles as $holderRole) {
+                $holderRole->permissions()->syncWithoutDetaching([$monitorPermId]);
+            }
         }
 
         // =========================================================================
@@ -236,7 +247,6 @@ class RolePermissionSeeder extends Seeder
                 'paket.view_all',
                 'paket.reassign_ppk',
                 'pp.monitoring_aktivitas',
-                'lihat_pp',
                 'spk.create',
                 'pembayaran.pengajuan',
                 'pembayaran.spp_terbitkan',
@@ -251,6 +261,8 @@ class RolePermissionSeeder extends Seeder
                 'dokumen.unduh_pdf',
             ],
             'ppk' => [
+                'permohonan.view_all',
+                'verifikasi.ppk_approve',
                 'paket.view_assigned',
                 'reviu.ppk',
                 'pembayaran.memo_ppk',
@@ -284,8 +296,19 @@ class RolePermissionSeeder extends Seeder
             }
         }
 
-        // bersihkan slug permission lama yang tidak lagi dipakai agar tabel permissions tetap ringkas.
-        Permission::where('nama_permission', 'reminder.manage')->delete();
+        // salin izin verifikasi.ppk_approve ke peran kustom mana pun yang sebelumnya memegang reviu.ppk agar tidak putus saat kedua izin dipisah.
+        if (isset($permissionModels['reviu.ppk'], $permissionModels['verifikasi.ppk_approve'])) {
+            $verifPpkPermId = $permissionModels['verifikasi.ppk_approve']->id;
+            foreach ($permissionModels['reviu.ppk']->roles()->where('is_system', false)->get() as $customHolder) {
+                $customHolder->permissions()->syncWithoutDetaching([$verifPpkPermId]);
+            }
+        }
+
+        // bersihkan slug permission usang maupun duplikat agar daftar hak akses di Admin tetap bersih.
+        Permission::whereIn('nama_permission', ['reminder.manage', 'lihat_pp'])->each(function (Permission $obsoletePerm): void {
+            $obsoletePerm->roles()->detach();
+            $obsoletePerm->delete();
+        });
 
         // tautkan pengguna tanpa id_role ke peran user default agar pengecekan permission tidak null.
         if (isset($roleModels[User::ROLE_USER])) {

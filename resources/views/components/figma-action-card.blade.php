@@ -8,7 +8,7 @@
               serta slot aksi kustom atau tombol navigasi.
 --}}
 {{--
-  Komentar Deskriptif: Komponen Kartu Item Aksi Dasbor (`<x-figma-action-card>`).
+   Komponen Kartu Item Aksi Dasbor (`<x-figma-action-card>`).
 
   Tujuan: menyediakan template baris antrean kerja seragam untuk seluruh dasbor peran agar
           informasi judul berkas, metadata unit/tanggal, status lencana, dan tombol tindak lanjut konsisten.

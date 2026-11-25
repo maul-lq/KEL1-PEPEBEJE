@@ -12,7 +12,7 @@
 @section('title', 'Manajemen Role & Hak Akses - SIM-PBJ PNJ')
 
 {{--
-  Komentar Deskriptif: Seksi Konten Manajemen Peran dan Matriks RBAC (`@section('content')`).
+   Seksi Konten Manajemen Peran dan Matriks RBAC (`@section('content')`).
 
   Tujuan: memfasilitasi perubahan izin fitur secara granular per peran serta pengamanan agar
           peran `admin` utama maupun peran berstatus proteksi sistem tidak dapat dihapus paksa.

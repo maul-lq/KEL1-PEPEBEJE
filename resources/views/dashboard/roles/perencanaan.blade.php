@@ -7,7 +7,7 @@
               menampilkan metrik pagu & sisa anggaran, antrean usulan cek MAK, dan status rekening DIPA.
 --}}
 {{--
-  Komentar Deskriptif: Panel Workspace Dasbor Bagian Perencanaan (`dashboard.roles.perencanaan`).
+   Panel Workspace Dasbor Bagian Perencanaan (`dashboard.roles.perencanaan`).
 
   Tujuan: meringkas beban usulan yang belum dialokasikan pos anggarannya bersama daftar saldo
           MAK aktif atau terkunci agar penentuan PPK dan pos anggaran tidak tertahan.

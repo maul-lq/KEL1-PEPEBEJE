@@ -5,7 +5,7 @@
  *
  * Penulis   : Rizlrad Fz
  * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
- * Ringkasan : menulis controller PembayaranController ini untuk mengelola antrean pengajuan tagihan pasca-BAST, persetujuan memo bayar berjenjang (Wadir 2 Lvl 1 & PPK Lvl 2), penerbitan SPP, serta pencairan SP2D Keuangan.
+ * Ringkasan : menulis controller PembayaranController ini untuk mengelola antrean pengajuan tagihan pasca-BAST, persetujuan memo bayar paralel (Wadir 2 & PPK), penerbitan SPP, serta pencairan SP2D Keuangan.
  */
 
 namespace App\Http\Controllers;
@@ -81,7 +81,10 @@ class PembayaranController extends Controller
         // 3. Disposisi memo menunggu persetujuan (Wadir II & PPK Paralel)
         $memoMenungguReview = collect();
         if ($user) {
-            if ($user->hasRole('admin')) {
+            $canWadir = $user->hasPermission('pembayaran.memo_wadir2');
+            $canPpk = $user->hasPermission('pembayaran.memo_ppk');
+
+            if ($canWadir || $canPpk) {
                 $memoMenungguReview = MemoBayar::with([
                     'pembayaran.paket.kontrakSpk',
                     'pembayaran.paket.penerimaanBarang',
@@ -89,36 +92,22 @@ class PembayaranController extends Controller
                     'pembayaran.memoBayar',
                 ])
                     ->where('status_memo', 'menunggu')
+                    ->where(function ($query) use ($canWadir, $canPpk, $user) {
+                        if ($canWadir) {
+                            $query->orWhere(function ($sub) {
+                                $sub->where('role_approver', 'wadir_2');
+                            });
+                        }
+                        if ($canPpk) {
+                            $query->orWhere(function ($sub) use ($user) {
+                                $sub->where('role_approver', 'ppk')
+                                    ->where(function ($idQ) use ($user) {
+                                        $idQ->where('id_user', $user->id_user)->orWhereNull('id_user');
+                                    });
+                            });
+                        }
+                    })
                     ->get();
-            } else {
-                $canWadir = $user->hasPermission('pembayaran.memo_wadir2');
-                $canPpk = $user->hasPermission('pembayaran.memo_ppk');
-
-                if ($canWadir || $canPpk) {
-                    $memoMenungguReview = MemoBayar::with([
-                        'pembayaran.paket.kontrakSpk',
-                        'pembayaran.paket.penerimaanBarang',
-                        'pembayaran.paket.vendor',
-                        'pembayaran.memoBayar',
-                    ])
-                        ->where('status_memo', 'menunggu')
-                        ->where(function ($query) use ($canWadir, $canPpk, $user) {
-                            if ($canWadir) {
-                                $query->orWhere(function ($sub) {
-                                    $sub->where('role_approver', 'wadir_2');
-                                });
-                            }
-                            if ($canPpk) {
-                                $query->orWhere(function ($sub) use ($user) {
-                                    $sub->where('role_approver', 'ppk')
-                                        ->where(function ($idQ) use ($user) {
-                                            $idQ->where('id_user', $user->id_user)->orWhereNull('id_user');
-                                        });
-                                });
-                            }
-                        })
-                        ->get();
-                }
             }
         }
 
@@ -264,26 +253,22 @@ class PembayaranController extends Controller
         $paket->status_paket = 'pengajuan_pembayaran';
         $paket->save();
 
-        // Bentuk memo persetujuan: PPK & Wadir II
-        $defaultPpk = User::withRole(User::ROLE_PPK)
-            ->orWhereHas('roleEntity.permissions', fn ($q) => $q->where('nama_permission', 'pembayaran.memo_ppk'))
-            ->first();
+        // membentuk kedua memo persetujuan secara paralel untuk PPK penanggung jawab dan Wadir II.
+        $defaultPpk = User::eligibleForPpk()->first();
         $ppkUserId = $paket->id_user_ppk ?? $paket->permohonan?->id_user_ppk_awal ?? $defaultPpk?->id_user ?? $user->id_user;
-        $memoLevel1 = MemoBayar::create([
+        $memoPpk = MemoBayar::create([
             'id_user' => $ppkUserId,
             'nomor_pembayaran' => $pembayaran->nomor_pembayaran,
-            'role_approver' => 'ppk',
-            'status_memo' => 'menunggu',
+            'role_approver' => MemoBayar::ROLE_PPK,
+            'status_memo' => MemoBayar::STATUS_MENUNGGU,
         ]);
 
-        $wadir = User::withRole(User::ROLE_WADIR_2)
-            ->orWhereHas('roleEntity.permissions', fn ($q) => $q->where('nama_permission', 'pembayaran.memo_wadir2'))
-            ->first();
-        $memoLevel2 = MemoBayar::create([
+        $wadir = User::eligibleForPermissions(['pembayaran.memo_wadir2'], User::ROLE_WADIR_2)->first();
+        $memoWadir = MemoBayar::create([
             'id_user' => $wadir?->id_user,
             'nomor_pembayaran' => $pembayaran->nomor_pembayaran,
-            'role_approver' => 'wadir_2',
-            'status_memo' => 'menunggu',
+            'role_approver' => MemoBayar::ROLE_WADIR_2,
+            'status_memo' => MemoBayar::STATUS_MENUNGGU,
         ]);
 
         AuditLog::catat(
@@ -296,7 +281,7 @@ class PembayaranController extends Controller
             "PPBJ mengajukan berkas pembayaran {$pembayaran->nomor_pembayaran} (Kwitansi: {$nomorKwitansi}, Invoice: {$nomorInvoice}) termin {$pembayaran->tahap_termin} Rp ".number_format($pembayaran->nominal_pengajuan)
         );
 
-        $this->notificationService->notifyPengajuanBayar($pembayaran, $memoLevel1, $memoLevel2);
+        $this->notificationService->notifyPengajuanBayar($pembayaran, $memoPpk, $memoWadir);
 
         return redirect()->route('pembayaran.index')->with(
             'success',
@@ -432,15 +417,15 @@ class PembayaranController extends Controller
 
         $memo = MemoBayar::findOrFail($validated['id_memo_bayar']);
 
-        if ($memo->role_approver === 'wadir_2' && ! $user->hasRole('admin') && ! $user->hasPermission('pembayaran.memo_wadir2')) {
+        if ($memo->role_approver === 'wadir_2' && ! $user->hasPermission('pembayaran.memo_wadir2')) {
             abort(403, 'Akses Ditolak: Anda tidak memiliki hak akses untuk menyetujui memo Wakil Direktur II.');
         }
 
-        if ($memo->role_approver === 'ppk' && ! $user->hasRole('admin') && ! $user->hasPermission('pembayaran.memo_ppk')) {
+        if ($memo->role_approver === 'ppk' && ! $user->hasPermission('pembayaran.memo_ppk')) {
             abort(403, 'Akses Ditolak: Anda tidak memiliki hak akses untuk menyetujui memo Pejabat Pembuat Komitmen.');
         }
 
-        if ($memo->role_approver === 'ppk' && $user->hasPermission('pembayaran.memo_ppk') && ! $user->hasRole('admin') && $memo->id_user && (int) $memo->id_user !== (int) $user->id_user) {
+        if ($memo->role_approver === 'ppk' && $user->hasPermission('pembayaran.memo_ppk') && $memo->id_user && (int) $memo->id_user !== (int) $user->id_user) {
             abort(403, 'Akses Ditolak: Anda hanya berhak menyetujui memo pada paket yang ditugaskan kepada Anda.');
         }
 

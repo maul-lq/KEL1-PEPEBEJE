@@ -11,7 +11,7 @@
 @section('title', 'Alih Tugas Penugasan PPK - SIM-PBJ PNJ')
 
 {{--
-  Komentar Deskriptif: Seksi Konten Alih Tugas Penugasan PPK (`paket.reassign`).
+   Seksi Konten Alih Tugas Penugasan PPK (`paket.reassign`).
 
   Tujuan: mewajibkan pemilihan paket, pemilihan akun PPK aktif pengganti, serta pengisian
           alasan perubahan tertulis agar perpindahan tanggung jawab kontrak tercatat jelas di AuditLog.

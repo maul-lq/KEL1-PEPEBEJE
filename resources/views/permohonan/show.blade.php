@@ -12,7 +12,7 @@
 @section('title', 'Detail Permohonan - ' . $permohonan->nomor_surat)
 
 {{--
-  Komentar Deskriptif: Seksi Konten Halaman Detail Permohonan Pengadaan (`permohonan.show`).
+   Seksi Konten Halaman Detail Permohonan Pengadaan (`permohonan.show`).
 
   Tujuan: Kami menerjemahkan status permohonan berjalan ke nomor tahap 1..8 lalu menyusun rincian
           riwayat keputusan paralel, paket turunan, kontrak, BAST, dan pembayaran terkait.

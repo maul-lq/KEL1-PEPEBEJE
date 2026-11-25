@@ -211,11 +211,15 @@ class HomeController extends Controller
             $data['aktivitas_terbaru'] = $this->getUserRecentActivities($user);
         }
 
-        // 3. Modul Verifikasi Awal Staf Bidang II
+        // 3. Modul Pemantauan Berkas Masuk Staf Bidang II
         if ($user->hasPermission('verifikasi.bidang_2_view')) {
             $data['active_modules'][] = 'verifikasi_bidang2';
             $data['stats'] = array_merge($data['stats'], [
-                'menunggu_telaah' => PermohonanPengadaan::whereIn('status_permohonan', ['diajukan', PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2])->count(),
+                'menunggu_telaah' => PermohonanPengadaan::whereIn('status_permohonan', [
+                    'diajukan',
+                    PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
+                    PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN,
+                ])->count(),
                 'reviu_paralel' => PermohonanPengadaan::whereIn('status_permohonan', [
                     PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN,
                     PermohonanPengadaan::STATUS_MENUNGGU_ACC_WADIR_PPK,
@@ -225,7 +229,11 @@ class HomeController extends Controller
                 'total_berkas' => PermohonanPengadaan::where('status_permohonan', '!=', 'digantikan_oleh_revisi')->count(),
             ]);
             $data['antrean_telaah'] = PermohonanPengadaan::with(['unit', 'user'])
-                ->whereIn('status_permohonan', ['diajukan', PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2])
+                ->whereIn('status_permohonan', [
+                    'diajukan',
+                    PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
+                    PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN,
+                ])
                 ->latest('tanggal_pengajuan')
                 ->take(6)
                 ->get();
@@ -242,6 +250,8 @@ class HomeController extends Controller
             $canAlokasiPerencanaan = $user->hasAnyPermission(['anggaran.mak_alokasi', 'permohonan.split_mak']);
 
             $antreanMakBase = PermohonanPengadaan::whereIn('status_permohonan', [
+                PermohonanPengadaan::STATUS_DIAJUKAN,
+                PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
                 PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN,
                 PermohonanPengadaan::STATUS_MENUNGGU_ACC_WADIR_PPK,
                 PermohonanPengadaan::STATUS_REVIU_PARALEL,
@@ -249,6 +259,8 @@ class HomeController extends Controller
             ])
                 ->where(function ($q) {
                     $q->whereIn('status_permohonan', [
+                        PermohonanPengadaan::STATUS_DIAJUKAN,
+                        PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
                         PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN,
                         'pending_anggaran',
                     ])
@@ -282,7 +294,7 @@ class HomeController extends Controller
             $data['daftar_mak'] = AnggaranMAK::latest('updated_at')->take(10)->get();
         }
 
-        // 5. Modul Wakil Direktur II (Disposisi & Persetujuan Awal / Memo Pembayaran Level 1)
+        // 5. Modul Wakil Direktur II (Disposisi & Persetujuan Awal / Memo Pembayaran)
         if ($user->hasAnyPermission(['verifikasi.wadir_2_view', 'verifikasi.wadir_2_decide', 'pembayaran.memo_wadir2'])) {
             $data['active_modules'][] = 'verifikasi_wadir2';
             $wadirAntreanQuery = PermohonanPengadaan::whereIn('status_permohonan', [
@@ -344,7 +356,7 @@ class HomeController extends Controller
                 ->get()
                 ->map(fn (MemoBayar $m): array => [
                     'waktu' => $m->tanggal_acc ? $m->tanggal_acc->format('d M Y, H:i') : ($m->updated_at?->format('d M Y, H:i') ?? '-'),
-                    'aktivitas' => 'Memo Bayar Lvl 1',
+                    'aktivitas' => 'Memo Bayar Wadir II',
                     'subjek' => $m->pembayaran?->paket?->nama_paket ?? $m->nomor_pembayaran,
                     'status' => ucwords(str_replace('_', ' ', $m->status_memo ?? 'disetujui')),
                     'sort_at' => $m->tanggal_acc?->timestamp ?? ($m->updated_at?->timestamp ?? 0),
@@ -372,8 +384,8 @@ class HomeController extends Controller
             $data['wadir2_recent'] = $wadirRecent;
         }
 
-        // 6. Modul Pejabat Pembuat Komitmen (PPK - Persetujuan Awal, Dokumen Paket, Memo Bayar)
-        if ($user->hasAnyPermission(['reviu.ppk', 'pembayaran.memo_ppk'])) {
+        // 6. Modul Pejabat Pembuat Komitmen (PPK - Persetujuan Usulan Awal, Dokumen Paket, Memo Bayar Paralel)
+        if ($user->hasAnyPermission(['verifikasi.ppk_approve', 'reviu.ppk', 'pembayaran.memo_ppk'])) {
             $data['active_modules'][] = 'ppk';
             $ppkAwalQuery = PermohonanPengadaan::where('id_user_ppk_awal', $user->id_user)
                 ->whereIn('status_permohonan', [
@@ -388,22 +400,22 @@ class HomeController extends Controller
             $ppkPaketBase = PaketPengadaan::where('id_user_ppk', $user->id_user)
                 ->where('jalur_routing', '!=', PaketPengadaan::ROUTING_LANGSUNG);
 
-            $ppkMemoQuery = MemoBayar::where('role_approver', 'ppk')
-                ->whereIn('status_memo', ['diajukan', 'menunggu'])
+            // menyelaraskan memo bayar PPK secara paralel dengan Wadir II (termasuk jalur Belanja Langsung via PPK awal/pengganti) tanpa prasyarat berjenjang.
+            $ppkMemoQuery = MemoBayar::where('role_approver', MemoBayar::ROLE_PPK)
+                ->whereIn('status_memo', [MemoBayar::STATUS_DIAJUKAN, MemoBayar::STATUS_MENUNGGU])
                 ->whereHas('pembayaran', function ($q) use ($user) {
                     $q->whereNotIn('status_pembayaran', ['ditolak', 'perlu_revisi', 'lunas'])
-                        ->whereHas('memoBayar', function ($mq) {
-                            $mq->where('role_approver', 'wadir_2')
-                                ->where('status_memo', 'disetujui');
-                        })
                         ->whereHas('paket', function ($pq) use ($user) {
                             $pq->where('id_user_ppk', $user->id_user)
-                                ->where('jalur_routing', '!=', PaketPengadaan::ROUTING_LANGSUNG);
+                                ->orWhere(function ($awalQ) use ($user) {
+                                    $awalQ->whereNull('id_user_ppk')
+                                        ->whereHas('permohonan', fn ($pmq) => $pmq->where('id_user_ppk_awal', $user->id_user));
+                                });
                         });
                 });
 
             $data['stats'] = array_merge($data['stats'], [
-                'antrean_persetujuan_awal' => $user->hasPermission('reviu.ppk') ? (clone $ppkAwalQuery)->count() : 0,
+                'antrean_persetujuan_awal' => $user->hasPermission('verifikasi.ppk_approve') ? (clone $ppkAwalQuery)->count() : 0,
                 'antrean_dokumen_pengadaan' => $user->hasPermission('reviu.ppk')
                     ? (clone $ppkPaketBase)->where('status_paket', PaketPengadaan::STATUS_MENUNGGU_APPROVAL_PPK)->count()
                     : 0,
@@ -423,7 +435,7 @@ class HomeController extends Controller
                     ->take(5)
                     ->get()
                 : collect();
-            $data['antrean_persetujuan_awal_list'] = $user->hasPermission('reviu.ppk')
+            $data['antrean_persetujuan_awal_list'] = $user->hasPermission('verifikasi.ppk_approve')
                 ? (clone $ppkAwalQuery)->with(['unit', 'user', 'verifikasiParalel'])->latest('tanggal_pengajuan')->take(5)->get()
                 : collect();
             $data['paket_komitmen'] = $user->hasPermission('reviu.ppk')
@@ -527,7 +539,7 @@ class HomeController extends Controller
                 ->get();
         }
 
-        // 8. Modul Pemantauan Aktivitas PP (FR RBAC: pp.monitoring_aktivitas / lihat_pp)
+        // 8. Modul Pemantauan Aktivitas PP (pp.monitoring_aktivitas)
         if ($user->canMonitorPp()) {
             $data['active_modules'][] = 'monitoring_pp';
             $data['stats'] = array_merge($data['stats'], [
@@ -846,7 +858,7 @@ class HomeController extends Controller
                     'revisi', 'perlu_revisi' => ['aktivitas' => 'Perlu perbaikan berkas', 'status' => 'Perlu Revisi'],
                     'diproses_ppbj' => ['aktivitas' => 'Diproses Unit Pengadaan', 'status' => 'Diproses Unit Pengadaan'],
                     'selesai' => ['aktivitas' => 'Pengadaan selesai', 'status' => 'Selesai'],
-                    'menunggu_bidang_2' => ['aktivitas' => 'Telaah Bidang II', 'status' => 'Dalam Proses'],
+                    'menunggu_bidang_2' => ['aktivitas' => 'Usulan Masuk', 'status' => 'Dalam Proses'],
                     'cek_mak_perencanaan' => ['aktivitas' => 'Cek Pos Anggaran', 'status' => 'Dalam Proses'],
                     'reviu_paralel', 'menunggu_acc_wadir_ppk' => ['aktivitas' => 'Reviu Pimpinan', 'status' => 'Dalam Proses'],
                     default => ['aktivitas' => 'Form diajukan', 'status' => 'Dalam Proses'],
