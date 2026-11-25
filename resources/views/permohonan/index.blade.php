@@ -12,7 +12,7 @@
 @section('title', 'Tracking Pengajuan - SIM-PBJ')
 
 {{--
-  Komentar Deskriptif: Seksi Konten Halaman Pelacakan & Daftar Permohonan (`permohonan.index`).
+   Seksi Konten Halaman Pelacakan & Daftar Permohonan (`permohonan.index`).
 
   Tujuan: Kami menyerahkan koleksi `$permohonanList` ke komponen `trackingManager` melalui atribut
           `data-items` agar pergantian item detail, filter lokal, dan mode fullscreen berjalan instan.
@@ -636,6 +636,7 @@
                                 'fotoDokumentasiBarang' => $item->foto_dokumentasi_barang_list,
                                 'buktiPembayaran' => $item->bukti_pembayaran_list,
                                 'id_user' => $item->id_user ?? $item->user_id ?? null,
+                                'id_user_ppk_awal' => $item->id_user_ppk_awal ?? null,
                                 'revisi_ke' => $item->revisi_ke ?? 0,
                             ];
                         @endphp

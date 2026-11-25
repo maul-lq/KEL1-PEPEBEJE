@@ -12,7 +12,7 @@
 @section('title', 'Penerimaan & Serah Terima Barang - Unit Perlengkapan PNJ')
 
 {{--
-  Komentar Deskriptif: Seksi Konten Pemeriksaan Fisik & Penerbitan BAST (`penerimaan.index`).
+   Seksi Konten Pemeriksaan Fisik & Penerbitan BAST (`penerimaan.index`).
 
   Tujuan: mengikat komponen `lightboxViewer` di level halaman dan memisahkan pilihan paket
           siap periksa antara jalur Kontrak (>50jt) serta Belanja Langsung (<=50jt).

@@ -11,7 +11,7 @@
 @section('title', 'Perbaikan Dokumen Pengadaan - ' . $paket->nomor_paket)
 
 {{--
-  Komentar Deskriptif: Seksi Konten Penyusunan Ulang Dokumen Paket (`paket.edit`).
+   Seksi Konten Penyusunan Ulang Dokumen Paket (`paket.edit`).
 
   Tujuan: menampilkan catatan revisi reviewer terbaru di bagian atas form dan mengirimkan
           konfigurasi `paketEditConfig` agar kalkulasi selisih HPS terhadap sisa pagu MAK tervalidasi.

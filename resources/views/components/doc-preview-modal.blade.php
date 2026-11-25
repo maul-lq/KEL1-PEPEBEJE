@@ -7,7 +7,7 @@
               berbasis iframe lengkap dengan metadata ukuran dan tombol unduh langsung.
 --}}
 {{--
-  Komentar Deskriptif: Komponen Modal Pratinjau Dokumen PDF Global (`<x-doc-preview-modal>`).
+   Komponen Modal Pratinjau Dokumen PDF Global (`<x-doc-preview-modal>`).
 
   Tujuan: mendengarkan CustomEvent window `open-preview-doc` dan `close-preview-doc` agar
           setiap modul di aplikasi dapat membuka PDF di dalam aplikasi tanpa berpindah tab.

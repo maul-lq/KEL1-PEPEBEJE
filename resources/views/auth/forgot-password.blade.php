@@ -6,7 +6,7 @@
   Ringkasan : View Blade ini susun untuk halaman permintaan tautan pengaturan ulang kata sandi SIM-PBJ bagi pengguna yang lupa sandi sebelum masuk ke sistem.
 --}}
 {{--
-  Komentar Deskriptif: Halaman Lupa Kata Sandi (`auth.forgot-password`).
+   Halaman Lupa Kata Sandi (`auth.forgot-password`).
 
   Tujuan: menyediakan formulir input alamat email terdaftar agar sistem mengirimkan tautan
           pemulihan kata sandi dengan pesan respons netral tanpa membocorkan status akun.

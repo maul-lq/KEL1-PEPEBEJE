@@ -66,8 +66,12 @@ class VerifikasiParalelController extends Controller
      */
     public function verifikasiBidang2(Request $request): View
     {
+        if (! Auth::user()?->hasPermission('verifikasi.bidang_2_view')) {
+            abort(403, 'Akses Ditolak: Anda tidak memiliki izin memantau antrean berkas usulan masuk.');
+        }
+
         $query = PermohonanPengadaan::with(['unit', 'user', 'verifikasiParalel', 'paketPengadaan.penerimaanBarang.fotoDokumentasi'])
-            ->where('status_permohonan', '!=', 'digantikan_oleh_revisi'); // kecualikan surat lama yang telah digantikan revisi agar Staf Bidang II tidak menelaah duplikat.
+            ->where('status_permohonan', '!=', 'digantikan_oleh_revisi'); // kecualikan surat lama yang telah digantikan revisi agar daftar pemantauan bebas duplikat.
 
         if ($request->filled('keyword')) {
             $keyword = $request->keyword;
@@ -89,94 +93,10 @@ class VerifikasiParalelController extends Controller
     }
 
     /**
-     * Memproses pemeriksaan berkas Staf Bidang 2 dan menerbitkan Memo Cek MAK ke Bagian Perencanaan.
-     *
-     * Tujuan: memvalidasi nomor dan berkas memo cek MAK lalu menggerakkan status usulan ke
-     * `cek_mak_perencanaan` agar Bagian Perencanaan dapat memverifikasi ketersediaan anggaran.
-     *
-     * @param  Request  $request  Data memo cek MAK dari formulir Staf Bidang II.
-     * @return RedirectResponse Redirect kembali ke halaman verifikasi Bidang II dengan status sukses.
-     *
-     * Contoh pemanggilan:
-     * `Route::post('/verifikasi/bidang-2/teruskan', [VerifikasiParalelController::class, 'teruskanStaffB2']);`
-     */
-    public function teruskanStaffB2(Request $request): RedirectResponse
-    {
-        $user = Auth::user();
-
-        $validated = $request->validate([
-            'nomor_surat' => ['required', 'exists:permohonan_pengadaan,nomor_surat'],
-            'nomor_memo_cek_mak' => ['nullable', 'string', 'max:100'],
-            'catatan_staff' => ['nullable', 'string'],
-            'catatan_memo_cek_mak' => ['nullable', 'string'],
-            'file_memo_cek_mak' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,doc,docx', 'max:5120'],
-        ]);
-
-        $permohonan = PermohonanPengadaan::findOrFail($validated['nomor_surat']);
-        $nomorMemo = $validated['nomor_memo_cek_mak'] ?? ('MEMO-B2/CEK-MAK/'.date('Ymd').'/'.rand(100, 999));
-        $catatan = $validated['catatan_memo_cek_mak'] ?? $validated['catatan_staff'] ?? 'Berkas Kerangka Acuan dan spesifikasi teknis lengkap, mohon cek ketersediaan pos anggaran.';
-
-        $fileMemoPath = null;
-        if ($request->hasFile('file_memo_cek_mak')) {
-            $fileMemoPath = $request->file('file_memo_cek_mak')->store('memo_cek_mak', 'public');
-        }
-
-        // Perbarui entri verifikasi Staf Bidang 2
-        $verifB2 = VerifikasiParalel::firstOrCreate(
-            ['nomor_surat' => $permohonan->nomor_surat, 'role_verifikator' => VerifikasiParalel::ROLE_STAFF_BIDANG_2],
-            ['id_user' => $user->id_user, 'status_keputusan' => 'menunggu']
-        );
-        $verifB2->id_user = $user->id_user;
-        $verifB2->status_keputusan = 'disetujui';
-        $verifB2->catatan_alasan = $catatan;
-        $verifB2->nomor_memo = $nomorMemo;
-        if ($fileMemoPath) {
-            $verifB2->file_memo = $fileMemoPath;
-        }
-        $verifB2->tanggal_keputusan = now();
-        $verifB2->save();
-
-        // Simpan Memo Cek MAK pada permohonan dan arahkan ke Perencanaan
-        $statusLama = $permohonan->status_permohonan;
-        $permohonan->nomor_memo_cek_mak = $nomorMemo;
-        $permohonan->catatan_memo_cek_mak = $catatan;
-        if ($fileMemoPath) {
-            $permohonan->file_memo_cek_mak = $fileMemoPath;
-        }
-        $permohonan->status_permohonan = PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN;
-        $permohonan->status = PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN;
-        $permohonan->save();
-
-        // Aktifkan antrean verifikasi bagi Bagian Perencanaan
-        VerifikasiParalel::firstOrCreate(
-            ['nomor_surat' => $permohonan->nomor_surat, 'role_verifikator' => VerifikasiParalel::ROLE_PERENCANAAN],
-            ['id_user' => $user->id_user, 'status_keputusan' => 'menunggu']
-        );
-
-        AuditLog::catat(
-            $user->id_user,
-            'MEMO_CEK_MAK_B2_KE_PERENCANAAN',
-            'permohonan_pengadaan',
-            $permohonan->nomor_surat,
-            $statusLama,
-            PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN,
-            "Staff Bidang 2 mengirim Memo Cek MAK ({$nomorMemo}) ke Perencanaan: {$catatan}"
-        );
-
-        // Memicu notifikasi ke Perencanaan untuk memeriksa/membuat MAK
-        $this->notificationService->notifyMemoCekMak($permohonan, $nomorMemo, $catatan);
-
-        return redirect()->route('verifikasi.bidang-2')->with(
-            'success',
-            "Memo Cek Anggaran ({$nomorMemo}) untuk surat {$permohonan->nomor_surat} berhasil dikirim ke Bagian Perencanaan."
-        );
-    }
-
-    /**
      * Menampilkan antrean keputusan persetujuan kegiatan Wakil Direktur II (ACC Kegiatan / Tolak).
      *
-     * Tujuan: mengumpulkan usulan yang sedang berada dalam tahap awal hingga reviu paralel
-     * beserta relasi PPK awal dan riwayat verifikasi paralelnya untuk diputuskan Wadir II.
+     * Tujuan: mengumpulkan usulan yang telah ditetapkan pos anggaran dan PPK-nya oleh Bagian Perencanaan
+     * beserta riwayat verifikasi paralelnya untuk diputuskan Wadir II secara paralel dengan PPK terpilih.
      *
      * @return View Halaman `verifikasi.wadir_2` dengan variabel `$permohonanAntrean`.
      *
@@ -185,11 +105,13 @@ class VerifikasiParalelController extends Controller
      */
     public function verifikasiWadir2(): View
     {
+        if (! Auth::user()?->hasAnyPermission(['verifikasi.wadir_2_view', 'verifikasi.wadir_2_decide'])) {
+            abort(403, 'Akses Ditolak: Anda tidak memiliki izin melihat antrean persetujuan Wakil Direktur II.');
+        }
+
+        // hanya memuat usulan yang sudah selesai diperiksa Bagian Perencanaan agar verifikasi paralel Wadir 2 dan PPK berjalan berurutan pasca-MAK.
         $permohonanAntrean = PermohonanPengadaan::with(['unit', 'user', 'ppkAwal', 'verifikasiParalel'])
             ->whereIn('status_permohonan', [
-                'diajukan',
-                PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
-                PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN,
                 PermohonanPengadaan::STATUS_MENUNGGU_ACC_WADIR_PPK,
                 PermohonanPengadaan::STATUS_REVIU_PARALEL,
             ])
@@ -214,6 +136,9 @@ class VerifikasiParalelController extends Controller
     public function keputusanWadir2(Request $request): RedirectResponse
     {
         $user = Auth::user();
+        if (! $user || ! $user->hasPermission('verifikasi.wadir_2_decide')) {
+            abort(403, 'Akses Ditolak: Anda tidak memiliki izin memutuskan persetujuan usulan Wadir II.');
+        }
 
         $validated = $request->validate([
             'nomor_surat' => ['required', 'exists:permohonan_pengadaan,nomor_surat'],
@@ -228,14 +153,11 @@ class VerifikasiParalelController extends Controller
         $permohonan = PermohonanPengadaan::findOrFail($validated['nomor_surat']);
 
         if (! in_array($permohonan->status_permohonan, [
-            PermohonanPengadaan::STATUS_DIAJUKAN,
-            PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
-            PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN,
             PermohonanPengadaan::STATUS_REVIU_PARALEL,
             PermohonanPengadaan::STATUS_MENUNGGU_ACC_WADIR_PPK,
         ], true)) {
             return redirect()->route('verifikasi.wadir-2')
-                ->with('error', 'Permohonan yang telah disetujui atau diproses lanjut tidak dapat diubah keputusannya.');
+                ->with('error', 'Usulan hanya dapat diputuskan Wadir II setelah pos anggaran dan PPK ditetapkan oleh Bagian Perencanaan.');
         }
 
         // Simpan keputusan pada tabel verifikasi_paralel
@@ -370,6 +292,9 @@ class VerifikasiParalelController extends Controller
     public function verifikasiPpk(): View
     {
         $user = Auth::user();
+        if (! $user || ! $user->hasPermission('verifikasi.ppk_approve')) {
+            abort(403, 'Akses Ditolak: Anda tidak memiliki izin melihat antrean persetujuan awal usulan PPK.');
+        }
 
         $permohonanAntrean = PermohonanPengadaan::with(['unit', 'user', 'ppkAwal', 'verifikasiParalel'])
             ->where('id_user_ppk_awal', $user->id_user)
@@ -386,8 +311,8 @@ class VerifikasiParalelController extends Controller
     /**
      * Memproses persetujuan awal usulan oleh PPK yang dipilih Perencanaan.
      *
-     * Tujuan: menegakkan isolasi 4 akun PPK lewat pengecekan 403 bila akun lain mencoba
-     * memutuskan berkas tersebut, serta mengecek dual-approval dengan Wadir II.
+     * Tujuan: menegakkan isolasi akun PPK lewat pengecekan 403 bila akun lain mencoba
+     * memutuskan berkas tersebut, serta mengecek dual-approval paralel dengan Wadir II.
      *
      * @param  Request  $request  Payload keputusan PPK (`disetujui`/`ditolak`), alasan, dan memo.
      * @return RedirectResponse Redirect kembali ke halaman verifikasi PPK.
@@ -398,6 +323,9 @@ class VerifikasiParalelController extends Controller
     public function keputusanPpkAwal(Request $request): RedirectResponse
     {
         $user = Auth::user();
+        if (! $user || ! $user->hasPermission('verifikasi.ppk_approve')) {
+            abort(403, 'Akses Ditolak: Anda tidak memiliki izin menyetujui atau menolak usulan awal sebagai PPK.');
+        }
 
         $validated = $request->validate([
             'nomor_surat' => ['required', 'exists:permohonan_pengadaan,nomor_surat'],
@@ -561,7 +489,7 @@ class VerifikasiParalelController extends Controller
             ->get();
 
         $makList = AnggaranMAK::orderBy('kode_mak')->get();
-        $ppkUsers = User::withRole(User::ROLE_PPK)->where('status_aktif', true)->get();
+        $ppkUsers = User::eligibleForPpk()->get();
 
         return view('verifikasi.perencanaan', compact('permohonanAntrean', 'permohonanSudahMak', 'makList', 'ppkUsers'));
     }
@@ -580,6 +508,9 @@ class VerifikasiParalelController extends Controller
      */
     public function storeMakPerencanaan(Request $request): RedirectResponse
     {
+        if (! Auth::user()?->hasPermission('anggaran.mak_manage')) {
+            abort(403, 'Akses Ditolak: Anda tidak memiliki izin menambah pos anggaran baru.');
+        }
         $validated = $request->validate([
             'kode_mak' => ['required', 'string', 'max:50', 'unique:anggaran_mak,kode_mak'],
             'uraian_mak' => ['required', 'string', 'max:255'],
@@ -625,6 +556,10 @@ class VerifikasiParalelController extends Controller
      */
     public function lockMakWeb(AnggaranMAK $anggaran_mak): RedirectResponse
     {
+        if (! Auth::user()?->hasPermission('anggaran.mak_lock')) {
+            abort(403, 'Akses Ditolak: Anda tidak memiliki izin mengunci pos anggaran.');
+        }
+
         $anggaran_mak->lock();
 
         AuditLog::catat(
@@ -655,6 +590,10 @@ class VerifikasiParalelController extends Controller
      */
     public function unlockMakWeb(AnggaranMAK $anggaran_mak): RedirectResponse
     {
+        if (! Auth::user()?->hasPermission('anggaran.mak_lock')) {
+            abort(403, 'Akses Ditolak: Anda tidak memiliki izin membuka kunci pos anggaran.');
+        }
+
         $anggaran_mak->unlock();
 
         AuditLog::catat(
@@ -686,6 +625,9 @@ class VerifikasiParalelController extends Controller
     public function alokasiMakPerencanaan(Request $request): RedirectResponse
     {
         $user = Auth::user();
+        if (! $user || ! $user->hasPermission('anggaran.mak_alokasi')) {
+            abort(403, 'Akses Ditolak: Anda tidak memiliki izin mengalokasikan anggaran dan menetapkan PPK.');
+        }
 
         $validated = $request->validate([
             'nomor_surat' => ['required', 'exists:permohonan_pengadaan,nomor_surat'],
@@ -735,15 +677,15 @@ class VerifikasiParalelController extends Controller
             );
         }
 
-        // Validasi pemilihan 1 dari 4 akun PPK untuk menerima Memo Ketersediaan MAK
+        // Validasi pemilihan akun PPK yang berwenang untuk menerima penetapan anggaran awal
         $idPpkAwal = $validated['id_user_ppk_awal']
             ?? $permohonan->id_user_ppk_awal
-            ?? User::withRole(User::ROLE_PPK)->where('status_aktif', true)->first()?->id_user;
+            ?? User::eligibleForPpk()->first()?->id_user;
 
         if ($idPpkAwal) {
             $ppkTarget = User::find($idPpkAwal);
-            if (! $ppkTarget || ! $ppkTarget->hasRole(User::ROLE_PPK)) {
-                return back()->withErrors(['id_user_ppk_awal' => 'Akun PPK awal yang dipilih harus memiliki peran PPK.'])->withInput();
+            if (! $ppkTarget || ! $ppkTarget->isEligiblePpk()) {
+                return back()->withErrors(['id_user_ppk_awal' => 'Akun PPK awal yang dipilih harus memiliki hak akses PPK.'])->withInput();
             }
         }
 
@@ -942,6 +884,10 @@ class VerifikasiParalelController extends Controller
     public function splitMakPerencanaan(Request $request): RedirectResponse
     {
         $user = Auth::user();
+        if (! $user || ! $user->hasPermission('permohonan.split_mak')) {
+            abort(403, 'Akses Ditolak: Anda tidak memiliki izin memecah usulan berdasarkan pos anggaran.');
+        }
+
         $nomorInduk = $request->input('nomor_surat_induk');
 
         if ($request->has('items') && is_array($request->input('items'))) {

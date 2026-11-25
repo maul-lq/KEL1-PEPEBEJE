@@ -12,7 +12,7 @@
 @section('title', 'Reviu Dokumen & Kontrak Pengadaan - SIM-PBJ PNJ')
 
 {{--
-  Komentar Deskriptif: Seksi Konten Halaman Reviu Dokumen & Kontrak SPK (`kontrak.index`).
+   Seksi Konten Halaman Reviu Dokumen & Kontrak SPK (`kontrak.index`).
 
   Tujuan: menurunkan daftar tab yang diperbolehkan serta memetakan paket siap SPK menjadi
           JSON `kontrakConfig` untuk komponen Alpine `kontrakManager` agar prefill HPS dan vendor
@@ -237,7 +237,7 @@
     <div x-show="activeTab === 'reviu'" class="space-y-6">
 
         @if($canMonitorPp && ! $canReviuPp && ! $canReviuPpk)
-            {{-- Panel Monitoring Aktivitas Pejabat Pengadaan (PP) -- Fitur 'lihat_pp' / 'pp.monitoring_aktivitas' --}}
+            {{-- Panel Monitoring Aktivitas Pejabat Pengadaan (PP) -- Izin 'pp.monitoring_aktivitas' --}}
             <div class="rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50/60 p-6 shadow-sm border border-blue-200/80">
                 <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-blue-200/60">
                     <div class="flex items-center gap-3">

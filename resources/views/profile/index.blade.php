@@ -12,7 +12,7 @@
 @section('title', 'Profil - SIM-PBJ')
 
 {{--
-  Komentar Deskriptif: Seksi Konten Halaman Profil Pengguna (`profile.index`).
+   Seksi Konten Halaman Profil Pengguna (`profile.index`).
 
   Tujuan: Kami menyematkan sinyal pembuka modal otomatis via `data-password-modal-open` dan
           `data-delete-modal-open` agar error validasi modal langsung terlihat sesudah redirect server.
@@ -33,7 +33,7 @@
         <h1 class="text-[40px] font-semibold leading-tight text-black">Profil Saya</h1>
     </div>
 
-    @if($user->hasRole(\App\Models\User::ROLE_ADMIN) && Route::has('admin.roles.index'))
+    @if($user->hasPermission('admin.role_manage') && Route::has('admin.roles.index'))
         <a href="{{ route('admin.roles.index') }}"
            class="inline-flex h-11 items-center gap-2 rounded-lg bg-[#0969da] px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700">
             <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>

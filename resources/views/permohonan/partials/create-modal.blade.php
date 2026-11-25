@@ -8,7 +8,7 @@
               (`permohonanCreateModalUpload`) berbatas 5 berkas / 15 MB.
 --}}
 {{--
-  Komentar Deskriptif: Partial Dialog Modal Buat Permohonan Baru (`permohonan.partials.create-modal`).
+   Partial Dialog Modal Buat Permohonan Baru (`permohonan.partials.create-modal`).
 
   Tujuan: Kami memungkinkan unit pengusul mendaftarkan surat usulan baru tanpa meninggalkan halaman
           tracking daftar melalui dialog modal terintegrasi CSRF dan pratinjau multi-file.

@@ -52,7 +52,7 @@ class PengadaanNotificationService
         'perencanaan' => ['anggaran.mak_alokasi', 'anggaran.mak_lock', 'anggaran.mak_manage'],
         'ppbj' => ['paket.create', 'spk.create', 'pembayaran.pengajuan', 'pembayaran.spp_terbitkan'],
         'pp' => ['reviu.pp'],
-        'ppk' => ['reviu.ppk', 'pembayaran.memo_ppk'],
+        'ppk' => ['verifikasi.ppk_approve', 'reviu.ppk', 'pembayaran.memo_ppk'],
         'perlengkapan' => ['penerimaan.bast_create', 'penerimaan.bast_sign'],
         'keuangan' => ['pembayaran.pencairan_sp2d'],
     ];
@@ -217,17 +217,29 @@ class PengadaanNotificationService
      */
     public function notifyPengajuanBaru(PermohonanPengadaan $permohonan): void
     {
-        $judul = "Usulan Pengadaan Baru ke Bidang 2: {$permohonan->nomor_surat}";
         $estimasi = number_format($permohonan->estimasi_total_pagu ?? $permohonan->anggaran_diajukan ?? 0, 0, ',', '.');
         $unitName = $permohonan->unit->nama_unit ?? $permohonan->kode_unit;
 
-        $pesan = "Unit {$unitName} mengajukan permohonan baru ke Bidang 2: '{$permohonan->perihal}' (Estimasi Rp {$estimasi}). Menunggu pemeriksaan berkas & pembuatan Memo Cek Anggaran oleh Staf Bidang 2 ke Perencanaan.";
+        $this->kirimKePeran(
+            'perencanaan',
+            "Usulan Pengadaan Baru (Cek Anggaran & PPK): {$permohonan->nomor_surat}",
+            "Unit {$unitName} mengajukan permohonan baru: '{$permohonan->perihal}' (Estimasi Rp {$estimasi}). Silakan tentukan pos anggaran dan tetapkan PPK awal.",
+            'verifikasi',
+            $permohonan->nomor_surat
+        );
 
-        $this->kirimKePeran(['staff_bidang_2', 'wadir_2'], $judul, $pesan, 'verifikasi', $permohonan->nomor_surat);
+        // mengirimkan informasi pasif bagi pemegang izin lihat usulan Bidang II tanpa instruksi verifikasi atau pembuatan memo.
+        $this->kirimKePeran(
+            'staff_bidang_2',
+            "Pemantauan Usulan Pengadaan Baru: {$permohonan->nomor_surat}",
+            "Unit {$unitName} mengajukan permohonan baru: '{$permohonan->perihal}' (Estimasi Rp {$estimasi}). Usulan sedang diteruskan ke Bagian Perencanaan.",
+            'verifikasi',
+            $permohonan->nomor_surat
+        );
     }
 
     /**
-     * memberi tahu Staf Bidang 2 dan Wadir 2 bahwa unit pengaju telah mengirimkan berkas revisi permohonan.
+     * memberi tahu Bagian Perencanaan dan pemantau Bidang II bahwa unit pengaju telah mengirimkan berkas revisi permohonan.
      *
      * @param  PermohonanPengadaan  $permohonan  membaca nomor surat revisi dan indeks `revisi_ke` dari usulan hasil perbaikan.
      * @return void Tidak mengembalikan nilai.
@@ -237,12 +249,23 @@ class PengadaanNotificationService
      */
     public function notifyPengajuanRevisi(PermohonanPengadaan $permohonan): void
     {
-        $judul = "Revisi Usulan Pengadaan: {$permohonan->nomor_surat}";
         $unitName = $permohonan->unit->nama_unit ?? $permohonan->kode_unit;
 
-        $pesan = "Unit {$unitName} memperbarui dokumen usulan pengadaan ke Bidang 2: '{$permohonan->perihal}' (Revisi ke-{$permohonan->revisi_ke}). Silakan periksa dan kirim Memo Cek Anggaran ke Perencanaan.";
+        $this->kirimKePeran(
+            'perencanaan',
+            "Revisi Usulan Pengadaan: {$permohonan->nomor_surat}",
+            "Unit {$unitName} memperbarui dokumen usulan pengadaan '{$permohonan->perihal}' (Revisi ke-{$permohonan->revisi_ke}). Silakan periksa kembali pos anggaran dan PPK terkait.",
+            'verifikasi',
+            $permohonan->nomor_surat
+        );
 
-        $this->kirimKePeran(['staff_bidang_2', 'wadir_2'], $judul, $pesan, 'verifikasi', $permohonan->nomor_surat);
+        $this->kirimKePeran(
+            'staff_bidang_2',
+            "Pemantauan Revisi Usulan Pengadaan: {$permohonan->nomor_surat}",
+            "Unit {$unitName} memperbarui dokumen usulan pengadaan '{$permohonan->perihal}' (Revisi ke-{$permohonan->revisi_ke}).",
+            'verifikasi',
+            $permohonan->nomor_surat
+        );
     }
 
     /**

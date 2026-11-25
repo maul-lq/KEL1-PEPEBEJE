@@ -9,7 +9,7 @@
               modal pratinjau dokumen PDF global.
 --}}
 {{--
-  Komentar Deskriptif: Template Layout Induk Aplikasi SIM-PBJ (`layouts.app`).
+   Template Layout Induk Aplikasi SIM-PBJ (`layouts.app`).
 
   Tujuan: Kami memusatkan kerangka navigasi vertikal responsif yang menyaring menu sesuai izin RBAC
           pengguna login, memuat bundel lokal Vite (Tailwind CSS, font, dan Alpine.js), serta menampilkan pesan flash dan toast.
@@ -188,17 +188,17 @@
             </a>
         @endif
 
-        <!-- 4. STAFF BIDANG 2: Telaah Berkas Masuk -->
+        <!-- 4. STAFF BIDANG 2: Pemantauan Berkas Masuk (Baca-Saja) -->
         @if($u->hasPermission('verifikasi.bidang_2_view'))
             @php $aBidang2 = request()->routeIs('verifikasi.bidang-2*'); @endphp
             <a href="{{ route('verifikasi.bidang-2') }}" 
-               title="Telaah Berkas Bidang II" 
+               title="Pemantauan Berkas Masuk" 
                class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aBidang2 ? $menuOn : $menuOff }}">
                 <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                 </svg>
-                <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Telaah Berkas Bidang II</span>
+                <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Pemantauan Berkas</span>
             </a>
         @endif
 
@@ -228,8 +228,8 @@
             </a>
         @endif
 
-        <!-- 7. PPK: Persetujuan Awal Usulan PPK (Isolasi 4 Akun) -->
-        @if($u->hasPermission('reviu.ppk'))
+        <!-- 7. PPK: Persetujuan Awal Usulan PPK -->
+        @if($u->hasPermission('verifikasi.ppk_approve'))
             @php
                 $ppkAntreanCount = isset($stats['antrean_persetujuan_awal']) 
                     ? $stats['antrean_persetujuan_awal'] 

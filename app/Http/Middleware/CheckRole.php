@@ -68,7 +68,6 @@ class CheckRole
             'paket.view_all',
             'paket.reassign_ppk',
             'pp.monitoring_aktivitas',
-            'lihat_pp',
             'spk.create',
             'pembayaran.pengajuan',
             'pembayaran.spp_terbitkan',
@@ -79,6 +78,7 @@ class CheckRole
             'paket.view_assigned',
         ],
         'ppk' => [
+            'verifikasi.ppk_approve',
             'reviu.ppk',
             'paket.view_assigned',
             'pembayaran.memo_ppk',

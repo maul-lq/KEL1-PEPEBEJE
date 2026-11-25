@@ -4,10 +4,10 @@
   Penulis   : Rizlrad Fz
   Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
   Ringkasan : Sub-view dasbor ini rancang khusus bagi pengguna pemegang izin pemantauan
-              Pejabat Pengadaan standalone (`pp.monitoring_aktivitas` / `lihat_pp`) tanpa modul penuh PPBJ.
+              Pejabat Pengadaan standalone (`pp.monitoring_aktivitas`) tanpa modul penuh PPBJ.
 --}}
 {{--
-  Komentar Deskriptif: Panel Workspace Dasbor Pemantauan PP (`dashboard.roles.monitoring_pp`).
+   Panel Workspace Dasbor Pemantauan PP (`dashboard.roles.monitoring_pp`).
 
   Tujuan: menampilkan status paket jalur Rp 50–200 juta serta riwayat audit aktivitas Pejabat
           Pengadaan secara terpisah apabila akun bukan Koordinator PPBJ penuh.

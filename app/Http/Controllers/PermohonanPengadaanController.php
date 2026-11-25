@@ -128,7 +128,7 @@ class PermohonanPengadaanController extends Controller
         $permohonanList = $query->latest('tanggal_pengajuan')->paginate(15);
         $units = Unit::all();
         $makList = AnggaranMAK::orderBy('kode_mak')->get();
-        $ppkUsers = User::withRole(User::ROLE_PPK)->where('status_aktif', true)->get();
+        $ppkUsers = User::eligibleForPpk()->get();
 
         return view('permohonan.index', compact('permohonanList', 'user', 'units', 'makList', 'ppkUsers'));
     }
@@ -174,7 +174,7 @@ class PermohonanPengadaanController extends Controller
             ->firstOrFail();
 
         $makList = AnggaranMAK::orderBy('kode_mak')->get();
-        $ppkUsers = User::withRole(User::ROLE_PPK)->where('status_aktif', true)->get();
+        $ppkUsers = User::eligibleForPpk()->get();
 
         return view('permohonan.show', compact('permohonan', 'makList', 'ppkUsers'));
     }
@@ -343,28 +343,22 @@ class PermohonanPengadaanController extends Controller
             'file_kak' => $fileKakPath,
             'file_spesifikasi_teknis' => $fileSpekPath,
             'dokumen_lampiran' => $dokumenLampiranList,
-            'status_permohonan' => PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
+            'status_permohonan' => PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN,
             'status_anggaran' => 'pending',
-            'status' => PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
+            'status' => PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN,
         ]);
 
-        // Inisialisasi antrean telaah untuk Wadir 2, Perencanaan, dan pemantauan Staf Bidang 2
+        // menginisialisasi antrean penentuan pos anggaran dan penetapan PPK di Bagian Perencanaan serta rekam tunggu Wadir 2 tanpa verifikasi Staf Bidang 2.
         VerifikasiParalel::create([
             'id_user' => $user->id_user,
             'nomor_surat' => $permohonan->nomor_surat,
-            'role_verifikator' => VerifikasiParalel::ROLE_STAFF_BIDANG_2,
+            'role_verifikator' => VerifikasiParalel::ROLE_PERENCANAAN,
             'status_keputusan' => 'menunggu',
         ]);
         VerifikasiParalel::create([
             'id_user' => $user->id_user,
             'nomor_surat' => $permohonan->nomor_surat,
             'role_verifikator' => VerifikasiParalel::ROLE_WADIR_2,
-            'status_keputusan' => 'menunggu',
-        ]);
-        VerifikasiParalel::create([
-            'id_user' => $user->id_user,
-            'nomor_surat' => $permohonan->nomor_surat,
-            'role_verifikator' => VerifikasiParalel::ROLE_PERENCANAAN,
             'status_keputusan' => 'menunggu',
         ]);
 
@@ -375,16 +369,16 @@ class PermohonanPengadaanController extends Controller
             'permohonan_pengadaan',
             $permohonan->nomor_surat,
             null,
-            PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
-            "Pengajuan usulan permohonan pengadaan nomor {$permohonan->nomor_surat} ke Bidang 2 oleh {$user->nama}"
+            PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN,
+            "Pengajuan usulan permohonan pengadaan nomor {$permohonan->nomor_surat} ke Bagian Perencanaan oleh {$user->nama}"
         );
 
-        // Memicu notifikasi siklus: Bidang 2 menerima alarm usulan baru
+        // memicu notifikasi siklus: Bagian Perencanaan menerima usulan baru untuk menentukan pos anggaran dan memilih PPK.
         $this->notificationService->notifyPengajuanBaru($permohonan);
 
         return redirect()->route('permohonan.index')->with(
             'success',
-            "Usulan permohonan nomor {$permohonan->nomor_surat} berhasil diajukan ke Bidang II untuk pemeriksaan berkas dan Memo Cek Anggaran."
+            "Usulan permohonan nomor {$permohonan->nomor_surat} berhasil diajukan ke Bagian Perencanaan untuk penentuan pos anggaran dan penetapan PPK."
         );
     }
 
@@ -473,9 +467,8 @@ class PermohonanPengadaanController extends Controller
         $revisiKe = ($induk->revisi_ke ?? 0) + 1;
 
         $hasMak = ! empty($induk->kode_mak);
-        $targetStatus = $hasMak
-            ? PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN
-            : PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2;
+        // mengarahkan revisi usulan langsung ke Bagian Perencanaan agar penentuan atau konfirmasi pos anggaran tidak tertahan telaah Staf Bidang 2.
+        $targetStatus = PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN;
 
         // Ambil riwayat verifikasi paralel sebelum revisi
         $oldVerifWadir = VerifikasiParalel::where('nomor_surat', $oldNomorSurat)
@@ -610,17 +603,6 @@ class PermohonanPengadaanController extends Controller
         }
 
         if ($hasMak) {
-            // Staf Bidang II telah menyetujui pada tahapan sebelumnya
-            VerifikasiParalel::updateOrCreate(
-                ['nomor_surat' => $activePermohonan->nomor_surat, 'role_verifikator' => VerifikasiParalel::ROLE_STAFF_BIDANG_2],
-                [
-                    'id_user' => $user->id_user,
-                    'status_keputusan' => 'disetujui',
-                    'catatan_alasan' => 'Diverifikasi Staf Bidang II sebelum siklus revisi',
-                    'tanggal_keputusan' => now(),
-                ]
-            );
-
             // Antrean masuk ke Bagian Perencanaan untuk konfirmasi MAK
             VerifikasiParalel::updateOrCreate(
                 ['nomor_surat' => $activePermohonan->nomor_surat, 'role_verifikator' => VerifikasiParalel::ROLE_PERENCANAAN],
@@ -699,9 +681,9 @@ class PermohonanPengadaanController extends Controller
             );
         }
 
-        // Inisialisasi antrean awal kembali di Staf Bidang 2 jika belum memiliki MAK
+        // mengembalikan antrean penentuan pos anggaran ke Bagian Perencanaan jika belum memiliki kode anggaran.
         VerifikasiParalel::updateOrCreate(
-            ['nomor_surat' => $activePermohonan->nomor_surat, 'role_verifikator' => VerifikasiParalel::ROLE_STAFF_BIDANG_2],
+            ['nomor_surat' => $activePermohonan->nomor_surat, 'role_verifikator' => VerifikasiParalel::ROLE_PERENCANAAN],
             [
                 'id_user' => $user->id_user,
                 'status_keputusan' => 'menunggu',
@@ -710,7 +692,7 @@ class PermohonanPengadaanController extends Controller
             ]
         );
 
-        // Reset keputusan Wadir 2 dan PPK
+        // mereset keputusan Wadir 2 dan PPK agar meninjau ulang setelah Bagian Perencanaan menetapkan pos anggaran dan PPK.
         VerifikasiParalel::where('nomor_surat', $activePermohonan->nomor_surat)
             ->whereIn('role_verifikator', [VerifikasiParalel::ROLE_WADIR_2, VerifikasiParalel::ROLE_PPK])
             ->update([
@@ -726,16 +708,16 @@ class PermohonanPengadaanController extends Controller
             'permohonan_pengadaan',
             $activePermohonan->nomor_surat,
             $oldNomorSurat !== $activePermohonan->nomor_surat ? $oldNomorSurat : null,
-            PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
+            PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN,
             "Revisi usulan permohonan ke-{$revisiKe} ({$activePermohonan->nomor_surat}) oleh {$user->nama}"
         );
 
-        // Memicu notifikasi siklus revisi berkas usulan ke Bidang 2
+        // memicu notifikasi siklus revisi berkas usulan langsung ke Bagian Perencanaan.
         $this->notificationService->notifyPengajuanRevisi($activePermohonan);
 
         return redirect()->route('permohonan.index')->with(
             'success',
-            "Usulan permohonan nomor {$activePermohonan->nomor_surat} berhasil direvisi (ke-{$activePermohonan->revisi_ke}) dan diajukan kembali ke Bidang II."
+            "Usulan permohonan nomor {$activePermohonan->nomor_surat} berhasil direvisi (ke-{$activePermohonan->revisi_ke}) dan diajukan kembali ke Bagian Perencanaan."
         );
     }
 

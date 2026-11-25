@@ -7,7 +7,7 @@
               daftar lengkap dengan tombol reset bersyarat serta slot filter tambahan dan tombol aksi.
 --}}
 {{--
-  Komentar Deskriptif: Komponen Bilah Pencarian dan Penyaringan Daftar (`<x-filter-bar>`).
+   Komponen Bilah Pencarian dan Penyaringan Daftar (`<x-filter-bar>`).
 
   Tujuan: menstandarkan UI kotak pencarian, tombol submit, tombol bersihkan filter aktif, serta
           slot `$filters` dan `$actions` agar halaman tabel tetap konsisten antar modul.

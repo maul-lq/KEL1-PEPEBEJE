@@ -13,6 +13,7 @@ namespace App\Http\Controllers;
 use App\Models\AlokasiMAK;
 use App\Models\AnggaranMAK;
 use App\Models\AuditLog;
+use App\Models\MemoBayar;
 use App\Models\PaketPengadaan;
 use App\Models\PermohonanPengadaan;
 use App\Models\User;
@@ -96,7 +97,7 @@ class PaketPengadaanController extends Controller
         $this->syncAllPermohonanDisetujuiParalel();
 
         $paketList = $query->latest('tanggal_registrasi_paket')->paginate(15);
-        $ppkUsers = User::withRole(User::ROLE_PPK)->where('status_aktif', true)->get();
+        $ppkUsers = User::eligibleForPpk()->get();
         $riwayatPenugasan = AuditLog::with('user')
             ->where('jenis_aksi', 'REASSIGN_PPK')
             ->latest('waktu_log')
@@ -159,6 +160,10 @@ class PaketPengadaanController extends Controller
     public function splitJenisPpbj(Request $request): RedirectResponse
     {
         $user = Auth::user();
+        if (! $user || ! $user->hasPermission('permohonan.split_jenis')) {
+            abort(403, 'Akses Ditolak: Anda tidak memiliki izin memecah usulan berdasarkan jenis pengadaan.');
+        }
+
         $nomorInduk = $request->input('nomor_surat_induk');
         if (! $request->filled('nomor_surat_baru') && $nomorInduk) {
             $countChild = PermohonanPengadaan::where('nomor_surat_induk_split', $nomorInduk)->count();
@@ -229,6 +234,10 @@ class PaketPengadaanController extends Controller
      */
     public function paketCreate(): View
     {
+        if (! Auth::user()?->hasPermission('paket.create')) {
+            abort(403, 'Akses Ditolak: Anda tidak memiliki izin membuat paket pengadaan.');
+        }
+
         $this->syncAllPermohonanDisetujuiParalel();
 
         $permohonanDisetujui = PermohonanPengadaan::with([
@@ -244,8 +253,8 @@ class PaketPengadaanController extends Controller
             ])
             ->get();
 
-        $ppkUsers = User::withRole(User::ROLE_PPK)->where('status_aktif', true)->take(4)->get();
-        $ppUsers = User::withRole(User::ROLE_PP)->where('status_aktif', true)->get();
+        $ppkUsers = User::eligibleForPpk()->get();
+        $ppUsers = User::eligibleForPermissions(['reviu.pp'], User::ROLE_PP)->get();
         $vendors = Vendor::orderBy('nama_vendor')->get();
 
         return view('paket.create', compact('permohonanDisetujui', 'ppkUsers', 'ppUsers', 'vendors'));
@@ -276,6 +285,9 @@ class PaketPengadaanController extends Controller
     public function storePaket(Request $request): RedirectResponse
     {
         $user = Auth::user();
+        if (! $user || ! $user->hasPermission('paket.create')) {
+            abort(403, 'Akses Ditolak: Anda tidak memiliki izin menyimpan paket pengadaan.');
+        }
 
         $validated = $request->validate([
             'kode_paket' => ['required', 'string', 'max:100', 'unique:paket_pengadaan,nomor_paket'],
@@ -342,10 +354,10 @@ class PaketPengadaanController extends Controller
 
         if ($jalur === PaketPengadaan::ROUTING_LANGSUNG) {
             $metodePengadaan = PaketPengadaan::METODE_BELANJA_LANGSUNG;
-            $idUserPpk = $inheritedPpk ?? User::withRole(User::ROLE_PPK)->where('status_aktif', true)->first()?->id_user;
+            $idUserPpk = $inheritedPpk ?? User::eligibleForPpk()->first()?->id_user;
         } elseif ($jalur === PaketPengadaan::ROUTING_PP) {
-            $idUserPp = $validated['id_user_pp'] ?? User::withRole(User::ROLE_PP)->where('status_aktif', true)->first()?->id_user;
-            $idUserPpk = $inheritedPpk ?? User::withRole(User::ROLE_PPK)->where('status_aktif', true)->first()?->id_user;
+            $idUserPp = $validated['id_user_pp'] ?? User::eligibleForPermissions(['reviu.pp'], User::ROLE_PP)->first()?->id_user;
+            $idUserPpk = $inheritedPpk ?? User::eligibleForPpk()->first()?->id_user;
             $metodePengadaan = $validated['metode_pengadaan'];
         } else {
             $idUserPpk = $inheritedPpk;
@@ -441,6 +453,9 @@ class PaketPengadaanController extends Controller
     public function storeBelanjaLangsungWeb(Request $request): RedirectResponse
     {
         $user = Auth::user();
+        if (! $user || ! $user->hasPermission('paket.create')) {
+            abort(403, 'Akses Ditolak: Anda tidak memiliki izin mencatat pelaksanaan Belanja Langsung.');
+        }
 
         $validated = $request->validate([
             'nomor_paket' => ['required', 'exists:paket_pengadaan,nomor_paket'],
@@ -555,6 +570,9 @@ class PaketPengadaanController extends Controller
     public function reassignPpkWeb(Request $request): RedirectResponse
     {
         $user = Auth::user();
+        if (! $user || ! $user->hasPermission('paket.reassign_ppk')) {
+            abort(403, 'Akses Ditolak: Anda tidak memiliki izin mengalihkan penugasan PPK.');
+        }
 
         $validated = $request->validate([
             'kode_paket' => ['required'],
@@ -566,14 +584,23 @@ class PaketPengadaanController extends Controller
             ->firstOrFail();
 
         $ppkBaru = User::findOrFail($validated['id_user_ppk_baru']);
-        if (! $ppkBaru->hasRole(User::ROLE_PPK)) {
-            return back()->withErrors(['id_user_ppk_baru' => 'User tujuan mutasi harus berstatus akun PPK.']);
+        if (! $ppkBaru->isEligiblePpk()) {
+            return back()->withErrors(['id_user_ppk_baru' => 'User tujuan pengalihan harus memiliki hak akses PPK.']);
         }
 
         $ppkLama = $paket->id_user_ppk;
         $paket->id_user_ppk = $ppkBaru->id_user;
         $paket->alasan_pengalihan_ppk = $validated['alasan_pengalihan'];
         $paket->save();
+
+        // mengalihkan kepemilikan memo bayar PPK yang masih menunggu agar PPK baru langsung melihat antrean persetujuan pembayaran paket ini.
+        $pembayaranNomors = $paket->pembayaran()->pluck('nomor_pembayaran');
+        if ($pembayaranNomors->isNotEmpty()) {
+            MemoBayar::whereIn('nomor_pembayaran', $pembayaranNomors)
+                ->where('role_approver', MemoBayar::ROLE_PPK)
+                ->whereIn('status_memo', [MemoBayar::STATUS_MENUNGGU, MemoBayar::STATUS_DIAJUKAN])
+                ->update(['id_user' => $ppkBaru->id_user]);
+        }
 
         AuditLog::catat(
             $user->id_user,
@@ -629,12 +656,12 @@ class PaketPengadaanController extends Controller
         ])->where('nomor_paket', $id)->firstOrFail();
 
         $user = Auth::user();
-        if ($user && ! $user->hasRole('admin') && ! $user->hasRole('ppbj') && ! $user->hasAnyPermission(['paket.create', 'paket.view_all'])) {
+        if (! $user || ! $user->hasPermission('paket.create')) {
             abort(403, 'Akses Ditolak: Anda tidak memiliki hak akses untuk mengubah dokumen pengadaan.');
         }
 
-        $ppkUsers = User::withRole(User::ROLE_PPK)->where('status_aktif', true)->take(4)->get();
-        $ppUsers = User::withRole(User::ROLE_PP)->where('status_aktif', true)->get();
+        $ppkUsers = User::eligibleForPpk()->get();
+        $ppUsers = User::eligibleForPermissions(['reviu.pp'], User::ROLE_PP)->get();
         $vendors = Vendor::orderBy('nama_vendor')->get();
 
         return view('paket.edit', compact('paket', 'ppkUsers', 'ppUsers', 'vendors'));
@@ -667,6 +694,10 @@ class PaketPengadaanController extends Controller
     public function paketUpdate(Request $request, string $id): RedirectResponse
     {
         $user = Auth::user();
+        if (! $user || ! $user->hasPermission('paket.create')) {
+            abort(403, 'Akses Ditolak: Anda tidak memiliki hak akses untuk memperbarui paket pengadaan.');
+        }
+
         $paket = PaketPengadaan::with('permohonan.anggaranMak')->where('nomor_paket', $id)->firstOrFail();
 
         $validated = $request->validate([
@@ -823,7 +854,7 @@ class PaketPengadaanController extends Controller
             abort(403, 'Akses Ditolak: Paket pengadaan ini ditugaskan kepada PPK lain.');
         }
 
-        $ppkUsers = User::withRole(User::ROLE_PPK)->where('status_aktif', true)->get();
+        $ppkUsers = User::eligibleForPpk()->get();
 
         return view('paket.show', compact('paket', 'ppkUsers'));
     }
@@ -853,6 +884,10 @@ class PaketPengadaanController extends Controller
      */
     public function splitJenisCreate(): View
     {
+        if (! Auth::user()?->hasPermission('permohonan.split_jenis')) {
+            abort(403, 'Akses Ditolak: Anda tidak memiliki izin memecah usulan berdasarkan jenis pengadaan.');
+        }
+
         $permohonanDisetujui = PermohonanPengadaan::where('status_permohonan', PermohonanPengadaan::STATUS_DISETUJUI)->get();
 
         return view('paket.split_jenis', compact('permohonanDisetujui'));
@@ -870,12 +905,14 @@ class PaketPengadaanController extends Controller
     public function reassignPpkCreate(Request $request): View
     {
         $user = Auth::user();
-        $query = PaketPengadaan::with(['ppkUser']);
-        if ($user) {
-            $query->forUser($user);
+        if (! $user || ! $user->hasPermission('paket.reassign_ppk')) {
+            abort(403, 'Akses Ditolak: Anda tidak memiliki izin mengalihkan penugasan PPK.');
         }
+
+        $query = PaketPengadaan::with(['ppkUser']);
+        $query->forUser($user);
         $paketList = $query->get();
-        $ppkUsers = User::withRole(User::ROLE_PPK)->where('status_aktif', true)->get();
+        $ppkUsers = User::eligibleForPpk()->get();
 
         return view('paket.reassign', compact('paketList', 'ppkUsers'));
     }

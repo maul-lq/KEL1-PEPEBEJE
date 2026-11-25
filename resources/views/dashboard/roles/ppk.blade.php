@@ -3,24 +3,25 @@
 
   Penulis   : Rizlrad Fz
   Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
-  Ringkasan : Sub-view dasbor ini susun untuk modul Pejabat Pembuat Komitmen (PPK) yang
-              terisolasi per akun penugasan (`id_user_ppk`), menampilkan persetujuan awal, reviu
-              dokumen paket, paket tugas PPK, serta antrean Memo Bayar Level 2.
+  Ringkasan : Sub-view dasbor ini disusun untuk modul Pejabat Pembuat Komitmen (PPK) yang
+              terisolasi per akun penugasan (`id_user_ppk`), menampilkan persetujuan usulan awal,
+              reviu dokumen paket, paket tugas PPK, serta antrean Memo Bayar PPK paralel.
 --}}
 {{--
-  Komentar Deskriptif: Panel Workspace Dasbor Pejabat Pembuat Komitmen (`dashboard.roles.ppk`).
+   Panel Workspace Dasbor Pejabat Pembuat Komitmen (`dashboard.roles.ppk`).
 
-  Tujuan: menggabungkan tiga antrean kerja PPK (Memo Bayar Level 2, reviu dokumen paket, dan
+  Tujuan: menggabungkan tiga antrean kerja PPK (Memo Bayar PPK, persetujuan dokumen paket, dan
           persetujuan awal usulan) dengan mematuhi isolasi hak akses masing-masing akun PPK.
   Parameter: `$user` (User), `$stats` (array), `$roleData` (array).
   Nilai kembali: Fragmen HTML 4 KPI PPK dan workspace antrean tindakan PPK.
   Contoh pemanggilan: `@includeIf('dashboard.roles.ppk', [...])`
 --}}
 @php
+    $hasVerifPpkAwal = $user->hasPermission('verifikasi.ppk_approve');
     $hasReviuPpk = $user->hasPermission('reviu.ppk');
     $hasMemoPpk = $user->hasPermission('pembayaran.memo_ppk');
 
-    $verifPpkHref = $hasReviuPpk ? route('verifikasi.ppk') : null;
+    $verifPpkHref = $hasVerifPpkAwal ? route('verifikasi.ppk') : null;
     $dokumenPpkHref = $hasReviuPpk ? route('ppk.persetujuan-dokumen.index') : null;
     $kontrakPpkHref = $hasReviuPpk ? route('kontrak.index') : null;
     $memoPpkHref = $hasMemoPpk ? route('pembayaran.index') : null;
@@ -28,7 +29,7 @@
 
     $memoList = $hasMemoPpk ? ($roleData['antrean_memo'] ?? collect()) : collect();
     $dokumenList = $hasReviuPpk ? ($roleData['antrean_dokumen_pengadaan_list'] ?? collect()) : collect();
-    $awalList = $hasReviuPpk ? ($roleData['antrean_persetujuan_awal_list'] ?? collect()) : collect();
+    $awalList = $hasVerifPpkAwal ? ($roleData['antrean_persetujuan_awal_list'] ?? collect()) : collect();
     $cardIdx = 0;
 @endphp
 
@@ -60,9 +61,9 @@
         />
 
         <x-figma-stat-card
-            title="Memo Bayar Lvl 2"
+            title="Memo Bayar PPK"
             :value="$stats['memo_bayar_pending'] ?? 0"
-            :subtitle="$hasMemoPpk ? 'Persetujuan akhir tagihan' : 'Akses Memo tidak aktif'"
+            :subtitle="$hasMemoPpk ? 'Persetujuan tagihan PPK' : 'Akses Memo tidak aktif'"
             variant="bell"
             :href="$memoPpkHref"
         />
@@ -82,19 +83,19 @@
                     subtitle=""
                 />
             @else
-                @foreach($memoList as $memoLvl2)
+                @foreach($memoList as $memoPpkItem)
                     @php
-                        $paketNama = $memoLvl2->pembayaran->paket->nama_paket ?? $memoLvl2->nomor_pembayaran ?? 'Memo Pembayaran';
-                        $vendorNama = $memoLvl2->pembayaran->paket->vendor->nama_vendor ?? 'Penyedia Resmi';
-                        $nominal = number_format((float) ($memoLvl2->pembayaran->nominal_pengajuan ?? 0), 0, ',', '.');
+                        $paketNama = $memoPpkItem->pembayaran->paket->nama_paket ?? $memoPpkItem->nomor_pembayaran ?? 'Memo Pembayaran';
+                        $vendorNama = $memoPpkItem->pembayaran->paket->vendor->nama_vendor ?? 'Penyedia Resmi';
+                        $nominal = number_format((float) ($memoPpkItem->pembayaran->nominal_pengajuan ?? 0), 0, ',', '.');
                     @endphp
                     <x-figma-action-card
                         :index="$cardIdx++"
                         variant="bell"
                         :title="$paketNama"
-                        :meta="$memoLvl2->nomor_pembayaran . ' • ' . $vendorNama"
-                        :submeta="'Nominal Tagihan: Rp ' . $nominal . ' • Memo Bayar Level 2'"
-                        badge="Memo Lvl 2"
+                        :meta="$memoPpkItem->nomor_pembayaran . ' • ' . $vendorNama"
+                        :submeta="'Nominal Tagihan: Rp ' . $nominal . ' • Memo Bayar PPK'"
+                        badge="Memo Bayar PPK"
                         badgeClass="bg-rose-100 text-rose-700"
                         :href="$memoPpkHref"
                         buttonLabel="Buka"

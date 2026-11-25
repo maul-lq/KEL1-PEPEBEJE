@@ -12,7 +12,7 @@
 @section('title', 'Ajukan Permohonan Pengadaan Baru - SIM-PBJ PNJ')
 
 {{--
-  Komentar Deskriptif: Seksi Konten Pengajuan Usulan Baru (`permohonan.create`).
+   Seksi Konten Pengajuan Usulan Baru (`permohonan.create`).
 
   Tujuan: Kami memvalidasi kelengkapan naskah dinas Srikandi serta unggahan berkas pendukung dan
           mengirimkannya ke rute `permohonan.store` lewat `multipart/form-data`.

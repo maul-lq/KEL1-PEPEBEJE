@@ -12,7 +12,7 @@
 @section('title', 'Manajemen Pengguna - SIM-PBJ PNJ')
 
 {{--
-  Komentar Deskriptif: Seksi Konten Direktori dan Manajemen Pengguna (`@section('content')`).
+   Seksi Konten Direktori dan Manajemen Pengguna (`@section('content')`).
 
   Tujuan: menyediakan CRUD direktori pegawai berbasis modal Alpine (`adminUsers`) agar admin
           cepat mengubah peran, unit kerja, maupun status aktif akun tanpa meninggalkan halaman daftar.

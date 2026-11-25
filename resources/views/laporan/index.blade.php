@@ -12,7 +12,7 @@
 @section('title', 'Riwayat dan Laporan - SIM-PBJ Politeknik Negeri Jakarta')
 
 {{--
-  Komentar Deskriptif: Seksi Konten Halaman Riwayat dan Laporan Terpadu (`laporan.index`).
+   Seksi Konten Halaman Riwayat dan Laporan Terpadu (`laporan.index`).
 
   Tujuan: membungkus konfigurasi SSR awal dari `LaporanModularService` ke `data-config` untuk
           diambil komponen Alpine `laporanApp` agar pengguna multi-peran dapat berpindah sub-modul

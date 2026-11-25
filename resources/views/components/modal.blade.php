@@ -7,7 +7,7 @@
               dengan backdrop blur, animasi transisi, jebakan fokus keyboard a11y, dan slot header/footer.
 --}}
 {{--
-  Komentar Deskriptif: Komponen Dialog Modal Reusable (`<x-modal>`).
+   Komponen Dialog Modal Reusable (`<x-modal>`).
 
   Tujuan: menyediakan pembungkus modal terpusat yang mendukung pembukaan/penutupan lewat
           event global `open-modal`/`close-modal`, lebar responsif, serta navigasi keyboard Tab/Escape.

@@ -7,7 +7,7 @@
               Figma dengan ikon centang hijau ketika tidak ada antrean kerja yang menumpuk.
 --}}
 {{--
-  Komentar Deskriptif: Komponen Empty State Antrean Kerja (`<x-figma-empty>`).
+   Komponen Empty State Antrean Kerja (`<x-figma-empty>`).
 
   Tujuan: memberi umpan balik positif kepada pengguna saat daftar antrean pada dasbor peran
           telah tuntas tertangani semua agar layar kosong tidak tampak seperti error pemuatan data.

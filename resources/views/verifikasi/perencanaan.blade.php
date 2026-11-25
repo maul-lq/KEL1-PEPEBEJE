@@ -12,7 +12,7 @@
 @section('title', 'Verifikasi Anggaran - Subbagian Perencanaan PNJ')
 
 {{--
-  Komentar Deskriptif: Seksi Konten Verifikasi Anggaran & Pengelolaan MAK (`verifikasi.perencanaan`).
+   Seksi Konten Verifikasi Anggaran & Pengelolaan MAK (`verifikasi.perencanaan`).
 
   Tujuan: menyajikan dua antrean kerja (usulan belum beralokasi dan daftar MAK DIPA) lengkap
           dengan kontrol penahanan anggaran (`hold`), penguncian permanen rekening, dan split MAK.

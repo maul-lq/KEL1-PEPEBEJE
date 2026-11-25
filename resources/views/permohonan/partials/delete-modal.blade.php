@@ -7,7 +7,7 @@
               pengajuan permohonan dengan verifikasi ulang kata sandi pengguna (`permohonanDeleteModal`).
 --}}
 {{--
-  Komentar Deskriptif: Partial Modal Konfirmasi Hapus Pengajuan (`permohonan.partials.delete-modal`).
+   Partial Modal Konfirmasi Hapus Pengajuan (`permohonan.partials.delete-modal`).
 
   Tujuan: Kami mensyaratkan konfirmasi kata sandi pada aksi destruktif pembatalan berkas dan
           membatasi tampilan bahwa penghapusan hanya sah sebelum persetujuan pihak verifikator.

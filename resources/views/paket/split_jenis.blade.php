@@ -11,7 +11,7 @@
 @section('title', 'Pemecahan Jenis Pengadaan - SIM-PBJ PNJ')
 
 {{--
-  Komentar Deskriptif: Seksi Konten Pemecahan Jenis Pengadaan PPBJ (`paket.split_jenis`).
+   Seksi Konten Pemecahan Jenis Pengadaan PPBJ (`paket.split_jenis`).
 
   Tujuan: memfasilitasi PPBJ memecah satu surat permohonan multiguna menjadi berkas baru
           khusus per jenis pengadaan lengkap dengan alokasi nominal pagu dan alasan pemecahan.

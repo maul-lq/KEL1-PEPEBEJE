@@ -12,7 +12,7 @@
 @section('title', 'Notifikasi dan Pengingat - SIM-PBJ Politeknik Negeri Jakarta')
 
 {{--
-  Komentar Deskriptif: Seksi Konten Pusat Notifikasi dan Pengingat (`notifikasi.index`).
+   Seksi Konten Pusat Notifikasi dan Pengingat (`notifikasi.index`).
 
   Tujuan: Kami menyatukan riwayat alert yang belum dibaca, aksi tandai baca massal atau dismiss,
           serta tab khusus jadwal pengingat aktif agar pengguna tidak melewatkan tenggat pengadaan.

@@ -8,7 +8,7 @@
               serta panel monitoring paket dan aktivitas Pejabat Pengadaan berbasis tab.
 --}}
 {{--
-  Komentar Deskriptif: Panel Workspace Dasbor Koordinator PPBJ (`dashboard.roles.ppbj`).
+   Panel Workspace Dasbor Koordinator PPBJ (`dashboard.roles.ppbj`).
 
   Tujuan: mengagregasi berbagai jenis antrean kerja PPBJ ke panel aksi kiri sesuai izin RBAC
           terkait dan menyematkan switcher tab monitoring paket vs Pejabat Pengadaan di panel kanan.

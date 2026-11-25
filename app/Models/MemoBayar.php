@@ -5,7 +5,7 @@
  *
  * Penulis   : Rizlrad Fz
  * Lisensi   : GNU General Public License v3.0 (GPL-3.0)
- * Ringkasan : menulis model MemoBayar ini untuk mencatat persetujuan memo pembayaran berjenjang oleh Wadir 2 (Level 1) dan PPK (Level 2) beserta berkas fisik memonya.
+ * Ringkasan : menulis model MemoBayar ini untuk mencatat persetujuan memo pembayaran paralel oleh Wadir 2 dan PPK beserta berkas fisik memonya.
  */
 
 namespace App\Models;
@@ -44,6 +44,8 @@ class MemoBayar extends Model
     public const ROLE_KEUANGAN = 'keuangan';
 
     public const STATUS_DRAFT = 'draft';
+
+    public const STATUS_MENUNGGU = 'menunggu';
 
     public const STATUS_DIAJUKAN = 'diajukan';
 

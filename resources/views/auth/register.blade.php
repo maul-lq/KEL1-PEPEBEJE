@@ -8,7 +8,7 @@
               dan konfirmasi kata sandi sebelum diverifikasi Administrator.
 --}}
 {{--
-  Komentar Deskriptif: Halaman Pendaftaran Akun Baru SIM-PBJ (`auth.register`).
+   Halaman Pendaftaran Akun Baru SIM-PBJ (`auth.register`).
 
   Tujuan: Kami mengumpulkan seluruh atribut kepegawaian wajib dan mewajibkan konfirmasi sandi dengan
           toggle lihat-sandi terpisah (`registerForm`) agar pendaftar bebas salah ketik sebelum menunggu ACC.

@@ -6,7 +6,7 @@
   Ringkasan : View Blade ini susun untuk halaman penetapan kata sandi baru berdasarkan token pemulihan yang diterima pengguna melalui email SIM-PBJ.
 --}}
 {{--
-  Komentar Deskriptif: Halaman Reset Kata Sandi (`auth.reset-password`).
+   Halaman Reset Kata Sandi (`auth.reset-password`).
 
   Tujuan: menampilkan formulir pembaruan kata sandi baru dengan token tersembunyi,
           isian email awal dari parameter tautan, dan toggle visibilitas sandi (`resetPasswordForm`).

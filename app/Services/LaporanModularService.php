@@ -96,7 +96,7 @@ class LaporanModularService
             $active[] = 'anggaran_mak';
         }
 
-        if ($user->hasAnyPermission(['paket.create', 'paket.view_all', 'paket.reassign_ppk', 'spk.create', 'pp.monitoring_aktivitas', 'lihat_pp'])) {
+        if ($user->hasAnyPermission(['paket.create', 'paket.view_all', 'paket.reassign_ppk', 'spk.create', 'pp.monitoring_aktivitas'])) {
             $active[] = 'pengadaan_ppbj';
         }
 
@@ -198,7 +198,7 @@ class LaporanModularService
                         ->orWhere('jenis_aksi', 'like', '%ANGGARAN%');
                 }
 
-                if ($user->hasAnyPermission(['paket.create', 'paket.view_all', 'spk.create', 'pp.monitoring_aktivitas', 'lihat_pp'])) {
+                if ($user->hasAnyPermission(['paket.create', 'paket.view_all', 'spk.create', 'pp.monitoring_aktivitas'])) {
                     $q->orWhereIn('nama_entitas', ['paket_pengadaan', 'vendor', 'kontrak_spk', 'reminder_pengadaan'])
                         ->orWhere('jenis_aksi', 'like', '%PPBJ%')
                         ->orWhere('jenis_aksi', 'like', '%PAKET%')
@@ -1071,7 +1071,7 @@ class LaporanModularService
     }
 
     /**
-     * Modul 5: Paket dan Kontrak Pengadaan PPBJ (`paket.create`, `paket.view_all`, `spk.create`, `lihat_pp`).
+     * Modul 5: Paket dan Kontrak Pengadaan PPBJ (`paket.create`, `paket.view_all`, `spk.create`, `pp.monitoring_aktivitas`).
      *
      * Tujuan: menyusun statistik distribusi jalur pengadaan (belanja langsung, PP, PPK),
      * nilai kontrak aktif, dan daftar paket pengadaan sesuai filter.
@@ -1847,7 +1847,7 @@ class LaporanModularService
     {
         return [
             ['value' => PermohonanPengadaan::STATUS_DIAJUKAN, 'label' => 'Diajukan'],
-            ['value' => PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2, 'label' => 'Menunggu Telaah Bidang II'],
+            ['value' => PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2, 'label' => 'Usulan Masuk (Menunggu Pemrosesan)'],
             ['value' => PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN, 'label' => 'Cek Pos Anggaran Perencanaan'],
             ['value' => PermohonanPengadaan::STATUS_MENUNGGU_ACC_WADIR_PPK, 'label' => 'Menunggu Persetujuan Wadir 2 / PPK'],
             ['value' => PermohonanPengadaan::STATUS_DISETUJUI, 'label' => 'Disetujui'],

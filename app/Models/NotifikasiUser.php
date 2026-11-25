@@ -288,16 +288,25 @@ class NotifikasiUser extends Model
         }
 
         if ($tipe === Reminder::TIPE_VERIFIKASI || $badge === 'Verifikasi') {
+            if ($user?->hasPermission('verifikasi.ppk_approve') && str_contains($judul, 'ppk')) {
+                return ['label' => 'Persetujuan Awal PPK ↗', 'url' => route('verifikasi.ppk')];
+            }
             if ($user?->hasAnyPermission(['verifikasi.wadir_2_decide', 'verifikasi.wadir_2_view']) && (str_contains($judul, 'wadir') || str_contains($pesan, 'wadir') || ! $user->hasPermission('verifikasi.bidang_2_view'))) {
                 return ['label' => 'Persetujuan Wadir 2 ↗', 'url' => route('verifikasi.wadir-2')];
             }
-            if ($user?->hasPermission('verifikasi.bidang_2_view')) {
-                return ['label' => 'Telaah Usulan ↗', 'url' => route('verifikasi.bidang-2')];
+            if ($user?->hasPermission('verifikasi.ppk_approve')) {
+                return ['label' => 'Persetujuan Awal PPK ↗', 'url' => route('verifikasi.ppk')];
             }
             if ($user?->hasAnyPermission(['anggaran.mak_alokasi', 'anggaran.mak_view'])) {
                 return ['label' => 'Cek Pos Anggaran ↗', 'url' => route('verifikasi.perencanaan')];
             }
-            if ($user?->hasAnyPermission(['reviu.pp', 'reviu.ppk']) && (str_contains($judul, 'reviu') || str_contains($judul, 'negosiasi') || str_contains($judul, 'kontrak'))) {
+            if ($user?->hasPermission('verifikasi.bidang_2_view')) {
+                return ['label' => 'Lihat Usulan Masuk ↗', 'url' => route('verifikasi.bidang-2')];
+            }
+            if ($user?->hasPermission('reviu.ppk')) {
+                return ['label' => 'Persetujuan Dokumen PPK ↗', 'url' => route('ppk.persetujuan-dokumen.index')];
+            }
+            if ($user?->hasPermission('reviu.pp') && (str_contains($judul, 'reviu') || str_contains($judul, 'negosiasi') || str_contains($judul, 'kontrak'))) {
                 return ['label' => 'Tinjau Berkas Pengadaan ↗', 'url' => route('kontrak.index')];
             }
             if ($user?->hasAnyPermission(['paket.create', 'paket.view_all', 'paket.view_assigned'])) {

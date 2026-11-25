@@ -7,7 +7,7 @@
               dengan dukungan elemen `<a>` interaktif atau `<div>` statis serta mode teks nominal ringkas.
 --}}
 {{--
-  Komentar Deskriptif: Komponen Kartu Metrik KPI Dasbor Figma (`<x-figma-stat-card>`).
+   Komponen Kartu Metrik KPI Dasbor Figma (`<x-figma-stat-card>`).
 
   Tujuan: menstandarkan tampilan 4 kartu statistik atas di semua dasbor peran PNJ supaya
           angka besar maupun nominal rupiah terpotong rapi dengan `truncate` dan tooltip penuh.

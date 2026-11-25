@@ -3,46 +3,46 @@
 
   Penulis   : DendyRafi, Rizlrad Fz
   Lisensi   : GNU General Public License v3.0 (GPL-3.0) 
-  Ringkasan : Partial Blade ini kami rancang untuk menampilkan banner aksi cepat berbasis izin RBAC
+  Ringkasan : Partial Blade ini menampilkan banner aksi cepat berbasis izin RBAC
               di bagian bawah panel detail ringkas pada halaman `permohonan/index.blade.php`.
 --}}
 {{--
-  Komentar Deskriptif: Partial Banner Aksi Cepat Peran di Indeks Permohonan (`permohonan.partials.role-actions-index`).
+   Partial Banner Aksi Cepat Peran di Indeks Permohonan (`permohonan.partials.role-actions-index`).
 
-  Tujuan: Kami mengarahkan verifikator awal (Bidang II, Wadir II, Perencanaan, PPK) langsung ke mode
-          fullscreen detail form verifikasi, sedangkan aktor tahap lanjut (PPBJ, PP, Perlengkapan, Keuangan)
-          diarahkan langsung ke rute modul kerjanya masing-masing.
+  Tujuan: mengarahkan verifikator berwenang (Wadir II, Perencanaan, PPK awal) langsung ke mode
+          fullscreen detail form verifikasi, sementara aktor tahap pengadaan hingga keuangan
+          diarahkan ke rute modul kerjanya masing-masing tanpa memberi form ke peran baca-saja.
   Parameter: Menggunakan konteks `auth()->user()` untuk mengevaluasi izin fitur RBAC aktif.
-  Nilai kembali: Kartu banner CTA kontekstual apabila peran memiliki izin tindak lanjut.
+  Nilai kembali: Kartu banner CTA kontekstual apabila pengguna memiliki izin tindak lanjut.
   Contoh pemanggilan: `@include('permohonan.partials.role-actions-index')`
 --}}
 @php
     $u = auth()->user();
 
-    $canBidang2     = $u && ($u->hasRole('staff_bidang_2') || $u->hasPermission('verifikasi.bidang_2_view'));
-    $canWadir2      = $u && ($u->hasRole('wadir_2') || $u->hasAnyPermission(['verifikasi.wadir_2_decide', 'verifikasi.wadir_2_view']));
-    $canPerencanaan = $u && ($u->hasRole('perencanaan') || $u->hasAnyPermission(['anggaran.mak_alokasi', 'anggaran.mak_view', 'permohonan.split_mak']));
-    $canPpk         = $u && ($u->hasRole('ppk') || $u->hasPermission('reviu.ppk'));
-    $canPpbj        = $u && ($u->hasRole('ppbj') || $u->hasAnyPermission(['paket.create', 'paket.view_all', 'spk.create']));
+    $canWadir2      = $u && $u->hasPermission('verifikasi.wadir_2_decide');
+    $canPerencanaan = $u && $u->hasAnyPermission(['anggaran.mak_alokasi', 'permohonan.split_mak']);
+    $canPpkAwal     = $u && $u->hasPermission('verifikasi.ppk_approve');
+    $canPpkDokumen  = $u && $u->hasPermission('reviu.ppk');
+    $canPpbj        = $u && $u->hasAnyPermission(['paket.create', 'paket.view_all', 'paket.reassign_ppk', 'spk.create', 'permohonan.split_jenis']);
     $canMonitorPp   = $u && $u->canMonitorPp();
-    $canPp          = $u && ($u->hasRole('pp') || $u->hasPermission('reviu.pp'));
-    $canPerlengkapan= $u && ($u->hasRole('perlengkapan') || $u->hasAnyPermission(['penerimaan.view', 'penerimaan.bast_create']));
-    $canKeuangan    = $u && ($u->hasRole('keuangan') || $u->hasAnyPermission(['pembayaran.pencairan_sp2d', 'pembayaran.spp_terbitkan']));
+    $canPp          = $u && $u->hasPermission('reviu.pp');
+    $canPerlengkapan= $u && $u->hasAnyPermission(['penerimaan.view', 'penerimaan.bast_create', 'penerimaan.bast_sign']);
+    $canKeuangan    = $u && $u->hasAnyPermission(['pembayaran.pencairan_sp2d', 'pembayaran.spp_terbitkan']);
 
     // [tone, judul, deskripsi, label tombol, nama route (null = buka fullscreen)]
     $banner = null;
-    if ($canBidang2) {
-        $banner = ['blue', 'Pemeriksaan Staf Bidang II', 'Telaah berkas administrasi dan teruskan ke pimpinan.', 'Proses Telaah', null];
-    } elseif ($canWadir2) {
+    if ($canWadir2) {
         $banner = ['blue', 'Persetujuan Wadir II', 'Tetapkan keputusan persetujuan pimpinan.', 'Proses Persetujuan', null];
     } elseif ($canPerencanaan) {
-        $banner = ['blue', 'Cek Anggaran Perencanaan', 'Pilih pos anggaran dan alokasi pagu yang tersedia.', 'Pilih Pos Anggaran', null];
-    } elseif ($canPpk) {
+        $banner = ['blue', 'Cek Anggaran Perencanaan', 'Pilih pos anggaran, alokasi pagu, dan PPK awal.', 'Pilih Pos Anggaran', null];
+    } elseif ($canPpkAwal) {
         $banner = ['blue', 'Persetujuan Awal PPK', 'Tinjau usulan pengadaan dan pos anggaran.', 'Proses Persetujuan', null];
+    } elseif ($canPpkDokumen) {
+        $banner = ['blue', 'Persetujuan Dokumen Paket PPK', 'Tinjau dan setujui dokumen paket pengadaan.', 'Buka Persetujuan Dokumen', 'ppk.persetujuan-dokumen.index'];
     } elseif ($canPpbj) {
         $banner = ['blue', 'Paket Pengadaan', 'Buat paket pengadaan, tentukan jalur, dan unggah kontrak kerja.', 'Buka Paket Pengadaan', 'paket.index'];
     } elseif ($canMonitorPp) {
-        $banner = ['purple', 'Pantau Pejabat Pengadaan', 'Pantau pemeriksaan dokumen dan negosiasi harga.', 'Pantau Pejabat Pengadaan', 'kontrak.index'];
+        $banner = ['purple', 'Pantau Pejabat Pengadaan', 'Pantau pemeriksaan dokumen dan negosiasi harga.', 'Pantau Pejabat Pengadaan', 'monitor-pp.index'];
     } elseif ($canPp) {
         $banner = ['amber', 'Reviu Pejabat Pengadaan', 'Periksa spesifikasi teknis dan negosiasi harga rekanan.', 'Buka Pemeriksaan', 'kontrak.index'];
     } elseif ($canPerlengkapan) {

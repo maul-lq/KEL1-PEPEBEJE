@@ -12,7 +12,7 @@
 @section('title', 'Pembayaran & Pencairan Dana - SIM-PBJ PNJ')
 
 {{--
-  Komentar Deskriptif: Seksi Konten Siklus Pembayaran & Pencairan Dana (`pembayaran.index`).
+   Seksi Konten Siklus Pembayaran & Pencairan Dana (`pembayaran.index`).
 
   Tujuan: menampilkan panel tahapan sesuai hak akses RBAC aktor yang login (`pembayaran.pengajuan`,
           `pembayaran.memo_ppk`, `pembayaran.memo_wadir2`, `pembayaran.spp_terbitkan`, `pembayaran.pencairan_sp2d`)
@@ -100,7 +100,7 @@
     @endif
 
     {{-- 4. PANEL PENGAJUAN BERKAS PEMBAYARAN OLEH PPBJ --}}
-    @if(Auth::user()->hasRole('admin') || Auth::user()->hasPermission('pembayaran.pengajuan'))
+    @if(Auth::user()->hasPermission('pembayaran.pengajuan'))
     <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80">
         <div class="border-b border-slate-100 pb-4 mb-5">
             <h2 class="text-base font-bold text-[#213153] flex items-center gap-2">
@@ -276,7 +276,7 @@
     @endif
 
     {{-- 4.5. PANEL PERBAIKAN BERKAS PEMBAYARAN DITOLAK (BPMN N52: Titik Kembali PPBJ jika ditolak Wadir II N60 / PPK N61) --}}
-    @if(isset($pembayaranDitolakList) && $pembayaranDitolakList->isNotEmpty() && (Auth::user()->hasRole('admin') || Auth::user()->hasPermission('pembayaran.pengajuan')))
+    @if(isset($pembayaranDitolakList) && $pembayaranDitolakList->isNotEmpty() && Auth::user()->hasPermission('pembayaran.pengajuan'))
     <div class="rounded-2xl bg-white p-6 shadow-sm border border-rose-200">
         <div class="border-b border-rose-100 pb-4 mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
@@ -391,15 +391,15 @@
     </div>
     @endif
 
-    {{-- 5. PANEL PERSETUJUAN MEMO PEMBAYARAN BERTINGKAT (PPK & WADIR II) --}}
-    @if(Auth::user()->hasRole('admin') || Auth::user()->hasAnyPermission(['pembayaran.memo_ppk', 'pembayaran.memo_wadir2']))
+    {{-- 5. PANEL PERSETUJUAN MEMO PEMBAYARAN PARALEL (PPK & WADIR II) --}}
+    @if(Auth::user()->hasAnyPermission(['pembayaran.memo_ppk', 'pembayaran.memo_wadir2']))
     <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80">
         <div class="border-b border-slate-100 pb-4 mb-5">
             <h2 class="text-base font-bold text-[#213153] flex items-center gap-2">
                 <span>2. Persetujuan Memo Pembayaran</span>
                 <span class="text-xs font-normal text-slate-400 font-mono">(Wadir II &amp; PPK)</span>
             </h2>
-            <p class="text-xs text-slate-500 mt-0.5">Tahap 1 oleh Wadir II; Tahap 2 oleh PPK.</p>
+            <p class="text-xs text-slate-500 mt-0.5">Persetujuan paralel oleh Wakil Direktur II dan PPK penanggung jawab.</p>
         </div>
 
         @if($memoMenungguReview->isEmpty())
@@ -497,7 +497,7 @@
     @endif
 
     {{-- 6. PANEL PENERBITAN PERINTAH BAYAR --}}
-    @if(Auth::user()->hasRole('admin') || Auth::user()->hasPermission('pembayaran.pengajuan'))
+    @if(Auth::user()->hasPermission('pembayaran.spp_terbitkan'))
     <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80">
         <div class="border-b border-slate-100 pb-4 mb-5">
             <h2 class="text-base font-bold text-[#213153] flex items-center gap-2">
@@ -651,7 +651,7 @@
     @endif
 
     {{-- 7. PANEL PENCAIRAN DANA OLEH KEUANGAN --}}
-    @if(Auth::user()->hasRole(['admin', 'keuangan']) || Auth::user()->hasPermission('pembayaran.pencairan_sp2d'))
+    @if(Auth::user()->hasPermission('pembayaran.pencairan_sp2d'))
     <div id="panel-pencairan-keuangan" class="rounded-2xl bg-white p-6 shadow-sm border border-slate-200/80 space-y-6">
         <div class="border-b border-slate-100 pb-4">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
@@ -776,7 +776,7 @@
                                     <td class="px-4 py-3.5 align-top space-y-1">
                                         {{-- Memo Wadir 2 --}}
                                         <div class="p-1.5 rounded-lg bg-purple-50/70 border border-purple-100 text-[10px]">
-                                            <div class="font-bold text-purple-900">1. Memo Wadir II (Level 1)</div>
+                                            <div class="font-bold text-purple-900">1. Memo Wadir II</div>
                                             <div class="font-mono text-purple-700 truncate">{{ $memoWadirSc?->nomor_memo ?: 'Telah Disetujui' }}</div>
                                             @if(!empty($memoWadirSc?->file_memo))
                                                 <a href="{{ asset('storage/' . $memoWadirSc->file_memo) }}" target="_blank" class="text-[#0969da] font-bold hover:underline inline-flex items-center gap-0.5 mt-0.5">
@@ -788,7 +788,7 @@
 
                                         {{-- Memo PPK --}}
                                         <div class="p-1.5 rounded-lg bg-blue-50/70 border border-blue-100 text-[10px]">
-                                            <div class="font-bold text-blue-900">2. Memo PPK (Level 2)</div>
+                                            <div class="font-bold text-blue-900">2. Memo PPK</div>
                                             <div class="font-mono text-blue-700 truncate">{{ $memoPpkSc?->nomor_memo ?: 'Telah Disetujui' }}</div>
                                             @if(!empty($memoPpkSc?->file_memo))
                                                 <a href="{{ asset('storage/' . $memoPpkSc->file_memo) }}" target="_blank" class="text-[#0969da] font-bold hover:underline inline-flex items-center gap-0.5 mt-0.5">

@@ -8,7 +8,7 @@
               status registrasi, serta tombol masuk melalui SSO Google.
 --}}
 {{--
-  Komentar Deskriptif: Halaman Autentikasi Masuk Pengguna SIM-PBJ (`auth.login`).
+   Halaman Autentikasi Masuk Pengguna SIM-PBJ (`auth.login`).
 
   Tujuan: Kami menyediakan antarmuka masuk tunggal yang menerima username, NIP, maupun email PNJ
           sekaligus menautkan alur Google OAuth untuk akun yang sudah terhubung dan disetujui admin.
