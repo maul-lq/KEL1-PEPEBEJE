@@ -80,26 +80,32 @@ it('renders Indonesian 404 HTML error page without sidebar for unknown web and b
 it('renders Indonesian 403 error page with required authorization details and protects raw internal messages', function (): void {
     $pengusul = User::factory()->withRole(User::ROLE_USER)->create();
 
-    // Role tunggal pada middleware harus menampilkan label peran yang dibutuhkan dalam Bahasa Indonesia standar.
+    // Izin tunggal pada middleware harus menampilkan label izin Bahasa Indonesia standar.
     $this->actingAs($pengusul)
         ->get(route('paket.create'))
         ->assertStatus(403)
         ->assertSee('Akses Ditolak')
-        ->assertSee('Unit Pengadaan Barang &amp; Jasa (PPBJ)', false)
-        ->assertSee('Halaman ini tidak dapat diakses karena Anda tidak memiliki otorisasi Unit Pengadaan Barang &amp; Jasa (PPBJ).', false)
+        ->assertSee('Membuat Paket Pengadaan &amp; Menentukan Harga Perkiraan', false)
+        ->assertSee('Halaman ini tidak dapat diakses karena Anda tidak memiliki otorisasi Membuat Paket Pengadaan &amp; Menentukan Harga Perkiraan.', false)
         ->assertSee('Kembali ke Halaman Sebelumnya');
 
-    // Permission spesifik pada middleware harus menampilkan label permission RBAC terkait.
+    // Izin administrasi peran pada middleware harus menampilkan label izin RBAC terkait.
     $this->actingAs($pengusul)
         ->get(route('admin.roles.index'))
         ->assertStatus(403)
-        ->assertSee('Manajemen CRUD Role &amp; Matriks Hak Akses Fitur', false);
+        ->assertSee('Mengelola Daftar Peran &amp; Hak Akses Fitur', false);
 
-    // Multi-role OR pada middleware harus menggabungkan daftar otorisasi yang dapat mengakses.
+    // Multi-izin OR pada middleware harus menggabungkan daftar otorisasi yang dapat mengakses.
+    $this->actingAs($pengusul)
+        ->get(route('verifikasi.wadir-2'))
+        ->assertStatus(403)
+        ->assertSee('Melihat Antrean Verifikasi Usulan (Wadir 2) atau Menyetujui, Menolak, atau Meminta Revisi Usulan (Wadir 2)', false);
+
+    // Izin alih tugas PPK menolak pengusul biasa dengan label izin tergeneralisasi.
     $this->actingAs($pengusul)
         ->get(route('paket.reassign-ppk.create'))
         ->assertStatus(403)
-        ->assertSee('Unit Pengadaan Barang &amp; Jasa (PPBJ), Bagian Perencanaan, atau Wakil Direktur II', false);
+        ->assertSee('Mengalihkan Penugasan PPK pada Paket', false);
 
     // Akun nonaktif atau belum disetujui admin harus ditolak dengan penjelasan status akun.
     $pendingUser = User::factory()->withRole(User::ROLE_PPBJ)->menungguApproval()->create();
@@ -114,7 +120,7 @@ it('renders Indonesian 403 error page with required authorization details and pr
         ->assertStatus(403)
         ->assertJson([
             'status' => 'error',
-            'message' => 'Halaman ini tidak dapat diakses karena Anda tidak memiliki otorisasi Manajemen CRUD Role & Matriks Hak Akses Fitur.',
+            'message' => 'Halaman ini tidak dapat diakses karena Anda tidak memiliki otorisasi Mengelola Daftar Peran & Hak Akses Fitur.',
         ]);
 
     // Pesan abort(403) mentah yang tidak terkurasi tidak boleh dibocorkan ke UI 403.

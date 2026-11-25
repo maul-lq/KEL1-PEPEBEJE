@@ -500,7 +500,7 @@ class PaketPengadaanController extends Controller
             'file_kwitansi_belanja' => ['nullable', DokumenUploadRule::pdfOrImage()],
         ]);
 
-        $paket = PaketPengadaan::where('nomor_paket', $validated['nomor_paket'])->firstOrFail();
+        $paket = PaketPengadaan::with('permohonan')->where('nomor_paket', $validated['nomor_paket'])->firstOrFail();
 
         if ($paket->jalur_routing !== PaketPengadaan::ROUTING_LANGSUNG) {
             return back()->withErrors([
@@ -519,60 +519,89 @@ class PaketPengadaanController extends Controller
             ])->withInput();
         }
 
+        $hpsLama = (float) ($paket->nilai_hps ?: $paket->alokasi_pagu_paket);
+        $hargaAkhir = isset($validated['nominal_harga_akhir'])
+            ? (float) $validated['nominal_harga_akhir']
+            : (float) ($paket->nominal_harga_akhir ?: $hpsLama);
+
+        if ($hargaAkhir > 50000000) {
+            return back()->withErrors([
+                'nominal_harga_akhir' => 'Nominal Harga Akhir Belanja Langsung tidak boleh melebihi batas Rp 50.000.000.',
+            ])->withInput();
+        }
+
+        // menolak nominal realisasi belanja langsung di atas plafon perkiraan harga yang disetujui PPK agar kendali anggaran MAK tetap terjaga.
+        if ($hargaAkhir > $hpsLama) {
+            return back()->withErrors([
+                'nominal_harga_akhir' => 'Nominal Harga Akhir (Rp '.number_format($hargaAkhir, 0, ',', '.').') tidak boleh melebihi Perkiraan Harga paket (Rp '.number_format($hpsLama, 0, ',', '.').').',
+            ])->withInput();
+        }
+
         $kwitansiPath = $request->hasFile('file_kwitansi_belanja')
             ? $request->file('file_kwitansi_belanja')->store('kwitansi_belanja', 'public')
             : ('kwitansi_belanja/kwitansi_'.str_replace(['/', '\\'], '_', $paket->nomor_paket).'.pdf');
 
-        $hargaAkhir = isset($validated['nominal_harga_akhir'])
-            ? (float) $validated['nominal_harga_akhir']
-            : (float) ($paket->nominal_harga_akhir ?: $paket->nilai_hps);
+        $legalitasPath = $request->hasFile('file_dokumen_legalitas')
+            ? $request->file('file_dokumen_legalitas')->store('vendor_legalitas', 'public')
+            : null;
 
-        if (! empty($validated['nama_vendor'])) {
-            $legalitasPath = $request->hasFile('file_dokumen_legalitas')
-                ? $request->file('file_dokumen_legalitas')->store('vendor_legalitas', 'public')
-                : null;
-
-            $vendor = Vendor::firstOrCreate(
-                ['nama_vendor' => trim($validated['nama_vendor'])],
-                [
-                    'file_dokumen_legalitas' => $legalitasPath,
-                ]
-            );
-            if ($legalitasPath && $vendor->file_dokumen_legalitas !== $legalitasPath) {
-                $vendor->file_dokumen_legalitas = $legalitasPath;
-                $vendor->save();
+        $selisihEfisiensi = DB::transaction(function () use ($validated, $paket, $user, $hpsLama, $hargaAkhir, $kwitansiPath, $legalitasPath): float {
+            if (! empty($validated['nama_vendor'])) {
+                $vendor = Vendor::firstOrCreate(
+                    ['nama_vendor' => trim($validated['nama_vendor'])],
+                    [
+                        'file_dokumen_legalitas' => $legalitasPath,
+                    ]
+                );
+                if ($legalitasPath && $vendor->file_dokumen_legalitas !== $legalitasPath) {
+                    $vendor->file_dokumen_legalitas = $legalitasPath;
+                    $vendor->save();
+                }
+                $paket->id_vendor = $vendor->id;
+            } elseif (! empty($validated['id_vendor'])) {
+                $paket->id_vendor = $validated['id_vendor'];
             }
-            $paket->id_vendor = $vendor->id;
-        } elseif (! empty($validated['id_vendor'])) {
-            $paket->id_vendor = $validated['id_vendor'];
-        }
 
-        $statusLama = $paket->status_paket;
-        $paket->nomor_kwitansi_belanja = $validated['nomor_kwitansi_belanja'];
-        $paket->file_kwitansi_belanja = $kwitansiPath;
-        $paket->nominal_harga_akhir = $hargaAkhir;
-        $paket->nilai_hasil_negosiasi = $hargaAkhir;
-        $paket->dieksekusi_belanja_oleh = $user->id_user;
-        $paket->tanggal_eksekusi_belanja = now();
-        $paket->status_paket = PaketPengadaan::STATUS_BELANJA_LANGSUNG_SELESAI;
-        $paket->save();
+            $statusLama = $paket->status_paket;
+            $paket->nomor_kwitansi_belanja = $validated['nomor_kwitansi_belanja'];
+            $paket->file_kwitansi_belanja = $kwitansiPath;
+            $paket->nominal_harga_akhir = $hargaAkhir;
+            $paket->nilai_hasil_negosiasi = $hargaAkhir;
+            $paket->dieksekusi_belanja_oleh = $user->id_user;
+            $paket->tanggal_eksekusi_belanja = now();
+            $paket->status_paket = PaketPengadaan::STATUS_BELANJA_LANGSUNG_SELESAI;
+
+            $efisiensi = PengadaanRoutingService::terapkanEfisiensiAnggaranAkhir($paket, $hpsLama, $hargaAkhir);
+
+            $paket->save();
+
+            $infoEfisiensi = $efisiensi > 0
+                ? ' (Perkiraan Harga disesuaikan dari Rp '.number_format($hpsLama, 0, ',', '.').' menjadi Rp '.number_format($hargaAkhir, 0, ',', '.').'; efisiensi Rp '.number_format($efisiensi, 0, ',', '.').' dikembalikan ke MAK)'
+                : '';
+
+            AuditLog::catat(
+                $user->id_user,
+                'EKSEKUSI_BELANJA_LANGSUNG_KWITANSI',
+                'paket_pengadaan',
+                $paket->nomor_paket,
+                $statusLama,
+                PaketPengadaan::STATUS_BELANJA_LANGSUNG_SELESAI,
+                "PPBJ mengeksekusi Belanja Langsung paket {$paket->nomor_paket} dengan Kwitansi {$paket->nomor_kwitansi_belanja} (tanpa Kontrak/SPK).{$infoEfisiensi}"
+            );
+
+            return $efisiensi;
+        });
 
         // Bangkitkan pengingat (reminder) ke Perlengkapan & Keuangan
         PengadaanRoutingService::generateBelanjaLangsungReminder($paket, $validated['jadwal_pengiriman'] ?? null);
 
-        AuditLog::catat(
-            $user->id_user,
-            'EKSEKUSI_BELANJA_LANGSUNG_KWITANSI',
-            'paket_pengadaan',
-            $paket->nomor_paket,
-            $statusLama,
-            PaketPengadaan::STATUS_BELANJA_LANGSUNG_SELESAI,
-            "PPBJ mengeksekusi Belanja Langsung paket {$paket->nomor_paket} dengan Kwitansi {$paket->nomor_kwitansi_belanja} (tanpa Kontrak/SPK)."
-        );
+        $infoEfisiensi = $selisihEfisiensi > 0
+            ? ' Selisih efisiensi Rp '.number_format($selisihEfisiensi, 0, ',', '.').' otomatis dikembalikan ke sisa pos anggaran.'
+            : '';
 
         return redirect()->route('paket.index')->with(
             'success',
-            "Belanja Langsung paket {$paket->nomor_paket} selesai diproses dengan Kwitansi {$paket->nomor_kwitansi_belanja}. Siap diperiksa dan dibuatkan bukti serah terima oleh Unit Perlengkapan."
+            "Belanja Langsung paket {$paket->nomor_paket} selesai diproses dengan Kwitansi {$paket->nomor_kwitansi_belanja}. Siap diperiksa dan dibuatkan bukti serah terima oleh Unit Perlengkapan.".$infoEfisiensi
         );
     }
 

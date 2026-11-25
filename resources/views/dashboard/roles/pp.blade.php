@@ -18,7 +18,7 @@
 @php
     $canReviuPp = $user->hasPermission('reviu.pp');
     $canCreateSpk = $user->hasPermission('spk.create');
-    $ppRoute = $user->hasAnyPermission(['reviu.pp', 'spk.create', 'kontrak.view', 'kontrak.view_all'])
+    $ppRoute = $user->hasAnyPermission(['reviu.pp', 'spk.create', 'pp.monitoring_aktivitas'])
         ? route('kontrak.index', ['tab' => 'reviu'])
         : null;
 @endphp
@@ -76,9 +76,9 @@
                     $catatan = $pktPp->catatan_verifikasi_pp
                         ? 'Catatan: ' . \Illuminate\Support\Str::limit($pktPp->catatan_verifikasi_pp, 50)
                         : ($isSiapBelanja ? 'Disetujui PPK • Siap eksekusi belanja' : 'Menunggu reviu dokumen');
-                    $ppActionHref = $isSiapBelanja
-                        ? ($canCreateSpk ? route('kontrak.index', ['tab' => 'reviu']) : null)
-                        : ($canReviuPp ? route('kontrak.index', ['tab' => 'reviu']) : null);
+                    $ppActionHref = ($canReviuPp || $canCreateSpk)
+                        ? route('kontrak.index', ['tab' => 'reviu'])
+                        : null;
                 @endphp
                 <x-figma-action-card
                     :index="$loop->index"

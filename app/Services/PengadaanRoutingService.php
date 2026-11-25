@@ -10,6 +10,8 @@
 
 namespace App\Services;
 
+use App\Models\AlokasiMAK;
+use App\Models\AnggaranMAK;
 use App\Models\KontrakSPK;
 use App\Models\NotifikasiUser;
 use App\Models\PaketPengadaan;
@@ -50,6 +52,52 @@ class PengadaanRoutingService
         if ($paket->jalur_routing === PaketPengadaan::ROUTING_PPK) {
             $paket->nomor_memo_ppbj = null;
         }
+    }
+
+    /**
+     * mengembalikan selisih efisiensi anggaran ke saldo MAK, alokasi MAK, pagu permohonan, dan HPS paket saat harga realisasi akhir lebih rendah dari perkiraan.
+     *
+     * @param  PaketPengadaan  $paket  memuat relasi permohonan untuk menyelaraskan nilai pagu terkait.
+     * @param  float  $hpsLama  menyimpan plafon perkiraan harga sebelum realisasi akhir dicatat.
+     * @param  float  $nilaiRealisasi  menyimpan nominal akhir hasil belanja langsung atau kontrak.
+     * @return float mengembalikan nominal selisih efisiensi yang dikembalikan ke pos anggaran (0 bila tidak lebih hemat).
+     *
+     * Contoh pemanggilan:
+     * `$hemat = PengadaanRoutingService::terapkanEfisiensiAnggaranAkhir($paket, $hpsLama, $hargaAkhir);`
+     */
+    public static function terapkanEfisiensiAnggaranAkhir(PaketPengadaan $paket, float $hpsLama, float $nilaiRealisasi): float
+    {
+        $selisihEfisiensi = max(0.0, $hpsLama - $nilaiRealisasi);
+        if ($selisihEfisiensi <= 0.0) {
+            return 0.0;
+        }
+
+        $paket->nilai_hps = $nilaiRealisasi;
+        $paket->alokasi_pagu_paket = $nilaiRealisasi;
+
+        $permohonan = $paket->permohonan;
+        if ($permohonan) {
+            $permohonan->estimasi_total_pagu = max(0.0, (float) $permohonan->estimasi_total_pagu - $selisihEfisiensi);
+            $permohonan->save();
+
+            if (! empty($permohonan->kode_mak)) {
+                $mak = AnggaranMAK::lockForUpdate()->find($permohonan->kode_mak);
+                if ($mak) {
+                    $mak->sisa_pagu_mak = (float) $mak->sisa_pagu_mak + $selisihEfisiensi;
+                    $mak->save();
+                }
+
+                $alokasi = AlokasiMAK::where('nomor_surat', $permohonan->nomor_surat)
+                    ->where('kode_mak', $permohonan->kode_mak)
+                    ->first();
+                if ($alokasi) {
+                    $alokasi->nominal_alokasi = max(0.0, (float) $alokasi->nominal_alokasi - $selisihEfisiensi);
+                    $alokasi->save();
+                }
+            }
+        }
+
+        return $selisihEfisiensi;
     }
 
     /**

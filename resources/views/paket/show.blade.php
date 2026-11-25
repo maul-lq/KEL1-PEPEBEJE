@@ -237,21 +237,33 @@
                         <p class="text-slate-500 text-[11px] mt-0.5">Unit: {{ $paket->permohonan->unit->nama_unit ?? $paket->permohonan->kode_unit }}</p>
                     </div>
                     <div class="pt-2 border-t border-slate-200/60 flex flex-wrap gap-2">
-                        @if(Auth::user()?->hasPermission('dokumen.unduh_pdf'))
-                            <a href="{{ route('dokumen.pdf', ['jenis' => 'permohonan', 'id' => $paket->permohonan->nomor_surat]) }}" target="_blank" class="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0969da] hover:underline">
-                                <svg class="size-3 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-                                Surat Permohonan
+                        @php
+                            $rawLampiran = collect($paket->permohonan->dokumen_lampiran_list ?? [])
+                                ->filter(fn ($doc) => ! empty($doc['path']) && $doc['path'] !== 'permohonan/dummy.pdf')
+                                ->values();
+                            $listedPaths = $rawLampiran->pluck('path')->all();
+                            $hasRealUpload = $rawLampiran->isNotEmpty()
+                                || (! empty($paket->permohonan->file_kak) && ! in_array($paket->permohonan->file_kak, $listedPaths, true))
+                                || (! empty($paket->permohonan->file_spesifikasi_teknis) && ! in_array($paket->permohonan->file_spesifikasi_teknis, $listedPaths, true));
+                        @endphp
+                        @foreach($rawLampiran as $doc)
+                            <a href="{{ $doc['url'] }}" target="_blank" class="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0969da] hover:underline">
+                                <svg class="size-3 text-rose-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                                <span class="max-w-[180px] truncate">{{ $doc['name'] }}</span>
                             </a>
-                        @endif
-                        @if($paket->permohonan->file_kak)
+                        @endforeach
+                        @if($paket->permohonan->file_kak && ! in_array($paket->permohonan->file_kak, $listedPaths, true))
                             <a href="{{ asset('storage/' . $paket->permohonan->file_kak) }}" target="_blank" class="text-[11px] font-semibold text-[#0969da] hover:underline">
                                 Kerangka Acuan
                             </a>
                         @endif
-                        @if($paket->permohonan->file_spesifikasi_teknis)
+                        @if($paket->permohonan->file_spesifikasi_teknis && ! in_array($paket->permohonan->file_spesifikasi_teknis, $listedPaths, true))
                             <a href="{{ asset('storage/' . $paket->permohonan->file_spesifikasi_teknis) }}" target="_blank" class="text-[11px] font-semibold text-[#0969da] hover:underline">
                                 Spek Teknis
                             </a>
+                        @endif
+                        @if(!$hasRealUpload)
+                            <span class="text-[11px] text-slate-400">Belum ada berkas yang diunggah.</span>
                         @endif
                     </div>
                 </div>

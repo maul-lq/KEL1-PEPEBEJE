@@ -48,5 +48,8 @@ paths:
        - **Kenaikan Nilai HPS (`HPS > Pagu Awal`)**: Sistem memverifikasi ketersediaan saldo MAK (`sisa_pagu_mak >= selisih`). Jika mencukupi, `sisa_pagu_mak` dikurangi sebesar selisih. Jika tidak mencukupi, form registrasi ditolak dengan pesan kesalahan saldo tidak mencukupi.
        - **Efisiensi / Penurunan Nilai HPS (`HPS < Pagu Awal`)**: Selisih efisiensi anggaran otomatis dikembalikan ke `sisa_pagu_mak` pada rekening MAK terkait (`sisa_pagu_mak += abs(selisih)`).
        - Nilai pagu permohonan (`estimasi_total_pagu`) dan nominal pada `AlokasiMAK` disinkronkan ke nilai HPS baru.
+    - **Sinkronisasi Saldo MAK saat Realisasi Akhir (Kontrak/SPK & Belanja Langsung)**:
+      - Nominal realisasi akhir (`nilai_kontrak` untuk `> 50jt` maupun `nominal_harga_akhir` untuk Belanja Langsung `<= 50jt`) **tidak boleh melebihi** `nilai_hps` paket yang telah disetujui PPK (dan Belanja Langsung tetap dibatasi `<= Rp50.000.000`).
+      - Jika realisasi akhir lebih rendah dari `nilai_hps`, selisih efisiensi otomatis dikembalikan ke `sisa_pagu_mak`, sementara `nilai_hps`, `alokasi_pagu_paket`, `estimasi_total_pagu`, dan `AlokasiMAK.nominal_alokasi` diselaraskan ke nominal realisasi akhir.
 
 

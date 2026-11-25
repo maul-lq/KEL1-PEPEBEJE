@@ -10,8 +10,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\AlokasiMAK;
-use App\Models\AnggaranMAK;
 use App\Models\AuditLog;
 use App\Models\KontrakSPK;
 use App\Models\PaketPengadaan;
@@ -423,7 +421,6 @@ class KontrakSPKController extends Controller
             $tipeDokumen,
             $sifatKontrak,
             $nilaiKontrak,
-            $selisihEfisiensi,
             $fileSpkPath
         ): KontrakSPK {
             $vendor = Vendor::firstOrCreate(
@@ -455,32 +452,7 @@ class KontrakSPKController extends Controller
             $paket->nilai_hasil_negosiasi = $nilaiKontrak;
             $paket->status_paket = 'spk_terbit';
 
-            if ($selisihEfisiensi > 0) {
-                $paket->nilai_hps = $nilaiKontrak;
-                $paket->alokasi_pagu_paket = $nilaiKontrak;
-
-                if ($paket->permohonan) {
-                    $permohonan = $paket->permohonan;
-                    $permohonan->estimasi_total_pagu = max(0, (float) $permohonan->estimasi_total_pagu - $selisihEfisiensi);
-                    $permohonan->save();
-
-                    if (! empty($permohonan->kode_mak)) {
-                        $mak = AnggaranMAK::lockForUpdate()->find($permohonan->kode_mak);
-                        if ($mak) {
-                            $mak->sisa_pagu_mak = (float) $mak->sisa_pagu_mak + $selisihEfisiensi;
-                            $mak->save();
-                        }
-
-                        $alokasi = AlokasiMAK::where('nomor_surat', $permohonan->nomor_surat)
-                            ->where('kode_mak', $permohonan->kode_mak)
-                            ->first();
-                        if ($alokasi) {
-                            $alokasi->nominal_alokasi = max(0, (float) $alokasi->nominal_alokasi - $selisihEfisiensi);
-                            $alokasi->save();
-                        }
-                    }
-                }
-            }
+            PengadaanRoutingService::terapkanEfisiensiAnggaranAkhir($paket, $hpsLama, $nilaiKontrak);
 
             $paket->save();
 

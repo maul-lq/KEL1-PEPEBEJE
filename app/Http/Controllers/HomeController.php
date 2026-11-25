@@ -404,8 +404,10 @@ class HomeController extends Controller
                         ->where('status_keputusan', 'disetujui');
                 });
 
-            $ppkPaketBase = PaketPengadaan::where('id_user_ppk', $user->id_user)
-                ->where('jalur_routing', '!=', PaketPengadaan::ROUTING_LANGSUNG);
+            $ppkPaketBase = PaketPengadaan::query();
+            if (! $user->hasPermission('paket.view_all')) {
+                $ppkPaketBase->where('id_user_ppk', $user->id_user);
+            }
 
             // menyelaraskan memo bayar PPK secara paralel dengan Wadir II (termasuk jalur Belanja Langsung via PPK awal/pengganti) tanpa prasyarat berjenjang.
             $ppkMemoQuery = MemoBayar::where('role_approver', MemoBayar::ROLE_PPK)
@@ -423,14 +425,23 @@ class HomeController extends Controller
 
             $data['stats'] = array_merge($data['stats'], [
                 'antrean_persetujuan_awal' => $user->hasPermission('verifikasi.ppk_approve') ? (clone $ppkAwalQuery)->count() : 0,
+                // menyertakan seluruh jalur (termasuk Belanja Langsung <=50jt yang baru diajukan PPBJ) agar antrean Perlu Tindakan dashboard PPK sinkron dengan /reviu-pengadaan/ppk.
                 'antrean_dokumen_pengadaan' => $user->hasPermission('reviu.ppk')
                     ? (clone $ppkPaketBase)->where('status_paket', PaketPengadaan::STATUS_MENUNGGU_APPROVAL_PPK)->count()
                     : 0,
                 'total_paket_ppk' => $user->hasPermission('reviu.ppk') ? (clone $ppkPaketBase)->count() : 0,
                 'tender_aktif' => $user->hasPermission('reviu.ppk')
-                    ? (clone $ppkPaketBase)->whereNotIn('status_paket', ['selesai', 'perlu_perbaikan'])->count()
+                    ? (clone $ppkPaketBase)
+                        ->where('jalur_routing', '!=', PaketPengadaan::ROUTING_LANGSUNG)
+                        ->whereNotIn('status_paket', ['selesai', 'perlu_perbaikan'])
+                        ->count()
                     : 0,
-                'spk_aktif' => $user->hasPermission('reviu.ppk') ? (clone $ppkPaketBase)->whereHas('kontrakSpk')->count() : 0,
+                'spk_aktif' => $user->hasPermission('reviu.ppk')
+                    ? (clone $ppkPaketBase)
+                        ->where('jalur_routing', '!=', PaketPengadaan::ROUTING_LANGSUNG)
+                        ->whereHas('kontrakSpk')
+                        ->count()
+                    : 0,
                 'memo_bayar_pending' => $user->hasPermission('pembayaran.memo_ppk') ? (clone $ppkMemoQuery)->count() : 0,
             ]);
 
@@ -502,6 +513,7 @@ class HomeController extends Controller
                 : collect();
             $data['ppbj_upload_kontrak'] = $canCreateSpk
                 ? PaketPengadaan::with(['permohonan.unit', 'vendor'])
+                    ->where('jalur_routing', '!=', PaketPengadaan::ROUTING_LANGSUNG)
                     ->where('status_paket', PaketPengadaan::STATUS_SIAP_UPLOAD_DOKUMEN_PPBJ)
                     ->whereDoesntHave('kontrakSpk')
                     ->latest('updated_at')
@@ -518,7 +530,7 @@ class HomeController extends Controller
             $data['ppbj_belanja_langsung'] = $canManagePaket
                 ? PaketPengadaan::with(['permohonan.unit'])
                     ->where('jalur_routing', PaketPengadaan::ROUTING_LANGSUNG)
-                    ->where('status_paket', 'terdaftar')
+                    ->whereIn('status_paket', ['terdaftar', PaketPengadaan::STATUS_SIAP_UPLOAD_DOKUMEN_PPBJ])
                     ->where(function ($q) {
                         $q->whereNull('nomor_kwitansi_belanja')->orWhere('nomor_kwitansi_belanja', '');
                     })

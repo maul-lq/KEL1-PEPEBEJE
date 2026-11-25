@@ -832,7 +832,7 @@
     </x-modal>
 
     {{-- 8. Modal Belanja Langsung <= 50jt (PPBJ) --}}
-    <x-modal id="modal-belanja-langsung" title="Belanja Langsung (&le; Rp 50 Juta)" subtitle="Pembelian langsung dengan bukti kwitansi tanpa kontrak kerja" maxWidth="lg">
+    <x-modal id="modal-belanja-langsung" title=" Belanja Langsung" subtitle="Pembelian langsung dengan bukti kwitansi tanpa kontrak kerja" maxWidth="lg">
         <form action="{{ route('paket.belanja-langsung') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
             @csrf
             <input type="hidden" name="nomor_paket" x-model="selectedPaket">
@@ -848,7 +848,10 @@
                 <label for="modal_nominal_harga_akhir" class="block text-xs font-bold text-slate-700 mb-1">
                     Nominal Harga Akhir Realisasi (Rupiah)
                 </label>
-                <input type="number" id="modal_nominal_harga_akhir" name="nominal_harga_akhir" step="0.01" min="1" placeholder="Kosongkan jika sama dengan perkiraan harga" class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 font-mono focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20">
+                <input type="number" id="modal_nominal_harga_akhir" name="nominal_harga_akhir" step="0.01" min="1" max="50000000" placeholder="Kosongkan jika sama dengan perkiraan harga" class="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-800 font-mono focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20">
+                <p class="text-[11px] text-slate-500 mt-1">
+                    Maksimal Rp 50.000.000 dan tidak melebihi Perkiraan Harga paket; selisih hemat otomatis dikembalikan ke pos anggaran.
+                </p>
             </div>
 
             <div class="space-y-3 p-3 rounded-xl bg-slate-50 border border-slate-200/80">

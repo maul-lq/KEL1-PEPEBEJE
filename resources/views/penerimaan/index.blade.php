@@ -131,7 +131,7 @@
 
                             {{-- Opsi B: Belanja Langsung (<=50jt) --}}
                             <div class="p-4 rounded-xl border border-teal-200 bg-teal-50/50 space-y-2">
-                                <span class="text-xs font-bold text-[#087F79] block">Opsi B: Belanja Langsung (&le; Rp 50 Juta)</span>
+                                <span class="text-xs font-bold text-[#087F79] block">Opsi B:  Belanja Langsung</span>
                                 <select id="nomor_paket" name="nomor_paket" class="w-full h-10 rounded-lg border border-teal-200 text-xs text-slate-800 bg-white px-2 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20">
                                     <option value="">-- Pilih Paket Belanja Langsung --</option>
                                     @foreach($belanjaLangsungList as $bl)
