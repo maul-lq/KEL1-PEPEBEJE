@@ -73,17 +73,15 @@
 
     {!! $viteCssTag !!}
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Iceland&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-    {{-- menyediakan gaya cadangan minimalis agar kartu error tetap rapi bila CSS Vite tidak termuat saat gangguan aset/build. --}}
-    <style>
-        .simpbj-error-shell { min-height: 100vh; display: flex; flex-direction: column; background-color: #F4F8FA; color: #1e293b; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; }
-        .simpbj-error-header { height: 73px; background: #ffffff; border-bottom: 1px solid rgba(226, 232, 240, 0.9); display: flex; align-items: center; justify-content: space-between; padding: 0 24px; box-shadow: 0 2px 2px rgba(0, 0, 0, 0.06); }
-        .simpbj-error-main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px 16px; }
-        .simpbj-error-card { width: 100%; max-width: 36rem; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 36px 28px; text-align: center; box-shadow: 0 4px 16px rgba(33, 49, 83, 0.06); }
-    </style>
+    @if ($viteCssTag === '')
+        {{-- menyediakan gaya cadangan minimalis hanya saat manifest/aset CSS Vite gagal dimuat ketika gangguan build atau error 500. --}}
+        <style>
+            .simpbj-error-shell { min-height: 100vh; display: flex; flex-direction: column; background-color: #F4F8FA; color: #1e293b; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; }
+            .simpbj-error-header { height: 73px; background: #ffffff; border-bottom: 1px solid rgba(226, 232, 240, 0.9); display: flex; align-items: center; justify-content: space-between; padding: 0 24px; box-shadow: 0 2px 2px rgba(0, 0, 0, 0.06); }
+            .simpbj-error-main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px 16px; }
+            .simpbj-error-card { width: 100%; max-width: 36rem; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 36px 28px; text-align: center; box-shadow: 0 4px 16px rgba(33, 49, 83, 0.06); }
+        </style>
+    @endif
 </head>
 <body class="simpbj-error-shell min-h-screen flex flex-col bg-[#F4F8FA] text-slate-800 antialiased">
 

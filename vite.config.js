@@ -8,7 +8,6 @@
 
 import { defineConfig, loadEnv } from 'vite';
 import laravel from 'laravel-vite-plugin';
-import { google } from 'laravel-vite-plugin/fonts';
 import tailwindcss from '@tailwindcss/vite';
 import os from 'os';
 
@@ -48,7 +47,8 @@ function getActiveLanIp() {
 /**
  * Konfigurasi Utama Bundler Vite untuk SIM-PBJ
  *
- * menggabungkan plugin Laravel Vite, Google Fonts preloading, dan Tailwind CSS v4 dengan konfigurasi server HMR dinamis.
+ * menggabungkan plugin Laravel Vite, bundling aset lokal (Tailwind CSS v4, Alpine.js, Fontsource),
+ * dan konfigurasi server HMR dinamis tanpa bergantung pada CDN eksternal.
  *
  * @param {object} envContext - Konteks mode build/dev yang disuntikkan otomatis oleh Vite.
  * @param {string} envContext.mode - Nama mode aktif ('development' atau 'production').
@@ -81,13 +81,6 @@ export default defineConfig(({ mode }) => {
                     'resources/js/app.js',
                 ],
                 refresh: true,
-                fonts: [
-                    google('Instrument Sans', {
-                        weights: [400, 500, 600],
-                        preload: [{ weight: 400 }, { weight: 500 }],
-                        optimizedFallbacks: false,
-                    }),
-                ],
             }),
             tailwindcss(),
         ],

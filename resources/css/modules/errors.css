@@ -1,0 +1,58 @@
+/**
+ * Informasi File
+ *
+ * Penulis   : Rizlrad Fz
+ * Lisensi   : GNU General Public License v3.0 (GPL-3.0) - lihat file LICENSE di root repositori.
+ * Ringkasan : Stylesheet modular untuk tata letak halaman error HTTP mandiri (`errors.layout`)
+ *             agar kartu informasi error tetap terpusat dan rapi saat dimuat melalui bundel Vite.
+ */
+
+/**
+ * Kerangka Tata Letak Halaman Error HTTP SIM-PBJ.
+ *
+ * Tujuan: Memisahkan aturan tata letak halaman error dari inline `<style>` pada template Blade
+ *         supaya dikompilasi ke bundel CSS lokal bersama Tailwind CSS v4.
+ * Parameter: Kelas `.simpbj-error-shell`, `.simpbj-error-header`, `.simpbj-error-main`, dan `.simpbj-error-card`.
+ * Nilai kembali: Aturan tata letak flex terpusat untuk halaman status HTTP 4xx dan 5xx.
+ * Contoh pemanggilan: `<body class="simpbj-error-shell ...">`
+ */
+.simpbj-error-shell {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background-color: #f4f8fa;
+    color: #1e293b;
+    font-family: var(--font-sans, 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+    margin: 0;
+}
+
+.simpbj-error-header {
+    height: 73px;
+    background: #ffffff;
+    border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    box-shadow: 0 2px 2px rgba(0, 0, 0, 0.06);
+}
+
+.simpbj-error-main {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 16px;
+}
+
+.simpbj-error-card {
+    width: 100%;
+    max-width: 36rem;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 36px 28px;
+    text-align: center;
+    /* bayangan lembut memakai warna navy institusi agar kartu error konsisten dengan kartu modul lain. */
+    box-shadow: 0 4px 16px rgba(33, 49, 83, 0.06);
+}

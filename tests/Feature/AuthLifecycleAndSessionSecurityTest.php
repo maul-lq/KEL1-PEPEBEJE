@@ -280,7 +280,7 @@ it('terminates active sessions immediately, notifies user via inbox and email, a
         ->assertSessionHasErrors('status_aktif');
     expect($admin->fresh()->status_aktif)->toBeTrue();
 
-    $unapproved = User::factory()->pendingApproval()->withRole(User::ROLE_USER)->create();
+    $unapproved = User::factory()->menungguApproval()->withRole(User::ROLE_USER)->create();
     $this->actingAs($admin)
         ->from(route('admin.users.index'))
         ->put(route('admin.users.update', $unapproved), [

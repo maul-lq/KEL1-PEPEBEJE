@@ -23,12 +23,12 @@ Dokumen ini berisi aturan baku bagi pengembang backend dan agen AI yang bekerja 
 
 ---
 
-## 2. Prinsip Pengujian Fungsional & Sinergi dengan PHPUnit
+## 2. Prinsip Pengujian Fungsional & Sinergi dengan Pest
 - **Hak & Wewenang Pengujian Manual oleh Overseer**:
   - Pengujian fungsional dan penerimaan sistem (*acceptance testing*) dilakukan secara **langsung / manual oleh Overseer** melalui antarmuka web produksi di browser.
-- **Kewajiban Pengujian Otomatis PHPUnit oleh Agen AI**:
-  - Agen AI **WAJIB** membuat dan memelihara pengujian otomatis berbasis kelas PHPUnit (`Tests\TestCase`) untuk setiap fitur, endpoint, dan aturan bisnis backend.
-  - PHPUnit test berfungsi sebagai jaring pengaman otomatis (*automated regression guard*) untuk memastikan tidak ada logika atau validasi yang rusak selama pengembangan.
+- **Kewajiban Pengujian Otomatis Pest oleh Agen AI**:
+  - Agen AI **WAJIB** membuat dan memelihara pengujian otomatis berbasis Pest (`tests/Feature` dan `tests/Unit`) untuk setiap fitur, endpoint, dan aturan bisnis backend.
+  - Suite uji Pest berfungsi sebagai jaring pengaman otomatis (*automated regression guard*) untuk memastikan tidak ada logika atau validasi yang rusak selama pengembangan.
 - **Kemudahan Akses Testing (Quick-Login Switcher)**:
   - Pada halaman `/login`, sistem menyediakan panel tabel daftar 9 akun demo seeder institusi PNJ lengkap dengan tombol bantu 1-klik untuk autofill kredensial.
   - Ini memungkinkan Overseer berganti peran secara instan (misal: Pemohon $\rightarrow$ Staf B2 $\rightarrow$ Wadir 2 $\rightarrow$ Perencanaan $\rightarrow$ PPBJ $\rightarrow$ PPK $\rightarrow$ Perlengkapan $\rightarrow$ Keuangan) saat memverifikasi alur pengadaan.
@@ -37,9 +37,9 @@ Dokumen ini berisi aturan baku bagi pengembang backend dan agen AI yang bekerja 
 
 ## 3. Aturan Kerja Berkas di Folder `resources/`
 - **Arsitektur Produksi Tunggal**:
-  - Views: `resources/views/**/<nama>.blade.php` (contoh: `auth/login.blade.php`, `auth/register.blade.php`, `dashboard/index.blade.php`, `layouts/app.blade.php`, dst.)
-  - CSS: `resources/css/app.css` (menggunakan `@import "tailwindcss";` dan konfigurasi desain front end)
-  - JavaScript: `resources/js/app.js` (skrip interaktivitas front end utama)
+  - Views: `resources/views/**/<nama>.blade.php` (contoh: `auth/login.blade.php`, `auth/register.blade.php`, `dashboard/index.blade.php`, `layouts/app.blade.php`, `errors/layout.blade.php`, dst.)
+  - CSS: `resources/css/app.css` (memuat `@fontsource/inter`, `@fontsource/iceland`, `@import "tailwindcss";`, dan modul CSS pada `resources/css/modules/` seperti `layout.css`, `dashboard.css`, `components.css`, `profile.css`, `errors.css`)
+  - JavaScript: `resources/js/app.js` (memuat dan menjalankan `alpinejs` lokal dari npm serta mendaftarkan seluruh modul dari `resources/js/modules/`)
 - **Kewajiban Mutlak: Keselarasan Dokumentasi Integrasi**:
   1. Seluruh form action, AJAX/fetch request, payload binding, dan navigasi pada berkas frontend mengacu penuh pada dokumen `1Jorking/PANDUAN_INTEGRASI_FRONTEND_FR_NFR.md` yang tervalidasi.
   2. Jika ditemukan penambahan endpoint atau penyesuaian validasi, perbarui dokumentasi tersebut terlebih dahulu.
@@ -88,11 +88,11 @@ Dokumen ini berisi aturan baku bagi pengembang backend dan agen AI yang bekerja 
 
 ---
 
-## 7. Aturan Pengujian Backend: Wajib PHPUnit (Bukan Pest)
-- **Standar Testing Proyek**: Seluruh pengujian backend otomatis di proyek SIM-PBJ ini **WAJIB menggunakan PHPUnit** dan **DILARANG menggunakan framework Pest**.
-- **Pembuatan File Test**: Gunakan `php artisan make:test {name}` (atau dengan opsi `--unit`). **DILARANG** menambahkan flag `--pest`. Seluruh test harus berupa kelas PHP standar yang meng-extend `Tests\TestCase`.
-- **Sintaks Pengujian**: Gunakan method pengujian standar PHPUnit seperti `public function test_alur_pengadaan_berhasil(): void` atau atribut PHP `#[Test]`. Gunakan assertion standar PHPUnit / Laravel seperti `$this->assertDatabaseHas(...)`, `$this->assertEquals(...)`, `$response->assertStatus(200)`. Dilarang menuliskan fungsi closure Pest seperti `test('...', function () { ... })` atau `it('...', function () { ... })`.
-- **Eksekusi Pengujian**: Jalankan pengujian menggunakan `php artisan test` atau `vendor/bin/phpunit` dengan parameter filter (contoh: `--filter=NamaTestMethod`). **DILARANG** menjalankan perintah runner Pest (`vendor/bin/pest`).
+## 7. Aturan Pengujian Backend: Wajib Pest PHP
+- **Standar Testing Proyek**: Seluruh pengujian backend otomatis di proyek SIM-PBJ ini **WAJIB menggunakan Pest PHP** (sesuai `composer.json` dan `AGENTS.md`).
+- **Pembuatan File Test**: Gunakan `php artisan make:test --pest {name}` (atau dengan opsi `--unit` untuk `tests/Unit`). Jangan memasukkan prefix `Feature/` atau `Unit/` pada `{name}`.
+- **Sintaks Pengujian**: Gunakan fungsi uji standar Pest seperti `it('...', function () { ... })` atau `test('...', function () { ... })` dengan assertion Laravel/Pest (`$this->assertDatabaseHas(...)`, `expect(...)`, `$response->assertStatus(200)`).
+- **Eksekusi Pengujian**: Jalankan pengujian menggunakan `php artisan test --compact` atau `vendor/bin/pest` dengan path berkas atau `--filter=namaTest` agar lingkup uji tetap terarah.
 
 ---
 
@@ -111,12 +111,12 @@ Dokumen ini berisi aturan baku bagi pengembang backend dan agen AI yang bekerja 
   - Setiap pendaftaran baru otomatis tersimpan dengan `status_registrasi = 'menunggu_persetujuan'` dan `status_aktif = false`.
   - Pengguna dengan status menunggu persetujuan atau ditolak dilarang melakukan login ke dalam sistem dan akan menerima pesan status informatif.
 - **Wewenang Administrator Sistem (`role: admin`)**:
-  - Administrator meninjau antrean pendaftar pada modul `/admin/persetujuan-registrasi` (view `resources/views/admin/tes_approval_registrasi.blade.php`).
+  - Administrator meninjau antrean pendaftar pada modul `/admin/persetujuan-registrasi` (view `resources/views/admin/approval_registrasi.blade.php`).
   - **Persetujuan (ACC)**: Administrator memilihkan dan menetapkan Role definitif bagi pengguna (`id_role` dan `role`). Status pengguna berubah menjadi `disetujui`, `status_aktif = true`, serta tercatat identitas admin verifikator dan waktu persetujuan.
   - **Penolakan (Tolak)**: Administrator wajib mencantumkan alasan penolakan (`alasan_penolakan`). Status berubah menjadi `ditolak` dan akun tetap nonaktif.
   - **Penegakan FR 2.1**: Saat menetapkan peran `pp` (Pejabat Pengadaan), sistem memeriksa ketat agar hanya ada maksimal 1 akun PP aktif. Jika sudah ada akun PP aktif, penetapan role `pp` akan digagalkan oleh validasi sistem.
 - **Manajemen Role & Hak Akses Fitur (CRUD Role & Permissions Matrix)**:
-  - Modul `/admin/roles` (view `resources/views/admin/tes_roles.blade.php`) dan REST API `/api/roles`.
+  - Modul `/admin/roles` (view `resources/views/admin/roles.blade.php`) dan REST API `/api/roles`.
   - **9 Role Bawaan Sistem Institusi**: Ditandai dengan `is_system = true` (`admin`, `user`, `staff_bidang_2`, `wadir_2`, `perencanaan`, `ppbj`, `pp`, `ppk`, `perlengkapan`, `keuangan`). Diproteksi agar tidak dapat dihapus melalui antarmuka website demi integritas alur PBJ. Untuk menghapusnya, flag `is_system` pada database harus diubah terlebih dahulu menjadi `false`.
   - **Role Kustom (`is_system = false`)**: Administrator dapat membuat peran baru (misal: `auditor`, `pengawas_lapangan`), menentukan hak akses fitur secara granular berbasis matriks permissions, memperbarui informasi, dan menghapusnya jika sudah tidak memiliki relasi pengguna aktif.
   - **Helper Model `User`**:

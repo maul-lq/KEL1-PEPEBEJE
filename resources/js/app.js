@@ -8,6 +8,7 @@
  *             pada event `alpine:init`, dan menjalankan listener DOM global saat halaman siap.
  */
 
+import Alpine from 'alpinejs';
 import { browserNotificationControl, desktopNotificationManager } from './modules/desktop_notification.js';
 import { trackingManager } from './modules/tracking.js';
 import { splitMakManager } from './modules/split_mak.js';
@@ -109,6 +110,9 @@ const alpineComponents = {
     pembayaranRejectRow,
 };
 
+// mengekspos instance Alpine ke global window agar inspeksi devtools dan skrip pendukung tetap mengenali Alpine lokal.
+window.Alpine = Alpine;
+
 // tempelkan tiap factory ke window supaya atribut x-data="namaKomponen()" selalu teresolusi sebelum maupun sesudah alpine:init.
 Object.entries(alpineComponents).forEach(([name, factory]) => {
     window[name] = factory;
@@ -117,30 +121,38 @@ Object.entries(alpineComponents).forEach(([name, factory]) => {
 /**
  * Pendaftaran komponen ke registri resmi Alpine saat kerangka Alpine menginisialisasi dirinya.
  *
- * Tujuan: memastikan komponen tersedia melalui `Alpine.data` sehingga kompatibel dengan
- * ekspresi x-data berbasis registri maupun pemanggilan fungsi langsung.
+ * Tujuan: memastikan komponen tersedia melalui `Alpine.data` sebelum `Alpine.start()`
+ * memindai DOM sehingga tidak perlu memuat skrip Alpine.js dari CDN eksternal.
  * Parameter: Callback event `alpine:init`.
  * Nilai kembali: Tidak mengembalikan nilai.
- * Contoh pemanggilan: Dipicu otomatis oleh pustaka Alpine.js saat startup.
+ * Contoh pemanggilan: Dipicu otomatis oleh `Alpine.start()`.
  */
 document.addEventListener('alpine:init', () => {
-    if (window.Alpine) {
-        Object.entries(alpineComponents).forEach(([name, factory]) => {
-            window.Alpine.data(name, factory);
-        });
-    }
+    Object.entries(alpineComponents).forEach(([name, factory]) => {
+        Alpine.data(name, factory);
+    });
 });
+
+// memulai runtime Alpine.js lokal setelah listener alpine:init terpasang.
+Alpine.start();
 
 /**
  * Inisialisasi pengikat event DOM global setelah struktur dokumen HTML selesai dimuat.
  *
  * Tujuan: menjalankan delegasi tombol global dan pemilih SPP cair
  * tepat setelah DOM tersedia tanpa memerlukan inline `<script>` di file Blade.
- * Parameter: Callback event `DOMContentLoaded`.
+ * Parameter: Tidak menerima parameter masukan.
  * Nilai kembali: Tidak mengembalikan nilai.
- * Contoh pemanggilan: Dipicu otomatis oleh browser sesudah parsing HTML selesai.
+ * Contoh pemanggilan: `bootstrapDomHandlers();`
  */
-document.addEventListener('DOMContentLoaded', () => {
+function bootstrapDomHandlers() {
     initGlobalDomHandlers();
     initPembayaranPencairan();
-});
+}
+
+// mengecek readyState agar inisialisasi tetap berjalan jika bundel module dievaluasi setelah DOMContentLoaded.
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootstrapDomHandlers);
+} else {
+    bootstrapDomHandlers();
+}

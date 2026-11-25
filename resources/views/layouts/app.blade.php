@@ -12,7 +12,7 @@
   Komentar Deskriptif: Template Layout Induk Aplikasi SIM-PBJ (`layouts.app`).
 
   Tujuan: Kami memusatkan kerangka navigasi vertikal responsif yang menyaring menu sesuai izin RBAC
-          pengguna login, memuat aset Vite dan Alpine.js, serta menampilkan pesan flash dan toast.
+          pengguna login, memuat bundel lokal Vite (Tailwind CSS, font, dan Alpine.js), serta menampilkan pesan flash dan toast.
   Parameter (Blade Sections): `@yield('title')`, `@yield('content')`.
   Nilai kembali: Dokumen HTML5 lengkap dengan slot konten halaman anak di bagian utama.
   Contoh pemanggilan: `@extends('layouts.app')`
@@ -27,16 +27,8 @@
     <!-- Dynamic Favicon -->
     <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
 
-    <!-- Vite Assets -->
+    <!-- Vite Assets (Tailwind CSS, Fontsource Inter & Iceland, Alpine.js) -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-
-    <!-- Alpine.js Core (Defer) -->
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-
-    <!-- Google Fonts: Iceland & Inter -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Iceland&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body x-data="appShell"
       data-auth-page="{{ Auth::check() ? '1' : '0' }}"

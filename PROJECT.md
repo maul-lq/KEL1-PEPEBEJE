@@ -1,8 +1,8 @@
 # Project: SIM-PBJ Politeknik Negeri Jakarta (Frontend & Backend Integration)
 
 ## Architecture
-- **Framework & Runtime**: Laravel 13 running on PHP 8.5 with Vite & Tailwind CSS v4.
-- **Frontend Architecture**: Blade template engine with Alpine.js 3.x and Tailwind CSS v4 styling matching 190 Figma designs (Navy `#213153`, Blue `#0969da`, Teal `#087F79`, Ice Canvas `#F4F8FA`). Shared UI component library in `resources/views/components/`.
+- **Framework & Runtime**: Laravel 13 running on PHP 8.5 with Vite (`^8.0`), Tailwind CSS v4 (`^4.0`), Alpine.js (`^3.17.5` lokal via npm/Vite), serta paket font lokal `@fontsource/inter` & `@fontsource/iceland`.
+- **Frontend Architecture**: Blade template engine with Alpine.js 3.x (bundled locally via `resources/js/app.js` + `resources/js/modules/`) and modular CSS (`resources/css/modules/` + Tailwind CSS v4) matching Figma designs (Navy `#213153`, Blue `#0969da`, Teal `#087F79`, Ice Canvas `#F4F8FA`). Shared UI component library in `resources/views/components/` and standalone HTTP error pages in `resources/views/errors/`.
 - **Backend Architecture**: RESTful API endpoints and Web routes in `routes/web.php` with RBAC middleware `CheckRole` supporting 9 official roles (10 role slugs). FormRequests, Eloquent models with query scopes, and service classes supporting 8 procurement cycles.
 - **Production View Architecture**: Standard production Blade views with Tailwind CSS v4 and Alpine.js. Legacy `tes_*` views and `DEV_VIEWMODE` have been fully cleaned up.
 
@@ -81,3 +81,5 @@
 - `resources/views/admin/`: User approval and role/permissions management views.
 - `resources/views/profile/`: User profile and security settings views.
 - `resources/views/notifikasi/`: Notification feed views.
+- `resources/views/errors/`: Standalone HTTP 4xx/5xx error pages (`layout.blade.php` & `400`–`5xx` views) styled via `resources/css/modules/errors.css`.
+- `resources/css/modules/` & `resources/js/modules/`: Modular stylesheets (`layout.css`, `dashboard.css`, `components.css`, `profile.css`, `errors.css`) and 14 Alpine.js feature modules compiled via Vite.

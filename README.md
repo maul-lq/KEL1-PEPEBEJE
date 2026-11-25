@@ -4,12 +4,14 @@
   <p>
     <kbd>PHP ^8.3</kbd>
     <kbd>Laravel ^13.17</kbd>
+    <kbd>Alpine.js ^3.17</kbd>
     <kbd>Tailwind CSS ^4.0</kbd>
     <kbd>Vite ^8.0</kbd>
     <kbd>GPL-3.0</kbd>
   </p>
   <p>
     <a href="#tujuan-proyek">Tujuan proyek</a> |
+    <a href="#tech-stack">Tech stack</a> |
     <a href="#instalasi">Instalasi</a> |
     <a href="#cara-menjalankan">Cara menjalankan</a> |
     <a href="#struktur-folder">Struktur folder</a> |
@@ -58,6 +60,55 @@ Beberapa karakter teknis penting pada basis kode ini yang perlu diketahui pengem
 2. Nomor surat dinas, nomor paket, kode MAK, dan nomor pembayaran memakai garis miring (`/`). Pada `routes/web.php`, rute dengan parameter dinamis tersebut memakai pola wildcard `->where([... => '.*'])` dan ditempatkan setelah rute statis agar tidak bertabrakan.
 3. Pembenihan standar (`DatabaseSeeder`) hanya mengisi entitas master (16 unit kerja PNJ, 10 peran sistem, katalog permission, dan 13 akun operasional) supaya basis data pengujian awal bersih dari data transaksi tiruan.
 
+## Tech stack
+
+<table>
+  <thead>
+    <tr>
+      <th align="left">Lapisan</th>
+      <th align="left">Teknologi &amp; Paket</th>
+      <th align="left">Peran dalam Aplikasi</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Backend &amp; Framework</td>
+      <td><code>PHP ^8.3</code> (berjalan di 8.5), <code>laravel/framework ^13.17</code></td>
+      <td>Routing, middleware RBAC, kebijakan akses, antrean, notifikasi email, dan logika transaksi PBJ.</td>
+    </tr>
+    <tr>
+      <td>Templating &amp; Interaktivitas UI</td>
+      <td>Laravel Blade, <code>alpinejs ^3.17.5</code> (lokal via npm/Vite)</td>
+      <td>Komponen modal, tab, pelacakan status, formulir dinamis, dan kontrol antarmuka tanpa bergantung pada CDN.</td>
+    </tr>
+    <tr>
+      <td>Styling &amp; Tipografi Lokal</td>
+      <td><code>tailwindcss ^4.0.0</code>, <code>@tailwindcss/vite</code>, <code>@fontsource/inter ^5.3.0</code>, <code>@fontsource/iceland ^5.3.0</code></td>
+      <td>Desain sistem tema PNJ dan aset huruf lokal (Inter &amp; Iceland) terbundel penuh agar tetap tampil normal secara luring/LAN.</td>
+    </tr>
+    <tr>
+      <td>Bundler Frontend</td>
+      <td><code>vite ^8.0.0</code>, <code>laravel-vite-plugin ^3.1</code></td>
+      <td>Kompilasi <code>resources/css/app.css</code> (CSS modular di <code>resources/css/modules/</code>) dan <code>resources/js/app.js</code> (14 modul di <code>resources/js/modules/</code>).</td>
+    </tr>
+    <tr>
+      <td>Basis Data</td>
+      <td>PostgreSQL, SQLite, atau MySQL</td>
+      <td>Penyimpanan data pengadaan, anggaran MAK, pembayaran, notifikasi, dan RBAC (skema referensi di <a href="sql/database.sql">sql/database.sql</a>).</td>
+    </tr>
+    <tr>
+      <td>Integrasi &amp; Dokumen</td>
+      <td><code>laravel/socialite ^5.31</code>, <code>barryvdh/laravel-dompdf ^3.1</code>, Service Worker (<code>public/sw.js</code>)</td>
+      <td>Masuk melalui Google OAuth, ekspor dokumen resmi PDF/BAST/laporan, dan notifikasi desktop peramban.</td>
+    </tr>
+    <tr>
+      <td>Pengujian &amp; Pemformatan</td>
+      <td><code>pestphp/pest ^5.1</code>, <code>laravel/pint ^1.27</code>, <code>laravel/tinker ^3.0</code></td>
+      <td>Suite uji fitur/unit terisolasi dan penyeragaman gaya penulisan kode PHP.</td>
+    </tr>
+  </tbody>
+</table>
+
 ## Instalasi
 
 ### Prasyarat lingkungan
@@ -84,7 +135,7 @@ Beberapa karakter teknis penting pada basis kode ini yang perlu diketahui pengem
     <tr>
       <td>Node.js dan npm</td>
       <td>LTS aktif</td>
-      <td>Dibutuhkan untuk kompilasi CSS/JS dengan Vite (<code>^8.0.0</code>) dan Tailwind CSS (<code>^4.0.0</code>).</td>
+      <td>Dibutuhkan untuk kompilasi aset lokal dengan Vite (<code>^8.0.0</code>), Tailwind CSS (<code>^4.0.0</code>), Alpine.js (<code>^3.17.5</code>), serta paket font <code>@fontsource/inter</code> dan <code>@fontsource/iceland</code>.</td>
     </tr>
     <tr>
       <td>Basis data</td>
@@ -327,7 +378,7 @@ KEL1-PEPEBEJE/
 │   │   ├── Controllers/        # 13 controller alur PBJ serta subdirektori Admin/ (3 controller RBAC & user)
 │   │   └── Middleware/         # CheckRole (evaluasi role & permission), SessionTimeout, TriggerDueReminders
 │   ├── Models/                 # 20 model Eloquent (PermohonanPengadaan, PaketPengadaan, AnggaranMAK, KontrakSPK, dll.)
-│   ├── Notifications/          # Kelas notifikasi Laravel (PengingatPengadaanNotification)
+│   ├── Notifications/          # Kelas notifikasi Laravel (PengingatPengadaanNotification, ResetPasswordNotification, AccountStatusNotification)
 │   ├── Observers/              # Model observer (NotifikasiUserObserver)
 │   ├── Policies/               # Otorisasi tingkat objek paket (PaketPengadaanPolicy)
 │   ├── Providers/              # Registrasi service aplikasi (AppServiceProvider)
@@ -341,9 +392,9 @@ KEL1-PEPEBEJE/
 │   └── seeders/                # DatabaseSeeder (16 unit PNJ & 13 akun) dan RolePermissionSeeder (10 role & permission)
 ├── public/                     # Document root HTTP (index.php, sw.js untuk notifikasi desktop, images/, storage/, build/)
 ├── resources/
-│   ├── css/                    # app.css serta subfolder modules/ dan pdf/ (Tailwind CSS v4)
-│   ├── js/                     # app.js serta 14 skrip interaksi halaman pada subfolder modules/
-│   └── views/                  # Template Blade terbagi per modul (auth, dashboard, permohonan, verifikasi, paket, pp, ppk, kontrak, penerimaan, pembayaran, laporan, notifikasi, admin, profile)
+│   ├── css/                    # app.css (Tailwind CSS v4 + @fontsource lokal), subfolder modules/ (layout, dashboard, components, profile, errors), dan pdf/
+│   ├── js/                     # app.js (inisialisasi lokal Alpine.js) serta 14 modul interaksi halaman pada subfolder modules/
+│   └── views/                  # Template Blade terbagi per modul (auth, dashboard, permohonan, verifikasi, paket, pp, ppk, kontrak, penerimaan, pembayaran, laporan, notifikasi, admin, profile, errors)
 ├── routes/
 │   ├── web.php                 # Definisi endpoint web per modul, admin RBAC, cetak PDF, health check, dan API notifikasi
 │   └── console.php             # Perintah Artisan dan penjadwalan cron 5 menitan untuk reminder:proses

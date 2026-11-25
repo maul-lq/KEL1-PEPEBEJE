@@ -11,17 +11,23 @@
 /**
  * Bagian Impor Framework, Modul CSS Lokal, dan Token Tema Desain.
  *
- * Tujuan: Kami menyatukan Tailwind v4 dengan empat berkas gaya modular serta mendeklarasikan
- * custom property warna institusi (`--color-primary`, `--color-brand-blue`, dll.) lewat `@theme`.
+ * Tujuan: Kami menyatukan Tailwind v4, font lokal (`@fontsource/inter` & `@fontsource/iceland`),
+ *         serta lima berkas gaya modular lalu mendeklarasikan token warna institusi lewat `@theme`.
  * Parameter: Aturan `@import`, blok `@theme`, dan aturan global antarmuka.
  * Nilai kembali: Menghasilkan stylesheet utama yang dibundel oleh Vite ke `public/build`.
  * Contoh pemanggilan: `@vite(['resources/css/app.css', 'resources/js/app.js'])`
  */
+@import "@fontsource/inter/latin-400.css";
+@import "@fontsource/inter/latin-500.css";
+@import "@fontsource/inter/latin-600.css";
+@import "@fontsource/inter/latin-700.css";
+@import "@fontsource/iceland/latin-400.css";
 @import "tailwindcss";
 @import "./modules/layout.css";
 @import "./modules/dashboard.css";
 @import "./modules/components.css";
 @import "./modules/profile.css";
+@import "./modules/errors.css";
 
 @theme {
     /* Brand & Layout Palette SIM-PBJ */
