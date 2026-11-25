@@ -32,33 +32,31 @@ Secara ringkas, alur bisnis utama yang dikawal aplikasi berjalan melalui urutan 
 ```text
 [Jurusan / Unit] Ajukan Permohonan
         |
+        +--> [Staf Bidang II] Pemantauan Baca-Saja Usulan Masuk
         v
-[Staf Bidang II] Cek Kelengkapan Berkas
+[Bagian Perencanaan] Tentukan Pos Anggaran & Pilih PPK Awal
         |
         v
-[Bagian Perencanaan] Validasi & Kunci Kode MAK DIPA
-        |
-        v
-[Wadir II & PPK] Keputusan Persetujuan / Penolakan
+[Wadir II & PPK Terpilih] Persetujuan Paralel Usulan Awal
         |
         v
 [Koordinator PPBJ] Bentuk Paket & Auto-Routing Nominal HPS
-   |-- <= Rp50 juta        --> Belanja Langsung (tanpa PPK)
-   |-- > Rp50jt - Rp200jt  --> Pejabat Pengadaan (PP) -> Reviu & Kontrak/SPK
-   |-- > Rp200 juta        --> PPK Mandiri            -> Reviu & Kontrak/SPK
+   |-- <= Rp50 juta        --> Belanja Langsung -> Kwitansi (tanpa SPK)
+   |-- > Rp50jt - Rp200jt  --> Pejabat Pengadaan (PP) -> Persetujuan PPK -> Kontrak/SPK
+   |-- > Rp200 juta        --> PPK Mandiri            -> Persetujuan PPK -> Kontrak/SPK
         |
         v
 [Unit Perlengkapan] Pemeriksaan Fisik, Foto, & Penerbitan BAST
         |
         v
-[PPBJ -> PPK & Wadir II -> Keuangan] Tagihan, Memo Bayar, SPP, & Pencairan SP2D
+[PPBJ -> Wadir II & PPK (Paralel) -> PPBJ (SPP) -> Keuangan (SP2D)] Tagihan & Pencairan
 ```
 
 Beberapa karakter teknis penting pada basis kode ini yang perlu diketahui pengembang sejak awal:
 
-1. Otorisasi tidak ditanam mati pada nama peran saja, melainkan dievaluasi melalui tabel `roles` dan `permissions` lewat middleware `CheckRole` (`role:...`) dan `PaketPengadaanPolicy`.
+1. Otorisasi tidak ditanam mati pada nama peran, melainkan dievaluasi secara murni melalui 38 izin fitur (`permissions`) pada tabel `roles` dan `permissions` lewat middleware `CheckRole` (`role:<permission_slug>`) dan `PaketPengadaanPolicy`.
 2. Nomor surat dinas, nomor paket, kode MAK, dan nomor pembayaran memakai garis miring (`/`). Pada `routes/web.php`, rute dengan parameter dinamis tersebut memakai pola wildcard `->where([... => '.*'])` dan ditempatkan setelah rute statis agar tidak bertabrakan.
-3. Pembenihan standar (`DatabaseSeeder`) hanya mengisi entitas master (16 unit kerja PNJ, 10 peran sistem, katalog permission, dan 13 akun operasional) supaya basis data pengujian awal bersih dari data transaksi tiruan.
+3. Pembenihan standar (`DatabaseSeeder`) hanya mengisi entitas master (16 unit kerja PNJ, 10 peran sistem, 38 izin fitur RBAC, dan 13 akun operasional) supaya basis data pengujian awal bersih dari data transaksi tiruan.
 
 ## Tech stack
 
@@ -310,21 +308,21 @@ Pengguna yang mendaftar mandiri melalui halaman `/register` berstatus menunggu p
       <td><code>staff_b2@pnj.ac.id</code></td>
       <td><code>staff_bidang_2</code></td>
       <td><code>B2</code></td>
-      <td>Pemeriksaan kelengkapan berkas awal dan penerusan ke Wadir II.</td>
+      <td>Memantau antrean dan dokumen usulan masuk secara baca-saja tanpa aksi penerusan.</td>
     </tr>
     <tr>
       <td><code>wadir2</code></td>
       <td><code>wadir2@pnj.ac.id</code></td>
       <td><code>wadir_2</code></td>
       <td><code>B2</code></td>
-      <td>Keputusan ACC/Tolak usulan awal dan persetujuan Memo Bayar Level 2.</td>
+      <td>Persetujuan/penolakan usulan awal secara paralel dengan PPK terpilih dan persetujuan Memo Bayar Wadir II.</td>
     </tr>
     <tr>
       <td><code>perencanaan</code></td>
       <td><code>perencanaan@pnj.ac.id</code></td>
       <td><code>perencanaan</code></td>
       <td><code>REN</code></td>
-      <td>Verifikasi kode MAK, alokasi pagu, penguncian MAK, dan pemecahan usulan MAK.</td>
+      <td>Verifikasi dan alokasi pos anggaran, pemilihan PPK awal, penguncian pos anggaran, serta pemecahan usulan.</td>
     </tr>
     <tr>
       <td><code>ppbj</code></td>
@@ -345,7 +343,7 @@ Pengguna yang mendaftar mandiri melalui halaman `/register` berstatus menunggu p
       <td><code>ppk1@pnj.ac.id</code> s.d. <code>ppk4@pnj.ac.id</code></td>
       <td><code>ppk</code></td>
       <td><code>PPK</code></td>
-      <td>4 akun PPK mandiri (Sarana, Laboratorium, Konstruksi, Jasa) terisolasi per penugasan paket.</td>
+      <td>4 akun PPK terisolasi per penugasan: persetujuan usulan awal paralel (<code>verifikasi.ppk_approve</code>), persetujuan dokumen paket (<code>reviu.ppk</code>), serta persetujuan Memo Bayar PPK paralel.</td>
     </tr>
     <tr>
       <td><code>perlengkapan</code></td>
@@ -388,8 +386,8 @@ KEL1-PEPEBEJE/
 ├── config/                     # Konfigurasi aplikasi, auth, basis data, filesystem, mail, queue, services, session
 ├── database/
 │   ├── factories/              # Factory model pengujian (UserFactory)
-│   ├── migrations/             # 44 berkas migrasi skema tabel pengadaan, MAK, pembayaran, RBAC, dan audit
-│   └── seeders/                # DatabaseSeeder (16 unit PNJ & 13 akun) dan RolePermissionSeeder (10 role & permission)
+│   ├── migrations/             # 45 berkas migrasi skema tabel pengadaan, MAK, pembayaran, RBAC, dan audit
+│   └── seeders/                # DatabaseSeeder (16 unit PNJ & 13 akun) dan RolePermissionSeeder (10 role & 38 permission)
 ├── public/                     # Document root HTTP (index.php, sw.js untuk notifikasi desktop, images/, storage/, build/)
 ├── resources/
 │   ├── css/                    # app.css (Tailwind CSS v4 + @fontsource lokal), subfolder modules/ (layout, dashboard, components, profile, errors), dan pdf/
@@ -450,18 +448,18 @@ Seluruh fungsionalitas aplikasi terpetakan ke 11 area modul utama berikut berdas
     </tr>
     <tr>
       <td>4</td>
-      <td>Verifikasi Berantai dan MAK</td>
+      <td>Verifikasi dan Anggaran</td>
       <td><code>VerifikasiParalelController</code></td>
-      <td><code>/verifikasi/bidang-2</code>, <code>/verifikasi/perencanaan</code>, <code>/verifikasi/wadir-2</code>, <code>/verifikasi/ppk</code></td>
-      <td><code>staff_bidang_2</code>, <code>perencanaan</code>, <code>wadir_2</code>, <code>ppk</code></td>
-      <td>Pemeriksaan berkas administrasi (Staf Bidang II), validasi dan alokasi pagu kode MAK DIPA, pemecahan usulan per MAK, kunci/buka MAK (Perencanaan), serta keputusan ACC/tolak dari Wadir II dan PPK.</td>
+      <td><code>/verifikasi/bidang-2</code> (baca-saja), <code>/verifikasi/perencanaan</code>, <code>/verifikasi/wadir-2</code>, <code>/verifikasi/ppk</code></td>
+      <td>Izin <code>verifikasi.bidang_2_view</code>, <code>anggaran.*</code>, <code>permohonan.split_mak</code>, <code>verifikasi.wadir_2_*</code>, <code>verifikasi.ppk_approve</code></td>
+      <td>Pemantauan baca-saja berkas masuk (Staf Bidang II), pengelolaan/penguncian pos anggaran dan pemilihan PPK awal (Perencanaan), serta persetujuan paralel usulan awal oleh Wadir II dan PPK terpilih.</td>
     </tr>
     <tr>
       <td>5</td>
       <td>Paket Pengadaan dan Belanja Langsung</td>
       <td><code>PaketPengadaanController</code>, <code>PengadaanRoutingService</code></td>
       <td><code>/paket-pengadaan</code>, <code>/paket-pengadaan/create</code>, <code>/paket-pengadaan/belanja-langsung</code>, <code>/paket-pengadaan/split-jenis</code>, <code>/paket-pengadaan/reassign-ppk</code></td>
-      <td><code>ppbj</code> (lihat reassign: <code>ppbj</code>, <code>perencanaan</code>, <code>wadir_2</code>)</td>
+      <td>Izin <code>paket.create</code>, <code>paket.view_all</code>, <code>paket.view_assigned</code>, <code>paket.reassign_ppk</code>, <code>permohonan.split_jenis</code></td>
       <td>Pembentukan paket pengadaan, pemecahan berkas berdasarkan jenis pengadaan, auto-routing HPS (s.d. Rp50 juta ke Belanja Langsung, di atas Rp50 juta s.d. Rp200 juta ke PP, di atas Rp200 juta ke PPK), pengalihan PPK, dan pencatatan Belanja Langsung.</td>
     </tr>
     <tr>
@@ -469,15 +467,15 @@ Seluruh fungsionalitas aplikasi terpetakan ke 11 area modul utama berikut berdas
       <td>Reviu PP/PPK dan Kontrak SPK</td>
       <td><code>KontrakSPKController</code></td>
       <td><code>/monitor-pp</code>, <code>/kontrak-spk</code>, <code>POST /kontrak-spk/reviu</code>, <code>/reviu-pengadaan/ppk</code></td>
-      <td><code>ppk</code> + izin <code>reviu.*</code>, <code>spk.create</code>, <code>pp.monitoring_aktivitas</code>, <code>lihat_pp</code></td>
-      <td>Pemantauan progres Pejabat Pengadaan, reviu teknis dokumen oleh PP dan PPK, persetujuan dokumen pengadaan di sisi PPK, serta penerbitan dan unggah dokumen Kontrak/SPK berikut data vendor.</td>
+      <td>Izin <code>reviu.pp</code>, <code>reviu.ppk</code>, <code>spk.create</code>, <code>pp.monitoring_aktivitas</code></td>
+      <td>Pemantauan progres Pejabat Pengadaan, reviu teknis dokumen oleh PP dan PPK, persetujuan dokumen paket pengadaan di sisi PPK (<code>reviu.ppk</code>), serta penerbitan dan unggah dokumen Kontrak/SPK berikut data penyedia.</td>
     </tr>
     <tr>
       <td>7</td>
       <td>Penerimaan Barang dan BAST</td>
       <td><code>PenerimaanBarangController</code></td>
       <td><code>/penerimaan-barang</code> (<code>GET</code>, <code>POST</code>)</td>
-      <td><code>perlengkapan</code></td>
+      <td>Izin <code>penerimaan.view</code>, <code>penerimaan.bast_create</code>, <code>penerimaan.bast_sign</code></td>
       <td>Pemeriksaan fisik barang oleh Unit Perlengkapan dan BMN, unggah multi-foto dokumentasi barang, penentuan klasifikasi Belanja Barang atau Modal, dan penerbitan BAST.</td>
     </tr>
     <tr>
@@ -485,8 +483,8 @@ Seluruh fungsionalitas aplikasi terpetakan ke 11 area modul utama berikut berdas
       <td>Tagihan SPP dan Pencairan SP2D</td>
       <td><code>PembayaranController</code></td>
       <td><code>/pembayaran</code>, <code>/pembayaran/pengajuan</code>, <code>PUT /pembayaran/{nomor_pembayaran}</code>, <code>/pembayaran/memo/approve</code>, <code>/pembayaran/terbitkan-spp</code></td>
-      <td><code>ppbj</code>, <code>ppk</code>, <code>wadir_2</code>, <code>keuangan</code></td>
-      <td>Pengajuan dan perbaikan berkas tagihan (PPBJ), persetujuan Memo Bayar oleh PPK dan Wadir II, penerbitan SPP, serta pencatatan pencairan dana SP2D oleh Bagian Keuangan.</td>
+      <td>Izin <code>pembayaran.pengajuan</code>, <code>pembayaran.memo_wadir2</code>, <code>pembayaran.memo_ppk</code>, <code>pembayaran.spp_terbitkan</code>, <code>pembayaran.pencairan_sp2d</code></td>
+      <td>Pengajuan dan perbaikan berkas tagihan (PPBJ), persetujuan Memo Bayar secara paralel oleh Wadir II dan PPK penanggung jawab (termasuk jalur Belanja Langsung serta PPK pengganti hasil alih tugas), penerbitan SPP, serta pencatatan pencairan dana SP2D oleh Bagian Keuangan.</td>
     </tr>
     <tr>
       <td>9</td>
@@ -526,7 +524,7 @@ Seluruh fungsionalitas aplikasi terpetakan ke 11 area modul utama berikut berdas
 <p><code>PaketPengadaan::tentukanRouting</code> dan <code>PengadaanRoutingService</code> mengklasifikasikan nominal pagu paket atau HPS ke tiga konstanta jalur pada model <code>PaketPengadaan</code>, yaitu <code>langsung_sd_50jt</code> (s.d. <code>50.000.000</code>), <code>pp_50jt_sd_200jt</code> (lebih dari <code>50.000.000</code> s.d. <code>200.000.000</code>), dan <code>ppk_diatas_200jt</code> (di atas <code>200.000.000</code>). Paket pada jalur <code>ppk_diatas_200jt</code> otomatis mengosongkan <code>nomor_memo_ppbj</code> dan mengisolasi akses berdasarkan akun <code>id_user_ppk</code>.</p>
 
 <h4>Evaluasi hak akses dinamis</h4>
-<p>Middleware <code>CheckRole</code> (<code>role:...</code>) pada <a href="routes/web.php">routes/web.php</a> menerima campuran nama role (seperti <code>role:ppbj</code> atau <code>role:ppk,wadir_2</code>) maupun nama permission granular (seperti <code>role:permohonan.create</code> atau <code>role:admin.role_manage</code>). Pemetaan role ke permission dikelola melalui antarmuka admin maupun <a href="database/seeders/RolePermissionSeeder.php">database/seeders/RolePermissionSeeder.php</a>.</p>
+<p>Middleware <code>CheckRole</code> (<code>role:...</code>) pada <a href="routes/web.php">routes/web.php</a> mengevaluasi slug izin fitur secara granular (seperti <code>role:verifikasi.bidang_2_view</code>, <code>role:verifikasi.ppk_approve</code>, <code>role:reviu.ppk</code>, <code>role:paket.create</code>, atau <code>role:admin.role_manage</code>), sedangkan penyaringan kandidat PPK maupun penerima notifikasi menggunakan scope izin seperti <code>User::eligibleForPpk()</code> dan <code>User::eligibleForPermissions()</code>. Pemetaan role ke permission dikelola melalui antarmuka admin maupun <a href="database/seeders/RolePermissionSeeder.php">database/seeders/RolePermissionSeeder.php</a>.</p>
 
 <h4>Pencetakan dokumen terpusat</h4>
 <p>Untuk menambah jenis cetakan PDF baru, tambahkan handler pada <code>HomeController::unduhDokumenPdf</code> (<code>/dokumen-pdf/{jenis}/{id}</code>) atau gunakan <code>barryvdh/laravel-dompdf</code> bersama stylesheet cetak di <code>resources/css/pdf/</code>.</p>
