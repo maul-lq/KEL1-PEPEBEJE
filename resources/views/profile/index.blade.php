@@ -23,9 +23,23 @@
 @section('content')
 
 <div x-data="profilePage"
+     data-edit-modal-open="{{ (old('from_edit_modal') === '1' && ($errors->has('nama') || $errors->has('email') || $errors->has('nip') || $errors->has('no_hp') || $errors->has('jabatan') || $errors->has('foto_profil'))) ? '1' : '0' }}"
      data-password-modal-open="{{ ($errors->has('old_password') || $errors->has('new_password') || $errors->has('confirm_password') || session('password_modal_error')) ? '1' : '0' }}"
      data-delete-modal-open="{{ (session('delete_modal_error') || $errors->has('password_konfirmasi')) ? '1' : '0' }}"
      class="mx-auto max-w-[1750px]">
+
+    {{-- PERINGATAN VALIDASI PROFIL & UNGGAH FOTO --}}
+    @if($errors->hasAny(['nama', 'email', 'nip', 'no_hp', 'jabatan', 'foto_profil', 'file_upload']))
+        <div class="mb-6 rounded-xl border border-rose-200 bg-rose-50 p-4 text-rose-800 shadow-sm">
+            <ul class="list-disc list-inside space-y-1 text-sm font-medium">
+                @foreach(['nama', 'email', 'nip', 'no_hp', 'jabatan', 'foto_profil', 'file_upload'] as $profileField)
+                    @foreach($errors->get($profileField) as $fieldError)
+                        <li>{{ $fieldError }}</li>
+                    @endforeach
+                @endforeach
+            </ul>
+        </div>
+    @endif
 
     {{-- HEADER HALAMAN --}}
   <div class="flex flex-wrap items-start justify-between gap-4">
@@ -165,6 +179,9 @@
                             </button>
                         @endif
                     </div>
+                    @error('foto_profil')
+                        <p class="mt-2 text-xs font-semibold text-rose-600">{{ $message }}</p>
+                    @enderror
                 </div>
             </form>
         </div>
@@ -325,6 +342,7 @@
               class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-slate-200">
             @csrf
             @method('PUT')
+            <input type="hidden" name="from_edit_modal" value="1">
             <div class="flex items-center justify-between border-b pb-3">
                 <h3 class="text-xl font-bold text-gray-800">Edit Profil</h3>
                 <button type="button" @click="editModalOpen = false" class="text-gray-400 hover:text-gray-600">&times;</button>
@@ -332,27 +350,45 @@
             <div class="mt-4 space-y-4 text-left">
                 <div>
                     <label class="block text-sm font-medium text-gray-700">Nama Lengkap</label>
-                    <input type="text" name="nama" value="{{ $user->nama }}" required class="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm outline-none focus:ring-2 focus:ring-[#0088E8]" />
+                    <input type="text" name="nama" value="{{ old('nama', $user->nama) }}" required class="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm outline-none focus:ring-2 focus:ring-[#0088E8]" />
+                    @error('nama')
+                        <p class="mt-1 text-xs font-semibold text-rose-600">{{ $message }}</p>
+                    @enderror
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700">Email</label>
-                    <input type="email" name="email" value="{{ $user->email }}" required class="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm outline-none focus:ring-2 focus:ring-[#0088E8]" />
+                    <input type="email" name="email" value="{{ old('email', $user->email) }}" required class="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm outline-none focus:ring-2 focus:ring-[#0088E8]" />
+                    @error('email')
+                        <p class="mt-1 text-xs font-semibold text-rose-600">{{ $message }}</p>
+                    @enderror
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700">NIP</label>
-                    <input type="text" name="nip" value="{{ $user->nip }}" class="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm outline-none focus:ring-2 focus:ring-[#0088E8]" />
+                    <input type="text" name="nip" value="{{ old('nip', $user->nip) }}" class="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm outline-none focus:ring-2 focus:ring-[#0088E8]" />
+                    @error('nip')
+                        <p class="mt-1 text-xs font-semibold text-rose-600">{{ $message }}</p>
+                    @enderror
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700">Nomor HP / WhatsApp</label>
-                    <input type="text" name="no_hp" value="{{ $user->no_hp }}" class="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm outline-none focus:ring-2 focus:ring-[#0088E8]" />
+                    <input type="text" name="no_hp" value="{{ old('no_hp', $user->no_hp) }}" class="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm outline-none focus:ring-2 focus:ring-[#0088E8]" />
+                    @error('no_hp')
+                        <p class="mt-1 text-xs font-semibold text-rose-600">{{ $message }}</p>
+                    @enderror
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700">Jabatan</label>
-                    <input type="text" name="jabatan" value="{{ $user->jabatan }}" class="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm outline-none focus:ring-2 focus:ring-[#0088E8]" />
+                    <input type="text" name="jabatan" value="{{ old('jabatan', $user->jabatan) }}" class="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm outline-none focus:ring-2 focus:ring-[#0088E8]" />
+                    @error('jabatan')
+                        <p class="mt-1 text-xs font-semibold text-rose-600">{{ $message }}</p>
+                    @enderror
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700">Ganti Foto Profil (Opsional, JPG/PNG Maks. 2MB)</label>
                     <input type="file" name="foto_profil" accept="image/*" class="mt-1 w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                    @error('foto_profil')
+                        <p class="mt-1.5 text-xs font-semibold text-rose-600">{{ $message }}</p>
+                    @enderror
                 </div>
             </div>
             <div class="mt-6 flex justify-end gap-3 border-t pt-4">

@@ -843,12 +843,13 @@ class HomeController extends Controller
 
                 $rawStatus = strtolower((string) ($log->nilai_baru ?? $permohonan?->status_permohonan ?? 'diajukan'));
                 $statusLabel = match ($rawStatus) {
+                    'diajukan' => 'Diajukan',
                     'disetujui' => 'Disetujui',
                     'ditolak' => 'Ditolak',
-                    'revisi' => 'Perlu Revisi',
+                    'revisi', 'perlu_revisi' => 'Perlu Revisi',
                     'selesai' => 'Selesai',
                     'dibayar' => 'Dibayar',
-                    'menunggu_bidang_2', 'cek_mak_perencanaan', 'reviu_paralel', 'diajukan' => 'Dalam Proses',
+                    'menunggu_bidang_2', 'cek_mak_perencanaan', 'reviu_paralel' => 'Dalam Proses',
                     default => $permohonan ? ucwords(str_replace('_', ' ', $permohonan->status_permohonan)) : 'Dalam Proses',
                 };
 
@@ -880,6 +881,7 @@ class HomeController extends Controller
                     'menunggu_bidang_2' => ['aktivitas' => 'Usulan Masuk', 'status' => 'Dalam Proses'],
                     'cek_mak_perencanaan' => ['aktivitas' => 'Cek Pos Anggaran', 'status' => 'Dalam Proses'],
                     'reviu_paralel', 'menunggu_acc_wadir_ppk' => ['aktivitas' => 'Reviu Pimpinan', 'status' => 'Dalam Proses'],
+                    'diajukan' => ['aktivitas' => 'Form diajukan', 'status' => 'Diajukan'],
                     default => ['aktivitas' => 'Form diajukan', 'status' => 'Dalam Proses'],
                 };
 

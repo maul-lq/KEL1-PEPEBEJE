@@ -2,17 +2,26 @@
 
 use App\Models\AlokasiMAK;
 use App\Models\AnggaranMAK;
+use App\Models\DokumentasiPenerimaanBarang;
+use App\Models\KontrakSPK;
 use App\Models\MemoBayar;
+use App\Models\NotifikasiUser;
 use App\Models\PaketPengadaan;
 use App\Models\Pembayaran;
+use App\Models\PenerimaanBarang;
 use App\Models\Permission;
 use App\Models\PermohonanPengadaan;
+use App\Models\Reminder;
+use App\Models\ReviuDokumen;
 use App\Models\Role;
+use App\Models\TransaksiPencairan;
 use App\Models\User;
 use App\Models\VerifikasiParalel;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Storage;
 
 uses(RefreshDatabase::class);
 
@@ -455,9 +464,21 @@ it('routes submitted proposals directly to perencanaan and keeps staff_bidang_2 
         ->assertRedirect(route('permohonan.index'));
 
     $permohonan = PermohonanPengadaan::where('nomor_surat', 'SRT-ALUR-001')->firstOrFail();
-    expect($permohonan->status_permohonan)->toBe(PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN)
+    expect($permohonan->status_permohonan)->toBe(PermohonanPengadaan::STATUS_DIAJUKAN)
+        ->and($permohonan->hitungTahapSiklus())->toBe(1)
         ->and(VerifikasiParalel::where('nomor_surat', 'SRT-ALUR-001')->where('role_verifikator', VerifikasiParalel::ROLE_PERENCANAAN)->exists())->toBeTrue()
         ->and(VerifikasiParalel::where('nomor_surat', 'SRT-ALUR-001')->where('role_verifikator', VerifikasiParalel::ROLE_STAFF_BIDANG_2)->exists())->toBeFalse();
+
+    $this->actingAs($pengaju)
+        ->get(route('permohonan.index', ['status' => 'diajukan']))
+        ->assertOk()
+        ->assertSee('SRT-ALUR-001')
+        ->assertSee('Diajukan');
+
+    $this->actingAs($pengaju)
+        ->get(route('permohonan.index', ['status' => 'reviu_paralel']))
+        ->assertOk()
+        ->assertDontSee('SRT-ALUR-001');
 
     // Staf Bidang 2 hanya dapat membaca tanpa form upload memo atau tombol teruskan.
     $this->actingAs($staffB2)
@@ -657,7 +678,7 @@ it('prevents idor on permohonan detail, pdf download, and revision for view_own 
         ])
         ->assertRedirect(route('permohonan.index'));
 
-    expect($ownSurat->fresh()->status_permohonan)->toBe(PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN);
+    expect($ownSurat->fresh()->status_permohonan)->toBe(PermohonanPengadaan::STATUS_DIAJUKAN);
 
     // Pemegang permohonan.view_all tetap berhak melihat detail semua surat, sedangkan perlengkapan & keuangan ditolak 403.
     $this->actingAs($wadir)
@@ -873,10 +894,37 @@ it('filters permohonan server-side across q, keyword, status, jenis, type, tangg
         'jenis_pengadaan_split' => 'barang',
         'anggaran_diajukan' => 125000000,
         'estimasi_total_pagu' => 125000000,
-        'status' => 'cek_mak_perencanaan',
-        'status_permohonan' => 'cek_mak_perencanaan',
+        'status' => 'diajukan',
+        'status_permohonan' => 'diajukan',
         'status_anggaran' => 'pending',
         'tanggal_pengajuan' => '2026-03-15 10:30:00',
+        'kode_unit' => $pengaju->kode_unit,
+        'id_user' => $pengaju->id_user,
+    ]);
+
+    AnggaranMAK::create([
+        'kode_mak' => 'MAK-FLT-01',
+        'uraian_mak' => 'Belanja Infrastruktur Jaringan',
+        'sumber_dana' => 'RM',
+        'tahun_anggaran' => 2026,
+        'pagu_anggaran' => 200000000,
+        'sisa_pagu_mak' => 105000000,
+        'is_locked' => false,
+    ]);
+
+    PermohonanPengadaan::create([
+        'nomor_surat' => 'FLT-PROSES-018',
+        'perihal' => 'Pengadaan Switch Core Lab',
+        'judul_pengadaan' => 'Pengadaan Switch Core Lab',
+        'tujuan_pengadaan_ringkas' => 'Pengadaan perangkat jaringan gedung kuliah',
+        'jenis_pengadaan_split' => 'barang',
+        'anggaran_diajukan' => 95000000,
+        'estimasi_total_pagu' => 95000000,
+        'status' => 'menunggu_acc_wadir_ppk',
+        'status_permohonan' => 'menunggu_acc_wadir_ppk',
+        'status_anggaran' => 'tersedia',
+        'kode_mak' => 'MAK-FLT-01',
+        'tanggal_pengajuan' => '2026-03-16 09:00:00',
         'kode_unit' => $pengaju->kode_unit,
         'id_user' => $pengaju->id_user,
     ]);
@@ -900,11 +948,20 @@ it('filters permohonan server-side across q, keyword, status, jenis, type, tangg
         ->assertSee('FLT-TARGET-017')
         ->assertDontSee('FLT-GEN-001');
 
-    // Filter status "Dalam Proses" (reviu_paralel) juga menjaring cek_mak_perencanaan.
+    // Usulan baru yang belum ditetapkan pos anggarannya masuk filter Diajukan dan tidak masuk Dalam Proses.
+    $this->actingAs($pengaju)
+        ->get(route('permohonan.index', ['status' => 'diajukan']))
+        ->assertOk()
+        ->assertSee('FLT-TARGET-017')
+        ->assertDontSee('FLT-PROSES-018')
+        ->assertDontSee('FLT-GEN-001');
+
+    // Filter status "Dalam Proses" (reviu_paralel) hanya menampilkan usulan yang sudah masuk proses penetapan anggaran/persetujuan.
     $this->actingAs($pengaju)
         ->get(route('permohonan.index', ['status' => 'reviu_paralel']))
         ->assertOk()
-        ->assertSee('FLT-TARGET-017')
+        ->assertSee('FLT-PROSES-018')
+        ->assertDontSee('FLT-TARGET-017')
         ->assertDontSee('FLT-GEN-001');
 
     // Filter jenis dan type sama-sama berfungsi, beserta filter tanggal.
@@ -1279,4 +1336,399 @@ it('refunds efficiency savings to mak when belanja langsung realized price is be
         ->and((float) $paket->fresh()->nilai_hps)->toBe(22000000.0)
         ->and((float) $paket->fresh()->nominal_harga_akhir)->toBe(22000000.0)
         ->and($paket->fresh()->status_paket)->toBe(PaketPengadaan::STATUS_BELANJA_LANGSUNG_SELESAI);
+});
+
+it('blocks idor and mid-process delete by regular user while allowing owner deletion only at diajukan or selesai with full cascade', function (): void {
+    Storage::fake('public');
+
+    $userA = User::where('username', 'user_pengaju')->firstOrFail();
+    $userB = User::factory()->withRole(User::ROLE_USER)->create([
+        'username' => 'baim_test',
+        'kode_unit' => $userA->kode_unit,
+    ]);
+    $admin = User::factory()->withRole(User::ROLE_ADMIN)->create([
+        'kode_unit' => $userA->kode_unit,
+    ]);
+    $perencanaan = User::factory()->withRole(User::ROLE_PERENCANAAN)->create([
+        'kode_unit' => $userA->kode_unit,
+    ]);
+    $ppbj = User::where('username', 'ppbj')->firstOrFail();
+    $ppk = User::where('username', 'ppk_1')->firstOrFail();
+    $perlengkapan = User::factory()->withRole(User::ROLE_PERLENGKAPAN)->create([
+        'kode_unit' => $userA->kode_unit,
+    ]);
+    $keuangan = User::factory()->withRole(User::ROLE_KEUANGAN)->create([
+        'kode_unit' => $userA->kode_unit,
+    ]);
+
+    // Role user biasa tidak boleh memegang permohonan.delete; hak hapus global hanya milik admin.
+    expect($userA->hasPermission('permohonan.delete'))->toBeFalse()
+        ->and($userA->hasPermission('permohonan.create'))->toBeTrue()
+        ->and($admin->hasPermission('permohonan.delete'))->toBeTrue();
+
+    $milikBaim = PermohonanPengadaan::create([
+        'nomor_surat' => 'B/PA-10/99',
+        'perihal' => 'Pengadaan Laptop Milik Baim',
+        'judul_pengadaan' => 'Pengadaan Laptop Milik Baim',
+        'anggaran_diajukan' => 75000000,
+        'estimasi_total_pagu' => 75000000,
+        'status' => 'diajukan',
+        'status_permohonan' => 'diajukan',
+        'tanggal_pengajuan' => now(),
+        'kode_unit' => $userB->kode_unit,
+        'id_user' => $userB->id_user,
+    ]);
+
+    // Percobaan IDOR lihat detail maupun DELETE atas surat pengguna lain wajib ditolak HTTP 403.
+    $this->actingAs($userA)
+        ->get(route('permohonan.show', $milikBaim->nomor_surat))
+        ->assertStatus(403)
+        ->assertSee('Akses Ditolak')
+        ->assertSee('Halaman ini tidak dapat diakses. Anda hanya dapat melihat detail permohonan yang Anda ajukan sendiri.');
+
+    $this->actingAs($userA)
+        ->delete(route('permohonan.destroy', $milikBaim->nomor_surat))
+        ->assertStatus(403)
+        ->assertSee('Akses Ditolak')
+        ->assertSee('Halaman ini tidak dapat diakses. Anda hanya dapat membatalkan permohonan milik sendiri.');
+
+    $this->actingAs($userA)
+        ->deleteJson(route('permohonan.destroy', $milikBaim->nomor_surat))
+        ->assertStatus(403)
+        ->assertJsonPath('message', 'Akses Ditolak: Anda hanya dapat membatalkan permohonan milik sendiri.');
+
+    expect(PermohonanPengadaan::where('nomor_surat', 'B/PA-10/99')->exists())->toBeTrue();
+
+    // User biasa boleh membatalkan permohonannya sendiri yang baru diajukan (belum ditetapkan pos anggaran), meski baris tunggu awal sudah tercatat.
+    Storage::disk('public')->put('permohonan/surat-diajukan.pdf', 'pdf');
+    $this->actingAs($userA)
+        ->post(route('permohonan.store'), [
+            'nomor_surat' => '011/PL4.TIK/2026',
+            'perihal' => 'Usulan Baru Pra MAK',
+            'anggaran_diajukan' => 30000000,
+            'kode_unit' => $userA->kode_unit,
+        ])
+        ->assertRedirect(route('permohonan.index'));
+
+    $draftDiajukan = PermohonanPengadaan::where('nomor_surat', '011/PL4.TIK/2026')->firstOrFail();
+    expect($draftDiajukan->status_permohonan)->toBe(PermohonanPengadaan::STATUS_DIAJUKAN)
+        ->and($draftDiajukan->canBeDeletedByOwner())->toBeTrue();
+
+    $this->actingAs($userA)
+        ->get(route('permohonan.index'))
+        ->assertOk()
+        ->assertSee('id="modal-delete-permohonan"', false)
+        ->assertSee('max-w-[596px]', false)
+        ->assertSee('rounded-[12px] border border-[#dfe6ef]', false)
+        ->assertSee('bg-[#f4f7fb]', false)
+        ->assertSee('bg-[#dc2626]', false)
+        ->assertDontSee('border-t-[5px] border-rose-600', false)
+        ->assertSee('Hapus Pengajuan?');
+
+    $this->actingAs($userA)
+        ->get(route('permohonan.show', $draftDiajukan->nomor_surat))
+        ->assertOk()
+        ->assertSee('Diajukan')
+        ->assertSee('Batalkan Usulan');
+
+    $this->actingAs($userA)
+        ->delete(route('permohonan.destroy', $draftDiajukan->nomor_surat))
+        ->assertRedirect(route('permohonan.index'))
+        ->assertSessionHas('success');
+
+    expect(PermohonanPengadaan::where('nomor_surat', '011/PL4.TIK/2026')->exists())->toBeFalse()
+        ->and(VerifikasiParalel::where('nomor_surat', '011/PL4.TIK/2026')->exists())->toBeFalse();
+
+    // Admin dengan permohonan.delete dapat menghapus permohonan milik siapa pun pada tahap mana pun.
+    $this->actingAs($admin)
+        ->delete(route('permohonan.destroy', $milikBaim->nomor_surat))
+        ->assertRedirect(route('permohonan.index'))
+        ->assertSessionHas('success');
+
+    expect(PermohonanPengadaan::where('nomor_surat', 'B/PA-10/99')->exists())->toBeFalse();
+
+    // User biasa menghapus permohonannya sendiri yang sudah berjalan: ditolak saat proses masih berjalan, baru diizinkan kembali saat status Selesai.
+    Storage::disk('public')->put('permohonan/surat-own.pdf', 'pdf');
+    Storage::disk('public')->put('memo/cek-mak.pdf', 'pdf');
+    Storage::disk('public')->put('memo/vp-wadir.pdf', 'pdf');
+    Storage::disk('public')->put('paket/dokumen-pengadaan.pdf', 'pdf');
+    Storage::disk('public')->put('spk/kontrak-own.pdf', 'pdf');
+    Storage::disk('public')->put('bast/bast-signed.pdf', 'pdf');
+    Storage::disk('public')->put('bast/foto-barang.jpg', 'img');
+    Storage::disk('public')->put('pembayaran/spp-own.pdf', 'pdf');
+    Storage::disk('public')->put('memo/bayar-ppk.pdf', 'pdf');
+    Storage::disk('public')->put('pencairan/sp2d-own.pdf', 'pdf');
+
+    AnggaranMAK::create([
+        'kode_mak' => 'MAK-CASCADE-01',
+        'uraian_mak' => 'Belanja Peralatan Laboratorium',
+        'sumber_dana' => 'RM',
+        'tahun_anggaran' => 2026,
+        'pagu_anggaran' => 500000000,
+        'sisa_pagu_mak' => 350000000,
+        'is_locked' => false,
+    ]);
+
+    $milikSendiri = PermohonanPengadaan::create([
+        'nomor_surat' => '015/PL4.TIK/2026',
+        'perihal' => 'Pengadaan Perangkat Praktikum',
+        'judul_pengadaan' => 'Pengadaan Perangkat Praktikum',
+        'anggaran_diajukan' => 150000000,
+        'estimasi_total_pagu' => 150000000,
+        'status' => PermohonanPengadaan::STATUS_MENUNGGU_ACC_WADIR_PPK,
+        'status_permohonan' => PermohonanPengadaan::STATUS_MENUNGGU_ACC_WADIR_PPK,
+        'status_anggaran' => 'tersedia',
+        'tanggal_pengajuan' => now(),
+        'kode_unit' => $userA->kode_unit,
+        'id_user' => $userA->id_user,
+        'kode_mak' => 'MAK-CASCADE-01',
+        'file_permohonan' => 'permohonan/surat-own.pdf',
+        'file_memo_cek_mak' => 'memo/cek-mak.pdf',
+    ]);
+
+    $anakRevisi = PermohonanPengadaan::create([
+        'nomor_surat' => '015.REV/PL4.TIK/2026',
+        'perihal' => 'Turunan Revisi',
+        'judul_pengadaan' => 'Turunan Revisi',
+        'anggaran_diajukan' => 150000000,
+        'estimasi_total_pagu' => 150000000,
+        'status' => 'diajukan',
+        'status_permohonan' => 'diajukan',
+        'tanggal_pengajuan' => now(),
+        'kode_unit' => $userA->kode_unit,
+        'id_user' => $userA->id_user,
+        'nomor_surat_revisi' => $milikSendiri->nomor_surat,
+    ]);
+
+    AlokasiMAK::create([
+        'nomor_surat' => $milikSendiri->nomor_surat,
+        'kode_mak' => 'MAK-CASCADE-01',
+        'nominal_alokasi' => 150000000,
+        'tanggal_alokasi' => now(),
+    ]);
+
+    VerifikasiParalel::create([
+        'id_user' => $perencanaan->id_user,
+        'nomor_surat' => $milikSendiri->nomor_surat,
+        'role_verifikator' => VerifikasiParalel::ROLE_PERENCANAAN,
+        'status_keputusan' => VerifikasiParalel::STATUS_DISETUJUI,
+        'file_memo' => 'memo/vp-wadir.pdf',
+        'tanggal_keputusan' => now(),
+    ]);
+
+    // Saat sudah ditetapkan MAK / masih dalam proses verifikasi, tombol hapus tersembunyi dan DELETE ditolak 403.
+    $this->actingAs($userA)
+        ->get(route('permohonan.show', $milikSendiri->nomor_surat))
+        ->assertOk()
+        ->assertDontSee('Batalkan Usulan');
+
+    $this->actingAs($userA)
+        ->delete(route('permohonan.destroy', $milikSendiri->nomor_surat))
+        ->assertStatus(403)
+        ->assertSee('Permohonan yang telah diverifikasi atau diproses paket tidak dapat dibatalkan.');
+
+    expect(PermohonanPengadaan::where('nomor_surat', '015/PL4.TIK/2026')->exists())->toBeTrue();
+
+    // Status menengah lain seperti pending_anggaran, perlu_revisi, ditolak, disetujui, dan diproses_ppbj juga dilarang dihapus user biasa.
+    foreach ([PermohonanPengadaan::STATUS_PENDING_ANGGARAN, 'perlu_revisi', PermohonanPengadaan::STATUS_DITOLAK, PermohonanPengadaan::STATUS_DISETUJUI, PermohonanPengadaan::STATUS_DIPROSES_PPBJ] as $blockedStatus) {
+        $milikSendiri->update(['status_permohonan' => $blockedStatus]);
+        $this->actingAs($userA)
+            ->deleteJson(route('permohonan.destroy', $milikSendiri->nomor_surat))
+            ->assertStatus(403)
+            ->assertJsonPath('message', 'Akses Ditolak: Permohonan yang telah diverifikasi atau diproses paket tidak dapat dibatalkan.');
+    }
+    $milikSendiri->update(['status_permohonan' => PermohonanPengadaan::STATUS_DIPROSES_PPBJ]);
+
+    $paket = PaketPengadaan::create([
+        'nomor_paket' => 'PKT-CASC-001',
+        'nama_paket' => 'Paket Perangkat Praktikum',
+        'jenis_pengadaan' => 'barang',
+        'jalur_routing' => PaketPengadaan::ROUTING_PP,
+        'nilai_hps' => 150000000,
+        'nominal_harga_perkiraan' => 150000000,
+        'alokasi_pagu_paket' => 150000000,
+        'status_paket' => 'kontrak_aktif',
+        'nomor_surat' => $milikSendiri->nomor_surat,
+        'tanggal_registrasi_paket' => now(),
+        'id_user_ppbj' => $ppbj->id_user,
+        'id_user_ppk' => $ppk->id_user,
+        'file_dokumen_pengadaan' => 'paket/dokumen-pengadaan.pdf',
+    ]);
+
+    ReviuDokumen::create([
+        'nomor_paket' => $paket->nomor_paket,
+        'id_user' => $ppk->id_user,
+        'putaran_ke' => 1,
+        'role_reviewer' => 'ppk',
+        'status_reviu' => ReviuDokumen::STATUS_DISETUJUI,
+        'tanggal_reviu' => now(),
+    ]);
+
+    KontrakSPK::create([
+        'nomor_spk' => 'SPK-CASC-001',
+        'nomor_paket' => $paket->nomor_paket,
+        'id_user' => $ppbj->id_user,
+        'tipe_dokumen' => KontrakSPK::DOKUMEN_SPK,
+        'sifat_kontrak' => KontrakSPK::TIPE_LUMPSUM,
+        'status_spk' => KontrakSPK::STATUS_AKTIF,
+        'tanggal_spk' => now(),
+        'jadwal_pengiriman' => now()->addDays(14),
+        'nilai_kontrak' => 150000000,
+        'file_spk' => 'spk/kontrak-own.pdf',
+    ]);
+
+    $bast = PenerimaanBarang::create([
+        'nomor_bast' => 'BAST-CASC-001',
+        'nomor_paket' => $paket->nomor_paket,
+        'id_user' => $perlengkapan->id_user,
+        'tanggal_penerimaan' => now(),
+        'status_fisik' => PenerimaanBarang::STATUS_DITERIMA_LENGKAP,
+        'kategori_belanja' => PenerimaanBarang::KATEGORI_BELANJA_MODAL,
+        'file_bast_signed' => 'bast/bast-signed.pdf',
+    ]);
+
+    DokumentasiPenerimaanBarang::create([
+        'id_penerimaan' => $bast->id_penerimaan,
+        'foto_dokumentasi' => 'bast/foto-barang.jpg',
+        'keterangan_foto' => 'Foto serah terima barang',
+    ]);
+
+    $pembayaran = Pembayaran::create([
+        'nomor_pembayaran' => 'BYR-CASC-001',
+        'nomor_paket' => $paket->nomor_paket,
+        'id_user_pengaju' => $ppbj->id_user,
+        'tahap_termin' => 'lunas',
+        'nominal_pengajuan' => 150000000,
+        'tanggal_pengajuan' => now(),
+        'status_pembayaran' => 'spp_terbit',
+        'file_spp' => 'pembayaran/spp-own.pdf',
+    ]);
+
+    MemoBayar::create([
+        'id_user' => $ppk->id_user,
+        'nomor_pembayaran' => $pembayaran->nomor_pembayaran,
+        'role_approver' => MemoBayar::ROLE_PPK,
+        'status_memo' => MemoBayar::STATUS_DISETUJUI,
+        'file_memo' => 'memo/bayar-ppk.pdf',
+    ]);
+
+    TransaksiPencairan::create([
+        'nomor_transaksi_bank' => 'SP2D-CASC-001',
+        'nomor_pembayaran' => $pembayaran->nomor_pembayaran,
+        'id_user' => $keuangan->id_user,
+        'tanggal_transfer' => now(),
+        'nominal_transfer' => 150000000,
+        'file_bukti_transfer' => 'pencairan/sp2d-own.pdf',
+    ]);
+
+    $reminder = Reminder::create([
+        'nomor_paket' => $paket->nomor_paket,
+        'nomor_pembayaran' => $pembayaran->nomor_pembayaran,
+        'tipe_reminder' => Reminder::TIPE_PENGIRIMAN,
+        'waktu_trigger' => now()->addDay(),
+        'is_recurring' => false,
+        'is_active' => true,
+        'judul_alert' => 'Pengingat Uji Kaskade',
+        'pesan_alert' => 'Pengingat harus terhapus saat permohonan dibatalkan.',
+    ]);
+
+    NotifikasiUser::create([
+        'id_user' => $ppbj->id_user,
+        'id_reminder' => $reminder->id_reminder,
+        'is_read' => false,
+        'is_dismissed' => false,
+    ]);
+
+    // Tombol Batalkan Usulan tampil di halaman detail meski status sudah selesai.
+    $this->actingAs($userA)
+        ->get(route('permohonan.show', $milikSendiri->nomor_surat))
+        ->assertOk()
+        ->assertSee('Batalkan Usulan');
+
+    $this->actingAs($userA)
+        ->delete(route('permohonan.destroy', $milikSendiri->nomor_surat))
+        ->assertRedirect(route('permohonan.index'))
+        ->assertSessionHas('success');
+
+    // Seluruh entitas anak terhapus, saldo MAK kembali penuh, turunan revisi aman, dan file fisik terhapus.
+    expect(PermohonanPengadaan::where('nomor_surat', '015/PL4.TIK/2026')->exists())->toBeFalse()
+        ->and(AlokasiMAK::where('nomor_surat', '015/PL4.TIK/2026')->exists())->toBeFalse()
+        ->and(VerifikasiParalel::where('nomor_surat', '015/PL4.TIK/2026')->exists())->toBeFalse()
+        ->and(PaketPengadaan::where('nomor_paket', 'PKT-CASC-001')->exists())->toBeFalse()
+        ->and(ReviuDokumen::where('nomor_paket', 'PKT-CASC-001')->exists())->toBeFalse()
+        ->and(KontrakSPK::where('nomor_spk', 'SPK-CASC-001')->exists())->toBeFalse()
+        ->and(PenerimaanBarang::where('id_penerimaan', $bast->id_penerimaan)->exists())->toBeFalse()
+        ->and(DokumentasiPenerimaanBarang::where('id_penerimaan', $bast->id_penerimaan)->exists())->toBeFalse()
+        ->and(Pembayaran::where('nomor_pembayaran', 'BYR-CASC-001')->exists())->toBeFalse()
+        ->and(MemoBayar::where('nomor_pembayaran', 'BYR-CASC-001')->exists())->toBeFalse()
+        ->and(TransaksiPencairan::where('nomor_transaksi_bank', 'SP2D-CASC-001')->exists())->toBeFalse()
+        ->and(Reminder::where('id_reminder', $reminder->id_reminder)->exists())->toBeFalse()
+        ->and(NotifikasiUser::where('id_reminder', $reminder->id_reminder)->exists())->toBeFalse()
+        ->and($anakRevisi->fresh()->nomor_surat_revisi)->toBeNull()
+        ->and((float) AnggaranMAK::findOrFail('MAK-CASCADE-01')->sisa_pagu_mak)->toBe(500000000.0);
+
+    foreach ([
+        'permohonan/surat-own.pdf',
+        'memo/cek-mak.pdf',
+        'memo/vp-wadir.pdf',
+        'paket/dokumen-pengadaan.pdf',
+        'spk/kontrak-own.pdf',
+        'bast/bast-signed.pdf',
+        'bast/foto-barang.jpg',
+        'pembayaran/spp-own.pdf',
+        'memo/bayar-ppk.pdf',
+        'pencairan/sp2d-own.pdf',
+    ] as $path) {
+        Storage::disk('public')->assertMissing($path);
+    }
+});
+
+it('displays validation warning on /profil when uploaded foto_profil exceeds 2048 kb', function (): void {
+    Storage::fake('public');
+
+    $user = User::where('username', 'user_pengaju')->firstOrFail();
+    $oversizedImage = UploadedFile::fake()->image('gambar_besar.jpg')->size(3584);
+
+    // Pengiriman melalui Modal Edit Profil harus membuka ulang modal dan menampilkan pesan validasi ukuran maksimum.
+    $responseFromModal = $this->actingAs($user)
+        ->from(route('profile.index'))
+        ->put(route('profile.update'), [
+            'from_edit_modal' => '1',
+            'nama' => $user->nama,
+            'email' => $user->email,
+            'foto_profil' => $oversizedImage,
+        ]);
+
+    $responseFromModal->assertRedirect(route('profile.index'))
+        ->assertSessionHasErrors([
+            'foto_profil' => 'The foto profil field must not be greater than 2048 kilobytes.',
+        ]);
+
+    expect($user->fresh()->foto_profil)->toBeNull();
+
+    $this->actingAs($user)
+        ->followingRedirects()
+        ->from(route('profile.index'))
+        ->put(route('profile.update'), [
+            'from_edit_modal' => '1',
+            'nama' => $user->nama,
+            'email' => $user->email,
+            'foto_profil' => UploadedFile::fake()->image('gambar_besar.jpg')->size(3584),
+        ])
+        ->assertOk()
+        ->assertSee('The foto profil field must not be greater than 2048 kilobytes.')
+        ->assertSee('data-edit-modal-open="1"', false);
+
+    // Pengiriman langsung dari tombol Ubah Foto pada kartu profil juga menampilkan peringatan di halaman.
+    $this->actingAs($user)
+        ->followingRedirects()
+        ->from(route('profile.index'))
+        ->put(route('profile.update'), [
+            'nama' => $user->nama,
+            'email' => $user->email,
+            'foto_profil' => UploadedFile::fake()->image('gambar_besar.jpg')->size(3584),
+        ])
+        ->assertOk()
+        ->assertSee('The foto profil field must not be greater than 2048 kilobytes.')
+        ->assertSee('data-edit-modal-open="0"', false);
 });

@@ -665,6 +665,10 @@ class PermohonanPengadaan extends Model
             return 3;
         }
 
+        if ($this->isDiajukanPraMak()) {
+            return 1;
+        }
+
         // menahan status verifikasi awal di Tahap 2 agar pengisian kode MAK oleh Perencanaan sebelum persetujuan Wadir 2 tidak melompat ke Tahap 3.
         $tahap2Statuses = [
             'reviu_paralel',
@@ -686,15 +690,104 @@ class PermohonanPengadaan extends Model
             return 3;
         }
 
-        $hasVerifikasi = $this->relationLoaded('verifikasiParalel')
-            ? $this->verifikasiParalel->isNotEmpty()
-            : $this->verifikasiParalel()->exists();
-
-        if ($hasVerifikasi) {
+        if ($this->hasMakOrVerificationProgress()) {
             return 2;
         }
 
         return 1;
+    }
+
+    /**
+     * mengecek apakah usulan sudah memperoleh penetapan MAK, keputusan verifikasi non-menunggu, atau paket pengadaan.
+     *
+     * @return bool mengembalikan true jika anggaran MAK, keputusan verifikator, atau paket sudah terbentuk.
+     *
+     * Contoh pemanggilan:
+     * `if ($permohonan->hasMakOrVerificationProgress()) { ... }`
+     */
+    public function hasMakOrVerificationProgress(): bool
+    {
+        if (! empty($this->kode_mak)) {
+            return true;
+        }
+
+        $hasAlokasi = $this->relationLoaded('alokasiMak')
+            ? $this->alokasiMak->isNotEmpty()
+            : $this->alokasiMak()->exists();
+        if ($hasAlokasi) {
+            return true;
+        }
+
+        $hasPaket = $this->relationLoaded('paketPengadaan')
+            ? $this->paketPengadaan->isNotEmpty()
+            : $this->paketPengadaan()->exists();
+        if ($hasPaket) {
+            return true;
+        }
+
+        $verifikasiList = $this->relationLoaded('verifikasiParalel')
+            ? $this->verifikasiParalel
+            : $this->verifikasiParalel()->get();
+
+        // mengabaikan baris inisialisasi 'menunggu' agar permohonan baru sebelum dicek Perencanaan tetap berstatus Diajukan.
+        return $verifikasiList->contains(
+            fn (VerifikasiParalel $vp): bool => ! in_array(strtolower((string) $vp->status_keputusan), ['menunggu', ''], true)
+        );
+    }
+
+    /**
+     * mengecek apakah permohonan masih berada di tahap pengajuan awal sebelum penetapan pos anggaran MAK.
+     *
+     * @return bool mengembalikan true bila status masih awal dan belum ada penetapan MAK atau keputusan verifikasi.
+     *
+     * Contoh pemanggilan:
+     * `if ($permohonan->isDiajukanPraMak()) { ... }`
+     */
+    public function isDiajukanPraMak(): bool
+    {
+        $status = strtolower(trim((string) ($this->status_permohonan ?? $this->status ?? 'diajukan')));
+
+        if (! in_array($status, [
+            self::STATUS_DIAJUKAN,
+            'draft',
+            self::STATUS_MENUNGGU_BIDANG_2,
+            self::STATUS_CEK_MAK_PERENCANAAN,
+        ], true)) {
+            return false;
+        }
+
+        return ! $this->hasMakOrVerificationProgress();
+    }
+
+    /**
+     * mengecek apakah permohonan pengadaan telah selesai sepenuhnya hingga tahap akhir.
+     *
+     * @return bool mengembalikan true bila status permohonan menandakan pengadaan tuntas.
+     *
+     * Contoh pemanggilan:
+     * `if ($permohonan->isSelesaiStatus()) { ... }`
+     */
+    public function isSelesaiStatus(): bool
+    {
+        $status = strtolower(trim((string) ($this->status_permohonan ?? $this->status ?? '')));
+
+        return in_array($status, [self::STATUS_SELESAI, 'sp2d_lunas', 'cair'], true);
+    }
+
+    /**
+     * menentukan apakah pemilik permohonan tanpa izin admin boleh menghapus permohonannya sendiri.
+     *
+     * Tujuan: hanya mengizinkan penghapusan pada tahap Diajukan sebelum penetapan MAK
+     * atau setelah Selesai agar alokasi anggaran dan proses yang sedang berjalan tetap terjaga.
+     *
+     * @return bool mengembalikan true jika status permohonan berada di Diajukan (pra-MAK) atau Selesai.
+     *
+     * Contoh pemanggilan:
+     * `if ($permohonan->canBeDeletedByOwner()) { ... }`
+     */
+    public function canBeDeletedByOwner(): bool
+    {
+        return $this->isDiajukanPraMak() || $this->isSelesaiStatus();
     }
 
     /**
@@ -774,10 +867,18 @@ class PermohonanPengadaan extends Model
             $nomorPaket = $paket->nomor_paket;
 
             $pembayaranList = Pembayaran::where('nomor_paket', $nomorPaket)->get();
+            $nomorPembayaranList = $pembayaranList->pluck('nomor_pembayaran')->all();
+
             foreach ($pembayaranList as $pembayaran) {
                 $nomorPembayaran = $pembayaran->nomor_pembayaran;
 
-                MemoBayar::where('nomor_pembayaran', $nomorPembayaran)->delete();
+                $memoList = MemoBayar::where('nomor_pembayaran', $nomorPembayaran)->get();
+                foreach ($memoList as $memo) {
+                    if (! empty($memo->file_memo) && Storage::disk('public')->exists($memo->file_memo)) {
+                        Storage::disk('public')->delete($memo->file_memo);
+                    }
+                    $memo->delete();
+                }
 
                 $pencairan = TransaksiPencairan::where('nomor_pembayaran', $nomorPembayaran)->first();
                 if ($pencairan) {
@@ -832,7 +933,13 @@ class PermohonanPengadaan extends Model
 
             ReviuDokumen::where('nomor_paket', $nomorPaket)->delete();
 
-            $reminderList = Reminder::where('nomor_paket', $nomorPaket)->get();
+            $reminderList = Reminder::where('nomor_paket', $nomorPaket)
+                ->when(! empty($nomorPembayaranList), fn ($q) => $q->orWhereIn('nomor_pembayaran', $nomorPembayaranList))
+                ->get();
+            $reminderIds = $reminderList->pluck('id_reminder')->all();
+            if (! empty($reminderIds)) {
+                Reminder::whereIn('parent_reminder_id', $reminderIds)->update(['parent_reminder_id' => null]);
+            }
             foreach ($reminderList as $reminder) {
                 NotifikasiUser::where('id_reminder', $reminder->id_reminder)->delete();
                 $reminder->delete();
@@ -852,7 +959,13 @@ class PermohonanPengadaan extends Model
         self::where('nomor_surat_induk_split', $nomorSurat)->update(['nomor_surat_induk_split' => null]);
         self::where('nomor_surat_revisi', $nomorSurat)->update(['nomor_surat_revisi' => null]);
 
-        VerifikasiParalel::where('nomor_surat', $nomorSurat)->delete();
+        $verifikasiList = VerifikasiParalel::where('nomor_surat', $nomorSurat)->get();
+        foreach ($verifikasiList as $verifikasi) {
+            if (! empty($verifikasi->file_memo) && Storage::disk('public')->exists($verifikasi->file_memo)) {
+                Storage::disk('public')->delete($verifikasi->file_memo);
+            }
+            $verifikasi->delete();
+        }
 
         // memulihkan sisa_pagu_mak sebelum menghapus baris alokasi agar pembatalan permohonan tidak meninggalkan saldo MAK menggantung.
         $alokasiList = AlokasiMAK::where('nomor_surat', $nomorSurat)->get();
@@ -868,6 +981,8 @@ class PermohonanPengadaan extends Model
             $this->file_permohonan,
             $this->file_kak,
             $this->file_spesifikasi_teknis,
+            $this->file_memo_cek_mak,
+            $this->file_memo_ketersediaan_mak,
         ];
 
         if (! empty($this->dokumen_lampiran) && is_array($this->dokumen_lampiran)) {

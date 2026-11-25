@@ -620,14 +620,41 @@
                 <div class="divide-y divide-slate-100 max-h-[720px] overflow-y-auto">
                     @forelse($permohonanList ?? [] as $item)
                         @php
+                            $hasMakProgress = $item->hasMakOrVerificationProgress();
+                            $displayStatusRaw = $item->isDiajukanPraMak()
+                                ? 'diajukan'
+                                : ($item->status_permohonan ?? $item->status ?? 'diajukan');
+
+                            $badgeMeta = [
+                                'diajukan' => ['Diajukan', 'bg-blue-100 text-[#0969da]'],
+                                'draft' => ['Draft', 'bg-slate-100 text-slate-700'],
+                                'cek_mak_perencanaan' => ['Cek Anggaran Perencanaan', 'bg-amber-100 text-amber-700'],
+                                'menunggu_acc_wadir_ppk' => ['Menunggu Persetujuan', 'bg-amber-100 text-amber-700'],
+                                'reviu_paralel' => ['Dalam Proses', 'bg-amber-100 text-amber-700'],
+                                'pending_anggaran' => ['Anggaran Ditahan', 'bg-purple-100 text-purple-700'],
+                                'hold' => ['Anggaran Ditahan', 'bg-purple-100 text-purple-700'],
+                                'disetujui' => ['Disetujui', 'bg-emerald-100 text-emerald-700'],
+                                'diproses_ppbj' => ['Menunggu Unit Pengadaan', 'bg-amber-100 text-amber-700'],
+                                'paket_terdaftar' => ['Paket Terdaftar', 'bg-blue-100 text-[#0969da]'],
+                                'perlu_revisi' => ['Perlu Revisi', 'bg-amber-100 text-amber-700'],
+                                'revisi' => ['Perlu Revisi', 'bg-amber-100 text-amber-700'],
+                                'ditolak' => ['Ditolak', 'bg-rose-100 text-rose-700'],
+                                'selesai' => ['Selesai', 'bg-emerald-100 text-emerald-700'],
+                            ];
+                            [$displayStatusLabel, $displayStatusBadgeClass] = $badgeMeta[strtolower($displayStatusRaw)]
+                                ?? [ucwords(str_replace('_', ' ', $displayStatusRaw)), 'bg-blue-100 text-[#0969da]'];
+
                             $normalizedItem = [
                                 'id' => $item->id,
                                 'nomor' => $item->nomor_surat,
                                 'nomor_surat' => $item->nomor_surat,
                                 'judul' => $item->perihal ?? $item->judul_pengadaan,
                                 'perihal' => $item->perihal ?? $item->judul_pengadaan,
-                                'statusRaw' => $item->status_permohonan ?? $item->status ?? 'diajukan',
+                                'statusRaw' => $displayStatusRaw,
                                 'status_permohonan' => $item->status_permohonan ?? $item->status ?? 'diajukan',
+                                'kode_mak' => $item->kode_mak,
+                                'has_mak' => $hasMakProgress,
+                                'can_cancel_own' => $item->canBeDeletedByOwner(),
                                 'pemohon' => $item->unit->nama_unit ?? $item->kode_unit ?? ($item->user->name ?? 'Unit Pengusul'),
                                 'unit' => $item->unit ?? ['nama_unit' => $item->kode_unit ?? 'Utama'],
                                 'kode_unit' => $item->kode_unit ?? '',
@@ -658,15 +685,15 @@
 
                             <!-- Status Circle Icon (Frame 128) -->
                             <div class="size-11 rounded-full flex items-center justify-center shrink-0"
-                                 :class="statusMeta('{{ $item->status_permohonan ?? $item->status }}').circle">
-                                <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" x-html="statusMeta('{{ $item->status_permohonan ?? $item->status }}').icon"></svg>
+                                 :class="statusMeta('{{ $displayStatusRaw }}').circle">
+                                <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" x-html="statusMeta('{{ $displayStatusRaw }}').icon"></svg>
                             </div>
 
                             <div class="min-w-0 flex-1">
                                 <div class="flex items-center justify-between gap-2">
                                     <h3 class="font-bold text-sm text-[#213153] truncate">{{ $item->perihal ?? $item->judul_pengadaan }}</h3>
-                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 whitespace-nowrap {{ strtolower($item->status_permohonan ?? $item->status) === 'disetujui' ? 'bg-emerald-100 text-emerald-700' : (in_array(strtolower($item->status_permohonan ?? $item->status), ['perlu_revisi', 'revisi']) ? 'bg-amber-100 text-amber-700' : (strtolower($item->status_permohonan ?? $item->status) === 'ditolak' ? 'bg-rose-100 text-rose-700' : 'bg-blue-100 text-[#0969da]')) }}">
-                                        {{ ucfirst(str_replace('_', ' ', $item->status_permohonan ?? $item->status ?? 'Diajukan')) }}
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 whitespace-nowrap {{ $displayStatusBadgeClass }}">
+                                        {{ $displayStatusLabel }}
                                     </span>
                                 </div>
                                 <div class="text-xs font-mono font-medium text-slate-400 mt-0.5 truncate">{{ $item->nomor_surat }}</div>
@@ -810,18 +837,6 @@
                 <template x-if="selectedItem">
                     <div class="mt-6 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
                         <div class="flex items-center gap-2">
-                            {{-- <button @click="viewMode = 'fullscreen'" type="button"
-                                    class="h-9 px-4 inline-flex items-center rounded-lg bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 transition-colors cursor-pointer">
-                                Detail Penuh
-                            </button>
-                            <button @click="openPreview(selectedItem)" type="button"
-                                    class="h-9 px-4 inline-flex items-center rounded-lg border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50 transition-colors cursor-pointer">
-                                Lihat Dokumen
-                            </button>
-                            <a :href="pdfUrl(selectedItem) + '?download=1'" target="_blank" rel="noopener"
-                               class="h-9 px-3.5 inline-flex items-center rounded-lg border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50 transition-colors">
-                                Unduh PDF
-                            </a> --}}
                             @if(Auth::user()->hasPermission('permohonan.revisi'))
                                 <template x-if="canReviseItem(selectedItem)">
                                     <button type="button" 
@@ -1147,55 +1162,7 @@
     <!-- 7. MODAL 4: HAPUS PENGAJUAN (Figma 744:7604 / Frame 385)                   -->
     <!-- ========================================================================= -->
     @if(Auth::user()->hasAnyPermission(['permohonan.delete', 'permohonan.create']))
-    <x-modal id="modal-delete-permohonan" title="Hapus Pengajuan?" subtitle="Hanya dapat dihapus apabila belum disetujui oleh pihak manapun." maxWidth="md">
-        <form :action="'{{ url('permohonan') }}/' + String(hapusTarget?.nomor_surat || hapusTarget?.nomor || hapusTarget?.id || '').split('/').map(seg => encodeURIComponent(seg)).join('/')" 
-              method="POST" 
-              class="space-y-4">
-            @csrf
-            @method('DELETE')
-
-            <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600">
-                <span>Pengajuan yang akan dihapus: </span>
-                <strong class="font-mono text-[#213153]" x-text="hapusTarget?.nomor_surat || hapusTarget?.nomor"></strong>
-            </div>
-
-            <!-- Input Konfirmasi Password (Figma Frame 15 / Rectangle 10 / Eyes instance) -->
-            <div class="space-y-1.5">
-                <label class="block text-xs font-bold text-slate-700">Konfirmasi Password <span class="text-rose-500">*</span></label>
-                <div class="relative">
-                    <input :type="showHapusPassword ? 'text' : 'password'" 
-                           name="password" 
-                           x-model="hapusPassword"
-                           placeholder="Masukkan password akun Anda"
-                           class="w-full h-11 pl-3.5 pr-10 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-[#0969da]/20 focus:border-[#0969da] outline-none">
-                    <button type="button" 
-                            @click="toggleHapusPassword()"
-                            class="absolute right-3 top-3 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
-                            title="Tampilkan / Sembunyikan Password">
-                        <template x-if="!showHapusPassword">
-                            <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                        </template>
-                        <template x-if="showHapusPassword">
-                            <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18"/></svg>
-                        </template>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Footer Buttons (Figma Rectangle 53 & Rectangle 54) -->
-            <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
-                <button type="button" 
-                        @click="$dispatch('close-modal', 'modal-delete-permohonan')" 
-                        class="h-11 px-6 rounded-xl border border-slate-300 bg-white text-slate-700 font-bold text-sm hover:bg-slate-50 transition-colors cursor-pointer">
-                    Batal
-                </button>
-                <button type="submit" 
-                        class="h-11 px-6 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-sm shadow-md shadow-rose-600/20 transition-all cursor-pointer">
-                    Hapus Pengajuan
-                </button>
-            </div>
-        </form>
-    </x-modal>
+        @include('permohonan.partials.delete-modal')
     @endif
 
 </div>

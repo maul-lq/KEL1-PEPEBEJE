@@ -21,6 +21,7 @@ use App\Models\User;
 use App\Models\VerifikasiParalel;
 use App\Rules\DokumenUploadRule;
 use App\Services\PengadaanNotificationService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -35,7 +36,7 @@ use Illuminate\View\View;
  * serta evaluasi kelulusan paralel Bidang II, Perencanaan, Wadir II, dan PPK dalam controller ini.
  *
  * Contoh pemanggilan:
- * `$response = app(PermohonanPengadaanController::class)->index($request);`
+ * `$response = app(PermohonanPengadaanController::class)->permohonanIndex($request);`
  */
 class PermohonanPengadaanController extends Controller
 {
@@ -54,23 +55,6 @@ class PermohonanPengadaanController extends Controller
     public function __construct(
         protected PengadaanNotificationService $notificationService
     ) {}
-
-    /**
-     * Menampilkan daftar riwayat usulan permohonan sesuai cakupan hak akses pengguna.
-     *
-     * Tujuan: menyediakan titik masuk rute resource standar yang mendelegasikan prosesnya
-     * ke `permohonanIndex` agar kompatibel dengan penamaan rute lama maupun baru.
-     *
-     * @param  Request  $request  Permintaan HTTP berisi parameter pencarian atau pilihan berkas aktif.
-     * @return View Tampilan halaman daftar permohonan pengadaan.
-     *
-     * Contoh pemanggilan:
-     * `Route::get('/permohonan', [PermohonanPengadaanController::class, 'index']);`
-     */
-    public function index(Request $request): View
-    {
-        return $this->permohonanIndex($request);
-    }
 
     /**
      * Memuat koleksi permohonan pengadaan beserta relasi tracking dan isolasi unit kerja.
@@ -118,24 +102,53 @@ class PermohonanPengadaanController extends Controller
             });
         }
 
-        // menyelaraskan opsi dropdown status dengan nilai status aktual proses verifikasi maupun arsip.
+        // memisahkan permohonan yang belum ditetapkan pos anggarannya (Diajukan) dari yang sudah masuk pemeriksaan anggaran atau persetujuan (Dalam Proses).
         if ($request->filled('status') && $request->input('status') !== 'all') {
             $statusFilter = strtolower(trim((string) $request->input('status')));
+            $preMakLegacyStatuses = [
+                PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
+                PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN,
+            ];
             match ($statusFilter) {
-                'reviu_paralel' => $query->whereIn('status_permohonan', [
-                    PermohonanPengadaan::STATUS_REVIU_PARALEL,
-                    PermohonanPengadaan::STATUS_MENUNGGU_BIDANG_2,
-                    PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN,
-                    PermohonanPengadaan::STATUS_MENUNGGU_ACC_WADIR_PPK,
-                    PermohonanPengadaan::STATUS_PENDING_ANGGARAN,
-                    'hold',
-                ]),
+                'diajukan' => $query->where(function ($sub) use ($preMakLegacyStatuses) {
+                    $sub->whereIn('status_permohonan', [
+                        PermohonanPengadaan::STATUS_DIAJUKAN,
+                        'draft',
+                    ])->orWhere(function ($legacyPreMak) use ($preMakLegacyStatuses) {
+                        $legacyPreMak->whereIn('status_permohonan', $preMakLegacyStatuses)
+                            ->where(fn ($noMak) => $noMak->whereNull('kode_mak')->orWhere('kode_mak', ''))
+                            ->whereDoesntHave('alokasiMak')
+                            ->whereDoesntHave('paketPengadaan')
+                            ->whereDoesntHave('verifikasiParalel', fn ($vp) => $vp->whereNotIn('status_keputusan', ['menunggu', '']));
+                    });
+                }),
+                'reviu_paralel' => $query->where(function ($sub) use ($preMakLegacyStatuses) {
+                    $sub->whereIn('status_permohonan', [
+                        PermohonanPengadaan::STATUS_REVIU_PARALEL,
+                        PermohonanPengadaan::STATUS_MENUNGGU_ACC_WADIR_PPK,
+                        PermohonanPengadaan::STATUS_PENDING_ANGGARAN,
+                        'hold',
+                    ])->orWhere(function ($postMak) use ($preMakLegacyStatuses) {
+                        $postMak->whereIn('status_permohonan', $preMakLegacyStatuses)
+                            ->where(function ($hasProgress) {
+                                $hasProgress->where(fn ($makFilled) => $makFilled->whereNotNull('kode_mak')->where('kode_mak', '!=', ''))
+                                    ->orWhereHas('alokasiMak')
+                                    ->orWhereHas('paketPengadaan')
+                                    ->orWhereHas('verifikasiParalel', fn ($vp) => $vp->whereNotIn('status_keputusan', ['menunggu', '']));
+                            });
+                    });
+                }),
                 'perlu_revisi', 'revisi' => $query->whereIn('status_permohonan', ['perlu_revisi', 'revisi']),
                 'disetujui' => $query->whereIn('status_permohonan', [
                     PermohonanPengadaan::STATUS_DISETUJUI,
                     PermohonanPengadaan::STATUS_DIPROSES_PPBJ,
                     'paket_terdaftar',
                     'disetujui_wadir2_dan_ppk',
+                ]),
+                'selesai' => $query->whereIn('status_permohonan', [
+                    PermohonanPengadaan::STATUS_SELESAI,
+                    'sp2d_lunas',
+                    'cair',
                 ]),
                 default => $query->where('status_permohonan', $statusFilter),
             };
@@ -166,34 +179,6 @@ class PermohonanPengadaanController extends Controller
         return view('permohonan.index', compact('permohonanList', 'user', 'units', 'makList', 'ppkUsers'));
     }
 
-    /**
-     * Menampilkan halaman detail dan tracking siklus permohonan pengadaan berdasarkan nomor surat.
-     *
-     * Tujuan: menyediakan metode `show` standar yang meneruskan pemanggilan ke `permohonanShow`.
-     *
-     * @param  string  $id  Nomor surat permohonan pengadaan yang ingin ditinjau.
-     * @return View Halaman detail permohonan pengadaan.
-     *
-     * Contoh pemanggilan:
-     * `Route::get('/permohonan/{id}', [PermohonanPengadaanController::class, 'show']);`
-     */
-    public function show(string $id): View
-    {
-        return $this->permohonanShow($id);
-    }
-
-    /**
-     * Mengambil data lengkap satu permohonan pengadaan beserta daftar MAK dan akun PPK aktif.
-     *
-     * Tujuan: memuat seluruh relasi verifikasi hingga pembayaran agar satu halaman detail dapat
-     * menampilkan progres 8 siklus PBJ sekaligus aksi sesuai peran pengguna.
-     *
-     * @param  string  $id  Nomor surat permohonan target.
-     * @return View Halaman detail permohonan (`permohonan.show`).
-     *
-     * Contoh pemanggilan:
-     * `$view = $this->permohonanShow('001/PNJ/2026');`
-     */
     public function permohonanShow(string $id): View
     {
         $user = Auth::user();
@@ -207,6 +192,7 @@ class PermohonanPengadaanController extends Controller
         $permohonan = PermohonanPengadaan::with([
             'unit',
             'user',
+            'alokasiMak',
             'verifikasiParalel.user',
             'paketPengadaan.penerimaanBarang.fotoDokumentasi',
             'paketPengadaan.pembayaran.transaksiPencairan',
@@ -223,21 +209,6 @@ class PermohonanPengadaanController extends Controller
         $ppkUsers = User::eligibleForPpk()->get();
 
         return view('permohonan.show', compact('permohonan', 'makList', 'ppkUsers'));
-    }
-
-    /**
-     * Menampilkan formulir pendaftaran usulan permohonan pengadaan baru berbasis Srikandi.
-     *
-     * Tujuan: menyediakan endpoint `create` standar yang memanggil `permohonanCreate`.
-     *
-     * @return View Halaman formulir pengajuan permohonan baru.
-     *
-     * Contoh pemanggilan:
-     * `Route::get('/permohonan/create', [PermohonanPengadaanController::class, 'create']);`
-     */
-    public function create(): View
-    {
-        return $this->permohonanCreate();
     }
 
     /**
@@ -260,22 +231,6 @@ class PermohonanPengadaanController extends Controller
         $units = Unit::all();
 
         return view('permohonan.create', compact('units'));
-    }
-
-    /**
-     * Memproses pengajuan usulan permohonan baru ke Bidang 2 (Alur Persetujuan Awal Berantai).
-     *
-     * Tujuan: menyediakan metode `store` resource yang meneruskan request ke `storePermohonan`.
-     *
-     * @param  Request  $request  Payload formulir surat permohonan dan berkas lampiran.
-     * @return RedirectResponse Pengalihan halaman setelah penyimpanan berhasil atau gagal.
-     *
-     * Contoh pemanggilan:
-     * `Route::post('/permohonan', [PermohonanPengadaanController::class, 'store']);`
-     */
-    public function store(Request $request): RedirectResponse
-    {
-        return $this->storePermohonan($request);
     }
 
     /**
@@ -373,7 +328,7 @@ class PermohonanPengadaanController extends Controller
 
         $kodeUnit = $user->kode_unit ?? $validated['kode_unit'] ?? 'TIK';
 
-        // Buat baris data permohonan pengadaan pada tahap awal Bidang 2
+        // menetapkan status awal ke 'diajukan' karena Bagian Perencanaan belum mengecek dan menetapkan pos anggaran MAK.
         $permohonan = PermohonanPengadaan::create([
             'nomor_surat' => $validated['nomor_surat'],
             'judul_pengadaan' => $validated['perihal'],
@@ -389,9 +344,9 @@ class PermohonanPengadaanController extends Controller
             'file_kak' => $fileKakPath,
             'file_spesifikasi_teknis' => $fileSpekPath,
             'dokumen_lampiran' => $dokumenLampiranList,
-            'status_permohonan' => PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN,
+            'status_permohonan' => PermohonanPengadaan::STATUS_DIAJUKAN,
             'status_anggaran' => 'pending',
-            'status' => PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN,
+            'status' => PermohonanPengadaan::STATUS_DIAJUKAN,
         ]);
 
         // menginisialisasi antrean penentuan pos anggaran dan penetapan PPK di Bagian Perencanaan serta rekam tunggu Wadir 2 tanpa verifikasi Staf Bidang 2.
@@ -415,7 +370,7 @@ class PermohonanPengadaanController extends Controller
             'permohonan_pengadaan',
             $permohonan->nomor_surat,
             null,
-            PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN,
+            PermohonanPengadaan::STATUS_DIAJUKAN,
             "Pengajuan usulan permohonan pengadaan nomor {$permohonan->nomor_surat} ke Bagian Perencanaan oleh {$user->nama}"
         );
 
@@ -430,23 +385,6 @@ class PermohonanPengadaanController extends Controller
             'success',
             "Usulan permohonan nomor {$permohonan->nomor_surat} berhasil diajukan ke Bagian Perencanaan untuk penentuan pos anggaran dan penetapan PPK."
         );
-    }
-
-    /**
-     * Memproses pengajuan revisi surat usulan permohonan yang sebelumnya ditolak atau perlu perbaikan.
-     *
-     * Tujuan: menyediakan alias `revisi` yang memanggil `revisiPermohonan` untuk mendukung
-     * pembaruan in-place maupun penerbitan nomor surat revisi baru tanpa memotong pagu MAK dua kali.
-     *
-     * @param  Request  $request  Data perubahan usulan dan dokumen revisi.
-     * @return RedirectResponse Redirect ke halaman indeks permohonan setelah revisi disimpan.
-     *
-     * Contoh pemanggilan:
-     * `Route::post('/permohonan/revisi', [PermohonanPengadaanController::class, 'revisi']);`
-     */
-    public function revisi(Request $request): RedirectResponse
-    {
-        return $this->revisiPermohonan($request);
     }
 
     /**
@@ -529,8 +467,10 @@ class PermohonanPengadaanController extends Controller
         $revisiKe = ($induk->revisi_ke ?? 0) + 1;
 
         $hasMak = ! empty($induk->kode_mak);
-        // mengarahkan revisi usulan langsung ke Bagian Perencanaan agar penentuan atau konfirmasi pos anggaran tidak tertahan telaah Staf Bidang 2.
-        $targetStatus = PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN;
+        // membedakan status revisi berdasarkan ada tidaknya MAK agar usulan pra-MAK kembali berstatus Diajukan sedangkan revisi pasca-MAK masuk pemeriksaan Perencanaan.
+        $targetStatus = $hasMak
+            ? PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN
+            : PermohonanPengadaan::STATUS_DIAJUKAN;
 
         // Ambil seluruh riwayat verifikasi paralel sebelum revisi agar id_user verifikator asal dan status ACC aman diwariskan.
         $oldVerifPerencanaan = VerifikasiParalel::where('nomor_surat', $oldNomorSurat)
@@ -773,7 +713,7 @@ class PermohonanPengadaanController extends Controller
                 'permohonan_pengadaan',
                 $activePermohonan->nomor_surat,
                 $oldNomorSurat !== $activePermohonan->nomor_surat ? $oldNomorSurat : null,
-                PermohonanPengadaan::STATUS_CEK_MAK_PERENCANAAN,
+                $targetStatus,
                 $catatanAudit
             );
 
@@ -805,35 +745,18 @@ class PermohonanPengadaanController extends Controller
     }
 
     /**
-     * Membatalkan dan menghapus usulan permohonan pengadaan melalui endpoint resource standar.
-     *
-     * Tujuan: mendelegasikan aksi hapus ke `destroyPermohonan` agar penanganan nomor surat
-     * yang mengandung karakter slash ter-encode tetap konsisten.
-     *
-     * @param  string  $id  Nomor surat permohonan (bisa dalam bentuk raw maupun URL-encoded).
-     * @return RedirectResponse Redirect ke daftar permohonan setelah penghapusan.
-     *
-     * Contoh pemanggilan:
-     * `Route::delete('/permohonan/{id}', [PermohonanPengadaanController::class, 'destroy']);`
-     */
-    public function destroy(string $id): RedirectResponse
-    {
-        return $this->destroyPermohonan($id);
-    }
-
-    /**
      * Memvalidasi kepemilikan atau izin hapus lalu menjalankan cascade delete permohonan dalam transaksi DB.
      *
-     * Tujuan: memastikan pengusul hanya bisa membatalkan usulannya sendiri saat statusnya masih
-     * draft, diajukan, atau ditolak agar berkas yang sudah masuk paket tidak hilang sepihak.
+     * Tujuan: membatasi penghapusan mandiri oleh pemilik (`permohonan.create`) hanya pada status Diajukan
+     * sebelum penetapan MAK atau setelah Selesai agar alokasi anggaran dan proses berjalan tetap aman.
      *
      * @param  string  $id  Nomor surat permohonan target penghapusan.
-     * @return RedirectResponse Redirect ke halaman indeks permohonan dengan status penghapusan.
+     * @return RedirectResponse|JsonResponse Redirect ke daftar permohonan atau respons JSON bila diminta klien.
      *
      * Contoh pemanggilan:
      * `$response = $this->destroyPermohonan($nomorSurat);`
      */
-    public function destroyPermohonan(string $id): RedirectResponse
+    public function destroyPermohonan(string $id): RedirectResponse|JsonResponse
     {
         $user = Auth::user();
         // cek variasi urldecode karena nomor surat dinas sering memuat tanda garis miring (/).
@@ -845,13 +768,14 @@ class PermohonanPengadaanController extends Controller
         $canDeleteAny = $user && $user->hasPermission('permohonan.delete');
 
         if (! $canDeleteAny) {
+            // hanya pemegang permohonan.delete (admin) yang boleh menghapus surat user lain; user biasa hanya boleh menghapus surat miliknya sendiri.
             if (! $user || ! $user->hasPermission('permohonan.create') || (int) $permohonan->id_user !== (int) $user->id_user) {
                 abort(403, 'Akses Ditolak: Anda hanya dapat membatalkan permohonan milik sendiri.');
             }
 
-            // kunci pembatalan mandiri bila berkas sudah diverifikasi atau diproses paket agar integritas audit terjaga.
-            if (! in_array($permohonan->status_permohonan, ['draft', 'diajukan', 'ditolak'], true)) {
-                return redirect()->route('permohonan.index')->with('error', 'Permohonan yang telah diverifikasi atau diproses paket tidak dapat dibatalkan.');
+            // menolak penghapusan di tengah proses supaya pemotongan MAK, persetujuan paralel, dan paket yang aktif tidak rusak.
+            if (! $permohonan->canBeDeletedByOwner()) {
+                abort(403, 'Akses Ditolak: Permohonan yang telah diverifikasi atau diproses paket tidak dapat dibatalkan.');
             }
         }
 
@@ -871,7 +795,16 @@ class PermohonanPengadaanController extends Controller
             "Pembatalan dan penghapusan usulan permohonan nomor {$nomor} oleh {$user->nama}"
         );
 
-        return redirect()->route('permohonan.index')->with('success', "Usulan permohonan nomor {$nomor} berhasil dibatalkan dan dihapus.");
+        $successMessage = "Usulan permohonan nomor {$nomor} berhasil dibatalkan dan dihapus.";
+
+        if (request()->expectsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'message' => $successMessage,
+            ]);
+        }
+
+        return redirect()->route('permohonan.index')->with('success', $successMessage);
     }
 
     /**

@@ -33,6 +33,7 @@ export function profilePage() {
          * Contoh pemanggilan: Dijalankan otomatis oleh Alpine saat halaman profil dimuat.
          */
         init() {
+            this.editModalOpen = this.$el.dataset.editModalOpen === '1';
             this.passwordModalOpen = this.$el.dataset.passwordModalOpen === '1';
             this.deleteAccountModalOpen = this.$el.dataset.deleteModalOpen === '1';
         },

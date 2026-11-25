@@ -199,20 +199,6 @@ export function rupiahField() {
 }
 
 /**
- * Mengelola state toggle visibilitas password konfirmasi pada modal pembatalan/hapus permohonan.
- *
- * Tujuan: menjaga agar state toggle sandi di modal hapus terpisah dari komponen lain.
- * Parameter: Tidak menerima argumen.
- * Nilai kembali: Objek state Alpine.js berisi `showPassword`.
- * Contoh pemanggilan: `<div x-data="permohonanDeleteModal()">`
- */
-export function permohonanDeleteModal() {
-    return {
-        showPassword: false,
-    };
-}
-
-/**
  * Mengelola nominal input sementara pada modal pengajuan usulan cepat di halaman daftar.
  *
  * Tujuan: menyediakan ruang lingkup reaktif ringkas untuk pratinjau nominal modal cepat.

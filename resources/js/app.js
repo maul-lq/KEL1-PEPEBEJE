@@ -39,7 +39,6 @@ import {
 import {
     permohonanCreateModalUpload,
     permohonanCreatePage,
-    permohonanDeleteModal,
     permohonanQuickModal,
     rupiahField,
 } from './modules/permohonan_form.js';
@@ -95,7 +94,6 @@ const alpineComponents = {
     permohonanCreatePage,
     permohonanCreateModalUpload,
     rupiahField,
-    permohonanDeleteModal,
     permohonanQuickModal,
     verifikasiMakForm,
     verifikasiMakList,

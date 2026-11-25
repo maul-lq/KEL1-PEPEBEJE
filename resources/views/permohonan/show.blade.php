@@ -24,34 +24,10 @@
 @section('content')
 @php
     $st = strtolower((string) ($permohonan->status_permohonan ?? $permohonan->status ?? 'diajukan'));
-    $currentStep = 1;
-    if (in_array($st, [
-        'menunggu_bidang_2',
-        'cek_mak_perencanaan',
-        'reviu_paralel',
-        'menunggu_acc_wadir_ppk',
-        'pending_anggaran',
-        'hold',
-        'perlu_revisi',
-        'revisi',
-        'menunggu_memo_cek_mak',
-        'menunggu_memo_ketersediaan_mak',
-        'menunggu_persetujuan_wadir2_dan_ppk'
-    ], true)) {
-        $currentStep = 2;
-    } elseif (in_array($st, ['disetujui', 'diproses_ppbj', 'disetujui_wadir2_dan_ppk', 'paket_terdaftar'], true)) {
-        $currentStep = 3;
-    } elseif (in_array($st, ['reviu_dokumen', 'menunggu_reviu_pp', 'menunggu_reviu_ppk'], true)) {
-        $currentStep = 4;
-    } elseif (in_array($st, ['spk_terbit', 'kontrak', 'surat_pesanan_terbit', 'surat_kontrak_terbit', 'belanja_langsung', 'belanja_langsung_selesai'], true)) {
-        $currentStep = 5;
-    } elseif (in_array($st, ['pengingat_h2', 'pengiriman'], true)) {
-        $currentStep = 6;
-    } elseif (in_array($st, ['pemeriksaan_fisik', 'bast_terbit'], true)) {
-        $currentStep = 7;
-    } elseif (in_array($st, ['selesai', 'sp2d_lunas', 'cair'], true)) {
-        $currentStep = 8;
-    }
+    $displayStatus = $permohonan->isDiajukanPraMak()
+        ? 'diajukan'
+        : ($permohonan->status_permohonan ?? $permohonan->status ?? 'diajukan');
+    $currentStep = $permohonan->hitungTahapSiklus();
 @endphp
 
 <div class="mx-auto max-w-[1650px] space-y-6">
@@ -78,7 +54,7 @@
         </div>
 
         <div class="flex items-center gap-2.5">
-            <x-status-badge :status="$permohonan->status_permohonan ?? $permohonan->status" size="md" />
+            <x-status-badge :status="$displayStatus" size="md" />
 
             @if(Auth::user()?->hasPermission('dokumen.unduh_pdf'))
                 <a href="{{ route('dokumen.pdf', ['jenis' => 'permohonan', 'id' => $permohonan->nomor_surat]) }}" 
@@ -89,10 +65,10 @@
                 </a>
             @endif
 
-            @if(Auth::user()->hasPermission('permohonan.delete') || (Auth::user()->hasPermission('permohonan.create') && in_array($st, ['draft', 'diajukan', 'ditolak']) && Auth::user()->id_user === $permohonan->id_user))
+            @if(Auth::user()->hasPermission('permohonan.delete') || (Auth::user()->hasPermission('permohonan.create') && (int) Auth::user()->id_user === (int) $permohonan->id_user && $permohonan->canBeDeletedByOwner()))
                 <form action="{{ route('permohonan.destroy', $permohonan->nomor_surat) }}" 
                       method="POST" 
-                      data-confirm="Apakah Anda yakin ingin membatalkan dan menghapus usulan pengadaan ini? Tindakan ini tidak dapat dibatalkan."
+                      data-confirm="Apakah Anda yakin ingin membatalkan dan menghapus usulan pengadaan ini beserta seluruh data proses terkait? Tindakan ini tidak dapat dibatalkan."
                       class="inline-block">
                     @csrf
                     @method('DELETE')

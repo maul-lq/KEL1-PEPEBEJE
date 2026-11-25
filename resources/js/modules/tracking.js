@@ -52,12 +52,21 @@ export function trackingManager(initialItems = null) {
                 if (this.filterStatus && this.filterStatus !== 'Semua') {
                     const s = String(item.statusRaw || item.status_permohonan || item.status || '').toLowerCase();
                     const f = String(this.filterStatus).toLowerCase();
-                    if (f === 'reviu_paralel') {
-                        if (!['reviu_paralel', 'menunggu_bidang_2', 'cek_mak_perencanaan', 'menunggu_acc_wadir_ppk', 'pending_anggaran', 'hold'].includes(s)) return false;
+                    const hasMak = Boolean(item.has_mak || item.kode_mak);
+                    if (f === 'diajukan') {
+                        const isPreMak = ['diajukan', 'draft'].includes(s)
+                            || (['menunggu_bidang_2', 'cek_mak_perencanaan'].includes(s) && !hasMak);
+                        if (!isPreMak) return false;
+                    } else if (f === 'reviu_paralel') {
+                        const isInProcess = ['reviu_paralel', 'menunggu_acc_wadir_ppk', 'pending_anggaran', 'hold'].includes(s)
+                            || (['menunggu_bidang_2', 'cek_mak_perencanaan'].includes(s) && hasMak);
+                        if (!isInProcess) return false;
                     } else if (f === 'disetujui') {
-                        if (!['disetujui', 'diproses_ppbj', 'disetujui_wadir2_dan_ppk', 'disetujui_ppk_siap_belanja_pp'].includes(s)) return false;
+                        if (!['disetujui', 'diproses_ppbj', 'paket_terdaftar', 'disetujui_wadir2_dan_ppk', 'disetujui_ppk_siap_belanja_pp'].includes(s)) return false;
                     } else if (f === 'perlu_revisi' || f === 'revisi') {
                         if (!['perlu_revisi', 'revisi'].includes(s)) return false;
+                    } else if (f === 'selesai') {
+                        if (!['selesai', 'sp2d_lunas', 'cair'].includes(s)) return false;
                     } else if (s !== f) {
                         return false;
                     }
@@ -209,18 +218,26 @@ export function trackingManager(initialItems = null) {
         },
 
         /**
-         * Menentukan apakah pengguna berhak membatalkan sendiri permohonan berstatus awal atau ditolak.
+         * Menentukan apakah pemilik berhak menghapus permohonannya sendiri pada status Diajukan (pra-MAK) atau Selesai.
          *
          * @param  {Object|null} item  Data permohonan pengadaan aktif.
-         * @return {boolean} True jika item berada pada status yang masih dapat dibatalkan oleh pembuatnya.
+         * @return {boolean} True jika item milik pengguna aktif dan belum ditetapkan pos anggarannya atau sudah selesai.
          *
          * Contoh pemanggilan: `x-if="canCancelOwnItem(selectedItem)"`
          */
         canCancelOwnItem(item) {
-            if (!item) return false;
+            if (!item || this.currentUserId <= 0 || Number(item.id_user || 0) !== this.currentUserId) {
+                return false;
+            }
+            if (typeof item.can_cancel_own === 'boolean') {
+                return item.can_cancel_own;
+            }
             const st = String(item.statusRaw || item.status_permohonan || item.status || '').toLowerCase().trim();
-            if (!['draft', 'diajukan', 'ditolak', 'perlu_revisi'].includes(st)) return false;
-            return this.canViewAll || (this.currentUserId > 0 && Number(item.id_user || 0) === this.currentUserId);
+            if (['selesai', 'sp2d_lunas', 'cair'].includes(st)) {
+                return true;
+            }
+            const hasMak = Boolean(item.has_mak || item.kode_mak);
+            return ['diajukan', 'draft'].includes(st) && !hasMak;
         },
 
         /**
@@ -283,7 +300,11 @@ export function trackingManager(initialItems = null) {
                 this.selectedItem = null;
                 return;
             }
-            const status = item.status_permohonan || item.status || item.statusRaw || 'diajukan';
+            const rawDbStatus = String(item.status_permohonan || item.status || item.statusRaw || 'diajukan').toLowerCase().trim();
+            const hasMak = Boolean(item.has_mak || item.kode_mak);
+            const status = (!hasMak && ['cek_mak_perencanaan', 'menunggu_bidang_2'].includes(rawDbStatus))
+                ? 'diajukan'
+                : (item.statusRaw || item.status_permohonan || item.status || 'diajukan');
             const determinedTahap = item.currentTahap || item.current_tahap || this.getStepNumber(status);
             this.selectedItem = Object.assign({}, item, {
                 id: item.id,
