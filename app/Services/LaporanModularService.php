@@ -251,7 +251,7 @@ class LaporanModularService
 
         $riwayatList = [];
         foreach ($auditLogsRaw as $log) {
-            $riwayatList[] = $this->formatAuditLogItem($log, $permohonanLookup, $paketLookup);
+            $riwayatList[] = $this->formatAuditLogItem($log, $permohonanLookup, $paketLookup, $user);
         }
 
         $riwayatList = $this->appendFallbackRiwayat($user, $riwayatList);
@@ -1979,41 +1979,70 @@ class LaporanModularService
      * @param  AuditLog  $log  Entitas log audit yang akan diformat.
      * @param  Collection<string, PermohonanPengadaan>  $permohonanLookup  Peta permohonan terindeks nomor surat.
      * @param  Collection<string, PaketPengadaan>  $paketLookup  Peta paket terindeks nomor paket.
+     * @param  User|null  $user  Pengguna aktif untuk memfilter tautan tujuan sesuai hak akses RBAC.
      * @return array<string, mixed> Struktur item riwayat terstandar untuk tab Riwayat Aktivitas.
      *
      * Contoh pemanggilan:
-     * `$item = $this->formatAuditLogItem($log, $permohonanLookup, $paketLookup);`
+     * `$item = $this->formatAuditLogItem($log, $permohonanLookup, $paketLookup, $user);`
      */
-    private function formatAuditLogItem(AuditLog $log, Collection $permohonanLookup, Collection $paketLookup): array
+    private function formatAuditLogItem(AuditLog $log, Collection $permohonanLookup, Collection $paketLookup, ?User $user = null): array
     {
         $nomorSurat = $log->id_entitas;
         $namaPengadaan = null;
         $kodeUnitLog = '';
-        $link = route('permohonan.index');
+        $canViewPermohonanList = $user?->hasAnyPermission(['permohonan.view_own', 'permohonan.view_all']) ?? false;
+        $link = $canViewPermohonanList ? route('permohonan.index') : null;
 
         if ($log->nama_entitas === 'permohonan_pengadaan') {
             $permohonan = $permohonanLookup[$nomorSurat] ?? null;
             $namaPengadaan = $permohonan?->judul_pengadaan;
             $kodeUnitLog = $permohonan?->kode_unit ?? '';
-            $link = route('permohonan.index', ['selected' => $nomorSurat]);
+            $canOpenSurat = $user && (
+                $user->hasPermission('permohonan.view_all')
+                || ($user->hasPermission('permohonan.view_own') && $permohonan && (int) $permohonan->id_user === (int) $user->id_user)
+            );
+            $link = $canOpenSurat ? route('permohonan.index', ['selected' => $nomorSurat]) : null;
         } elseif ($log->nama_entitas === 'paket_pengadaan') {
             $paket = $paketLookup[$log->id_entitas] ?? null;
             $nomorSurat = $paket?->nomor_surat ?? $log->id_entitas;
             $namaPengadaan = $paket?->nama_paket ?? $paket?->permohonan?->judul_pengadaan;
             $kodeUnitLog = $paket?->permohonan?->kode_unit ?? '';
-            $link = route('paket.index', ['selected' => $log->id_entitas]);
+            $canOpenPaket = $user && $user->hasAnyPermission([
+                'paket.create',
+                'paket.view_all',
+                'paket.view_assigned',
+                'paket.reassign_ppk',
+                'permohonan.split_jenis',
+                'reviu.pp',
+                'reviu.ppk',
+                'spk.create',
+                'pp.monitoring_aktivitas',
+            ]) && (! $paket || PaketPengadaan::where('nomor_paket', $paket->nomor_paket)->forUser($user)->exists());
+            $link = $canOpenPaket ? route('paket.index', ['selected' => $log->id_entitas]) : null;
         } elseif ($log->nama_entitas === 'penerimaan_barang') {
             $namaPengadaan = $log->alasan ?: 'Pemeriksaan Fisik & Serah Terima';
-            $link = route('penerimaan.index');
+            $link = ($user && $user->hasAnyPermission(['penerimaan.view', 'penerimaan.bast_create', 'penerimaan.bast_sign']))
+                ? route('penerimaan.index')
+                : null;
         } elseif (in_array($log->nama_entitas, ['pembayaran', 'memo_bayar', 'transaksi_pencairan'], true)) {
             $namaPengadaan = $log->alasan ?: 'Verifikasi Tagihan & Pencairan Dana';
-            $link = route('pembayaran.index');
+            $link = ($user && $user->hasAnyPermission(['pembayaran.pengajuan', 'pembayaran.memo_ppk', 'pembayaran.memo_wadir2', 'pembayaran.spp_terbitkan', 'pembayaran.pencairan_sp2d']))
+                ? route('pembayaran.index')
+                : null;
         } elseif (in_array($log->nama_entitas, ['anggaran_mak', 'alokasi_mak'], true)) {
             $namaPengadaan = $log->alasan ?: 'Alokasi Pos Anggaran';
-            $link = route('verifikasi.perencanaan');
+            $link = ($user && $user->hasAnyPermission(['anggaran.mak_view', 'anggaran.mak_manage', 'anggaran.mak_alokasi', 'anggaran.mak_lock']))
+                ? route('verifikasi.perencanaan')
+                : null;
         } elseif (in_array($log->nama_entitas, ['users', 'roles', 'permissions'], true)) {
             $namaPengadaan = $log->alasan ?: 'Manajemen Akun / Hak Akses';
-            $link = route('admin.persetujuan-registrasi.index');
+            if ($user && $user->hasPermission('admin.approval_registrasi')) {
+                $link = route('admin.persetujuan-registrasi.index');
+            } elseif ($user && $user->hasPermission('admin.user_manage')) {
+                $link = route('admin.users');
+            } else {
+                $link = null;
+            }
         }
 
         if (! $namaPengadaan) {

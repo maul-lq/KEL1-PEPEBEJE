@@ -29,6 +29,8 @@ export function trackingManager(initialItems = null) {
         selectedItem: null,
         revisiTarget: null,
         hapusTarget: null,
+        currentUserId: 0,
+        canViewAll: false,
         searchQuery: '',
         filterStatus: isArray ? 'Semua' : '',
         filterJenis: 'Semua',
@@ -51,10 +53,10 @@ export function trackingManager(initialItems = null) {
                     const s = String(item.statusRaw || item.status_permohonan || item.status || '').toLowerCase();
                     const f = String(this.filterStatus).toLowerCase();
                     if (f === 'reviu_paralel') {
-                        if (!['reviu_paralel', 'menunggu_bidang_2', 'cek_mak_perencanaan'].includes(s)) return false;
+                        if (!['reviu_paralel', 'menunggu_bidang_2', 'cek_mak_perencanaan', 'menunggu_acc_wadir_ppk', 'pending_anggaran', 'hold'].includes(s)) return false;
                     } else if (f === 'disetujui') {
-                        if (!['disetujui', 'disetujui_wadir2_dan_ppk', 'disetujui_ppk_siap_belanja_pp'].includes(s)) return false;
-                    } else if (f === 'perlu_revisi') {
+                        if (!['disetujui', 'diproses_ppbj', 'disetujui_wadir2_dan_ppk', 'disetujui_ppk_siap_belanja_pp'].includes(s)) return false;
+                    } else if (f === 'perlu_revisi' || f === 'revisi') {
                         if (!['perlu_revisi', 'revisi'].includes(s)) return false;
                     } else if (s !== f) {
                         return false;
@@ -142,18 +144,44 @@ export function trackingManager(initialItems = null) {
         ],
 
         init() {
-            if (!initialItems && this.$el?.dataset?.items) {
+            const dataset = this.$el?.dataset || {};
+            if (!initialItems && dataset.items) {
                 const parsed = parseJsonDataset(this.$el, 'items', []);
                 if (Array.isArray(parsed)) {
                     this.items = parsed;
-                    if (this.$el.dataset.defaultStatus !== undefined) {
-                        this.filterStatus = this.$el.dataset.defaultStatus;
-                    }
                 }
             }
 
-            // Periksa apakah terdapat query parameter `selected` di URL
+            if (dataset.currentUserId !== undefined) {
+                this.currentUserId = Number(dataset.currentUserId || 0) || 0;
+            }
+            if (dataset.canViewAll !== undefined) {
+                this.canViewAll = dataset.canViewAll === 'true' || dataset.canViewAll === '1';
+            }
+
+            // memulihkan nilai input filter server-side ke state Alpine agar ketikan pencarian & tanggal tidak terhapus saat hydrate.
             const urlParams = new URLSearchParams(window.location.search);
+            const initialQ = dataset.initialQ ?? urlParams.get('q') ?? urlParams.get('keyword') ?? '';
+            if (initialQ !== '') {
+                this.searchQuery = initialQ;
+            }
+
+            const initialStatus = dataset.initialStatus ?? urlParams.get('status') ?? dataset.defaultStatus ?? '';
+            if (initialStatus !== '') {
+                this.filterStatus = initialStatus;
+            }
+
+            const initialJenis = dataset.initialJenis ?? urlParams.get('jenis') ?? urlParams.get('type') ?? 'Semua';
+            if (initialJenis !== '') {
+                this.filterJenis = initialJenis;
+            }
+
+            const initialTanggal = dataset.initialTanggal ?? urlParams.get('tanggal') ?? '';
+            if (initialTanggal !== '') {
+                this.filterTanggal = initialTanggal;
+            }
+
+            // memeriksa apakah terdapat query parameter `selected` di URL.
             const selectedParam = urlParams.get('selected');
             if (selectedParam) {
                 const found = this.items.find(i => (i.nomor_surat || i.nomor || String(i.id)) === selectedParam);
@@ -161,8 +189,53 @@ export function trackingManager(initialItems = null) {
                     this.selectItem(found);
                 }
             }
-            // CATATAN: By default jangan otomatis select item agar Empty State (Figma 455:6666)
+            // CATATAN: By default jangan otomatis select item agar Empty State
             // 'Pilih Pengajuan untuk Melihat Detail' tampil kepada pengguna ketika belum memilih berkas.
+        },
+
+        /**
+         * Menentukan apakah tombol revisi boleh tampil untuk item terpilih berdasarkan kepemilikan & status revisi.
+         *
+         * @param  {Object|null} item  Data permohonan pengadaan aktif.
+         * @return {boolean} True jika item berstatus ditolak/perlu revisi dan dimiliki pengguna atau punya view_all.
+         *
+         * Contoh pemanggilan: `x-show="canReviseItem(selectedItem)"`
+         */
+        canReviseItem(item) {
+            if (!item) return false;
+            const st = String(item.statusRaw || item.status_permohonan || item.status || '').toLowerCase().trim();
+            if (!['ditolak', 'revisi', 'perlu_revisi'].includes(st)) return false;
+            return this.canViewAll || (this.currentUserId > 0 && Number(item.id_user || 0) === this.currentUserId);
+        },
+
+        /**
+         * Menentukan apakah pengguna berhak membatalkan sendiri permohonan berstatus awal atau ditolak.
+         *
+         * @param  {Object|null} item  Data permohonan pengadaan aktif.
+         * @return {boolean} True jika item berada pada status yang masih dapat dibatalkan oleh pembuatnya.
+         *
+         * Contoh pemanggilan: `x-if="canCancelOwnItem(selectedItem)"`
+         */
+        canCancelOwnItem(item) {
+            if (!item) return false;
+            const st = String(item.statusRaw || item.status_permohonan || item.status || '').toLowerCase().trim();
+            if (!['draft', 'diajukan', 'ditolak', 'perlu_revisi'].includes(st)) return false;
+            return this.canViewAll || (this.currentUserId > 0 && Number(item.id_user || 0) === this.currentUserId);
+        },
+
+        /**
+         * Merakit URL halaman detail permohonan secara aman tanpa merusak pemisah `/` pada nomor surat.
+         *
+         * @param  {Object|null} item  Data permohonan pengadaan target.
+         * @return {string} URL rute detail permohonan yang aman di-encode per segmen.
+         *
+         * Contoh pemanggilan: `:href="detailUrl(selectedItem)"`
+         */
+        detailUrl(item) {
+            if (!item) return '#';
+            const nomor = String(item.nomor_surat || item.nomor || item.id || '');
+            if (!nomor) return '#';
+            return '/permohonan/' + nomor.split('/').map(seg => encodeURIComponent(seg)).join('/');
         },
 
         // Helper format ukuran berkas

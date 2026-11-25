@@ -266,5 +266,22 @@ export function paketEdit() {
 export function paketIndexPage() {
     return {
         selectedPaket: '',
+
+        /**
+         * Membaca parameter kueri `?selected=` saat halaman indeks paket dimuat.
+         *
+         * Tujuan: menyorot baris paket target secara otomatis ketika pengguna masuk melalui
+         * tautan riwayat aktivitas atau notifikasi sistem.
+         * Parameter: Tidak menerima argumen.
+         * Nilai kembali: Tidak mengembalikan nilai.
+         * Contoh pemanggilan: Dipanggil otomatis oleh Alpine saat halaman `paket.index` dimuat.
+         */
+        init() {
+            const params = new URLSearchParams(window.location.search);
+            const selected = params.get('selected');
+            if (selected) {
+                this.selectedPaket = selected;
+            }
+        },
     };
 }

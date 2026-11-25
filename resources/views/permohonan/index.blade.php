@@ -22,7 +22,16 @@
   Contoh pemanggilan: `return view('permohonan.index', compact('permohonanList', ...));`
 --}}
 @section('content')
-<div x-data="trackingManager" data-items="{{ isset($permohonanList) ? json_encode($permohonanList->items() ?? $permohonanList) : '[]' }}" data-default-status="Semua" class="space-y-6 mx-1 px-4 sm:px-6 lg:px-8 py-6">
+<div x-data="trackingManager"
+     data-items="{{ isset($permohonanList) ? json_encode($permohonanList->items() ?? $permohonanList) : '[]' }}"
+     data-default-status="Semua"
+     data-current-user-id="{{ Auth::id() ?? 0 }}"
+     data-can-view-all="{{ Auth::user()?->hasPermission('permohonan.view_all') ? 'true' : 'false' }}"
+     data-initial-q="{{ request('q', request('keyword', '')) }}"
+     data-initial-status="{{ request('status', '') }}"
+     data-initial-jenis="{{ request('jenis', request('type', 'Semua')) }}"
+     data-initial-tanggal="{{ request('tanggal', '') }}"
+     class="space-y-6 mx-1 px-4 sm:px-6 lg:px-8 py-6">
 
     <!-- 1. HEADER SECTION (Figma 455:6666, 465:8991, 506:1335) -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -78,7 +87,7 @@
                     <span>Hapus Pengajuan</span>
                 </button>
             @elseif(Auth::user()->hasPermission('permohonan.create'))
-                <template x-if="viewMode === 'fullscreen' && selectedItem && ['draft', 'diajukan', 'ditolak', 'perlu_revisi'].includes(String(selectedItem.statusRaw || '').toLowerCase())">
+                <template x-if="viewMode === 'fullscreen' && canCancelOwnItem(selectedItem)">
                     <button @click="openHapusModal(selectedItem)" 
                             type="button" 
                             class="inline-flex items-center justify-center h-10 px-5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition-all shadow-sm gap-2 cursor-pointer">
@@ -122,7 +131,7 @@
                         <input type="search" 
                                id="search-input"
                                name="q" 
-                               value="{{ request('q') }}"
+                               value="{{ request('q', request('keyword')) }}"
                                x-model="searchQuery"
                                placeholder="Cari nomor surat atau judul pengajuan" 
                                class="w-full h-10 pl-9 pr-3 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-[#0969da]/20 focus:border-[#0969da] outline-none">
@@ -147,26 +156,27 @@
                         data-auto-submit
                         class="w-full h-10 px-3 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-[#0969da]/20 focus:border-[#0969da] outline-none">
                     <option value="">Status Tracking</option>
-                    <option value="diajukan" {{ request('status') == 'diajukan' ? 'selected' : '' }}>Diajukan</option>
-                    <option value="reviu_paralel" {{ request('status') == 'reviu_paralel' ? 'selected' : '' }}>Dalam Proses</option>
-                    <option value="disetujui" {{ request('status') == 'disetujui' ? 'selected' : '' }}>Disetujui</option>
-                    <option value="perlu_revisi" {{ request('status') == 'perlu_revisi' ? 'selected' : '' }}>Perlu Revisi</option>
-                    <option value="ditolak" {{ request('status') == 'ditolak' ? 'selected' : '' }}>Ditolak</option>
-                    <option value="selesai" {{ request('status') == 'selesai' ? 'selected' : '' }}>Selesai</option>
+                    <option value="diajukan" {{ request('status') === 'diajukan' ? 'selected' : '' }}>Diajukan</option>
+                    <option value="reviu_paralel" {{ request('status') === 'reviu_paralel' ? 'selected' : '' }}>Dalam Proses</option>
+                    <option value="disetujui" {{ request('status') === 'disetujui' ? 'selected' : '' }}>Disetujui</option>
+                    <option value="perlu_revisi" {{ in_array(request('status'), ['perlu_revisi', 'revisi'], true) ? 'selected' : '' }}>Perlu Revisi</option>
+                    <option value="ditolak" {{ request('status') === 'ditolak' ? 'selected' : '' }}>Ditolak</option>
+                    <option value="selesai" {{ request('status') === 'selesai' ? 'selected' : '' }}>Selesai</option>
                 </select>
             </div>
 
             <!-- Filter Jenis (Frame 87 / Jenis Pengadaan) -->
             <div class="lg:col-span-2 sm:col-span-1 space-y-1">
+                @php $activeJenis = request('jenis', request('type')); @endphp
                 <label class="block text-xs font-medium text-slate-500">Jenis Pengadaan</label>
                 <select id="jenis-filter" 
                         name="jenis" 
                         data-auto-submit
                         class="w-full h-10 px-3 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-[#0969da]/20 focus:border-[#0969da] outline-none">
                     <option value="">Jenis Pengadaan</option>
-                    <option value="barang" {{ request('jenis') == 'barang' ? 'selected' : '' }}>Barang</option>
-                    <option value="jasa" {{ request('jenis') == 'jasa' ? 'selected' : '' }}>Jasa</option>
-                    <option value="konstruksi" {{ request('jenis') == 'konstruksi' ? 'selected' : '' }}>Konstruksi</option>
+                    <option value="barang" {{ $activeJenis === 'barang' ? 'selected' : '' }}>Barang</option>
+                    <option value="jasa" {{ $activeJenis === 'jasa' ? 'selected' : '' }}>Jasa</option>
+                    <option value="konstruksi" {{ $activeJenis === 'konstruksi' ? 'selected' : '' }}>Konstruksi</option>
                 </select>
             </div>
 
@@ -363,12 +373,14 @@
                                     <div class="text-[11px] text-slate-500 truncate" x-text="(selectedItem.fileName || 'Surat_Pengajuan.pdf') + ' • PDF • 1,1 MB • Revisi ' + (selectedItem.revisi_ke || 0)"></div>
                                     <div class="text-[11px] font-semibold text-rose-600 mt-0.5 truncate" x-text="selectedItem.alasan_revisi ? 'Catatan: ' + selectedItem.alasan_revisi : 'Batas terakhir: 19 Jan 2026 • 15:00'"></div>
                                 </div>
-                                <div class="shrink-0">
-                                    <button @click="openRevisiModal(selectedItem)" type="button"
-                                            class="h-8 px-4 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-lg shadow-sm transition-colors cursor-pointer">
-                                        Revisi
-                                    </button>
-                                </div>
+                                @if(Auth::user()->hasPermission('permohonan.revisi'))
+                                    <div x-show="canReviseItem(selectedItem)" class="shrink-0">
+                                        <button @click="openRevisiModal(selectedItem)" type="button"
+                                                class="h-8 px-4 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-lg shadow-sm transition-colors cursor-pointer">
+                                            Revisi
+                                        </button>
+                                    </div>
+                                @endif
                             </div>
                         </div>
                     </template>
@@ -500,14 +512,14 @@
                         @includeIf('permohonan.partials.role-actions-show')
 
                         <div class="flex flex-wrap items-center gap-2 pt-1">
-                            <a :href="'/permohonan/' + (selectedItem.nomor_surat || selectedItem.nomor || selectedItem.id)" 
+                            <a :href="detailUrl(selectedItem)" 
                                class="inline-flex items-center gap-1.5 rounded-xl bg-slate-100 px-3.5 py-2 text-xs font-bold text-[#213153] hover:bg-slate-200 transition-colors">
                                 <span>Buka Halaman Detail</span>
                                 <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                             </a>
 
                             @if(Auth::user()->hasPermission('permohonan.revisi'))
-                                <template x-if="['ditolak', 'revisi', 'perlu_revisi'].includes(String(selectedItem.statusRaw || selectedItem.status_permohonan || selectedItem.status || '').toLowerCase())">
+                                <template x-if="canReviseItem(selectedItem)">
                                     <button type="button" 
                                             @click="openRevisiModal(selectedItem)"
                                             class="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-2 text-xs font-bold shadow-xs transition-colors cursor-pointer">
@@ -642,7 +654,7 @@
                         @endphp
                         <div @click="selectItem({{ json_encode($normalizedItem) }})"
                              class="p-4 flex items-center gap-3.5 cursor-pointer transition-all hover:bg-slate-50"
-                             :class="selectedItem && (selectedItem.nomor === '{{ $item->nomor_surat }}' || selectedItem.nomor_surat === '{{ $item->nomor_surat }}') ? 'bg-blue-50/70 border-l-4 border-l-[#0969da] shadow-xs' : ''">
+                             :class="selectedItem && (selectedItem.nomor === {{ \Illuminate\Support\Js::from($item->nomor_surat) }} || selectedItem.nomor_surat === {{ \Illuminate\Support\Js::from($item->nomor_surat) }}) ? 'bg-blue-50/70 border-l-4 border-l-[#0969da] shadow-xs' : ''">
 
                             <!-- Status Circle Icon (Frame 128) -->
                             <div class="size-11 rounded-full flex items-center justify-center shrink-0"
@@ -811,7 +823,7 @@
                                 Unduh PDF
                             </a> --}}
                             @if(Auth::user()->hasPermission('permohonan.revisi'))
-                                <template x-if="['ditolak', 'revisi', 'perlu_revisi'].includes(String(selectedItem.statusRaw || selectedItem.status_permohonan || selectedItem.status || '').toLowerCase())">
+                                <template x-if="canReviseItem(selectedItem)">
                                     <button type="button" 
                                             @click="openRevisiModal(selectedItem)"
                                             class="h-9 px-4 inline-flex items-center rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-colors cursor-pointer">
@@ -821,15 +833,24 @@
                             @endif
                         </div>
 
-                        @if(Auth::user()->hasAnyPermission(['permohonan.delete', 'permohonan.create']))
-                        <div class="flex items-center gap-2">
-
-                            <button type="button" 
-                                    @click="openHapusModal(selectedItem)"
-                                    class="h-9 px-3.5 inline-flex items-center rounded-lg text-rose-600 hover:bg-rose-50 text-xs font-semibold transition-colors cursor-pointer">
-                                {{ Auth::user()->hasPermission('permohonan.delete') ? 'Hapus' : 'Batalkan' }}
-                            </button>
-                        </div>
+                        @if(Auth::user()->hasPermission('permohonan.delete'))
+                            <div class="flex items-center gap-2">
+                                <button type="button" 
+                                        @click="openHapusModal(selectedItem)"
+                                        class="h-9 px-3.5 inline-flex items-center rounded-lg text-rose-600 hover:bg-rose-50 text-xs font-semibold transition-colors cursor-pointer">
+                                    Hapus
+                                </button>
+                            </div>
+                        @elseif(Auth::user()->hasPermission('permohonan.create'))
+                            <template x-if="canCancelOwnItem(selectedItem)">
+                                <div class="flex items-center gap-2">
+                                    <button type="button" 
+                                            @click="openHapusModal(selectedItem)"
+                                            class="h-9 px-3.5 inline-flex items-center rounded-lg text-rose-600 hover:bg-rose-50 text-xs font-semibold transition-colors cursor-pointer">
+                                        Batalkan
+                                    </button>
+                                </div>
+                            </template>
                         @endif
                     </div>
                 </template>
@@ -969,6 +990,7 @@
     <!-- ========================================================================= -->
     <!-- 6. MODAL 3: REVISI PERMOHONAN MULTI-DOKUMEN (744:7706 & 744:7705)         -->
     <!-- ========================================================================= -->
+    @if(Auth::user()->hasPermission('permohonan.revisi'))
     <x-modal id="modal-revisi-permohonan" title="Revisi Permohonan" maxWidth="596" borderTop="border-t-[5px] border-[#ffa600]">
         <form action="{{ route('permohonan.revisi') }}" 
               method="POST" 
@@ -1119,12 +1141,14 @@
             </div>
         </form>
     </x-modal>
+    @endif
 
     <!-- ========================================================================= -->
     <!-- 7. MODAL 4: HAPUS PENGAJUAN (Figma 744:7604 / Frame 385)                   -->
     <!-- ========================================================================= -->
+    @if(Auth::user()->hasAnyPermission(['permohonan.delete', 'permohonan.create']))
     <x-modal id="modal-delete-permohonan" title="Hapus Pengajuan?" subtitle="Hanya dapat dihapus apabila belum disetujui oleh pihak manapun." maxWidth="md">
-        <form :action="'{{ url('permohonan') }}/' + (hapusTarget?.nomor_surat || hapusTarget?.nomor || hapusTarget?.id || '')" 
+        <form :action="'{{ url('permohonan') }}/' + String(hapusTarget?.nomor_surat || hapusTarget?.nomor || hapusTarget?.id || '').split('/').map(seg => encodeURIComponent(seg)).join('/')" 
               method="POST" 
               class="space-y-4">
             @csrf
@@ -1142,7 +1166,7 @@
                     <input :type="showHapusPassword ? 'text' : 'password'" 
                            name="password" 
                            x-model="hapusPassword"
-                           placeholder="Ulangi password baru"
+                           placeholder="Masukkan password akun Anda"
                            class="w-full h-11 pl-3.5 pr-10 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-[#0969da]/20 focus:border-[#0969da] outline-none">
                     <button type="button" 
                             @click="toggleHapusPassword()"
@@ -1172,6 +1196,7 @@
             </div>
         </form>
     </x-modal>
+    @endif
 
 </div>
 @endsection

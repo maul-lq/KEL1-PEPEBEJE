@@ -173,8 +173,11 @@
                 $permMenuLabel = ($u->hasPermission('permohonan.delete') && ! $u->hasPermission('permohonan.create'))
                     ? 'Kelola / Hapus Pengajuan'
                     : 'Permohonan Pengadaan';
+                $permMenuUrl = $u->hasAnyPermission(['permohonan.view_own', 'permohonan.view_all'])
+                    ? route('permohonan.index')
+                    : route('permohonan.create');
             @endphp
-            <a href="{{ route('permohonan.index') }}" 
+            <a href="{{ $permMenuUrl }}" 
                title="{{ $permMenuLabel }}" 
                class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aUserPerm ? $menuOn : $menuOff }}">
                 <svg class="size-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
@@ -371,19 +374,21 @@
             </a>
         @endif
 
-        <!-- 12. RIWAYAT & LAPORAN (All Roles - Menggantikan Monitoring & Rekapitulasi Lama) -->
-        @php $aLaporan = request()->routeIs('laporan.*'); @endphp
-        <a href="{{ route('laporan.index') }}" 
-           title="Riwayat & Laporan" 
-           class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aLaporan ? $menuOn : $menuOff }}">
-            <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 3v18h18"/>
-                <path d="M18 17V9"/>
-                <path d="M13 17V5"/>
-                <path d="M8 17v-3"/>
-            </svg>
-            <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Riwayat &amp; Laporan</span>
-        </a>
+        <!-- 12. RIWAYAT & LAPORAN (Berbasis Permission RBAC) -->
+        @if($u->hasAnyPermission(['monitoring.view', 'laporan.rekapitulasi', 'audit_log.view']))
+            @php $aLaporan = request()->routeIs('laporan.*', 'monitoring.*'); @endphp
+            <a href="{{ route('laporan.index') }}" 
+               title="Riwayat & Laporan" 
+               class="flex h-[49px] items-center gap-4 rounded-[10px] px-4 transition-all w-full {{ $aLaporan ? $menuOn : $menuOff }}">
+                <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 3v18h18"/>
+                    <path d="M18 17V9"/>
+                    <path d="M13 17V5"/>
+                    <path d="M8 17v-3"/>
+                </svg>
+                <span x-show="sidebarExpanded" x-cloak class="whitespace-nowrap text-sm">Riwayat &amp; Laporan</span>
+            </a>
+        @endif
 
         <!-- 14. NOTIFIKASI & REMINDER (All Roles) -->
         @php 

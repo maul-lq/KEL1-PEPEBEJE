@@ -118,6 +118,7 @@
         <x-slot:filters>
             <select
                 name="status"
+                data-auto-submit
                 class="h-10 rounded-xl border border-slate-200 bg-slate-50/60 px-3 text-xs text-slate-700 focus:border-[#0969da] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0969da]/20 transition-all"
             >
                 <option value="">Semua Status Paket</option>
@@ -130,6 +131,7 @@
 
             <select
                 name="jalur_routing"
+                data-auto-submit
                 class="h-10 rounded-xl border border-slate-200 bg-slate-50/60 px-3 text-xs text-slate-700 focus:border-[#0969da] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0969da]/20 transition-all"
             >
                 <option value="">Semua Jalur Paket</option>
@@ -140,6 +142,7 @@
 
             <select
                 name="jenis_pengadaan"
+                data-auto-submit
                 class="h-10 rounded-xl border border-slate-200 bg-slate-50/60 px-3 text-xs text-slate-700 focus:border-[#0969da] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0969da]/20 transition-all"
             >
                 <option value="">Semua Jenis Pengadaan</option>
@@ -434,7 +437,7 @@
                     </thead>
                     <tbody class="divide-y divide-slate-100">
                         @foreach($paketList as $pkt)
-                            <tr class="hover:bg-slate-50/60 transition-colors">
+                            <tr class="hover:bg-slate-50/60 transition-colors" :class="selectedPaket === {{ \Illuminate\Support\Js::from($pkt->nomor_paket) }} ? 'bg-blue-50/70' : ''">
                                 <td class="px-5 py-4">
                                     <a href="{{ route('paket.show', $pkt->nomor_paket) }}" class="font-mono font-bold text-[#0969da] hover:underline block">
                                         {{ $pkt->kode_paket ?? $pkt->nomor_paket }}

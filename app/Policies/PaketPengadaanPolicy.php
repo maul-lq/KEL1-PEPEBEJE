@@ -55,7 +55,7 @@ class PaketPengadaanPolicy
      */
     public function view(User $user, PaketPengadaan $paket): Response
     {
-        if ($user->hasPermission('paket.view_all') || $user->hasPermission('admin.user_manage')) {
+        if ($user->hasAnyPermission(['paket.view_all', 'paket.reassign_ppk', 'paket.create'])) {
             return Response::allow();
         }
 

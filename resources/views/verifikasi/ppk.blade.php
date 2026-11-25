@@ -176,18 +176,22 @@
                                     </a>
                                 @endif
                             @empty
-                                <a href="{{ route('dokumen.pdf', ['jenis' => 'permohonan', 'id' => $p->nomor_surat]) }}" 
-                                   @click.prevent="$dispatch('open-preview-doc', { title: 'Surat_Permohonan.pdf', url: '{{ route('dokumen.pdf', ['jenis' => 'permohonan', 'id' => $p->nomor_surat]) }}', size: 'PDF' })"
-                                   class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50/80 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer">
-                                    <svg class="size-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-                                    <span>Lihat Naskah Dinas Srikandi (PDF)</span>
-                                </a>
+                                @if(Auth::user()?->hasPermission('dokumen.unduh_pdf'))
+                                    <a href="{{ route('dokumen.pdf', ['jenis' => 'permohonan', 'id' => $p->nomor_surat]) }}" 
+                                       @click.prevent="$dispatch('open-preview-doc', { title: 'Surat_Permohonan.pdf', url: '{{ route('dokumen.pdf', ['jenis' => 'permohonan', 'id' => $p->nomor_surat]) }}', size: 'PDF' })"
+                                       class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50/80 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer">
+                                        <svg class="size-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                                        <span>Lihat Naskah Dinas Srikandi (PDF)</span>
+                                    </a>
+                                @endif
                             @endforelse
 
-                            <a href="{{ route('permohonan.show', $p->nomor_surat) }}" 
-                               class="inline-flex items-center gap-1.5 rounded-xl bg-slate-100 px-3.5 py-2 text-xs font-bold text-[#213153] hover:bg-slate-200 transition-colors">
-                                <span>Detail Penuh &amp; Silsilah &rarr;</span>
-                            </a>
+                            @if(Auth::user()?->hasPermission('permohonan.view_all') || (Auth::user()?->hasPermission('permohonan.view_own') && (int) $p->id_user === (int) Auth::id()))
+                                <a href="{{ route('permohonan.show', $p->nomor_surat) }}" 
+                                   class="inline-flex items-center gap-1.5 rounded-xl bg-slate-100 px-3.5 py-2 text-xs font-bold text-[#213153] hover:bg-slate-200 transition-colors">
+                                    <span>Detail Penuh &amp; Silsilah &rarr;</span>
+                                </a>
+                            @endif
                         </div>
                     </div>
 

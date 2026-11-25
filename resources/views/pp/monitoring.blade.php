@@ -35,13 +35,15 @@
             </div>
 
             <div class="flex flex-wrap items-center gap-2 shrink-0">
-                <a
-                    href="{{ route('paket.index') }}"
-                    class="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-sm transition inline-flex items-center gap-1.5"
-                >
-                    <svg class="size-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
-                    Kembali ke Paket Pengadaan
-                </a>
+                @if(Auth::user()?->hasAnyPermission(['paket.create', 'paket.view_all', 'paket.view_assigned', 'paket.reassign_ppk', 'permohonan.split_jenis', 'reviu.pp', 'reviu.ppk', 'spk.create', 'pp.monitoring_aktivitas']))
+                    <a
+                        href="{{ route('paket.index') }}"
+                        class="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-sm transition inline-flex items-center gap-1.5"
+                    >
+                        <svg class="size-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                        Kembali ke Paket Pengadaan
+                    </a>
+                @endif
                 <a
                     href="{{ route('kontrak.index', ['tab' => 'reviu']) }}"
                     class="px-3.5 py-2 rounded-xl bg-[#0969da] text-xs font-bold text-white hover:bg-blue-700 shadow-sm transition inline-flex items-center gap-1.5"
@@ -153,6 +155,7 @@
             <div class="w-full sm:w-48">
                 <select
                     name="status"
+                    data-auto-submit
                     class="w-full h-10 px-3 rounded-xl border border-slate-200 text-xs text-slate-800 focus:border-[#0969da] focus:ring-2 focus:ring-[#0969da]/20"
                 >
                     <option value="">-- Semua Status --</option>

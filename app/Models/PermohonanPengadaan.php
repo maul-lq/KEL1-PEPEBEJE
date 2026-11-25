@@ -711,22 +711,27 @@ class PermohonanPengadaan extends Model
     }
 
     /**
-     * membatasi query permohonan agar peran pemohon biasa hanya melihat surat pengajuannya sendiri.
+     * membatasi query permohonan murni berdasarkan permission RBAC agar pengguna tanpa izin baca seluruh unit hanya melihat surat miliknya sendiri.
      *
      * @param  Builder  $query  menerima query builder Eloquent PermohonanPengadaan.
-     * @param  User  $user  memeriksa peran pengguna aktif.
-     * @return Builder mengembalikan query yang telah disaring berdasarkan kepemilikan `id_user` bila relevan.
+     * @param  User  $user  memeriksa izin `permohonan.view_all` serta izin kepemilikan permohonan.
+     * @return Builder mengembalikan query yang telah disaring berdasarkan hak akses dan kepemilikan `id_user`.
      *
      * Contoh pemanggilan:
      * `PermohonanPengadaan::forUser($user)->latest('tanggal_pengajuan')->get();`
      */
     public function scopeForUser($query, User $user)
     {
-        if ($user->hasRole(User::ROLE_USER)) {
+        if ($user->hasPermission('permohonan.view_all')) {
+            return $query;
+        }
+
+        if ($user->hasAnyPermission(['permohonan.view_own', 'permohonan.create', 'permohonan.revisi', 'permohonan.delete'])) {
             return $query->where('id_user', $user->id_user);
         }
 
-        return $query;
+        // menahan seluruh baris bila pengguna tidak memiliki izin membaca permohonan sendiri maupun semua unit.
+        return $query->whereRaw('1 = 0');
     }
 
     /**

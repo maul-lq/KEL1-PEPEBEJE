@@ -256,9 +256,10 @@
                     <tbody class="divide-y divide-slate-100 text-xs text-slate-700">
                         <template x-for="(item, idx) in paginatedRiwayat" :key="item.id || idx">
                             <tr
-                                @click="window.location.href = item.link"
-                                class="hover:bg-blue-50/60 transition-colors cursor-pointer group"
-                                :title="'Klik untuk membuka detail ' + (item.nomor_surat || item.nama_pengadaan)"
+                                @click="if (item.link) window.location.href = item.link"
+                                :class="item.link ? 'hover:bg-blue-50/60 cursor-pointer' : 'hover:bg-slate-50/60'"
+                                class="transition-colors group"
+                                :title="item.link ? ('Klik untuk membuka detail ' + (item.nomor_surat || item.nama_pengadaan)) : (item.nomor_surat || item.nama_pengadaan)"
                             >
                                 {{-- Kolom Waktu --}}
                                 <td class="py-3.5 px-4 sm:px-6 whitespace-nowrap">

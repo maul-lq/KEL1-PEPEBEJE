@@ -80,7 +80,9 @@ Route::middleware(['auth', 'prevent.back'])->group(function () {
     // -------------------------------------------------------------------------
     // Modul 1: Permohonan Pengadaan
     // -------------------------------------------------------------------------
-    Route::get('/permohonan', [PermohonanPengadaanController::class, 'permohonanIndex'])->name('permohonan.index');
+    Route::get('/permohonan', [PermohonanPengadaanController::class, 'permohonanIndex'])
+        ->name('permohonan.index')
+        ->middleware('role:permohonan.view_own,permohonan.view_all');
     Route::get('/permohonan/create', [PermohonanPengadaanController::class, 'permohonanCreate'])
         ->name('permohonan.create')
         ->middleware('role:permohonan.create');
@@ -93,6 +95,7 @@ Route::middleware(['auth', 'prevent.back'])->group(function () {
     // memakai pola '.*' pada parameter {id} karena nomor surat dinas PNJ mengandung karakter garis miring ('/').
     Route::get('/permohonan/{id}', [PermohonanPengadaanController::class, 'permohonanShow'])
         ->name('permohonan.show')
+        ->middleware('role:permohonan.view_own,permohonan.view_all')
         ->where(['id' => '.*']);
     Route::delete('/permohonan/{id}', [PermohonanPengadaanController::class, 'destroyPermohonan'])
         ->name('permohonan.destroy')
@@ -151,7 +154,9 @@ Route::middleware(['auth', 'prevent.back'])->group(function () {
     // -------------------------------------------------------------------------
     // Modul 4: Paket Pengadaan & Belanja Langsung <= 50 Juta (Koordinator PPBJ)
     // -------------------------------------------------------------------------
-    Route::get('/paket-pengadaan', [PaketPengadaanController::class, 'paketIndex'])->name('paket.index');
+    Route::get('/paket-pengadaan', [PaketPengadaanController::class, 'paketIndex'])
+        ->name('paket.index')
+        ->middleware('role:paket.create,paket.view_all,paket.view_assigned,paket.reassign_ppk,permohonan.split_jenis,reviu.pp,reviu.ppk,spk.create,pp.monitoring_aktivitas');
     Route::middleware('role:permohonan.split_jenis')->group(function () {
         Route::get('/paket-pengadaan/split-jenis', [PaketPengadaanController::class, 'splitJenisCreate'])->name('paket.split-jenis.create');
         Route::post('/paket-pengadaan/split-jenis', [PaketPengadaanController::class, 'splitJenisPpbj'])->name('paket.split-jenis');
@@ -176,6 +181,7 @@ Route::middleware(['auth', 'prevent.back'])->group(function () {
         ->where(['id' => '.*']);
     Route::get('/paket-pengadaan/{id}', [PaketPengadaanController::class, 'paketShow'])
         ->name('paket.show')
+        ->middleware('role:paket.create,paket.view_all,paket.view_assigned,paket.reassign_ppk,reviu.pp,reviu.ppk,spk.create,pp.monitoring_aktivitas,penerimaan.view,penerimaan.bast_create,penerimaan.bast_sign,pembayaran.pengajuan,pembayaran.memo_wadir2,pembayaran.memo_ppk,pembayaran.spp_terbitkan,pembayaran.pencairan_sp2d,permohonan.view_own,permohonan.view_all')
         ->where(['id' => '.*']);
 
     // -------------------------------------------------------------------------
@@ -232,7 +238,9 @@ Route::middleware(['auth', 'prevent.back'])->group(function () {
     // -------------------------------------------------------------------------
     // Modul 8: Riwayat & Laporan Terpadu
     // -------------------------------------------------------------------------
-    Route::get('/laporan', [LaporanController::class, 'laporanIndex'])->name('laporan.index');
+    Route::get('/laporan', [LaporanController::class, 'laporanIndex'])
+        ->name('laporan.index')
+        ->middleware('role:monitoring.view,laporan.rekapitulasi,audit_log.view');
     Route::get('/laporan/unduh-pdf', [LaporanController::class, 'unduhLaporanPdf'])
         ->name('laporan.unduh.pdf')
         ->middleware('role:dokumen.unduh_pdf');
@@ -247,11 +255,15 @@ Route::middleware(['auth', 'prevent.back'])->group(function () {
         ->middleware('role:dokumen.unduh_pdf');
 
     // mempertahankan rute rekapitulasi dan /monitoring sebagai pengalih permanen agar tautan bookmark atau tes lama tidak putus dengan 404.
-    Route::get('/laporan/rekapitulasi-anggaran', [LaporanController::class, 'laporanIndex'])->name('laporan.rekapitulasi');
+    Route::get('/laporan/rekapitulasi-anggaran', [LaporanController::class, 'laporanIndex'])
+        ->name('laporan.rekapitulasi')
+        ->middleware('role:monitoring.view,laporan.rekapitulasi,audit_log.view');
     Route::get('/laporan/rekapitulasi-anggaran/pdf', [LaporanController::class, 'unduhLaporanRingkasanPdf'])
         ->name('laporan.rekapitulasi.pdf')
         ->middleware('role:dokumen.unduh_pdf');
-    Route::get('/monitoring', fn () => redirect()->route('laporan.index'))->name('monitoring.index');
+    Route::get('/monitoring', fn () => redirect()->route('laporan.index'))
+        ->name('monitoring.index')
+        ->middleware('role:monitoring.view,laporan.rekapitulasi,audit_log.view');
 
     // -------------------------------------------------------------------------
     // Modul 9: Notifikasi & Reminder
@@ -293,6 +305,7 @@ Route::middleware(['auth', 'prevent.back'])->group(function () {
     // mengizinkan wildcard '.*' pada {id} agar nomor surat/paket/pembayaran yang bertanda '/' bisa diunduh lewat satu endpoint PDF terpusat.
     Route::get('/dokumen-pdf/{jenis}/{id}', [HomeController::class, 'unduhDokumenPdf'])
         ->name('dokumen.pdf')
+        ->middleware('role:dokumen.unduh_pdf')
         ->where(['id' => '.*']);
 
     // -------------------------------------------------------------------------

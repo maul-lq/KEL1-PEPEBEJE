@@ -823,6 +823,7 @@
                 <input type="hidden" name="tab" value="daftar">
                 <select
                     name="status_spk"
+                    data-auto-submit
                     class="h-10 rounded-xl border border-slate-200 bg-slate-50/60 px-3 text-xs text-slate-700 focus:border-[#0969da] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0969da]/20 transition-all"
                 >
                     <option value="">Semua Status</option>

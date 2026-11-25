@@ -57,6 +57,10 @@ class LaporanController extends Controller
     public function laporanIndex(Request $request): View|JsonResponse
     {
         $user = Auth::user();
+        if (! $user || ! $user->hasAnyPermission(['monitoring.view', 'laporan.rekapitulasi', 'audit_log.view'])) {
+            abort(403, 'Akses Ditolak: Anda tidak memiliki izin untuk membuka halaman Riwayat & Laporan.');
+        }
+
         $activeTab = $request->input('tab', 'riwayat');
         $rawFilters = $this->extractFilters($request);
 
